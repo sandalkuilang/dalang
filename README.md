@@ -57,24 +57,21 @@ Nine steps, four gates. **Nothing renders at final quality before the last one.*
 ```mermaid
 flowchart LR
     B["📋 Brief"] --> S["✍️ Script"]
-    S --> G1{{"GATE 1"}}
-    G1 -.->|rewrite| S
-    G1 --> V["🎙️ Voice<br/>+ word timing"]
-    V --> G2{{"GATE 2"}}
-    G2 -.->|re-record| V
-    G2 --> L["🎨 Look<br/>+ style frames"]
-    L --> G3{{"GATE 3"}}
-    G3 -.->|restyle| L
-    G3 --> A["🏗️ Build<br/>+ QC"]
-    A --> G4{{"GATE 4"}}
-    G4 -.->|fix| A
-    G4 --> R["🎥 Final render"]
+    S ==>|"GATE 1"| V["🎙️ Voice"]
+    V ==>|"GATE 2"| L["🎨 Look"]
+    L ==>|"GATE 3"| A["🏗️ Build"]
+    A ==>|"GATE 4"| R["🎥 Render"]
 
-    style G1 fill:#d97757,stroke:#8a3d22,color:#fff
-    style G2 fill:#d97757,stroke:#8a3d22,color:#fff
-    style G3 fill:#d97757,stroke:#8a3d22,color:#fff
-    style G4 fill:#d97757,stroke:#8a3d22,color:#fff
+    style B fill:#1f2328,stroke:#656c76,color:#e6edf3
+    style S fill:#1f2328,stroke:#656c76,color:#e6edf3
+    style V fill:#1f2328,stroke:#656c76,color:#e6edf3
+    style L fill:#1f2328,stroke:#656c76,color:#e6edf3
+    style A fill:#1f2328,stroke:#656c76,color:#e6edf3
+    style R fill:#d97757,stroke:#8a3d22,color:#fff
+    linkStyle 1,2,3,4 stroke:#d97757,stroke-width:3px
 ```
+
+Each **gate** is a full stop: you see the script, hear the narration, approve three real stills, then watch the draft. Fail one and it loops back — the [full diagram](docs/workflow.md) has every return path.
 
 <table>
 <tr><td width="50%" valign="top">
