@@ -14,3 +14,7 @@ jobs:
           head -1 SKILL.md | grep -qx -- '---'
           grep -q '^name: dalang$' SKILL.md
           grep -q '^description: ' SKILL.md
+
+      # The light diagrams are derived from the dark ones; they must not drift.
+      - name: README diagrams
+        run: python3 docs/assets/build.py --check

@@ -1,11 +1,11 @@
 <div align="center">
 
-# 🎭 Dalang
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner.dark.svg">
+  <img alt="Dalang — any topic becomes a finished animated video" src="docs/assets/banner.light.svg" width="100%">
+</picture>
 
-### Any topic → a finished animated video.
-
-Script, AI voice, per-word timing, music, sound effects, animated visuals.<br/>
-One skill that directs the whole thing — and stops for your approval four times.
+<br/><br/>
 
 [![Release](https://img.shields.io/github/v/release/sandalkuilang/dalang?sort=semver&color=d97757)](https://github.com/sandalkuilang/dalang/releases/latest)
 [![CI](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml/badge.svg)](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml)
@@ -72,24 +72,12 @@ It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, ti
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
-```mermaid
-flowchart LR
-    B["📋 Brief"] --> S["✍️ Script"]
-    S ==>|"GATE 1"| V["🎙️ Voice"]
-    V ==>|"GATE 2"| L["🎨 Look"]
-    L ==>|"GATE 3"| A["🏗️ Build"]
-    A ==>|"GATE 4"| R["🎥 Render"]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline.dark.svg">
+  <img alt="Brief, Script, Voice, Look, Build, Render — with four approval gates, each able to send the work back one stage" src="docs/assets/pipeline.light.svg" width="100%">
+</picture>
 
-    style B fill:#1f2328,stroke:#656c76,color:#e6edf3
-    style S fill:#1f2328,stroke:#656c76,color:#e6edf3
-    style V fill:#1f2328,stroke:#656c76,color:#e6edf3
-    style L fill:#1f2328,stroke:#656c76,color:#e6edf3
-    style A fill:#1f2328,stroke:#656c76,color:#e6edf3
-    style R fill:#d97757,stroke:#8a3d22,color:#fff
-    linkStyle 1,2,3,4 stroke:#d97757,stroke-width:3px
-```
-
-Each **gate** is a full stop: you see the script, hear the narration, approve three real stills, then watch the draft. Fail one and it loops back — the [full diagram](docs/workflow.md) has every return path.
+Each **gate** is a full stop, and a failed one sends the work back exactly one stage — never to the start. The [step-by-step workflow](docs/workflow.md) has the rest.
 
 <table>
 <tr><td width="50%" valign="top">
@@ -119,6 +107,19 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 </td></tr>
 </table>
+
+<br/>
+
+## 🎯 The part nothing else does
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/timing.dark.svg">
+  <img alt="The narration waveform, every word boxed with its own start and end, and scenes that begin exactly on a named beat" src="docs/assets/timing.light.svg" width="100%">
+</picture>
+
+The voice is recorded **before a single frame exists**, then transcribed back word by word. Named beats in the script (`{so here is the catch|proof}`) become exact timestamps, and every scene, cut and title references `BEATS.<name>.start`.
+
+Rewrite a sentence, regenerate, and the whole film re-times itself. No scene ever holds a hard-coded second.
 
 <br/>
 
