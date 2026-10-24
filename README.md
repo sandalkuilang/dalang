@@ -1,19 +1,22 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner.dark.svg">
-  <img alt="Dalang — any topic becomes a finished animated video" src="docs/assets/banner.light.svg" width="100%">
-</picture>
+<img alt="Dalang — any topic becomes a finished animated video. A puppet master's strings are tied to spoken words, and each one runs straight down to the start of a scene." src="docs/assets/banner.svg" width="100%">
 
-<br/><br/>
+<h3>Script, AI voice, per-word timing, music and animated visuals —<br/>directed end to end, and stopped four times for your approval.</h3>
 
-[![Release](https://img.shields.io/github/v/release/sandalkuilang/dalang?sort=semver&color=d97757)](https://github.com/sandalkuilang/dalang/releases/latest)
-[![CI](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml/badge.svg)](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml)
-[![Licence: MIT](https://img.shields.io/badge/licence-MIT-black.svg)](LICENSE)
-[![Claude Code skill](https://img.shields.io/badge/Claude_Code-skill-d97757.svg)](https://claude.com/claude-code)
-[![Any language](https://img.shields.io/badge/narration-any_language-4c9a2a.svg)](#-any-topic-any-language-any-platform)
+[![Release](https://img.shields.io/github/v/release/sandalkuilang/dalang?sort=semver&color=d97757&style=for-the-badge)](https://github.com/sandalkuilang/dalang/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/sandalkuilang/dalang/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-black.svg?style=for-the-badge)](LICENSE)
+[![Claude Code skill](https://img.shields.io/badge/Claude_Code-skill-d97757.svg?style=for-the-badge)](https://claude.com/claude-code)
+[![Any language](https://img.shields.io/badge/narration-any_language-4c9a2a.svg?style=for-the-badge)](#-any-topic-any-language-any-platform)
 
-[**Install**](#-install) · [**How it works**](#-how-it-works) · [**Workflow**](docs/workflow.md) · [**Architecture**](docs/architecture.md) · [**Changelog**](CHANGELOG.md)
+<h4>
+  <a href="#-install">Install</a> &nbsp;·&nbsp;
+  <a href="#-how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="docs/workflow.md">Workflow</a> &nbsp;·&nbsp;
+  <a href="docs/architecture.md">Architecture</a> &nbsp;·&nbsp;
+  <a href="CHANGELOG.md">Changelog</a>
+</h4>
 
 </div>
 
@@ -77,7 +80,7 @@ Nine steps, four gates. **Nothing renders at final quality before the last one.*
   <img alt="Brief, Script, Voice, Look, Build, Render — with four approval gates, each able to send the work back one stage" src="docs/assets/pipeline.light.svg" width="100%">
 </picture>
 
-Each **gate** is a full stop, and a failed one sends the work back exactly one stage — never to the start. The [step-by-step workflow](docs/workflow.md) has the rest.
+Each **gate** is a full stop where you, not the machine, decide it is good: **read the script · hear the narration · approve three real stills · watch the draft.** A failed one sends the work back exactly one stage — never to the start. The [step-by-step workflow](docs/workflow.md) has the rest.
 
 <table>
 <tr><td width="50%" valign="top">
@@ -116,6 +119,8 @@ Script → voice → look → draft. The look is approved as **three real stills
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/timing.dark.svg">
   <img alt="The narration waveform, every word boxed with its own start and end, and scenes that begin exactly on a named beat" src="docs/assets/timing.light.svg" width="100%">
 </picture>
+
+<p align="center"><i>Scene C does not start at “about 6.4 seconds”. It starts at <code>BEATS.proof.start</code>.</i></p>
 
 The voice is recorded **before a single frame exists**, then transcribed back word by word. Named beats in the script (`{so here is the catch|proof}`) become exact timestamps, and every scene, cut and title references `BEATS.<name>.start`.
 

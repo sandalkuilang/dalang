@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-labelledby="ttl desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 80 1200 184" width="1200" height="184" role="img" aria-labelledby="ttl desc">
 <title id="ttl">The dalang pipeline</title>
 <desc id="desc">Brief, Script, Voice, Look, Build and Render in a row. Four approval gates sit between Script and Render; each one can send the work back to the stage before it.</desc>
 <style>
@@ -6,23 +6,19 @@
 :root{--card:#161b22;--card2:#0d1117;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--dim:#6e7681;--ac:#d97757;--acbd:#a8512e;--acsoft:#2a1a14;--bl:#58a6ff;--tr:#3d444d}
 /*ENDPALETTE*/
 text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
-.eyebrow{font-size:11px;font-weight:600;letter-spacing:2.4px;fill:var(--dim)}
-.lede{font-size:13.5px;fill:var(--mu)}
 .card{fill:var(--card);stroke:var(--bd);stroke-width:1}
 .card-end{fill:var(--acsoft);stroke:var(--acbd);stroke-width:1.2}
-.num{font-size:10px;font-weight:700;letter-spacing:.6px;fill:var(--dim)}
-.ttl{font-size:15px;font-weight:650;fill:var(--tx)}
-.art{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-size:10px;fill:var(--dim)}
+.num{font-size:15px;font-weight:700;letter-spacing:.6px;fill:var(--dim)}
+.ttl{font-size:24px;font-weight:650;fill:var(--tx)}
+.art{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-size:16px;fill:var(--dim)}
 .ico{fill:none;stroke:var(--bl);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ico-end{fill:none;stroke:var(--ac);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .track{stroke:var(--tr);stroke-width:2;stroke-linecap:round}
 .track-hot{stroke:var(--ac);stroke-width:2;stroke-linecap:round}
 .gate{fill:var(--card2);stroke:var(--ac);stroke-width:2}
-.gate-n{font-size:12px;font-weight:700;fill:var(--ac);text-anchor:middle}
-.gate-l{font-size:8.5px;font-weight:700;letter-spacing:1.1px;fill:var(--ac);text-anchor:middle}
+.gate-n{font-size:17px;font-weight:700;fill:var(--ac);text-anchor:middle}
+.gate-l{font-size:13px;font-weight:700;letter-spacing:1px;fill:var(--ac);text-anchor:middle}
 .back{fill:none;stroke:var(--ac);stroke-width:1.3;stroke-dasharray:3 3.5;opacity:.75}
-.note{font-size:11.5px;fill:var(--dim)}
-.note-k{font-size:11.5px;font-weight:600;fill:var(--mu)}
 
 /* A gate waiting for you, and work travelling back to the stage before it. */
 @keyframes ping{0%{transform:scale(1);opacity:.5}70%{opacity:0}100%{transform:scale(1.95);opacity:0}}
@@ -37,9 +33,6 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 <marker id="arb" viewBox="0 0 8 8" refX="6.2" refY="4" markerWidth="5.4" markerHeight="5.4" orient="auto"><path d="M1 1.4 6 4 1 6.6" fill="none" stroke="var(--ac)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>
 </defs>
 
-<text class="eyebrow" x="24" y="32">THE PIPELINE</text>
-<text class="lede" x="24" y="56">Words first, pictures last — and four full stops where you, not the machine, decide it is good.</text>
-
 <!-- connectors -->
 <line class="track" x1="174" y1="152" x2="216" y2="152" marker-end="url(#ar)"/>
 <line class="track" x1="374" y1="152" x2="383" y2="152"/><line class="track-hot" x1="417" y1="152" x2="419" y2="152" marker-end="url(#arh)"/>
@@ -48,58 +41,57 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 <line class="track" x1="976" y1="152" x2="984" y2="152"/><line class="track-hot" x1="1018" y1="152" x2="1020" y2="152" marker-end="url(#arh)"/>
 
 <!-- return paths: a failed gate sends the work back one stage -->
-<path class="back" d="M400 191 C400 249 299 253 299 220" marker-end="url(#arb)"/>
-<path class="back" d="M600 191 C600 249 500 253 500 220" marker-end="url(#arb)"/>
-<path class="back" d="M800 191 C800 249 700 253 700 220" marker-end="url(#arb)"/>
-<path class="back" d="M1001 191 C1001 249 901 253 901 220" marker-end="url(#arb)"/>
+<path class="back" d="M400 196 C400 249 299 253 299 220" marker-end="url(#arb)"/>
+<path class="back" d="M600 196 C600 249 500 253 500 220" marker-end="url(#arb)"/>
+<path class="back" d="M800 196 C800 249 700 253 700 220" marker-end="url(#arb)"/>
+<path class="back" d="M1001 196 C1001 249 901 253 901 220" marker-end="url(#arb)"/>
 
 <!-- 01 Brief -->
 <g><rect class="card" x="24" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="40" y="114">01</text>
-<g class="ico" transform="translate(99,142)"><rect x="-9" y="-10" width="18" height="21" rx="3"/><rect x="-5" y="-13.5" width="10" height="6" rx="2"/><path d="M-5 -1h10M-5 5h6"/></g>
-<text class="ttl" x="99" y="180" text-anchor="middle">Brief</text>
-<text class="art" x="99" y="197" text-anchor="middle">BRIEF.md</text></g>
+<text class="num" x="40" y="116">01</text>
+<g class="ico" transform="translate(99,140) scale(1.25)"><rect x="-9" y="-10" width="18" height="21" rx="3"/><rect x="-5" y="-13.5" width="10" height="6" rx="2"/><path d="M-5 -1h10M-5 5h6"/></g>
+<text class="ttl" x="99" y="182" text-anchor="middle">Brief</text>
+<text class="art" x="99" y="203" text-anchor="middle">BRIEF.md</text></g>
 
 <!-- 02 Script -->
 <g><rect class="card" x="224" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="240" y="114">02</text>
-<g class="ico" transform="translate(299,142)"><path d="M-9 -12H3l6 6v18H-9Z"/><path d="M3 -12v6h6"/><path d="M-5 -1h10M-5 5h7"/></g>
-<text class="ttl" x="299" y="180" text-anchor="middle">Script</text>
-<text class="art" x="299" y="197" text-anchor="middle">narration.txt</text></g>
+<text class="num" x="240" y="116">02</text>
+<g class="ico" transform="translate(299,140) scale(1.25)"><path d="M-9 -12H3l6 6v18H-9Z"/><path d="M3 -12v6h6"/><path d="M-5 -1h10M-5 5h7"/></g>
+<text class="ttl" x="299" y="182" text-anchor="middle">Script</text>
+<text class="art" x="299" y="203" text-anchor="middle">narration.txt</text></g>
 
 <!-- 03 Voice -->
 <g><rect class="card" x="425" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="441" y="114">03</text>
-<g class="ico" transform="translate(500,142)"><path d="M-10 -3v6M-5.5 -8v16M-1 -12v24M3.5 -7v14M8 -3.5v7"/></g>
-<text class="ttl" x="500" y="180" text-anchor="middle">Voice</text>
-<text class="art" x="500" y="197" text-anchor="middle">words.json</text></g>
+<text class="num" x="441" y="116">03</text>
+<g class="ico" transform="translate(500,140) scale(1.25)"><path d="M-10 -3v6M-5.5 -8v16M-1 -12v24M3.5 -7v14M8 -3.5v7"/></g>
+<text class="ttl" x="500" y="182" text-anchor="middle">Voice</text>
+<text class="art" x="500" y="203" text-anchor="middle">words.json</text></g>
 
 <!-- 04 Look -->
 <g><rect class="card" x="625" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="641" y="114">04</text>
-<g class="ico" transform="translate(700,142)"><rect x="-11" y="-9" width="22" height="19" rx="2.5"/><circle cx="-4" cy="-3" r="2.4"/><path d="M-11 7l7-6 5 4 4-3 6 5"/></g>
-<text class="ttl" x="700" y="180" text-anchor="middle">Look</text>
-<text class="art" x="700" y="197" text-anchor="middle">SPEC.md</text></g>
+<text class="num" x="641" y="116">04</text>
+<g class="ico" transform="translate(700,140) scale(1.25)"><rect x="-11" y="-9" width="22" height="19" rx="2.5"/><circle cx="-4" cy="-3" r="2.4"/><path d="M-11 7l7-6 5 4 4-3 6 5"/></g>
+<text class="ttl" x="700" y="182" text-anchor="middle">Look</text>
+<text class="art" x="700" y="203" text-anchor="middle">SPEC.md</text></g>
 
 <!-- 05 Build -->
 <g><rect class="card" x="826" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="842" y="114">05</text>
-<g class="ico" transform="translate(901,142)"><path d="M0 -12l11 5.5L0 -1l-11-5.5Z"/><path d="M-11 0l11 5.5L11 0"/><path d="M-11 6.5L0 12l11-5.5"/></g>
-<text class="ttl" x="901" y="180" text-anchor="middle">Build</text>
-<text class="art" x="901" y="197" text-anchor="middle">scenes</text></g>
+<text class="num" x="842" y="116">05</text>
+<g class="ico" transform="translate(901,140) scale(1.25)"><path d="M0 -12l11 5.5L0 -1l-11-5.5Z"/><path d="M-11 0l11 5.5L11 0"/><path d="M-11 6.5L0 12l11-5.5"/></g>
+<text class="ttl" x="901" y="182" text-anchor="middle">Build</text>
+<text class="art" x="901" y="203" text-anchor="middle">scenes</text></g>
 
 <!-- 06 Render -->
 <g><rect class="card-end" x="1026" y="92" width="150" height="120" rx="14"/>
-<text class="num" x="1042" y="114">06</text>
-<g class="ico-end" transform="translate(1101,142)"><circle cx="0" cy="0" r="11"/><path d="M-3.5 -5.5l8 5.5-8 5.5Z" fill="var(--ac)" stroke="none"/></g>
-<text class="ttl" x="1101" y="180" text-anchor="middle">Render</text>
-<text class="art" x="1101" y="197" text-anchor="middle">final.mp4</text></g>
+<text class="num" x="1042" y="116">06</text>
+<g class="ico-end" transform="translate(1101,140) scale(1.25)"><circle cx="0" cy="0" r="11"/><path d="M-3.5 -5.5l8 5.5-8 5.5Z" fill="var(--ac)" stroke="none"/></g>
+<text class="ttl" x="1101" y="182" text-anchor="middle">Render</text>
+<text class="art" x="1101" y="203" text-anchor="middle">final.mp4</text></g>
 
 <!-- gates -->
-<g><circle class="halo" cx="400" cy="152" r="15"/><circle class="gate" cx="400" cy="152" r="15"/><text class="gate-n" x="400" y="156.5">1</text><text class="gate-l" x="400" y="183">GATE</text></g>
-<g><circle class="halo" cx="600" cy="152" r="15" style="animation-delay:.85s"/><circle class="gate" cx="600" cy="152" r="15"/><text class="gate-n" x="600" y="156.5">2</text><text class="gate-l" x="600" y="183">GATE</text></g>
-<g><circle class="halo" cx="800" cy="152" r="15" style="animation-delay:1.7s"/><circle class="gate" cx="800" cy="152" r="15"/><text class="gate-n" x="800" y="156.5">3</text><text class="gate-l" x="800" y="183">GATE</text></g>
-<g><circle class="halo" cx="1001" cy="152" r="15" style="animation-delay:2.55s"/><circle class="gate" cx="1001" cy="152" r="15"/><text class="gate-n" x="1001" y="156.5">4</text><text class="gate-l" x="1001" y="183">GATE</text></g>
+<g><circle class="halo" cx="400" cy="152" r="15"/><circle class="gate" cx="400" cy="152" r="15"/><text class="gate-n" x="400" y="158">1</text><text class="gate-l" x="400" y="188">GATE</text></g>
+<g><circle class="halo" cx="600" cy="152" r="15" style="animation-delay:.85s"/><circle class="gate" cx="600" cy="152" r="15"/><text class="gate-n" x="600" y="158">2</text><text class="gate-l" x="600" y="188">GATE</text></g>
+<g><circle class="halo" cx="800" cy="152" r="15" style="animation-delay:1.7s"/><circle class="gate" cx="800" cy="152" r="15"/><text class="gate-n" x="800" y="158">3</text><text class="gate-l" x="800" y="188">GATE</text></g>
+<g><circle class="halo" cx="1001" cy="152" r="15" style="animation-delay:2.55s"/><circle class="gate" cx="1001" cy="152" r="15"/><text class="gate-n" x="1001" y="158">4</text><text class="gate-l" x="1001" y="188">GATE</text></g>
 
-<text class="note" x="24" y="286"><tspan class="note-k">Read the script</tspan>  ·  <tspan class="note-k">hear the narration</tspan>  ·  <tspan class="note-k">approve three real stills</tspan>  ·  <tspan class="note-k">watch the draft</tspan>   —   a gate that fails sends the work back one stage, never to the start.</text>
 </svg>
