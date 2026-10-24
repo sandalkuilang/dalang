@@ -1,0 +1,43 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A tag that fails the checks never becomes a release.
+      - name: Verify scripts
+        run: |
+          for f in scripts/*.mjs; do node --check "$f"; done
+          bash -n scripts/measure_reference.sh
+
+      - name: Verify SKILL.md front-matter
+        run: |
+          head -1 SKILL.md | grep -qx -- '---'
+          grep -q '^name: dalang$' SKILL.md
+          grep -q '^description: ' SKILL.md
+
+      - name: Verify the tag is in CHANGELOG.md
+        run: grep -q "^## \[${GITHUB_REF_NAME#v}\]" CHANGELOG.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A tag like v1.1.0-rc.1 is published as a pre-release.
+          case "$GITHUB_REF_NAME" in *-*) FLAG=--prerelease ;; *) FLAG= ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag \
+            $FLAG

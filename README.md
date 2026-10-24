@@ -7,12 +7,13 @@
 Script, AI voice, per-word timing, music, sound effects, animated visuals.<br/>
 One skill that directs the whole thing — and stops for your approval four times.
 
+[![Release](https://img.shields.io/github/v/release/sandalkuilang/dalang?sort=semver&color=d97757)](https://github.com/sandalkuilang/dalang/releases/latest)
 [![CI](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml/badge.svg)](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-black.svg)](LICENSE)
 [![Claude Code skill](https://img.shields.io/badge/Claude_Code-skill-d97757.svg)](https://claude.com/claude-code)
 [![Any language](https://img.shields.io/badge/narration-any_language-4c9a2a.svg)](#-any-topic-any-language-any-platform)
 
-[**Install**](#-install) · [**How it works**](#-how-it-works) · [**Workflow**](docs/workflow.md) · [**Architecture**](docs/architecture.md)
+[**Install**](#-install) · [**How it works**](#-how-it-works) · [**Workflow**](docs/workflow.md) · [**Architecture**](docs/architecture.md) · [**Changelog**](CHANGELOG.md)
 
 </div>
 
@@ -31,6 +32,23 @@ You bring a topic. It writes the script, records the voice, finds out when every
 ```bash
 git clone https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 ```
+
+<details>
+<summary>Pin to a release, or update later</summary>
+
+<br/>
+
+```bash
+# pin to a tagged release instead of main
+git clone --branch v1.0.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
+
+# update an existing install to the newest release
+cd ~/.claude/skills/dalang && git fetch --tags && git checkout "$(git describe --tags --abbrev=0 origin/main)"
+```
+
+Versions follow [semver](CHANGELOG.md): a **major** bump means a step, gate or project file changed name — an in-flight video would break.
+
+</details>
 
 Restart Claude Code. Then just ask, in any language:
 
