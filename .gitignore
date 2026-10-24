@@ -1,0 +1,31 @@
+# Secrets — never commit (ElevenLabs key lives in the shell env, not in files)
+.env
+.env.*
+*.pem
+
+# Per-video working output belongs in the user's project, not in the skill repo
+video/
+audio/
+renders/
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.response.json
+words.json
+beats.json
+
+# Tooling / OS junk
+node_modules/
+.DS_Store
+*.log
+*.tmp
+*.bak
+*~
+.hyperframes/
+.waveform-cache/
+.thumbnails/
+
+# Local-only agent caches
+graft/
+.claude/

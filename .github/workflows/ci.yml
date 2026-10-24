@@ -1,0 +1,16 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check scripts
+        run: |
+          for f in scripts/*.mjs; do node --check "$f"; done
+          bash -n scripts/measure_reference.sh
+      - name: SKILL.md front-matter
+        run: |
+          head -1 SKILL.md | grep -qx -- '---'
+          grep -q '^name: dalang$' SKILL.md
+          grep -q '^description: ' SKILL.md
