@@ -18,6 +18,13 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 .dot-o{fill:none;stroke:var(--acbd);stroke-width:1.2}
 .pup{fill:none;stroke:var(--ac);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .pupd{fill:none;stroke:var(--bd);stroke-width:1.2;stroke-linecap:round}
+
+/* The strings hang, so they sway — each on its own length, as a pendulum does. */
+@keyframes sway{0%,100%{transform:rotate(-.75deg)}50%{transform:rotate(.75deg)}}
+@keyframes breathe{0%{transform:scale(1);opacity:.5}70%{opacity:0}100%{transform:scale(1.8);opacity:0}}
+.sway{transform-box:view-box;animation:sway 6.5s ease-in-out infinite}
+.breathe{transform-box:fill-box;transform-origin:center;animation:breathe 3.6s cubic-bezier(.2,.6,.3,1) infinite}
+@media (prefers-reduced-motion:reduce){.sway,.breathe{animation:none}.breathe{opacity:.35}}
 </style>
 <defs>
 <radialGradient id="beam" cx="50%" cy="50%" r="50%">
@@ -35,9 +42,12 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 
 <!-- the dalang's control bar: one hand, every puppet on a string -->
 <rect x="955" y="56" width="180" height="9" rx="4.5" fill="var(--bd)"/>
-<g class="pupd"><path d="M975 65v78M1005 65v108M1035 65v133M1065 65v96M1095 65v122M1125 65v70"/></g>
-<g class="dot-o"><circle cx="975" cy="148" r="5"/><circle cx="1005" cy="178" r="5"/><circle cx="1065" cy="166" r="5"/><circle cx="1095" cy="192" r="5"/><circle cx="1125" cy="140" r="5"/></g>
-<g><circle cx="1035" cy="206" r="14" class="pup" opacity=".5"/><circle cx="1035" cy="206" r="8" class="dot"/></g>
+<g class="sway" style="transform-origin:975px 65px;animation-duration:6.4s"><path class="pupd" d="M975 65v78"/><circle class="dot-o" cx="975" cy="148" r="5"/></g>
+<g class="sway" style="transform-origin:1005px 65px;animation-duration:7.3s;animation-delay:-1.1s"><path class="pupd" d="M1005 65v108"/><circle class="dot-o" cx="1005" cy="178" r="5"/></g>
+<g class="sway" style="transform-origin:1035px 65px;animation-duration:8.1s;animation-delay:-2.4s"><path class="pupd" d="M1035 65v133"/><circle class="breathe pup" cx="1035" cy="206" r="14" opacity=".5"/><circle class="dot" cx="1035" cy="206" r="8"/></g>
+<g class="sway" style="transform-origin:1065px 65px;animation-duration:6.8s;animation-delay:-.6s"><path class="pupd" d="M1065 65v96"/><circle class="dot-o" cx="1065" cy="166" r="5"/></g>
+<g class="sway" style="transform-origin:1095px 65px;animation-duration:7.7s;animation-delay:-3.2s"><path class="pupd" d="M1095 65v122"/><circle class="dot-o" cx="1095" cy="192" r="5"/></g>
+<g class="sway" style="transform-origin:1125px 65px;animation-duration:6.1s;animation-delay:-1.8s"><path class="pupd" d="M1125 65v70"/><circle class="dot-o" cx="1125" cy="140" r="5"/></g>
 <line x1="930" y1="238" x2="1160" y2="238" stroke="var(--bd)" stroke-width="1" opacity=".7"/>
 
 <text class="word" x="64" y="118">Dalang</text>

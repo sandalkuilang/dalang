@@ -23,6 +23,13 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 .back{fill:none;stroke:var(--ac);stroke-width:1.3;stroke-dasharray:3 3.5;opacity:.75}
 .note{font-size:11.5px;fill:var(--dim)}
 .note-k{font-size:11.5px;font-weight:600;fill:var(--mu)}
+
+/* A gate waiting for you, and work travelling back to the stage before it. */
+@keyframes ping{0%{transform:scale(1);opacity:.5}70%{opacity:0}100%{transform:scale(1.95);opacity:0}}
+@keyframes march{to{stroke-dashoffset:-13}}
+.halo{fill:none;stroke:var(--ac);stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:ping 3.4s cubic-bezier(.2,.6,.3,1) infinite}
+.back{animation:march 1.8s linear infinite}
+@media (prefers-reduced-motion:reduce){.halo,.back{animation:none}.halo{opacity:0}}
 </style>
 <defs>
 <marker id="ar" viewBox="0 0 8 8" refX="6.6" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1.4 6 4 1 6.6" fill="none" stroke="var(--tr)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
@@ -89,10 +96,10 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 <text class="art" x="1101" y="197" text-anchor="middle">final.mp4</text></g>
 
 <!-- gates -->
-<g><circle class="gate" cx="400" cy="152" r="15"/><text class="gate-n" x="400" y="156.5">1</text><text class="gate-l" x="400" y="183">GATE</text></g>
-<g><circle class="gate" cx="600" cy="152" r="15"/><text class="gate-n" x="600" y="156.5">2</text><text class="gate-l" x="600" y="183">GATE</text></g>
-<g><circle class="gate" cx="800" cy="152" r="15"/><text class="gate-n" x="800" y="156.5">3</text><text class="gate-l" x="800" y="183">GATE</text></g>
-<g><circle class="gate" cx="1001" cy="152" r="15"/><text class="gate-n" x="1001" y="156.5">4</text><text class="gate-l" x="1001" y="183">GATE</text></g>
+<g><circle class="halo" cx="400" cy="152" r="15"/><circle class="gate" cx="400" cy="152" r="15"/><text class="gate-n" x="400" y="156.5">1</text><text class="gate-l" x="400" y="183">GATE</text></g>
+<g><circle class="halo" cx="600" cy="152" r="15" style="animation-delay:.85s"/><circle class="gate" cx="600" cy="152" r="15"/><text class="gate-n" x="600" y="156.5">2</text><text class="gate-l" x="600" y="183">GATE</text></g>
+<g><circle class="halo" cx="800" cy="152" r="15" style="animation-delay:1.7s"/><circle class="gate" cx="800" cy="152" r="15"/><text class="gate-n" x="800" y="156.5">3</text><text class="gate-l" x="800" y="183">GATE</text></g>
+<g><circle class="halo" cx="1001" cy="152" r="15" style="animation-delay:2.55s"/><circle class="gate" cx="1001" cy="152" r="15"/><text class="gate-n" x="1001" y="156.5">4</text><text class="gate-l" x="1001" y="183">GATE</text></g>
 
 <text class="note" x="24" y="286"><tspan class="note-k">Read the script</tspan>  ·  <tspan class="note-k">hear the narration</tspan>  ·  <tspan class="note-k">approve three real stills</tspan>  ·  <tspan class="note-k">watch the draft</tspan>   —   a gate that fails sends the work back one stage, never to the start.</text>
 </svg>

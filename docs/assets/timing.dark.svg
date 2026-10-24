@@ -22,15 +22,24 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 .tlb{font-size:10px;fill:var(--dim);text-anchor:middle}
 .callout{font-size:11.5px;fill:var(--mu)}
 .code{font-size:11.5px;fill:var(--ac)}
+
+/* The playhead runs the twelve seconds; each beat answers as it passes. */
+@keyframes sweep{0%{transform:translateX(0);opacity:0}4%{opacity:1}96%{opacity:1}100%{transform:translateX(1016px);opacity:0}}
+@keyframes thump{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.7}}
+.playhead{animation:sweep 12s linear infinite}
+.ph-l{stroke:var(--tx);stroke-width:1;opacity:.4}
+.ph-h{fill:var(--tx);opacity:.55}
+.snap-m{transform-box:fill-box;transform-origin:center;animation:thump 3s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.playhead,.snap-m{animation:none}.playhead{opacity:0}}
 </style>
 
 <text class="eyebrow" x="24" y="32">WORDS FIRST, PICTURES LAST</text>
 <text class="lede" x="24" y="56">The voice is recorded before a single frame exists — so every change on screen lands on a word, not on a guessed second.</text>
 
 <!-- beat guides -->
-<g><line class="beat" x1="226" y1="98" x2="226" y2="262"/><path class="snap" d="M226 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="226" y="80">{hook}</text></g>
-<g><line class="beat" x1="541" y1="98" x2="541" y2="262"/><path class="snap" d="M541 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="541" y="80">{proof}</text></g>
-<g><line class="beat" x1="888" y1="98" x2="888" y2="262"/><path class="snap" d="M888 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="888" y="80">{payoff}</text></g>
+<g><line class="beat" x1="226" y1="98" x2="226" y2="262"/><path class="snap snap-m" d="M226 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="226" y="80">{hook}</text></g>
+<g><line class="beat" x1="541" y1="98" x2="541" y2="262"/><path class="snap snap-m" style="animation-delay:1s" d="M541 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="541" y="80">{proof}</text></g>
+<g><line class="beat" x1="888" y1="98" x2="888" y2="262"/><path class="snap snap-m" style="animation-delay:2s" d="M888 86l6 6-6 6-6-6Z"/><text class="beat-lb" x="888" y="80">{payoff}</text></g>
 
 <!-- row 1: the recorded narration -->
 <text class="rowlb mono" x="142" y="130">narration.mp3</text>
@@ -81,6 +90,9 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 <path d="M160 279v5M245 279v4M329 279v5M414 279v4M499 279v5M583 279v4M668 279v5M753 279v4M837 279v5M922 279v4M1007 279v5M1091 279v4M1176 279v5"/>
 </g>
 <g class="tlb"><text x="160" y="297">0s</text><text x="329" y="297">2s</text><text x="499" y="297">4s</text><text x="668" y="297">6s</text><text x="837" y="297">8s</text><text x="1007" y="297">10s</text><text x="1176" y="297">12s</text></g>
+
+<!-- playhead -->
+<g class="playhead"><line class="ph-l" x1="160" y1="96" x2="160" y2="264"/><path class="ph-h" d="M154 90h12l-6 7Z"/></g>
 
 <text class="callout" x="160" y="320">Scene C does not start at “about 6.4 seconds”. It starts at <tspan class="code mono">BEATS.proof.start</tspan> — rewrite the line, regenerate, and every scene moves with it.</text>
 </svg>
