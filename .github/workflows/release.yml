@@ -27,8 +27,17 @@ jobs:
           grep -q '^name: dalang$' SKILL.md
           grep -q '^description: ' SKILL.md
 
-      - name: Verify the tag is in CHANGELOG.md
-        run: grep -q "^## \[${GITHUB_REF_NAME#v}\]" CHANGELOG.md
+      # The hand-written section becomes the body; GitHub appends the commit/PR list.
+      - name: Take this version's section out of CHANGELOG.md
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[" v "\\]"  { on = 1; next }
+            on && /^## \[/          { exit }   # the next version
+            on && /^\[[^]]+\]: http/ { exit }   # the link definitions at the foot
+            on                      { print }
+          ' CHANGELOG.md > notes.md
+          # No section for this tag is a mistake, not a release.
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md has no section for $GITHUB_REF_NAME"; exit 1; }
 
       - name: Publish release
         env:
@@ -38,6 +47,7 @@ jobs:
           case "$GITHUB_REF_NAME" in *-*) FLAG=--prerelease ;; *) FLAG= ;; esac
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
             --generate-notes \
             --verify-tag \
             $FLAG
