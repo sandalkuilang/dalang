@@ -39,7 +39,7 @@ node ~/.claude/skills/dalang/scripts/preflight.mjs
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio **or** ElevenLabs | narration + word timing | VoiceStudio is free and local; set `ELEVENLABS_API_KEY` in your own shell only |
 
-Licence note: the ElevenLabs free tier and VoiceStudio's default model are both non-commercial.
+Licence note: this skill is [MIT](LICENSE), but the ElevenLabs free tier and VoiceStudio's default model are both non-commercial — that limit follows the audio they produce, not this repo.
 
 ## Repo layout
 
