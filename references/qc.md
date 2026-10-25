@@ -14,6 +14,12 @@ node <skill-dir>/scripts/timing_lint.mjs    # every picture cut between words, n
 npx hyperframes snapshot --review --describe false
 ```
 
+- **Scopes on the cuts** (look at the PNGs): a contact sheet of every cut checks palette, ratio and composition consistency; a waveform and a vectorscope on 2–3 beat frames check exposure (no clipped highlights on the hero or faces, blacks crushed only if the look wants it) and hue (skin on the skin-tone line, no accidental orange-and-teal):
+  ```bash
+  ffmpeg -i draft.mp4 -vf "select='eq(n\,0)+gt(scene\,0.3)',scale=480:-2,tile=4x3" -frames:v 1 -fps_mode vfr review/cuts.png
+  ffmpeg -ss <t> -i draft.mp4 -vf "waveform=scale=ire:graticule=green:flags=numbers+dots" -frames:v 1 review/waveform-<t>.png
+  ffmpeg -ss <t> -i draft.mp4 -vf "vectorscope=mode=color3:graticule=color" -frames:v 1 review/vectorscope-<t>.png
+  ```
 - `--describe false` on every snapshot: with `GEMINI_API_KEY` set, snapshot otherwise uploads frames to Gemini. Drop it only if the user agreed.
 - **Fresh-eyes review** by a new subagent on the sheets (`review.md`); fix every P0 and P1 it writes to `QC-REVIEW.md`.
 - The reviewer runs the rubric; you compare the review sheet's beat frames with the approved style frames (the film must look like them, not drift back to defaults) and check Realism and Reality yourself, judged on full-resolution snapshots of every shot with the subject (people judged in motion); any fail is fixed before Gate 4, never shipped as a known weak shot.

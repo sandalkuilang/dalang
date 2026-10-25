@@ -68,12 +68,8 @@ async function elevenlabs() {
   return [['ElevenLabs (paid)', 'PAID', `optional, only if the user asks — tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? '; free tier: non-commercial, no cloning/library voices' : ''}`]];
 }
 
-// ACE-Step 1.5 has no CLI on PATH: its checkout is ACESTEP_DIR, or one of the usual clone places.
-const aceDir = () => [process.env.ACESTEP_DIR, path.join(homedir(), 'ACE-Step-1.5'), path.join(homedir(), 'tools', 'ACE-Step-1.5')].find(d => d && existsSync(path.join(d, 'checkpoints', 'acestep-v15-turbo')) && existsSync(path.join(d, '.venv', 'bin', 'python')));
-const aceReady = () => Boolean(aceDir());
-
 async function media() {
-  const [r, mflux, ace, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('mflux-generate-z-image-turbo', ['--help'], 15000), Promise.resolve({ ok: aceReady() }), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
+  const [r, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
   const lines = (r.out + r.err).split('\n');
   const heygen = lines.some(l => /^✓.*heygen/i.test(l)) && !lines.some(l => /^✗.*heygen/i.test(l));
   // Name the stale skills; optional skills that were never installed don't matter.
@@ -85,9 +81,7 @@ async function media() {
     if (bad.length) stale = bad.join(', ');
   } catch { stale = lines.find(l => /skill.*(out of date|missing)/i.test(l))?.trim() || null; }
   const out = [
-    // Free path only: mflux (stills; `--help` also catches a broken Pillow) and ACE-Step (music: no CLI, found by its checkout). HeyGen spends metered credits, so it is listed as paid.
-    ['Images (photoreal)', mflux.ok ? 'OK' : 'WARN', mflux.ok ? 'mflux + Z-Image Turbo (free, local)' : 'no free generator — real subjects come from user photos/footage or free licensed photos/video; offer local mflux (free; ask before installing) (references/visual-direction.md §1)'],
-    ['Music', ace.ok ? 'OK' : 'WARN', ace.ok ? `ACE-Step 1.5 (free, local, MIT) at ${aceDir()}` : 'no free generator (or ACESTEP_DIR unset) — offer local ACE-Step 1.5 (MIT, ~8.5 GB; ask before installing); never MusicGen (non-commercial weights); 19 bundled SFX still work'],
+    // No image or music generator in the default path (references/brief.md): footage, photos, three.js and licensed tracks. HeyGen spends metered credits, so it is listed as paid.
     // Real motion footage: Pexels and Pixabay have free APIs (commercial-OK licences) but need a key the user signs up for.
     ['Stock video', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? 'OK' : 'WARN', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? `${['PEXELS_API_KEY', 'PIXABAY_API_KEY'].filter(k => process.env[k]).join(', ')} set (free, real motion footage)` : 'no key — ask the user once for a free PEXELS_API_KEY (pexels.com/api) or PIXABAY_API_KEY: real footage is the cheapest way to make the subject move (references/visual-direction.md §1 rung 2)'],
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),

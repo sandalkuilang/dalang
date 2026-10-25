@@ -1,10 +1,10 @@
 # Camera and motion: film grammar, physical timing, compositing
 
-Read in Step 5 (§1–4, §8, §10 and §11 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
+Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
-Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from footage, 3D or a generated clip (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query and `mflux` prompt carries them.
+Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from footage or three.js 3D (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query and `mflux` prompt carries them.
 
 | Size | Job | Sourcing rule |
 |---|---|---|
@@ -69,6 +69,21 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Duration grows with distance, by square root [O]:** `dur ≈ base·√(dist/base_dist)` (0.3 s at 200 px → 0.6 s at 800 px). **Mass:** heavy things start slower, overshoot less (ζ ≥ 0.85) and make the surface react (a 0.3–0.6 % camera bump for 3–5 frames, a shadow or dust pulse); light things snap (ζ 0.6–0.75) and flutter.
 - **1/3 rule:** nothing travels more than a third of the frame in one unbroken tween without an intermediate key or a scale change. **No velocity cliffs:** a multi-point path is **one** tween (`keyframes: {x: [...], y: [...], easeEach: "none"}, ease: "power2.inOut"`, or MotionPath `curviness: 1–1.5`), never chained `to()`s that stop at every key.
 - **Gravity [D]:** fall time `√(2h/g)` — 1 m = 0.45 s (13.5 frames at 30 fps), 0.5 m = 0.32 s, 2 m = 0.64 s; set px-per-metre from a known size in the frame. `power2.in` **is** free fall (`power2.out` for the rise). A bounce with restitution e: height × e², airtime × e (ball ≈ 0.75–0.85, wood ≈ 0.5, putty 0); `CustomBounce` with strength ≈ 1−e. Velocity changes within one frame on impact — never ease into a collision. Paper and leaves: ease in for ~0.2 s, then linear with sway.
+- **3D objects that touch, fall or collide are simulated, never keyframed.** Every motion has a cause the viewer can read (a push, a knock, a draught, a sound); nothing starts, drifts or loops on its own. Use Rapier (`@dimforge/rapier3d-compat`, Apache-2.0, deterministic; bundle it to its own ESM file in `assets/`) and **bake** before the first frame: simulate the shot once, store every body's pose per step, interpolate at any time, so frames seek and every render worker gets the same result (check: render twice, `ffmpeg -f framemd5` — every frame identical). Verified on a 16 GB M5: a 4 s diorama shot with a chair and nine books, 30k-triangle set, bakes in ~2 s and renders in 31 s. The recipe, each line fixing an error a real bake showed:
+  - **The whole set collides:** every visible mesh becomes a fixed triangle mesh in world space (skip transparent and shadow-catcher meshes). Hand-picked colliders let props pass through rugs, tables and stools.
+  - **Colliders are the drawn shapes:** a rounded box gets a `roundCuboid` with the same corner radius (a sharp cuboid leaves ~2 mm of air under a rounded edge); a model gets the convex hull of its own vertices; a radial part (a chair's star base) is split into one hull per leg plus the column, or the hull fills the gaps between legs and shoves a whole stack instead of striking it; wheels are small balls at the model's lowest vertices, not a disk; parts of one object share a collision group so they never push each other.
+  - **Run it in real units** (`looks.md`, real scale): gravity 9.81/M scene units/s² for M metres per unit, pushes and resistances given in m/s and m/s² and converted; report in real mm and m/s.
+  - **Things people move are dynamic bodies with their real mass** (a desk chair ~12 kg, books ~700 kg/m³, wood ~600), pushed with a velocity at the cause's frame; casters and drawers resist with a constant (Coulomb) deceleration applied every step, at rest too, so they stop like the real thing and never drift. Apply it to every body of a jointed thing (a chair's base and seat), or the free part carries its momentum through the joint and it barely slows; casters on a wood floor ~0.3 m/s², on a rug ~1. Jointed parts are joints: a chair seat is its own body on a revolute joint at the column with friction, not a kinematic body (infinite mass crushes what it touches). Kinematic bodies only for what truly can't be pushed back (a machine on a fixed path).
+  - **Stiff solver:** 480 Hz, 16 solver iterations, `normalizedAllowedLinearError` 0.0002, `contact_natural_frequency` 60, CCD on moving bodies. Rapier's defaults let a nine-book stack sink ~3.5 mm per layer and a hard knock overlap 6–8 mm.
+  - **Loose soft props settle in the simulation**: cushions and the like are dynamic convex hulls (~0.45 kg, friction 0.9) in the pre-roll (then 1.2 s), started upright and tipped toward what they will lean on; check they are still before frame 0.
+  - **A 0.5 s pre-roll** lets everything settle onto its real support (a rug's thickness, a soft seat) before frame 0; report how far each body's centre of mass moved in it and how much it tilted — more than its stacking gaps means it was placed into something (measure at the centre of mass: a kit model's origin is often a corner, and a 2° turn reads as centimetres there). A body hanging on a joint is supported, not floating. A caster within a centimetre of a rug's edge is shoved sideways by it as the chair settles: keep every wheel clearly on or off.
+  - **Report and read the numbers** every bake: deepest penetration (≤ ~2 mm, under a pixel at diorama framing), bodies floating at the end, bodies still moving, pre-roll drift, and the placement audit below. Rapier aborts (wasm `unreachable`) on a flat point set and on coincident or crowded near-coplanar points: build a hull only from points that enclose a volume, one per 0.5 mm cell (3 mm for a whole soft object); a NaN vertex (a `sqrt` of a tiny negative at an edge) makes it abort too.
+  - **Hits drive sound and reactions:** an impact is a body's velocity changing ≥ 0.15 m/s within 12.5 ms (stiff contacts spread a hit over several steps; below 0.15 it is silent). A living thing reacts ~150 ms later to the loudest one ≥ 0.4 m/s (a book landing on the floor, not the first touch).
+  - **Sound on the bake, verified** (CC0 from Openverse, `look-build.md` §7): each `<audio>` starts at its impact's time and the cause's time (the push), written in the HTML with the bake value in a comment. Contacts within ~30 ms are one sound; the hardest gets the full sample, lighter ones a pitched-up variant (smaller, lighter); volume = base × (dv / 1.2 m/s)^0.6 (against a hard knock, not the shot's loudest hit: a soft bump stays soft) — a perceptual curve, so a soft landing is quieter but audible; base ≈ 0.5 so a knock sits under a narration. A hard contact is short: fade a knock from ~60 ms, a thud from ~80 ms, or its tail masks the next contact. A rolling or sliding sound lasts from the push to the bake's rest time with its level following the speed measured in the bake (sample the body every 10–40 ms: a knock takes speed off at once, Coulomb friction then takes it linearly to 0); things the push slides along (a stack shoved over the floor or over its bottom book) get their own sliding sound for as long as they move. Continuous sources run under everything (a fan's whoosh, a room's hum). Check the render: silence before the cause and after rest, a level rise at each impact time, and a null test against the same clips mixed offline with `adelay` (lag 0 ms, residual ≤ −25 dB; removing a clip must raise the residual, proving it is there).
+  - **Motion blur from the bake:** a frame where a body travels ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter; still frames render once.
+- **Air moves things too, by the same law.** A fan that is on is a round turbulent jet along its head's axis: core speed u₀ (desk or floor fan ~1.5–3 m/s) out to ~2 blade diameters, then ∝ 1/x, Gaussian across with half-width D/2 + 0.11·x, ±25 % gusts at a few Hz; an oscillating head sweeps it (±40°, ~10 s a cycle). Air does not pass through things: behind any object of the set between the blades and a point only ~15 % arrives (test the segment against the objects' boxes, once every prop is placed). Cloth in the air is simulated, never waved: a curtain is a particle grid hung by its top row, stretch, shear and bend constraints (the bend rest shape keeps its pleats), gravity, drag ½·ρ·C_d·A·v² across each patch (C_d ~1.2) with a little skin friction along it — still air then damps it — and the wall behind as a collider; light cotton ~120 g/m²; position-based dynamics at 240 Hz, 8 iterations, a 2 s pre-roll so it has settled into the airflow, replayed by interpolation and drawn 3× finer through a Catmull-Rom spline (the simulation grid itself shows as facets). Spinning blades are filmed as a blur: a disc whose opacity is the fraction of the exposure a blade covers it. A running fan is heard (a low steady whoosh under the hits).
+- **Every prop at rest touches its support, measured, not typed.** Typed heights left a whole desk's props 4.4 mm inside the desktop, a radio 28 mm above a bookcase and a throw 20 mm above a sofa. Register each resting prop and drop it onto the drawn surface under its centre, as gravity would from any height (raycast, lowest first so supports land before what they carry; only lower objects count as support; lift out of a surface only a few mm, more means it was placed inside something: report it; a `foot` part when the lowest point isn't what rests, e.g. a pot with hanging vines). Then audit every object against the physics set (gap or overlap 0.5–30 mm under its centre is an error). Rugs have thickness (5 mm), so what stands on them stands on top; a tilted object needs something to lean on; a cable lies flat on the floor (clamp its tube to the floor height) and ends in a socket; a cup that holds pens is open and the pens lean on its rim.
+- **Ambient motion is the real amount:** indoor air is still (leaves stir ≤ 1°, curtains hang), LED strings are steady, a quartz second hand jumps in ~30 ms with a hair of overshoot, a sleeping cat breathes ~20–30 times a minute, a desk chair swivels on its column (find the real pivot: kit models often have their origin on a corner). A perpetual sine loop on an object that would come to rest is a Craft fail.
 - **Data never overshoots:** numbers, bars and serious content ease to their value and hold ≥ 0.5 s.
 - **Group timing:** a group's total stagger `(n−1)·offset + dur` stays ≤ ~0.8 s; beyond that shrink the offset or stagger outward from the focal point. Items that belong together share **identical** ease, duration and direction (common fate); unrelated items differ in at least one. The contact shadow settles with its object; labels follow 40–60 ms later.
 - **Motion blur [D]:** blur length per frame = displacement per frame × shutter / 360. Turn `data-motion-blur="on"` on above ~8 px/frame at 1080p; 45–90° shutter for staccato impact, 270–360° for a dreamy smear.
@@ -99,9 +114,9 @@ Adds to `visual-direction.md` §1 "Compositing" and §9:
 
 ## 8. The motion-language line in `SPEC.md`
 
-Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = frame rate and shutter, the lens set in mm, the rigs the film uses (§10), the A/B pattern, the one wow shot and the film's technique palette (6–10, §11); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
+Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = the rulebook (§12: frame ratio, lens set, movement rule, light rule, palette and its arc, texture, never-shown, rule breaks with their reason), frame rate and shutter, the rigs the film uses (§10), the A/B pattern, the one wow shot and the film's technique palette (6–10, §11); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
 
-## 9. Generating stills with the angle in them (`mflux`)
+## 9. Generating stills with the angle in them (`mflux`, only when the user asks for generated stills)
 
 - **Capture medium as a fact, not adjectives:** "a mirrorless still, natural window light, no flash, no retouch" · "a video frame grab, slight motion smear" · "a 35 mm negative scan, soft blacks" · "a phone photo, shadow noise".
 - **Never write boosters:** 4K, 8K, ultra-detailed, hyper-realistic, photorealistic, masterpiece, sharp focus, cinematic, epic, stunning, beautiful lighting — **and never "hyperreal"**, which pulls straight into AI-art territory.
@@ -136,7 +151,7 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 
 ## 11. The cinematographer's toolbox
 
-A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take **6–10** from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[F]** footage (search with the technique's name), **[3D]** three.js rig (§10), **[G]** generated clip (the prompt names it), **[2.5D]** depth layers (§6.8), **[C]** compositing in HyperFrames.
+A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take **6–10** from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[F]** footage (search with the technique's name), **[3D]** three.js rig (§10), **[G]** generated clip (paid, only on request; the prompt names it), **[2.5D]** depth layers (§6.8), **[C]** compositing in HyperFrames.
 
 **Light — mood and where to look**
 - **Contrast ratio** key:fill, `(key + fill) : fill`, each stop doubling it **[D]**: 2:1 bright and neutral (a friendly explainer), 4:1 dramatic (the photoreal default), 8:1 and up low-key (mystery, danger, the problem). Set it per section in the colour script; a ratio change is a mood change.
@@ -189,5 +204,94 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Map / terrain zoom:** from the globe down to the street for place-based topics; bake the camera move (`/hyperframes` `film.md`) **[C]**.
 - **Hands-on macro B-roll:** hands doing the real thing, very close and shallow — the faceless presenter **[F]**.
 
+## 12. Emotion drives every parameter: the rulebook
+
+A shot's lens, height, move, light, colour and frame ratio are chosen from the feeling it serves, never from a generic "cinematic" default. **Every storyboard row names one emotion and a motivation for each choice; a move, lens, light or colour without a motivation is removed.** Restraint is the default: static unless motivated, few lenses, few colours, few cuts. Restraint reads as authorship; a frame where every choice obeys one idea beats a run of impressive, unrelated shots.
+
+| Emotion | Size | Angle | Lens (FF) | Focus | Movement | Light (ratio) | Colour | Shutter | Ratio |
+|---|---|---|---|---|---|---|---|---|---|
+| Intimacy, tenderness | MCU, CU | eye | 35–50 mm, close | shallow | static or very slow push | soft, 2:1, warm practicals | warm, low saturation | 180° | 1.37 / 1.66 |
+| Isolation, loneliness | WS, EWS | eye or slightly high | 85–135 mm from far, or 24 mm static | deep, or shallow on a tiny subject | static; slow pull-out | one source, 6:1+ | cool, desaturated, one warm accent | 180° | 2.39 or 1.37 (headroom) |
+| Dread, tension | MS → CU, tightening | eye, slightly low | 35–40 mm | medium | static long take or creeping push | short-side key, 8:1, top light | desaturated green-teal, crushed shadows | 180° | 1.85 / 2.39 |
+| Panic, chaos | MCU, CU | shifting | 18–28 mm close | deep | handheld 2–3, whips | hard, mixed temperatures | dirty, clashing | 45–90° | 1.85 |
+| Power, dominance | MS, FS | low | 24–35 mm | deep | static symmetry or slow crane up | hard top or edge | high contrast, rich blacks | 180° | 2.39 |
+| Vulnerability | MS, CU with headroom | high | 85 mm+ | shallow | static | soft, low key | pale, cold | 180° | 1.37 |
+| Memory, nostalgia | inserts, CU details | varied | 50 mm, soft | shallow | drifting handheld 0.5–1 | backlight, flare, halation | warm, faded blacks, more grain | 270–360° | 1.33 / 1.37 |
+| Awe, freedom | EWS, WS | eye or ground | 24–35 mm, or 135 mm landscape compression | deep | slow lateral or crane | low-sun backlight | golden, natural | 180° | 2.39 |
+| Unease, surreal | CU, centred WS | dead centre | 14–24 mm very close | deep | static or slow arc | hard, unmotivated colour | one unnatural hue | 180° | 1.19 / 1:1 |
+| Joy, curiosity | FS, MS | child's-eye (~1 m) | 28–35 mm | medium | follow at walking pace | bright, soft, open shade | saturated pastels | 180° | 1.85 |
+| Grief | WS, one CU late | eye; high at the collapse | 50 mm | medium | static, long holds | low key, overcast or window | desaturated, cool | 180° | 1.85 |
+| Revelation | MS → CU | eye | 35–50 mm | rack focus to the discovery | slow push, or the one dolly-zoom | the light changes mid-shot | the palette shifts from this shot on | 180° | same, or opens wider |
+
+**The rulebook** is the CAMERA line of `SPEC.md` (§8), 5–10 rules: the frame ratio, the lens set (2–3 focal lengths; 35 + 50 mm by default, the longest reserved for the climax), the movement rule ("static unless the inner state changes, then a slow push"), the light rule (motivated sources only, short-side key, ratio), the palette (2–3 hues + 1 accent) and its arc across sections, the texture (grain, halation), the shutter, and what is never shown. **Rule breaks** are logged under it with their story reason, one per turning point at most: a change of rules *is* the turning point (the first handheld shot when control is lost, the first colour shift, the frame ratio opening wider at a release).
+
+**Structure:** establish wide, tighten as the feeling rises, keep the tightest size and the longest lens for the climax; rhyme the final image with the opening composition so the change in meaning is felt; one idea per shot (two ideas = two shots); hold a beat after the line — the reaction is often the story; keep key action off screen when sound can carry it.
+
+**Light:**
+- **Motivated:** every light seems to come from a source in the world (window, lamp, screen, sky).
+- **Short-side key:** light the side of the subject away from camera. Camera-side (broad) light is flat and reads as TV.
+- **Subtract to shape:** dark negative fill on one side beats adding lamps. Design colour in the set, wardrobe and practicals first; the grade only enhances.
+- **Colour temperature as world-building:** leave mixed sources uncorrected when they define the place.
+- **three.js light colours from Kelvin:**
+
+  | Source | Kelvin | Hex |
+  |---|---|---|
+  | Candle | 1900 K | `#ff8400` |
+  | Sodium street lamp | 2000 K | `#ff890e` |
+  | Household bulb | 2700 K | `#ffa757` |
+  | Film tungsten | 3200 K | `#ffb87b` |
+  | Cool fluorescent (add a green tint) | 4000 K | `#ffcea6` |
+  | Noon sun | 5600 K | `#ffefe1` |
+  | Overcast | 6500 K | `#fffefa` |
+  | Shade, blue hour | 8000 K | `#dde6ff` |
+
+**Composition:**
+- **Thirds:** eyes on the upper third, look room ahead of the gaze. Centre and symmetry mean order, control, unease or authority.
+- **Headroom:** tight is normal. A subject low under large headroom reads as small or oppressed.
+- **Negative space:** 60–80 % of the frame left empty reads as isolation.
+- **Frame in frame:** a doorway, window or mirror reads as entrapment or watching.
+- **Foreground:** something in the foreground removes flatness (§4 "The loaded frame").
+- **Dialogue:** in shot / reverse shot, eyelines match and lens and distance are the same on both sides.
+- **3D camera height:** eye ~1.5–1.7 m, child ~1.0 m, low 0.3–0.6 m, all scaled to the set.
+
+**Frame ratio inside the canvas** (16:9 films only; 9:16 and 4:5 stay full-bleed, since platform UI covers the bars' space). The ratio is a story decision, constant unless a logged break changes it. At 1920×1080:
+
+| Ratio | Image area | Bars |
+|---|---|---|
+| 2.39 | 1920×804 | 138 px top and bottom |
+| 1.85 | 1920×1038 | 21 px top and bottom |
+| 1.66 | 1792×1080 | 64 px each side |
+| 1.37 | 1480×1080 | 220 px each side |
+| 1.33 | 1440×1080 | 240 px each side |
+| 1:1 | 1080×1080 | 420 px each side |
+
+Build the mask as the top layer of the root composition (two black `div`s), so bars stay pure black with no grain on them. Captions and safe areas sit inside the image area.
+
+**Finishing order, identical on every shot:**
+1. Grade or LUT.
+2. Halation: a red-orange glow around highlights; subtle; film looks only.
+3. Grain.
+4. Vignette.
+5. Aspect mask, last.
+
+For footage, apply steps 1–4 through `media-treatment`. For three.js, apply them in the finisher pass. Halation on a clip (tested on ffmpeg 9.0):
+
+```
+ffmpeg -i in.mp4 -filter_complex "[0:v]format=gbrp,split[b][h];[h]curves=all='0/0 0.75/0 1/1',gblur=sigma=12,colorchannelmixer=rr=1:gg=0.25:bb=0.1[g];[b][g]blend=all_mode=screen:all_opacity=0.35,format=yuv420p" out.mp4
+```
+
+**Approach presets.** Borrow a film's approach, never its shots. Start the rulebook from the nearest preset and adapt it:
+
+| Preset | After | Ratio | Lens · move | Light · colour |
+|---|---|---|---|---|
+| intimate-realism | *The Florida Project*, *American Honey* | 1.37 / 1.85 | 28–35 mm close at child's-eye height, handheld 1, follow | open shade; saturated pastels, fine grain |
+| austere-portrait | *Ida* | 1.37 | 35–50 mm, deep, static | soft, diffuse; subjects low under huge headroom |
+| subjective-tunnel | *Son of Saul* | 1.37 | one 40 mm, very shallow, follows behind the head | available light; the background horror out of focus, carried by sound |
+| lyrical-colour | *Moonlight* | 2.39 | close, slow arcs | glowing skin, saturated backlight; cyan and magenta, deep blacks |
+| cold-observation | *The Zone of Interest* | 1.85 | wide, deep, static, several hidden angles | flat natural light; the horror kept off screen |
+| dreamy-memory | *Aftersun* | 1.85 + 4:3 home-video inserts | 50 mm soft, drifting | backlight, reflections; warm, faded blacks, halation |
+| landscape-awe | *Nomadland* | 2.39 | 24–35 mm, deep, slow lateral | low-sun backlight; figures small in vast space |
+| period-texture | *Carol* | 1.85 | 50 mm through glass, restrained | soft window light; Super 16 grain, muted greens and pinks |
+
 ---
-Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots).
+Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots); §12's emotion table, rulebook, Kelvin, ratio and finishing practice follow award-winning indie cinematography (DP approaches of the films named, paraphrased).

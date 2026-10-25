@@ -2,7 +2,7 @@
 # `hyperframes remove-background` uses a person-segmentation model: on products it punches holes in labels,
 # and a green screen keys dark bodies. A white backdrop keyed by flood fill keeps white parts the object encloses.
 #
-# Usage: <python with Pillow + numpy, e.g. mflux's> -I key_white.py in.png out.png [--holes]
+# Usage: <python with Pillow + numpy> -I key_white.py in.png out.png [--holes]
 #        ... -I key_white.py --selftest
 # --holes also clears enclosed white (backdrop seen through a handle); leave it off when the object has a white label.
 # Background = near-white, low-chroma pixels connected to the frame border. The edge is eroded 1 px against white

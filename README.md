@@ -67,7 +67,7 @@ Check your machine once — one call, ~3 s, never prints secrets:
 node ~/.claude/skills/dalang/scripts/preflight.mjs
 ```
 
-It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, tier) and your image/music sources, each as `OK` / `MISSING` / `WARN` **with the fix**.
+It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` **with the fix**.
 
 <br/>
 
@@ -135,7 +135,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick |
-| **Look** | cinematic photoreal · stylised 3D · 2D motion design · documentary collage · ink & watercolour — the subject is always hyperreal: real footage or photos first, then free local generation, **never** CSS shapes or puppeted people |
+| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage or photos first, then free local generation, **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 
@@ -151,7 +151,7 @@ references/       loaded one § at a time, only at the step that needs it
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
   visual-direction.md  realism ladder, restraint, composition, review rubric
-  looks.md             the eight looks and how to offer them
+  looks.md             the nine looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps
@@ -168,7 +168,7 @@ scripts/
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
-  music_acestep.py     instrumental bed from ACE-Step 1.5, no UI
+  music_acestep.py     instrumental bed from ACE-Step 1.5 (only on request), no UI
   check_assets.mjs     licence gate for every asset → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
@@ -209,7 +209,7 @@ State lives in files, so a session can die and you resume from `BRIEF.md` + the 
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
-| mflux (Z-Image Turbo, SeedVR2) · ACE-Step 1.5 | photoreal stills + upscale · music | optional, free and local, Apache-2.0 / MIT; asked before installing; set `ACESTEP_DIR` to the ACE-Step checkout |
+| mflux (Z-Image Turbo, SeedVR2) · ACE-Step 1.5 | photoreal stills + upscale · music | not in the default path: only when you ask for generated stills or music (heavy local installs); free, Apache-2.0 / MIT; set `ACESTEP_DIR` to the ACE-Step checkout |
 
 The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — never printed, never written to a project file.
 

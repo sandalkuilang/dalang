@@ -32,9 +32,55 @@ that reads as:
 
 ### Added
 
+- **Real scale and interior direction** (`looks.md`, `brief.md`): metres per unit measured from known objects,
+  props modelled in metres, physics in real units; a `condition` (lived-in by default; worn only when the topic is
+  about age) and an `interior` style (American-Japandi by default) recorded in the brief; soft things stuffed and
+  dented, loose cushions settled by simulation, every prop resting on its own lowest points.
+- **True shapes and surfaces in 3D** (`looks.md`): soft and organic kit models subdivided (Loop, hard furniture
+  kept crisp); procedural triplanar surfaces with no UVs — worn paint flaking off plaster, woven cloth with sheen,
+  cotton pile, fine wood grain, micro-smudges; animals swept from their anatomy at real size and given shell fur
+  combed along the body; lamps that light the room with inverse-square falloff (drum-shade cones, a glowing
+  screen); displays fitted to the model's own screen face.
+- **Air and cloth** (`camera-motion.md` §5): a fan is a turbulent round jet that sweeps with its oscillating head
+  and is blocked by what stands in its way; curtains are simulated cloth moved by its drag; the fan is heard.
+- **Emotion-driven cinematography** (`camera-motion.md` §12): an emotion → size, angle, lens, focus, move,
+  light ratio, colour, shutter and frame-ratio table; every shot names its emotion and a motivation for each choice;
+  the SPEC rulebook with logged rule breaks at turning points; short-side motivated light with Kelvin → three.js
+  colours; headroom, negative space and rhyming final image; frame-ratio masks for 16:9; finishing order with
+  halation; approach presets from award-winning indie films; waveform, vectorscope and cut-sheet checks in Step 7.
+- **Real physics in 3D**: objects that touch, fall or collide are simulated with Rapier and baked per step
+  (deterministic, seekable; verified identical across two renders); the whole set collides, colliders match the
+  drawn shapes (round cuboids, hulls, per-leg hulls, caster balls), pushed things are dynamic with real mass and
+  rolling resistance, jointed parts are joints; a stiff solver, a settling pre-roll and a per-bake report
+  (penetration, floating, still moving, drift); impacts drive sound and reactions — each sound placed on its bake
+  time, a rolling sound following the speed, contact gains on a perceptual curve, verified by onset rise and a
+  null test against an offline mix; motion blur from the bake.
+  Resting props are dropped onto their real support and audited; rugs have thickness, cables lie on the floor
+  and end in sockets. Ambient motion at its real amount. A Craft review test checks contacts, causes and floating props.
+- **Set dressing**: every 3D set is dressed with the small true-to-life things that would be there, plus a few small
+  life motions; it decides whether a stylized set reads as real or as a toy. A `looks.md` recipe (CC0 kits
+  recoloured into the palette, creased normals, real-leaf plants, canvas textures, a light probe, ≥ 2 cm detail rule)
+  and a Realism review test.
 - `state.mjs log "<step> | <output> | <problems>"` writes a `PRODUCTION.md` line whose start is the previous
   line's end, so steps get real durations (`score_run.mjs` `logged_minutes` was 0) and ETAs can be given.
 - `scripts/key_white.py`: cut a product generated on a white light box (flood-fill key, `--holes` for a handle).
+- **Realism is a Step 1 choice**: hyperreal (looks like real footage) or stylized (a premium animated film: easy to
+  watch, reads at a glance, renders in seconds), explained with a per-topic preview. Stylized subjects are drawn on
+  purpose but still pass the Reality check against a real reference. New look I (toon explainer); look C is now the studio diorama (muted palette, one accent, grey void, three-quarter view), the default for stylized.
+- `looks.md` three.js recipes, verified by render: hyperreal (real HDRI rotated so a softbox edge sweeps the
+  hero, soft key shadow and rim, N8AO, gentle DOF, AgX, per-surface finishes) stylized toon (3-step ramp,
+  inverted-hull ink outline on smoothed normals, no tone mapping) and studio diorama (an approximated bake: RoomEnvironment
+  light, rounded matte parts, shadow-catcher ground, N8AO, neutral tone mapping; candy pastels read cheap). Path tracing was unreliable in the capture browser.
+- **Motion is three.js, not a video model:** local image-to-video (LTX-2, Wan) is dropped from the default path —
+  too heavy for a laptop; a subject that must act and has no footage is built in three.js. A generated clip only
+  as a paid exception the user asks for.
+
+### Changed
+
+- **No image or music generator in the default path.** `mflux` stills and ACE-Step music are heavy local
+  installs that load a laptop; they run only when the user asks. Music is a licensed free track (Openverse
+  CC0 / CC BY, no key, then Commons), looped and faded to the film's length; stills come from real sources and
+  three.js. Preflight no longer probes either generator and asks for a free stock-video key instead.
 
 ### Fixed
 
