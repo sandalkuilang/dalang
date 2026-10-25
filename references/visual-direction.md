@@ -67,7 +67,7 @@ The classic principles of animation, translated into what a timeline can do:
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`), a subtle lens imperfection on photoreal looks (chromatic aberration ≤ 1 px at the edges).
 - Banned: glow, bloom, particles as decoration, lens flares, glass cards, pill chips, neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, isometric 3D, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax (`camera-motion.md` §6.8), the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
 - One "wow" moment per film; a second cancels the first.
-- Continuous motion comes from the **camera** (a dolly of 1.00 → 1.04–1.06 over a shot, a 3–5° per second orbit in 3D, a slow parallax across a collage), the **light** (a slow sweep across the hero), or the **subject acting** (wheels turning, liquid pouring, a needle moving). Never from breathing or pulsing text and UI.
+- Continuous motion comes first from the **subject acting** (§3 "Minimum motion"), supported by the **camera** (a real move, `camera-motion.md` §10–11) and the **light** (a sweep, a shadow passing). Never from breathing or pulsing text and UI.
 
 ## 6. Cinematography
 
@@ -126,7 +126,7 @@ Three style frames at final quality plus a moving hook sample, approved at Gate 
 | Restraint | At most two moving things, the accent used once, nothing from the banned list. |
 | Craft | Eases vary by role, arrivals overlap, organic paths arc, no identical entrance two beats in a row; falls, landings and bounces obey gravity and mass; no velocity cliffs on multi-point paths. |
 | Consistency | Comparable moves use the same eases and durations on the MOTION line's base unit and stagger; groups move together. |
-| Camera | Every perceptible move comes from a real camera (footage, 3D, generated clip; CSS only drifts) and has its reason from the storyboard, one move per beat; A-roll and B-roll alternate and cut as one film; the wow shot lands on the impact; angle and lens came from the asset, not a CSS rotation; the scene's axis and eyelines hold; cuts land on the emotional or story word. |
+| Camera | The film uses its SPEC technique palette, each technique doing a story job; every perceptible move comes from a real camera (footage, 3D, generated clip; CSS only drifts) and has its reason from the storyboard, one move per beat; A-roll and B-roll alternate and cut as one film; the wow shot lands on the impact; angle and lens came from the asset, not a CSS rotation; the scene's axis and eyelines hold; cuts land on the emotional or story word. |
 | Cinematography | Shot sizes change with the shot's job and tighten toward the key beat, screen direction is kept, the colour script shifts by section. |
 | Composition | The hero meets the 45 % / 70 % size, text sits in the safe band, no side-by-side columns on 9:16. |
 | Clarity | The claim is visualised (not just written), and the eye lands on the right thing within 0.3 s. |

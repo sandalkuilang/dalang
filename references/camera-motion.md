@@ -1,6 +1,6 @@
 # Camera and motion: film grammar, physical timing, compositing
 
-Read in Step 5 (§1–4, §8 and §10 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
+Read in Step 5 (§1–4, §8, §10 and §11 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
@@ -99,7 +99,7 @@ Adds to `visual-direction.md` §1 "Compositing" and §9:
 
 ## 8. The motion-language line in `SPEC.md`
 
-Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = frame rate and shutter, the lens set in mm, the rigs the film uses (§10), the A/B pattern and the one wow shot; **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
+Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = frame rate and shutter, the lens set in mm, the rigs the film uses (§10), the A/B pattern, the one wow shot and the film's technique palette (6–10, §11); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
 
 ## 9. Generating stills with the angle in them (`mflux`)
 
@@ -134,5 +134,60 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 
 **A and B must cut as one film:** the same grade, grain and white balance through `media-treatment` on every clip; matched motion direction across the cut (§3); reject footage with a watermark, compression blocks, judder from a mismatched frame rate, or a look the grade can't pull together.
 
+## 11. The cinematographer's toolbox
+
+A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take **6–10** from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[F]** footage (search with the technique's name), **[3D]** three.js rig (§10), **[G]** generated clip (the prompt names it), **[2.5D]** depth layers (§6.8), **[C]** compositing in HyperFrames.
+
+**Light — mood and where to look**
+- **Contrast ratio** key:fill, `(key + fill) : fill`, each stop doubling it **[D]**: 2:1 bright and neutral (a friendly explainer), 4:1 dramatic (the photoreal default), 8:1 and up low-key (mystery, danger, the problem). Set it per section in the colour script; a ratio change is a mood change.
+- **Colour-temperature contrast:** a warm key (~3200 K) against cool ambient (~5600–6500 K) separates the subject from its world; flip it on the beat where something goes wrong.
+- **Practicals:** a lamp, screen or window inside the frame motivates the key and makes the set read as real.
+- **Edge light and negative fill:** a rim separates a dark subject from a dark ground; one shadow side kept dark. Flat front light is the generated look.
+- **Light as the event:** a shadow sweeps across, a door throws light in, a lamp switches on at the reveal, the sun moves (timelapse). It is real action without moving the camera **[F][3D][G]**.
+- **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
+
+**Lens — how the world feels**
+- **Wide close (14–24 mm near the subject):** intimacy or unease, a huge foreground. Use it for the point of view of something small or the inside of a machine.
+- **Telephoto compression (135 mm+):** distance stacks up — crowds, traffic, rows, "so many".
+- **Macro and probe lens:** a long thin lens that travels *inside* things — between gears, along a circuit, through food or plants. It's the explainer's signature: the mechanism at its own scale **[F][3D]**.
+- **Shallow vs deep focus:** shallow isolates one idea; deep shows how parts relate (a system). **Focus as narration:** rack from cause to effect on the word, or pull a subject sharp out of the blur as its reveal.
+- **Split diopter:** near and far both sharp, with a soft seam — two related things in one frame without a cut **[C]** (two focus layers).
+- **Tilt-shift:** one sharp band makes a real system look like a model; an overview of how a whole thing works **[F][C]**.
+- Anamorphic oval bokeh is fine; its horizontal flares are banned (`visual-direction.md` §5).
+
+**Movement — beyond §2**
+- **Reveal:** move past a foreground occluder (a wall edge, a leaf, a machine part) to uncover the subject or its scale **[F][3D][2.5D]**.
+- **Push-through:** the camera passes through a surface (a window, a mesh, a keyhole, the shell of an object) into the next space — a scene change with no cut **[3D][G]**.
+- **Crane up / down:** up lifts from the detail to the context (consequence, scale); down arrives from the context into the detail. **Top shot** (straight down) for systems, patterns, layouts **[F][3D]**.
+- **Tracking:** alongside a moving subject at its speed — it holds its place in frame while the world streams past **[F][3D]**.
+- **Arc / orbit, 15–45°:** shows the other side or the 3D form; a full 360° only for a product turntable **[3D][F]**.
+- **Oner:** one unbroken move through a whole process, explaining step by step as the camera travels; cuts hidden in dark passes or whips **[3D]**.
+- **Motion-control repeat:** the identical move over two states (before / after, option A / option B, new / worn), then cut or wipe between them. It's the strongest comparison shot there is **[3D]**, or **[G]** with a fixed seed and camera prompt.
+- **Frozen moment (bullet time):** time stops and the camera orbits the instant — an impact, a splash, a reaction **[3D]**.
+- **Drone / FPV dive:** from the sky into the subject. It's the wow shot or nothing (§10).
+
+**Time**
+- **Slow motion** for what the eye can't see — splashes, mechanisms, breaking (≥ 50 fps source, §10; any speed in 3D).
+- **Timelapse** for slow processes (wear, growth, a day, a build); **hyperlapse** is a timelapse with a travelling camera **[F][3D]**.
+- **Freeze-frame and annotate:** stop at the key instant, draw labels and leader lines on it, then release — an explainer staple **[C]**.
+- **Reverse** to show the cause; **speed ramp** for emphasis (§10).
+
+**Editing — beyond §3**
+- **Cross-cutting:** alternate two lines (A vs B, two processes) in the same framing, so the comparison lives in the rhythm.
+- **Collision montage:** two shots that together mean a third thing (waste next to a bin of money) — for an argument, not a fact.
+- **Graphic or morph match:** a shape becomes a similar shape in the next shot (a circle → a wheel → a gauge) to jump scale or idea.
+- **Invisible cut:** hidden behind a dark pass, a whip or an object crossing the lens (§3 "Occlusion wipe"); it keeps a oner unbroken.
+- **Insert as evidence:** a macro detail cut into a wide beat to prove the claim being spoken.
+- **Split screen** only on 16:9 for things happening at the same time; on 9:16, stacked top / bottom only if both read at 360 px (`visual-direction.md` §7).
+
+**Educational signatures — the scale and the inside**
+- **Scale journey ("powers of ten"):** one continuous zoom from human scale down to the microscopic (or out to the cosmic), with a scale bar counting **[3D]** (layered scale planes, real micrographs at the bottom).
+- **X-ray / ghost shell:** the outer surface fades to 20–35 % with a bright fresnel edge so the inner mechanism works visibly inside it **[3D]**.
+- **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]**.
+- **Exploded view:** parts separate along their assembly axes, get labelled, then reassemble (`/hyperframes` `types/3d.md`) **[3D]**.
+- **World-space labels:** text pinned to the object in 3D (it moves and parallaxes with the camera), with a leader line to the part — never floating UI **[3D]**.
+- **Map / terrain zoom:** from the globe down to the street for place-based topics; bake the camera move (`/hyperframes` `film.md`) **[C]**.
+- **Hands-on macro B-roll:** hands doing the real thing, very close and shallow — the faceless presenter **[F]**.
+
 ---
-Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns).
+Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots).

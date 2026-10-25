@@ -53,6 +53,12 @@ that reads as:
   shots with a real move) in a set pattern; every perceptible move from footage, a 3D rig camera (focal length,
   damped look-at, bokeh, sub-frame motion blur) or a generated clip, never CSS on a still; 24 fps / 180° for a
   film look; real slow motion and speed ramps from high-fps sources; one wow shot on the impact; a CAMERA line in SPEC.
+- **Cinematographer's toolbox** (`camera-motion.md` §11): light (contrast ratios, colour-temperature contrast,
+  practicals, light as the event), lens (wide close, telephoto, macro/probe, split diopter, tilt-shift, focus as
+  narration), movement (reveal, push-through, crane, tracking, orbit, oner, motion-control repeat, frozen moment),
+  time (slow motion, timelapse, freeze-and-annotate), editing (cross-cutting, collision montage, graphic match,
+  invisible cut) and explainer signatures (scale journey, x-ray shell, cutaway, exploded view, world-space labels).
+  Each film picks a 6–10 technique palette on SPEC's CAMERA line.
 - Preflight reports a free stock-video key (Pexels / Pixabay) for real motion footage; local LTX-2 image-to-video
   is listed as an optional install.
 - Asset pass (`review.md`): a fresh reviewer compares every generated still with its real reference before Gate 3
