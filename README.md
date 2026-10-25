@@ -43,7 +43,7 @@ git clone https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 
 ```bash
 # pin to a tagged release instead of main
-git clone --branch v1.0.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
+git clone --branch v1.2.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 
 # update an existing install to the newest release
 cd ~/.claude/skills/dalang && git fetch --tags && git checkout "$(git describe --tags --abbrev=0 origin/main)"
@@ -135,10 +135,11 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject, including what no camera can film (molecules, orbits, the inside of a machine) |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick |
-| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage or photos first, then free local generation, **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
+| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
 | **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier), cloth, one air field, plants, particles, water, fur — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
+| **Sound** | music is a licensed free track (your own, then Openverse CC0 / CC BY, credited), never generated; sound effects (bundled library, Openverse CC0) sit on the actions they belong to, timed from the physics where things collide |
 
 <br/>
 
@@ -213,7 +214,6 @@ State lives in files, so a session can die and you resume from `BRIEF.md` + the 
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
 | three 0.186.1 · Rapier 0.14.0 (pinned, in `engine/three/vendor`) | 3D sets and physics | free, MIT / Apache-2.0; `build.mjs` installs them once and bundles them into each project |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
-| mflux (Z-Image Turbo, SeedVR2) · ACE-Step 1.5 | photoreal stills + upscale · music | not in the default path: only when you ask for generated stills or music (heavy local installs); free, Apache-2.0 / MIT; set `ACESTEP_DIR` to the ACE-Step checkout |
 
 The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — never printed, never written to a project file.
 
