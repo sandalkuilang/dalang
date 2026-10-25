@@ -30,6 +30,48 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Router SKILL.md** (≤ 10 KB, survives auto-compaction intact) with the step details split into
+  `references/brief.md`, `script-voice.md`, `look-build.md`, `qc.md`; looks moved to `looks.md`.
+- **Fresh-eyes reviewer** (`references/review.md`) — a new subagent finds P0/P1/P2 defects into
+  `QC-REVIEW.md` before Gate 4; in autonomous mode its P0 list replaces the human eye.
+- **Moving sample at Gate 3** — the hook scene rendered with its narration next to the style frames.
+- **`references/camera-motion.md`** — film camera grammar (size, angle and lens by the shot's job,
+  motivated moves, axis and eyelines, Murch's cutting order, rhythm staircase), story shape and
+  faceless staging, physical timing (springs, gravity, mass, √distance, motion blur), compositing
+  (levels, light wrap, occlusion, 2.5D from one photo), design in time, and photoreal still prompts.
+- Storyboard columns for the shot's job, size · angle · lens, camera reason and J/L; a shot-grammar
+  check at Gate 3; MOTION and ANCHORS lines in `SPEC.md`; rubric rows Consistency and Camera.
+- **Forced alignment** (`scripts/align.py`) — word timing against the known script with Apache-2.0
+  CTC models; on by default when a model for the language is installed, else transcript timing.
+  Words get a `score`; low-score runs are flagged as "the voice may not say the script".
+- `scripts/fill_times.mjs` (`{{beat}}` expressions in the template), `state.mjs` (gate approvals,
+  stale on change), `qc.mjs` (black frames, clipping, silences, codec and colour tags),
+  `timing_lint.mjs` (cuts inside words, flicker scenes), `check_assets.mjs` (licence gate,
+  `CREDITS.md`), `score_run.mjs` + `references/evals.md` (golden briefs and a scorecard).
+- `audio/narration.srt` sidecar subtitles from the word timing.
+- VoiceStudio: `--steps` (default 32), `--seed` (default 42), `--save-profile` / `--ref` cloning,
+  VoxCPM2 (Apache-2.0) documented as the commercial-OK voice.
+
+### Changed
+
+- **Free tools by default**: VoiceStudio is the default engine; ElevenLabs and HeyGen are labelled
+  paid and used only on request; music offers ACE-Step 1.5 (MIT), never MusicGen; stills via `mflux`
+  with Apache-2.0 models only.
+- **Hyperreal subject in every look**; people only as real or generated footage, never puppets.
+- Sync means the value is readable on the word (lead / sync / wait per element).
+- Banned list extended with the dated 2026 tells (text scramble, RGB split, liquid blobs, isometric,
+  white flash, AI-gloss, …); one "wow" per film.
+- Scripts are written for the ear (spoken register, round numbers, at most one exact number per sentence).
+
+### Fixed
+
+- `loudness.mjs --fix` overshooting true peak (−0.5 dB headroom, honest "still off" message).
+- `stillness.mjs` lists the longest still stretches on a fail.
+- Estimated word timings are marked `est: true` and beats on them are warned.
+- Audition samples no longer overwrite each other (name per voice, style and seed).
+
 ## [1.0.0] - 2026-10-24
 
 First public release. The pipeline is stable: the steps, the four gates and the project

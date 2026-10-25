@@ -7,7 +7,7 @@ flowchart LR
     U(["User"]) <--> CC["Claude Code"]
     CC --> SK["dalang skill<br/>SKILL.md"]
 
-    SK -. loads lazily .-> REF["references/<br/>voice, visual-direction,<br/>craft-rules, measure-reference, lessons"]
+    SK -. loads lazily .-> REF["references/<br/>one file per step +<br/>visual-direction, camera-motion,<br/>looks, voice, lessons"]
     SK --> SC["scripts/"]
 
     subgraph SCR["scripts/"]
@@ -15,12 +15,15 @@ flowchart LR
         TTS["tts_timestamps.mjs"]
         ST["stillness.mjs"]
         LD["loudness.mjs"]
+        AL["align.py"]
+        QC["qc.mjs · timing_lint.mjs<br/>state.mjs · check_assets.mjs"]
         MR["measure_reference.sh"]
     end
     SC --- SCR
 
     TTS --> VS["VoiceStudio<br/>local, free"]
-    TTS --> EL["ElevenLabs<br/>cloud, paid"]
+    TTS --> AL
+    TTS -. only on request .-> EL["ElevenLabs<br/>cloud, paid"]
 
     SK -- hands off build --> HF["HyperFrames skills<br/>HTML to video"]
     HF --> FF["ffmpeg"]
@@ -39,7 +42,10 @@ flowchart LR
 | `references/` | craft knowledge, read one § at a time | get loaded wholesale |
 | `scripts/preflight.mjs` | environment check, ~15 lines of output | install anything, print secrets |
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
-| `scripts/stillness.mjs`, `loudness.mjs` | measured QC (stillness, LUFS / true peak) | judge taste |
+| `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
+| `scripts/stillness.mjs`, `loudness.mjs`, `qc.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, black frames, colour tags, cuts inside words) | judge taste |
+| `scripts/state.mjs`, `check_assets.mjs` | gate approvals (stale on change), licence gate + `CREDITS.md` | approve on the user's behalf outside autonomous mode |
+| fresh-eyes reviewer (`references/review.md`) | a defect list from a subagent with no build history | fix anything |
 | HyperFrames skills | scene building, preview, render | pick the script or voice |
 | Project files | all state (one video = one session) | live in the skill repo |
 

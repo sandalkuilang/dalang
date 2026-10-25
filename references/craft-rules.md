@@ -18,7 +18,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 ## 3. Beats: everything lands on a word
 
 - Nearly every change on screen happens exactly on a spoken word.
-- Animation start = `BEATS.<name>.start`, or 0.03–0.08 s earlier so it feels right to the ear. Never later — it feels late.
+- Sync means the thing is **readable on the word**, not that its tween starts there. Per element, choose: **lead** — structure the eye can prepare (axes, a card, a set) arrives ~0.2 s early; **sync** — a new fact or object lands by the word: start = `BEATS.<name>.start` minus its entrance time (a 1.4 s count-up is `{{name - 1.4}}`, so the value is settled when it is said; a quick entrance starts 0.03–0.08 s early); **wait** — a punchline, negation or withheld answer is gated to the revealing word. Never late: it feels late.
 - Quick test: if an object appears without a word triggering it, the object is probably unnecessary, or the script is missing a word.
 
 ## 4. Motion budget: no dead seconds
@@ -29,8 +29,9 @@ These are the numbers that make code-made animation feel alive. They come from m
 - A moving mouth alone **does not count** as motion. It is the number-one reason films feel dead.
 - Measure with `scripts/stillness.mjs`.
 
-## 5. The mitten rule (characters)
+## 5. The mitten rule (stylised characters only)
 
+- Only for a cartoon the user asked for (looks C, G). Real people follow `visual-direction.md` §1 "People are the hardest subject".
 - No fingers, no elbows, no body part bending at more than one point.
 - Why: fewer joints, fewer bugs. Five-fingered hands holding objects are the most common source of errors in code-made animation.
 - Suggested base shapes: round/oval head, bean-shaped body, mitten hands, short legs. Expression through eyes, brows, and mouth is enough.
@@ -52,7 +53,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 - Use sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
 - Final target: about −14 LUFS, true peak ≤ −1 dBTP (works for YouTube, Instagram, and TikTok). Check with `scripts/loudness.mjs`.
 
-## 8. "Ink + watercolour" palette (look E in visual-direction.md)
+## 8. "Ink + watercolour" palette (look G in visual-direction.md)
 
 | Role | Colour |
 |---|---|

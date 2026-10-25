@@ -44,7 +44,7 @@ function measure(file, a) {
   return JSON.parse(m[0]);
 }
 
-function report(label, j, a) {
+function report(label, j, a, fixed = false) {
   const I = parseFloat(j.input_i), TP = parseFloat(j.input_tp), LRA = parseFloat(j.input_lra);
   const diff = I - a.target;
   const okI = Math.abs(diff) <= a.tol;
@@ -55,6 +55,7 @@ function report(label, j, a) {
   console.log(`  Range (LRA)          : ${LRA.toFixed(1)} LU`);
   let verdict;
   if (okI && okTP) verdict = 'OK — loudness is on target.';
+  else if (fixed) verdict = `STILL OFF after normalising (${!okI ? `${diff >= 0 ? '+' : ''}${diff.toFixed(1)} dB` : 'peak'}): tame the loudest peaks in the mix (lower SFX, or a limiter) and measure again — rerunning --fix won't help.`;
   else if (!okI && diff < 0) verdict = `TOO QUIET by ${Math.abs(diff).toFixed(1)} dB. Raise the narration in the mix, or use --fix.`;
   else if (!okI) verdict = `TOO LOUD by ${diff.toFixed(1)} dB. Lower the mix, or use --fix.`;
   else verdict = 'Peak too high (may clip). Use --fix.';
@@ -71,11 +72,12 @@ const j = measure(a.file, a);
 const ok = report(`Loudness: ${a.file}`, j, a);
 
 if (a.fix) {
-  const filter = `loudnorm=I=${a.target}:TP=${a.tp}:LRA=${a.lra}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true:print_format=summary`;
+  // Aim the peak 0.5 dB lower: the AAC encode overshoots true peak by about that much.
+  const filter = `loudnorm=I=${a.target}:TP=${a.tp - 0.5}:LRA=${a.lra}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true:print_format=summary`;
   const r = ffmpeg(['-y', '-i', a.file, '-map', '0:v?', '-map', '0:a:0', '-c:v', 'copy', '-af', filter, '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', a.fix]);
   if (r.status !== 0) { console.error('FAILED to normalise:\n' + r.stderr.slice(-800)); process.exit(1); }
   const j2 = measure(a.fix, a);
-  const ok2 = report(`\nAfter fixing: ${a.fix}`, j2, a);
+  const ok2 = report(`\nAfter fixing: ${a.fix}`, j2, a, true);
   process.exit(ok2 ? 0 : 3);
 }
 process.exit(ok ? 0 : 3);

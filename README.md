@@ -24,7 +24,7 @@
 
 A *dalang* is the puppet master of Javanese shadow theatre: **one person who tells the story and moves every puppet.** That is the job this skill takes.
 
-You bring a topic. It writes the script, records the voice, finds out when every single **word** is spoken, then builds the animation on top of that timing — so nothing on screen is ever eyeballed. Pictures are built by the HyperFrames skills; the voice by a local engine (free) or ElevenLabs (paid). Dalang owns the part nobody else does: **the order of work, the approval gates, and the quality bar.**
+You bring a topic. It writes the script, records the voice, finds out when every single **word** is spoken, then builds the animation on top of that timing — so nothing on screen is ever eyeballed. Pictures are built by the HyperFrames skills; the voice by a free local engine (ElevenLabs only if you ask). Every tool on the default path is free and runs on your machine. Dalang owns the part nobody else does: **the order of work, the approval gates, and the quality bar.**
 
 > It was distilled from real runs. The biggest lesson: *"make it like that one"* is useless. *"Cut here, it appears exactly on this word, the hero fills 45 % of the frame"* works.
 
@@ -122,7 +122,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 <p align="center"><i>Scene C does not start at “about 6.4 seconds”. It starts at <code>BEATS.proof.start</code>.</i></p>
 
-The voice is recorded **before a single frame exists**, then transcribed back word by word. Named beats in the script (`{so here is the catch|proof}`) become exact timestamps, and every scene, cut and title references `BEATS.<name>.start`.
+The voice is recorded **before a single frame exists**, then timed word by word — by forced alignment against the script where a model for the language is installed, else by transcription. Named beats in the script (`{so here is the catch|proof}`) become exact timestamps, and every scene, cut and title references `BEATS.<name>.start`.
 
 Rewrite a sentence, regenerate, and the whole film re-times itself. No scene ever holds a hard-coded second.
 
@@ -135,8 +135,9 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick |
-| **Look** | cinematic photoreal · stylised 3D · 2D motion design · documentary collage · ink & watercolour — a physical hero comes from a real photo, **never** CSS shapes |
-| **Voice** | VoiceStudio (free, local) or ElevenLabs (cloud) — or **your own recording**, transcribed for timing at zero cost |
+| **Look** | cinematic photoreal · stylised 3D · 2D motion design · documentary collage · ink & watercolour — the subject is always hyperreal: real footage or photos first, then free local generation, **never** CSS shapes or puppeted people |
+| **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
+| **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 
 <br/>
 
@@ -145,16 +146,30 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 ```
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
 references/       loaded one § at a time, only at the step that needs it
-  voice.md             engine setup + the traps that cost hours
-  visual-direction.md  looks, realism ladder, cinematography, review rubric
-  craft-rules.md       boil, push-ins, motion budget, on-screen text
+  brief.md             steps 0–2: setup, the brief questions, a reference
+  script-voice.md      steps 3–4: writing for the ear, voice audition
+  look-build.md        steps 5–6: SPEC, storyboard, style frames, build
+  qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
+  visual-direction.md  realism ladder, restraint, composition, review rubric
+  looks.md             the eight looks and how to offer them
+  camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
+  craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
+  voice.md             engine setup, cloning, forced alignment, the traps
   measure-reference.md how to borrow craft from a reference — legally
   lessons.md           every real failure, and why a rule exists
+  evals.md             golden briefs to run before and after changing the skill
 scripts/
   preflight.mjs        whole environment in one call
-  tts_timestamps.mjs   narration → words.json + beats.js
+  tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
+  align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
+  fill_times.mjs       {{beat}} expressions in the template → index.html
+  state.mjs            gate approvals, stale when files change
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
+  qc.mjs               black frames, clipping, silences, codec + colour tags
+  timing_lint.mjs      every cut between words, no flicker scenes
+  check_assets.mjs     licence gate for every asset → CREDITS.md
+  score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
 docs/             workflow + architecture, with diagrams
 ```
@@ -191,7 +206,9 @@ State lives in files, so a session can die and you resume from `BRIEF.md` + the 
 |---|---|---|
 | Node.js · ffmpeg | everything | `preflight.mjs` says what's missing |
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
-| VoiceStudio **or** ElevenLabs | narration + word timing | VoiceStudio is free and runs locally |
+| VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
+| Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
+| mflux · ACE-Step | photoreal stills · music | optional, free and local; asked before installing |
 
 The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — never printed, never written to a project file.
 
@@ -202,7 +219,7 @@ The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — n
 
 <br/>
 
-Give it a topic and walk away: it defaults to 16:9, 60–90 s, your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and **stops at a draft**. The final render only happens if you said *"just finish it"* up front.
+Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language).
 
 </details>
 
@@ -218,6 +235,8 @@ Borrowing the **craft** of a video you admire — section lengths, cut rhythm, c
 
 [MIT](LICENSE) — do what you like with the skill.
 
-One thing that is *not* ours to license: the **ElevenLabs free tier** and **VoiceStudio's default model** are non-commercial. That limit follows the audio they generate, not this repo.
+Not ours to license: VoiceStudio's default **OmniVoice** weights (CC-BY-NC) and the **ElevenLabs free tier** are non-commercial; **VoxCPM2** is Apache-2.0. That limit follows the audio they generate, not this repo. `check_assets.mjs --commercial` fails any non-commercial asset before a monetised render.
+
+Parts of `references/camera-motion.md` paraphrase [smixs/visual-skills](https://github.com/smixs/visual-skills) by Serge Shima (CC BY 4.0) and [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT); see [NOTICE](NOTICE).
 
 <div align="center"><br/><sub>Built because "make it like that one" is not a brief.</sub></div>

@@ -52,7 +52,7 @@ async function voicestudio() {
   try { sealOk = readdirSync(sealDir).some(f => !f.includes('.partial') && statSync(path.join(sealDir, f)).size > 50e6); } catch { /* no cache */ }
   return [
     ['VoiceStudio', 'OK', `v${health.body?.version ?? '?'} on ${health.body?.device ?? '?'}`],
-    ['  TTS model', ttsOk ? 'OK' : 'MISSING', ttsOk ? `${tts.model || 'k2-fsa/OmniVoice'}` : 'install with consent (references/voice.md "Models")'],
+    ['  TTS model', ttsOk ? 'OK' : 'MISSING', ttsOk ? `${tts.model || 'k2-fsa/OmniVoice'}${/omnivoice/i.test(tts.model || 'omnivoice') ? ' — weights CC-BY-NC: non-commercial videos only (references/voice.md "Licence")' : ''}` : 'install with consent (references/voice.md "Models")'],
     ['  ASR (word timing)', asrOk ? 'OK' : 'MISSING', asrOk ? `${asr.engine} ${asrRepo}` : `active: ${asr.engine || 'none'} ${asrRepo || ''} not installed — install faster-whisper turbo + tier "balanced" (references/voice.md)`],
     ['  AudioSeal watermark', sealOk ? 'OK' : 'MISSING', sealOk ? '' : 'pre-download outside the backend before the first generation (references/voice.md)'],
   ];
@@ -60,23 +60,37 @@ async function voicestudio() {
 
 async function elevenlabs() {
   const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) return [['ElevenLabs', 'WARN', 'no key — fine, use VoiceStudio']];
+  // Paid service: reported, never required, never used unless the user asks.
+  if (!key) return [['ElevenLabs (paid)', 'SKIP', 'no key — not needed, free VoiceStudio is the default']];
   const s = await get('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': key } });
-  if (!s || s.status !== 200) return [['ElevenLabs', 'WARN', `key rejected (${s?.status ?? 'network'}) — check permissions`]];
+  if (!s || s.status !== 200) return [['ElevenLabs (paid)', 'SKIP', `key rejected (${s?.status ?? 'network'}) — not needed`]];
   const b = s.body;
-  return [['ElevenLabs', 'OK', `tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? ' — free: non-commercial, no cloning/library voices' : ''}`]];
+  return [['ElevenLabs (paid)', 'PAID', `optional, only if the user asks — tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? '; free tier: non-commercial, no cloning/library voices' : ''}`]];
 }
 
 async function media() {
-  const [r, mflux] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('mflux-generate', ['--help'], 15000)]);
+  const [r, mflux, ace, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('mflux-generate', ['--help'], 15000), run('which', ['acestep']), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
   const lines = (r.out + r.err).split('\n');
   const heygen = lines.some(l => /^✓.*heygen/i.test(l)) && !lines.some(l => /^✗.*heygen/i.test(l));
-  const stale = lines.find(l => /skill.*(out of date|missing)/i.test(l));
+  // Name the stale skills; optional skills that were never installed don't matter.
+  let stale = null;
+  try {
+    const s = JSON.parse(sk.out.slice(sk.out.indexOf('{'))).skills || [];
+    const used = ['hyperframes', 'hyperframes-cli', 'hyperframes-registry', 'media-use']; // what dalang loads
+    const bad = s.filter(x => x.status === 'outdated' || (x.status === 'missing' && used.includes(x.name))).map(x => `${x.name} ${x.status}`);
+    if (bad.length) stale = bad.join(', ');
+  } catch { stale = lines.find(l => /skill.*(out of date|missing)/i.test(l))?.trim() || null; }
   const out = [
-    ['Images (photoreal)', heygen || mflux.ok ? 'OK' : 'WARN', heygen || mflux.ok ? [heygen && 'HeyGen', mflux.ok && 'mflux'].filter(Boolean).join(' + ') : 'no generator — use user photos or CC0/CC BY photos, or offer HeyGen sign-in / mflux (references/visual-direction.md §1)'],
-    ['Music', heygen ? 'OK' : 'WARN', heygen ? 'HeyGen' : 'no generator — offer HeyGen sign-in or local MusicGen; 19 bundled SFX still work'],
+    // Free path only: mflux (stills) and ACE-Step (music). ponytail: ACE-Step detected by its `acestep` CLI on PATH (unverified for 1.5); a repo-only install shows WARN. HeyGen spends metered credits, so it is listed as paid.
+    ['Images (photoreal)', mflux.ok ? 'OK' : 'WARN', mflux.ok ? 'mflux (free, local)' : 'no free generator — real subjects come from user photos/footage or free licensed photos/video; offer local mflux (free; ask before installing) (references/visual-direction.md §1)'],
+    ['Music', ace.ok ? 'OK' : 'WARN', ace.ok ? 'ACE-Step (free, local, MIT)' : 'no free generator — offer local ACE-Step 1.5 (MIT; ask before installing); never MusicGen (non-commercial weights); 19 bundled SFX still work'],
+    ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
-  if (stale) out.push(['HyperFrames skills', 'WARN', `${stale.trim()} — npx hyperframes skills update (ask first)`]);
+  // Forced aligner (tts_timestamps.mjs): which languages have a local model.
+  let langs = []; try { langs = readdirSync(process.env.ALIGN_MODELS || path.join(homedir(), '.cache', 'dalang', 'align')); } catch {}
+  out.push(['Word aligner', langs.length ? 'OK' : 'INFO', langs.length ? `local models: ${langs.join(', ')} (sharper word timing)` : 'no local model — timing from transcript; optional download per language (references/voice.md "Forced alignment")']);
+  if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — npx hyperframes skills update (ask first)`]);
+  if (process.env.GEMINI_API_KEY) out.push(['Snapshots', 'WARN', 'GEMINI_API_KEY is set — `hyperframes snapshot` uploads frames to Gemini unless you pass --describe false']);
   return out;
 }
 
@@ -84,5 +98,5 @@ const groups = await Promise.all([tools(), voicestudio(), elevenlabs(), media()]
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(7)} ${item.padEnd(22)} ${note}`);
-const voiceOk = rows.some(([i, s]) => i === '  ASR (word timing)' && s === 'OK') || rows.some(([i, s]) => i === 'ElevenLabs' && s === 'OK');
-if (!asJson) console.log(voiceOk ? '\nVoice: ready.' : '\nVoice: no engine ready yet — fix VoiceStudio (free) or set an ElevenLabs key.');
+const voiceOk = rows.some(([i, s]) => i === '  ASR (word timing)' && s === 'OK');
+if (!asJson) console.log(voiceOk ? '\nVoice: ready (free, VoiceStudio).' : '\nVoice: VoiceStudio not ready — fix it (free, references/voice.md "Setup"); a paid engine only if the user asks.');
