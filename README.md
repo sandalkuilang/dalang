@@ -168,6 +168,7 @@ scripts/
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
+  music_acestep.py     instrumental bed from ACE-Step 1.5, no UI
   check_assets.mjs     licence gate for every asset → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
@@ -208,7 +209,7 @@ State lives in files, so a session can die and you resume from `BRIEF.md` + the 
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
-| mflux · ACE-Step | photoreal stills · music | optional, free and local; asked before installing |
+| mflux (Z-Image Turbo, SeedVR2) · ACE-Step 1.5 | photoreal stills + upscale · music | optional, free and local, Apache-2.0 / MIT; asked before installing; set `ACESTEP_DIR` to the ACE-Step checkout |
 
 The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — never printed, never written to a project file.
 

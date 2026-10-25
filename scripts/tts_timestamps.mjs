@@ -144,11 +144,14 @@ async function vs(a, pathname, init = {}) {
   return res;
 }
 
-// Split text into chunks of whole lines, each well under VoiceStudio's 4,096-character cap
-// and short enough that one request never nears the 5-minute fetch header timeout.
+// Split text into chunks of whole lines (whole sentences when a line is too long), each well under
+// VoiceStudio's 4,096-character cap and its 300 s compute limit per request. VoxCPM2 on a 16 GB Mac
+// runs ~22× slower than real time, so its chunks stay near 120 characters (~9 s of speech).
 function chunkLines(text, max = 700) {
   const out = [];
-  for (const line of text.split('\n').map(l => l.trim()).filter(Boolean)) {
+  const units = text.split('\n').map(l => l.trim()).filter(Boolean)
+    .flatMap(l => l.length <= max ? [l] : (l.match(/[^.!?…。！？]+[.!?…。！？]*\s*/g) || [l]).map(s => s.trim()).filter(Boolean));
+  for (const line of units) {
     if (out.length && (out[out.length - 1] + ' ' + line).length <= max) out[out.length - 1] += ' ' + line;
     else out.push(line);
   }
@@ -188,13 +191,14 @@ async function vsSaveProfile(a) {
 // Speak with VoiceStudio, transcribe it back with word timestamps, and turn the words into
 // an ElevenLabs-shaped character alignment so the rest of the pipeline stays the same.
 async function vsGenerate(a, text, audioPath) {
-  const chunks = chunkLines(text);
+  const chunks = chunkLines(text, /voxcpm/i.test(a.model || '') ? 120 : 700);
   const parts = [];
   for (const [k, input] of chunks.entries()) {
     const body = { model: a.model, input, voice: a.voiceId || a.voice || 'default', response_format: 'wav' };
     if (a.language) body.language = a.language;
     if (a.speed) body.speed = a.speed;
-    if (a.instructions) body.instructions = a.instructions;
+    // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
+    if (a.instructions) body[/voxcpm/i.test(a.model || '') ? 'description' : 'instructions'] = a.instructions;
     if (Number.isInteger(a.seed)) body.seed = a.seed;
     if (Number.isInteger(a.steps)) body.num_step = a.steps;
     const res = await vs(a, '/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

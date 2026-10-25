@@ -68,8 +68,12 @@ async function elevenlabs() {
   return [['ElevenLabs (paid)', 'PAID', `optional, only if the user asks — tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? '; free tier: non-commercial, no cloning/library voices' : ''}`]];
 }
 
+// ACE-Step 1.5 has no CLI on PATH: its checkout is ACESTEP_DIR, or one of the usual clone places.
+const aceDir = () => [process.env.ACESTEP_DIR, path.join(homedir(), 'ACE-Step-1.5'), path.join(homedir(), 'tools', 'ACE-Step-1.5')].find(d => d && existsSync(path.join(d, 'checkpoints', 'acestep-v15-turbo')) && existsSync(path.join(d, '.venv', 'bin', 'python')));
+const aceReady = () => Boolean(aceDir());
+
 async function media() {
-  const [r, mflux, ace, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('mflux-generate', ['--help'], 15000), run('which', ['acestep']), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
+  const [r, mflux, ace, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('mflux-generate-z-image-turbo', ['--help'], 15000), Promise.resolve({ ok: aceReady() }), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
   const lines = (r.out + r.err).split('\n');
   const heygen = lines.some(l => /^✓.*heygen/i.test(l)) && !lines.some(l => /^✗.*heygen/i.test(l));
   // Name the stale skills; optional skills that were never installed don't matter.
@@ -81,9 +85,9 @@ async function media() {
     if (bad.length) stale = bad.join(', ');
   } catch { stale = lines.find(l => /skill.*(out of date|missing)/i.test(l))?.trim() || null; }
   const out = [
-    // Free path only: mflux (stills) and ACE-Step (music). ponytail: ACE-Step detected by its `acestep` CLI on PATH (unverified for 1.5); a repo-only install shows WARN. HeyGen spends metered credits, so it is listed as paid.
-    ['Images (photoreal)', mflux.ok ? 'OK' : 'WARN', mflux.ok ? 'mflux (free, local)' : 'no free generator — real subjects come from user photos/footage or free licensed photos/video; offer local mflux (free; ask before installing) (references/visual-direction.md §1)'],
-    ['Music', ace.ok ? 'OK' : 'WARN', ace.ok ? 'ACE-Step (free, local, MIT)' : 'no free generator — offer local ACE-Step 1.5 (MIT; ask before installing); never MusicGen (non-commercial weights); 19 bundled SFX still work'],
+    // Free path only: mflux (stills; `--help` also catches a broken Pillow) and ACE-Step (music: no CLI, found by its checkout). HeyGen spends metered credits, so it is listed as paid.
+    ['Images (photoreal)', mflux.ok ? 'OK' : 'WARN', mflux.ok ? 'mflux + Z-Image Turbo (free, local)' : 'no free generator — real subjects come from user photos/footage or free licensed photos/video; offer local mflux (free; ask before installing) (references/visual-direction.md §1)'],
+    ['Music', ace.ok ? 'OK' : 'WARN', ace.ok ? `ACE-Step 1.5 (free, local, MIT) at ${aceDir()}` : 'no free generator (or ACESTEP_DIR unset) — offer local ACE-Step 1.5 (MIT, ~8.5 GB; ask before installing); never MusicGen (non-commercial weights); 19 bundled SFX still work'],
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
   // Forced aligner (tts_timestamps.mjs): which languages have a local model.

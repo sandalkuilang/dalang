@@ -46,3 +46,4 @@ Each line is a failure that already happened. Read this file when something goes
 - **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
 - **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
 - **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.
+- **VoxCPM2 timed out** (300 s compute limit) on its first call while OmniVoice and a benchmark held the memory; alone it worked at ~22× real time. Heavy model jobs run one at a time; VoxCPM2 gets ~120-character chunks.

@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-25
+
 ### Added
 
 - **Router SKILL.md** (≤ 10 KB, survives auto-compaction intact) with the step details split into
@@ -51,8 +53,13 @@ that reads as:
   `timing_lint.mjs` (cuts inside words, flicker scenes), `check_assets.mjs` (licence gate,
   `CREDITS.md`), `score_run.mjs` + `references/evals.md` (golden briefs and a scorecard).
 - `audio/narration.srt` sidecar subtitles from the word timing.
-- VoiceStudio: `--steps` (default 32), `--seed` (default 42), `--save-profile` / `--ref` cloning,
-  VoxCPM2 (Apache-2.0) documented as the commercial-OK voice.
+- Free local generators, measured on a 16 GB M5: `mflux` + Z-Image Turbo (`--low-ram`, ~100 s per
+  1024² still), SeedVR2 upscale (~110 s for 2×), and `scripts/music_acestep.py` for ACE-Step 1.5
+  (~8 min per 30 s); preflight detects them properly (`mflux-generate-z-image-turbo --help`, `ACESTEP_DIR`).
+- VoiceStudio: `--steps` (default 32), `--seed` (default 42), `--save-profile` / `--ref` cloning.
+- VoxCPM2 (Apache-2.0) as the commercial-OK voice: `--model voxcpm2` sends `--instructions` as its
+  `description` and ~120-character chunks (it runs ~22× slower than real time on a 16 GB Mac, and
+  VoiceStudio abandons requests over 300 s of compute).
 
 ### Changed
 
@@ -120,5 +127,6 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/sandalkuilang/dalang/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sandalkuilang/dalang/releases/tag/v1.0.0
