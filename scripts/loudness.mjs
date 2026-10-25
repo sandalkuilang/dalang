@@ -10,6 +10,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 
 function parseArgs(argv) {
   const a = { target: -14, tp: -1, lra: 11, tol: 1 };
@@ -71,6 +72,7 @@ if (!hasAudio(a.file)) { console.log('This file has no audio track. Nothing to m
 const j = measure(a.file, a);
 const ok = report(`Loudness: ${a.file}`, j, a);
 
+if (a.fix && path.resolve(a.fix) === path.resolve(a.file)) { console.error('FAILED: --fix needs a new output file; ffmpeg cannot overwrite the file it reads.'); process.exit(1); }
 if (a.fix) {
   // Aim the peak 0.5 dB lower: the AAC encode overshoots true peak by about that much.
   const filter = `loudnorm=I=${a.target}:TP=${a.tp - 0.5}:LRA=${a.lra}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true:print_format=summary`;

@@ -53,8 +53,9 @@ for (const line of r.stderr.split('\n')) {
 }
 if (cur) { cur.end = duration; segs.push(cur); }
 
-const overlapsAllowed = s => a.allow.some(([x, y]) => s.start >= x - 0.25 && s.end <= y + 0.25);
-const counted = segs.filter(s => !overlapsAllowed(s));
+// Planned pauses (--allow a-b) are cut out of each still stretch; what is left still counts.
+const counted = segs.flatMap(s => a.allow.reduce((parts, [x, y]) => parts.flatMap(p =>
+  y <= p.start || x >= p.end ? [p] : [{ start: p.start, end: x }, { start: y, end: p.end }].filter(q => q.end - q.start > 0.25)), [s]));
 const total = counted.reduce((t, s) => t + (s.end - s.start), 0);
 const pct = (total / duration) * 100;
 const longest = counted.reduce((m, s) => Math.max(m, s.end - s.start), 0);

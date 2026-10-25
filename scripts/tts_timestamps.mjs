@@ -13,6 +13,7 @@
 //   node tts_timestamps.mjs --input narration.txt --out audio --voice <profile> --language en
 //   node tts_timestamps.mjs --engine elevenlabs --input narration.txt --out audio --voice "Chris" --language en
 //   node tts_timestamps.mjs --input narration.txt --out audio --from-response audio/narration.response.json
+//                              -> re-time after moving {} markers, no new audio (language read from the response)
 //   node tts_timestamps.mjs --input dialogue.txt --out audio --from-audio recording.mp4 --language en
 //                              -> the user's own recording is the voice track (VoiceStudio only transcribes it)
 //   node tts_timestamps.mjs --input dialogue.txt --out audio --voices <name>=<voice>,<name>=<voice>
@@ -34,17 +35,20 @@
 // --language takes an ISO 639-1 code (en, id, es, ja, ...). Omit it to let the model auto-detect.
 // --speed: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4. --vs-url defaults to http://localhost:3900.
 // --seed (VoiceStudio, default 42): fixed sampling seed, so an approved sample and the full take match.
-// --align off skips forced alignment (on by default when align.py, its Python deps and a model for
+// --align auto|off: off skips forced alignment (on by default when align.py, its Python deps and a model for
 // --language are present; else timing comes from transcribing the audio).
 // --steps (VoiceStudio OmniVoice, default 32 = the model's documented quality preset; the app default is 16; 32 takes longer).
-// Outputs: <out>/words.json ({ i, text, start, end, est? } — est = timing estimated), beats.json,
-// beats.js (BEATS, BEATS_LIST, SECTIONS, WORDS, NARRATION_DURATION[, LINES]). The last line is "DONE <audio>".
+// Outputs: <out>/words.json ({ i, text, start, end, est?, score? } — est = timing estimated), beats.json,
+// beats.js (BEATS, BEATS_LIST, SECTIONS, WORDS, NARRATION_DURATION[, LINES]), narration.srt (sidecar subtitles). The last line is "DONE <audio>".
 // The ElevenLabs key is read from env ELEVENLABS_API_KEY and is never printed.
 
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 
 const API = 'https://api.elevenlabs.io';
 const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000 };
@@ -79,9 +83,9 @@ function parseArgs(argv) {
       case '--from-response': a.fromResponse = next(); break;
       case '--from-audio': a.fromAudio = next(); break;
       case '--voices': a.voices = next().toLowerCase(); break;
-      case '--seed': a.seed = parseInt(next(), 10); break;
+      case '--seed': a.seed = parseInt(next(), 10); if (!Number.isInteger(a.seed)) die('--seed needs an integer'); break;
       case '--steps': a.steps = parseInt(next(), 10); break;
-      case '--align': a.align = next(); break;
+      case '--align': a.align = next(); if (!['auto', 'off'].includes(a.align)) die('--align takes auto or off'); break;
       case '--save-profile': a.saveProfile = next(); break;
       case '--ref': a.ref = next(); break;
       case '--ref-text': a.refText = next(); break;
@@ -330,7 +334,8 @@ function parseNarration(raw, sample) {
     const flat = spoken.replace(/\n/g, ' ');
     const sentences = flat.match(/[^.!?…。！？]+[.!?…。！？]+\s*/g) || [flat];
     let out = '';
-    for (const s of sentences) { out += s; if (stripTags(out.replace(/[{}]|\|[^}]*\}/g, '')).length >= 300) break; }
+    // Never stop inside a {beat}: an unclosed brace fails the parse below.
+    for (const s of sentences) { out += s; if (stripTags(out.replace(/[{}]|\|[^}]*\}/g, '')).length >= 300 && !/\{[^}]*$/.test(out)) break; }
     spoken = out.trim() || flat.slice(0, 300);
   }
 
@@ -466,7 +471,6 @@ function mapTimes(clean, alignment) {
   return { times, exact: false };
 }
 
-const isTag = w => /^\[[^\]]*\]$/.test(w);
 // Character mask of every [tag] span. Tags can contain spaces ("[strong Scottish accent]"),
 // so whitespace-split tokens can't be tested one by one.
 const tagMask = str => {
@@ -497,9 +501,11 @@ function buildWords(clean, times, quiet = [], gaps = []) {
   const words = [];
   const inTag = tagMask(clean);
   for (const m of clean.matchAll(/\S+/g)) {
-    const w = m[0];
-    if (inTag[m.index]) continue;
-    const s = m.index, e = m.index + w.length;
+    // "[excited]Hello" keeps "Hello"; a token of punctuation only ("—", "...") is not a word.
+    let s = m.index; const e = m.index + m[0].length;
+    while (s < e && inTag[s]) s++;
+    const w = clean.slice(s, e);
+    if (!w || !/[\p{L}\p{N}]/u.test(w)) continue;
     let t0 = null, t1 = null;
     for (let i = s; i < e; i++) if (times[i] && /[\p{L}\p{N}]/u.test(clean[i])) { t0 = times[i][0]; break; }
     for (let i = e - 1; i >= s; i--) if (times[i] && /[\p{L}\p{N}]/u.test(clean[i])) { t1 = times[i][1]; break; }
@@ -547,7 +553,7 @@ function forceAlign(a, audioPath, clean, words, times) {
     mkdirSync(tmp, { recursive: true });
     const txt = path.join(tmp, 'text.txt'), out = path.join(tmp, 'aligned.json');
     writeFileSync(txt, words.map(w => clean.slice(w._s, w._e)).join(' '));
-    execFileSync(process.env.DALANG_PYTHON || VS_PY, [new URL('align.py', import.meta.url).pathname, '--audio', audioPath, '--text', txt, '--lang', a.language.toLowerCase().split('-')[0], '--out', out], { stdio: ['ignore', 'ignore', 'pipe'] });
+    execFileSync(process.env.DALANG_PYTHON || VS_PY, [fileURLToPath(new URL('align.py', import.meta.url)), '--audio', audioPath, '--text', txt, '--lang', a.language.toLowerCase().split('-')[0], '--out', out], { stdio: ['ignore', 'ignore', 'pipe'] });
     const al = JSON.parse(readFileSync(out, 'utf8'));
     if (al.length !== words.length) return { note: `aligner returned ${al.length} words for ${words.length}; kept transcript timing` };
     words.forEach((w, k) => {
@@ -599,7 +605,7 @@ function buildSrt(words, clean) {
   const ts = t => new Date(Math.max(0, t) * 1000).toISOString().slice(11, 23).replace('.', ',');
   return cues.map((c, i) => {
     const next = cues[i + 1]?.[0].start ?? Infinity;
-    const end = Math.min(Math.max(c[c.length - 1].end, c[0].start + 1), next - 0.05);
+    const end = Math.max(c[0].start + 0.04, Math.min(Math.max(c[c.length - 1].end, c[0].start + 1), next - 0.05));
     let text = c.map(x => x.tok).join(' ');
     if (text.length > 42) { const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2)); if (mid > 0) text = `${text.slice(0, mid)}\n${text.slice(mid + 1)}`; }
     return `${i + 1}\n${ts(c[0].start)} --> ${ts(end)}\n${text}\n`;
@@ -647,12 +653,13 @@ async function main() {
   const slug = s => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
   const baseFor = id => !a.sample ? a.name
     : a.name !== 'narration' ? `sample-${slug(a.name)}`
-    : ['sample', a.voice || id || 'voice', a.instructions && slug(a.instructions).slice(0, 32), a.engine === 'voicestudio' && `s${a.seed}`, a.speed && `x${a.speed}`].filter(Boolean).map(slug).join('-');
+    : ['sample', a.voice || id || 'voice', a.instructions && `${slug(a.instructions).slice(0, 24)}-${createHash('sha1').update(a.instructions).digest('hex').slice(0, 6)}`, a.engine === 'voicestudio' && `s${a.seed}`, a.speed && `x${a.speed}`].filter(Boolean).map(slug).join('-');
   let response;
   let voiceId = null;
   if (a.fromResponse) {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
+    a.language ??= response._meta?.language ?? null;
     if (response._meta?.text && response._meta.text !== clean) {
       console.warn('WARNING: the narration words differ from when this response was made. Timing may be off; regenerate the audio if the words changed.');
     }
@@ -695,7 +702,8 @@ async function main() {
   const alignment = response.alignment || response.normalized_alignment;
   if (!alignment) die('Response has no alignment (timing) data. Try another model with --model.');
 
-  const base = baseFor(voiceId);
+  // Re-timing a sample keeps that sample's own name, not one rebuilt from today's flags.
+  const base = a.fromResponse && a.sample && response.audio_file ? path.parse(response.audio_file).name : baseFor(voiceId);
   let audioPath;
   if (response.audio_base64) {
     audioPath = path.join(a.out, `${base}.${ext(response._meta?.engine === 'voicestudio' ? 'wav' : a.format)}`);
@@ -703,12 +711,14 @@ async function main() {
   } else if (response.audio_file) {
     audioPath = path.join(a.fromResponse ? path.dirname(a.fromResponse) : a.out, response.audio_file); // VoiceStudio: audio already on disk
   } else die('Response has neither audio_base64 nor audio_file.');
+  if (!existsSync(audioPath)) die(`Audio file ${audioPath} is missing; timing needs it.`);
   if (!a.fromResponse) await writeFile(path.join(a.out, `${base}.response.json`), JSON.stringify(response));
 
   const { times, exact } = mapTimes(clean, alignment);
   let { words, missing } = buildWords(clean, times, response.transcript ? silences(audioPath) : [], gaps);
   // ElevenLabs returns exact character times; only transcribed timing benefits from alignment.
-  const aligned = response.transcript && a.align !== 'off' && a.language ? forceAlign(a, audioPath, clean, words, times) : null;
+  const aligned = !response.transcript || a.align === 'off' ? null
+    : a.language ? forceAlign(a, audioPath, clean, words, times) : { note: 'no --language, so no alignment model' };
   if (aligned?.ok) { missing = words.filter(w => w.est).length; for (const w of words) { w.start = round(w.start); w.end = round(w.end); } }
   const beatList = buildBeats(beats, words, times, clean);
   const sectionList = buildSections(sections, words);
@@ -733,7 +743,7 @@ async function main() {
       `window.NARRATION_DURATION = ${duration};\n` +
       (lineList.length ? `// Dialogue: who speaks when — drives cuts, close-ups and mouth movement.\nwindow.LINES = ${JSON.stringify(lineList)};\n` : '');
     await writeFile(path.join(a.out, 'beats.js'), js);
-    if (!order.length) await writeFile(path.join(a.out, 'narration.srt'), buildSrt(words, clean));
+    await writeFile(path.join(a.out, 'narration.srt'), buildSrt(words, clean));
   }
 
   const nWords = publicWords.length;

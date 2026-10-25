@@ -67,6 +67,25 @@ that reads as:
 
 ### Fixed
 
+- Style frames have one home (`style-frames/src/`, `look-build.md` §5); the hook sample is the one
+  allowed high-quality render before Gate 4.
+- Step 7 no longer edits `SPEC.md` (it made Gate 3 stale and blocked Gate 4); defaults go to `PRODUCTION.md`.
+- Every file in `assets/` (narration, music, SFX too) goes into `ASSETS.json`; `check_assets.mjs` no
+  longer reads "Licence" as non-commercial, fails ND licences, and survives entries without `file`.
+- `tts_timestamps.mjs`: `--from-response` reads the language from the response (alignment no longer
+  skipped silently); `--sample` never cuts inside a `{beat}`; punctuation-only tokens are not words;
+  `[tag]Word` keeps the word; SRT cues never end before they start; SRT for dialogue too; audio paths
+  with spaces; sample names hash the full instructions.
+- `fill_times.mjs`: untimed beats fail instead of becoming 0; beat names like `new` no longer break it.
+- `align.py` keeps accented letters the model knows (ñ, ä, й).
+- `score_run.mjs`: a crashed check reads `error`, not 0; open P0/P1 only; logged minutes as a union; no
+  side effects. `state.mjs`: every earlier gate must be approved; `check` without a gate. `stillness.mjs`
+  subtracts `--allow` ranges. `qc.mjs` flags black over 1 s at the start or end. `loudness.mjs` refuses
+  `--fix` onto its own input. `timing_lint.mjs` reads single-quoted attributes. `preflight.mjs`: aligner
+  row checks the model and Python; "Voice: ready" needs TTS and ASR.
+- Docs: drift vs stillness, cut density and push-in numbers agree across files; HeyGen is paid everywhere;
+  the arc and beat map live in Step 3; fps stored in `BRIEF.md`; `approve 4 --by`; ~3 KB of duplicated or
+  dead text removed.
 - `loudness.mjs --fix` overshooting true peak (−0.5 dB headroom, honest "still off" message).
 - `stillness.mjs` lists the longest still stretches on a fail.
 - Estimated word timings are marked `est: true` and beats on them are warned.

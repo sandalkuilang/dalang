@@ -14,13 +14,14 @@ if (!src || !out) { console.error('Usage: node fill_times.mjs <template.html> <o
 const audio = rest[0] === '--audio' ? rest[1] : 'audio';
 const B = JSON.parse(readFileSync(path.join(audio, 'beats.json'), 'utf8'));
 const words = JSON.parse(readFileSync(path.join(audio, 'words.json'), 'utf8'));
-const env = { ...Object.fromEntries(B.beats.map(b => [b.name, b.start])), W: words.map(w => w.start), WE: words.map(w => w.end), END: B.duration };
+const env = { ...Object.fromEntries(B.beats.map(b => [b.name, b.start ?? NaN])), W: words.map(w => w.start), WE: words.map(w => w.end), END: B.duration };
 
 let n = 0;
 const bad = [];
 const html = readFileSync(src, 'utf8').replace(/\{\{([^}]+)\}\}/g, (m, expr) => {
   let v;
-  try { v = new Function(...Object.keys(env), `return (${expr})`)(...Object.values(env)); }
+  // `with` (not parameters) so a beat named like a reserved word (new, class) can't break every expression.
+  try { v = new Function('$', `with ($) return (${expr})`)(env); }
   catch (e) { console.error(`FAILED: {{${expr}}} — ${e.message}. Beats: ${B.beats.map(b => b.name).join(', ')}`); process.exit(1); }
   if (!Number.isFinite(v)) { console.error(`FAILED: {{${expr}}} is not a number (an untimed beat?)`); process.exit(1); }
   if (v < 0) bad.push(`{{${expr}}} = ${v}`);

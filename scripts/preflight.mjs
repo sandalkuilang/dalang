@@ -6,7 +6,7 @@
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json]
 
 import { execFile } from 'node:child_process';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -87,7 +87,10 @@ async function media() {
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
   // Forced aligner (tts_timestamps.mjs): which languages have a local model.
-  let langs = []; try { langs = readdirSync(process.env.ALIGN_MODELS || path.join(homedir(), '.cache', 'dalang', 'align')); } catch {}
+  const root = process.env.ALIGN_MODELS || path.join(homedir(), '.cache', 'dalang', 'align');
+  let langs = []; try { langs = readdirSync(root).filter(l => existsSync(path.join(root, l, 'config.json'))); } catch {}
+  const py = process.env.DALANG_PYTHON || path.join(homedir(), 'Library/Application Support/VoiceStudio/runtime/project/.venv/bin/python');
+  if (langs.length && !existsSync(py)) langs = []; // a model without its Python can't run
   out.push(['Word aligner', langs.length ? 'OK' : 'INFO', langs.length ? `local models: ${langs.join(', ')} (sharper word timing)` : 'no local model — timing from transcript; optional download per language (references/voice.md "Forced alignment")']);
   if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — npx hyperframes skills update (ask first)`]);
   if (process.env.GEMINI_API_KEY) out.push(['Snapshots', 'WARN', 'GEMINI_API_KEY is set — `hyperframes snapshot` uploads frames to Gemini unless you pass --describe false']);
@@ -98,5 +101,5 @@ const groups = await Promise.all([tools(), voicestudio(), elevenlabs(), media()]
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(7)} ${item.padEnd(22)} ${note}`);
-const voiceOk = rows.some(([i, s]) => i === '  ASR (word timing)' && s === 'OK');
+const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 if (!asJson) console.log(voiceOk ? '\nVoice: ready (free, VoiceStudio).' : '\nVoice: VoiceStudio not ready — fix it (free, references/voice.md "Setup"); a paid engine only if the user asks.');

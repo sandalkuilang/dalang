@@ -13,7 +13,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 
 - The reference film, almost 9 minutes long, has only about **4 hard cuts**.
 - Everything else uses a camera pushing in or pulling out, plus objects that **appear in place** (drawn on, growing from small, or "crossed out").
-- Safe starting numbers: scale 1.00 → 1.04–1.08 over one shot (up to 1.15 only for the illustrated looks), with gentle easing (`sine.inOut`). Move the world or the hero, never creep the scale of a landed title late in a scene — `/hyperframes` lists that as a generated-video tell. Move the visual wrapper, not the clip element that carries `data-start`. Technical details are in `references/motion.md` of the `/hyperframes` skill.
+- Scale numbers, eases and when a push needs a reason: `camera-motion.md` §2 (up to 1.15 only for the illustrated looks). Move the world or the hero, never creep the scale of a landed title late in a scene — `/hyperframes` lists that as a generated-video tell. Move the visual wrapper, not the clip element that carries `data-start`. Technical details are in `references/motion.md` of the `/hyperframes` skill.
 
 ## 3. Beats: everything lands on a word
 
@@ -53,7 +53,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 - Use sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
 - Final target: about −14 LUFS, true peak ≤ −1 dBTP (works for YouTube, Instagram, and TikTok). Check with `scripts/loudness.mjs`.
 
-## 8. "Ink + watercolour" palette (look G in visual-direction.md)
+## 8. "Ink + watercolour" palette (look G in `looks.md`)
 
 | Role | Colour |
 |---|---|

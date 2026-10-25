@@ -15,11 +15,11 @@ const audioDir = ai >= 0 ? argv[ai + 1] : 'audio';
 const html = argv.find((x, i) => !x.startsWith('--') && argv[i - 1] !== '--audio') ?? 'index.html';
 const words = JSON.parse(readFileSync(path.join(audioDir, 'words.json'), 'utf8'));
 
-const attr = (tag, name) => (tag.match(new RegExp(`\\s${name}="([^"]*)"`)) || [])[1];
-const clips = [...readFileSync(html, 'utf8').matchAll(/<(?!audio\b)([a-z]+)\b[^>]*\sdata-track-index="[^"]*"[^>]*>/g)]
+const attr = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}=(?:"([^"]*)"|'([^']*)')`)); return m ? m[1] ?? m[2] : undefined; };
+const clips = [...readFileSync(html, 'utf8').matchAll(/<(?!audio\b)([a-z]+)\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-track-index=(?:[^>"']|"[^"]*"|'[^']*')*>/g)]
   .map(m => ({ id: attr(m[0], 'id') || attr(m[0], 'data-hf-id') || m[1], cls: attr(m[0], 'class') || '', start: +attr(m[0], 'data-start'), dur: +attr(m[0], 'data-duration') }))
   // Captions change on words by design; only picture clips are cuts.
-  .filter(c => Number.isFinite(c.start) && Number.isFinite(c.dur) && !/\bcap(tion)?s?\b|^cap-/i.test(`${c.id} ${c.cls}`));
+  .filter(c => Number.isFinite(c.start) && Number.isFinite(c.dur) && !/\b(cap|captions?|subtitles?|subs?)\b/i.test(`${c.id} ${c.cls}`));
 if (!clips.length) { console.error(`No timed visual clips in ${html} (run fill_times.mjs first?).`); process.exit(1); }
 
 const problems = [];

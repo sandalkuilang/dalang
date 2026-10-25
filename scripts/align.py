@@ -74,8 +74,12 @@ def viterbi(lp, tokens, blank):
 
 
 def normalize(word, vocab):
-    w = unicodedata.normalize("NFKD", word.lower())
-    return [vocab[c] for c in w if c in vocab and c not in ("|",) and not c.startswith("[")]
+    out = []
+    for ch in unicodedata.normalize("NFC", word.lower()):  # ñ, ä, й stay whole when the vocab has them
+        for c in (ch if ch in vocab else unicodedata.normalize("NFKD", ch)):
+            if c in vocab and c != "|" and not c.startswith("["):
+                out.append(vocab[c])
+    return out
 
 
 def main():

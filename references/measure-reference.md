@@ -18,7 +18,7 @@ About the file: use a video the user is allowed to access, or one the user provi
 
 - Auto-captions often have gaps, and the gaps are often exactly the sentences with the important numbers. When in doubt, transcribe again from the audio (Whisper, or the transcription path in `/media-use`).
 - **Read the whole transcript**, not fragments. A transcript with gaps produces mistakes that sound very convincing.
-- Accuracy note: if the transcript only has per-sentence timing, word timing derived from it is only accurate to about 1/6 s. Good enough to work with, not good enough to brag about.
+- Accuracy note: if the transcript only has per-sentence timing, word timing derived from it is only accurate to about 1/6 s.
 - The reference may be in a different language from your narration. Measure rhythm in seconds (beats per second, section lengths), not in word counts, so the numbers carry over between languages.
 
 ### 2. The mechanical part (use the script)
@@ -66,4 +66,4 @@ Note: the "still" number depends heavily on the sensitivity threshold. Use the *
 - Deliberately different: story, characters, palette, ...
 ```
 
-The last part is the most interesting: watching tells you how a film *looks*, while measuring tells you what it quietly *does* to the viewer. For example the boil rate, or captions fixed on screen while the ground line scrolls behind them. Viewers don't count it, but everyone feels it.
+The "quietly does" items (boil rate, captions fixed while the ground scrolls) are what watching misses; measure them.

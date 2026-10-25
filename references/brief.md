@@ -9,7 +9,7 @@ node <skill-dir>/scripts/preflight.mjs
 One call, ~3 s: Node, ffmpeg, HyperFrames, VoiceStudio (backend, TTS model, speech-to-text model, watermark), ElevenLabs (tier and quota, never the key; paid, optional), image and music sources. `<skill-dir>` is this skill's folder. Fix only what it reports:
 
 - **Voice MISSING** → `voice.md` "Setup" (VoiceStudio install, models, the outside-the-backend download, activating speech-to-text; ElevenLabs key rules). Ask before installing anything; state sizes and licences.
-- **HyperFrames MISSING / out of date** → ask, then `npx hyperframes skills update` (the plugin route has failed with "repository not found"). New skills load after Claude restarts.
+- **HyperFrames MISSING / out of date** → ask, then `npx hyperframes skills update`. New skills load after Claude restarts.
 - **Images WARN** → the hero can still be real (the user's photos and footage, licensed photos and video, `visual-direction.md` §1 rungs 1–2), but a subject that must act on camera may need a generator. Before Step 1, offer once the free option: local `mflux` (photoreal stills). HeyGen (stock photos, image-to-video) uses metered credits: mention it only as optional and paid.
 - **Music WARN** → offer once the free local option: ACE-Step 1.5 (MIT, runs on Apple Silicon). Never MusicGen (its weights are non-commercial). Without music, deliver narration + SFX.
 - **Licences to mention once:** VoiceStudio's default OmniVoice weights are non-commercial (CC-BY-NC); so is the ElevenLabs free tier. For a monetised video, the user needs a commercial-OK voice (`voice.md` "Licence").
@@ -32,12 +32,10 @@ Then two AskUserQuestion calls (4 questions each at most). Ask about the platfor
 
 **Call 2** (its options follow the platform)
 5. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Narrative pacing is strongest at 30–90 s; above 3 min, one composition per section.
-6. **Visual style** — read `looks.md` and `visual-direction.md` §5. Offer the **4 looks that best fit this topic**, recommended first, all with a hyperreal subject (stylised looks only if the user asked for a cartoon); name the others in the question text so "Other" reaches them. Every option gets a `preview`: a short sketch of one frame of *this* topic in that look (the real subject and its source, set, light, type, motion), never a banned default (§5 "Banned"; also no dark void, blue gradient or starfield).
-7. **Energy** — "Modern balanced (Recommended)", "Calm cinematic", "Punchy social" (`visual-direction.md` §3; recommend Punchy first for 9:16 under 60 s).
+6. **Visual style** — read `looks.md` and `visual-direction.md` §5. Offer the **4 looks that best fit this topic**, recommended first, all with a hyperreal subject (stylised looks only if the user asked for a cartoon); name the others in the question text so "Other" reaches them. Every option gets a `preview`: a short sketch of one frame of *this* topic in that look (the real subject and its source, set, light, type, motion), never a banned default (`looks.md`, `visual-direction.md` §5).
+7. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" goes on Punchy for 9:16 under 60 s, else on Modern balanced.
 8. **Voice** (only when the user has an ElevenLabs key) — "VoiceStudio — free, runs locally (Recommended)"; "ElevenLabs — paid cloud" (never recommended; free tier is non-commercial and small).
 
-Save everything in `BRIEF.md`: topic, platform, ratio & resolution, duration, narration language (ISO code), angle, look, energy, audience, voice engine. Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
+Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (30 unless the platform or user says otherwise), duration, narration language (ISO code), angle, look, energy, audience, voice engine. Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
 
-## Step 2 — (Optional) Measure a reference: borrow the craft, not the work
-
-Copying a film's images or its script is theft. Measuring how it is built (section lengths, cuts, camera moves, beats, motion) and using the numbers for your own story is allowed. Follow `measure-reference.md`; `scripts/measure_reference.sh` does the mechanical part. `reference-measurements.md` holds numbers only.
+Step 2 (optional, measuring a reference's craft): `measure-reference.md`.

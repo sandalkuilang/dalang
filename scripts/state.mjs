@@ -40,12 +40,14 @@ if (cmd === 'approve') {
   const g = Number(gateArg);
   if (!GATES[g]) { console.error('FAILED: gate must be 1–4'); process.exit(1); }
   if (!ready(g)) { console.error(`FAILED: gate ${g} (${GATES[g].name}) has missing files: ${GATES[g].files.filter(f => !existsSync(path.join(dir, f))).join(', ')}`); process.exit(1); }
-  if (g > 1 && !status(g - 1).startsWith('approved')) { console.error(`FAILED: gate ${g - 1} is ${status(g - 1)} — approve it first.`); process.exit(1); }
+  const prev = [1, 2, 3].filter(k => k < g).find(k => !status(k).startsWith('approved'));
+  if (prev) { console.error(`FAILED: gate ${prev} is ${status(prev)} — approve it first.`); process.exit(1); }
   // 'sv' formats local time as YYYY-MM-DD HH:MM
   state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
 } else if (cmd === 'check') {
+  if (!GATES[Number(gateArg)]) { console.error('FAILED: check needs a gate 1–4'); process.exit(1); }
   const s = status(Number(gateArg));
   console.log(`Gate ${gateArg}: ${s}`);
   process.exit(s.startsWith('approved') ? 0 : 3);

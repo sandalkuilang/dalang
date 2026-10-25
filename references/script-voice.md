@@ -13,7 +13,7 @@ Write in the narration language from `BRIEF.md`:
 
 Rules:
 - **Length** — starting pace, calibrated in Step 4: English 2.4–2.7 words/s; Indonesian/Malay 2.2–2.5; Spanish/Portuguese/Italian 2.5–2.9; French 2.4–2.8; German/Dutch 2.0–2.4; Japanese 6–8 characters/s; Mandarin 4–5 characters/s. Other languages: write the opening section, audition it in Step 4, measure, then write the rest. Count words; never guess.
-- **Arc and beat map** — name the arc in `script.md` and give the key beats their names (`hook`, `crack`, `impact`, …) as in `camera-motion.md` §4; every beat is caused by the one before.
+- **Arc and beat map** — name the arc in `script.md`: causal chain, turn without conflict ("it turns out…"), one peak, conflict, or hook + open end; most explainers are the first two, never invent an antagonist. Beats follow Hook → Context → Pressure → **Crack** (the surprising fact) → Acceleration → **Impact** (the answer) → Aftermath, each *caused* by the one before ("A, so B", not "A, then B"). Name them as `{text|name}` beats (`hook`, `crack`, `impact`, …); Crack and Impact are never skipped (checked again at Gate 3).
 - **Hook** — a question, surprise, or confession; landing in 1–2 s on 9:16, 5 s on 16:9.
 - **Numbers spoken as words** in `narration.txt`, in the narration language.
 - **One beat every 2–4 s**, each with a visual partner later. A beat is not a cut: at Calm energy several beats share one camera shot.
@@ -39,7 +39,7 @@ The engine defaults to VoiceStudio (free); add `--engine elevenlabs` only when `
 - **"Use the voice from this clip"** (a recording, a voice note): only with the speaker's permission; `voice.md` "Clone".
 - **Dialogue:** one voice per character with `--voices name=<voice>,name=<voice>`.
 - **The user's own recording** (any audio or video file, narration or dialogue): `--from-audio <file> --language <lang>` keeps it as the voice track and gets the timing by transcribing it (needs VoiceStudio's speech-to-text). No audition, no generation, no cost.
-- Outputs: the narration audio; `words.json` (`{ i, text, start, end, est? }`); `beats.json` and `beats.js` (`window.BEATS.<name>.start`, `BEATS_LIST`, `SECTIONS`, `WORDS`, `NARRATION_DURATION`); `narration.response.json` (keep it for `--from-response`).
-- Act on every warning (words heard ≠ words written, estimated words — listed by the script, beats on an estimated word, unnamed beats) before the storyboard. Log characters billed (0 for VoiceStudio).
+- Outputs: the narration audio; `words.json` (`{ i, text, start, end, est?, score? }`); `narration.srt`; `beats.json` and `beats.js` (`window.BEATS.<name>.start`, `BEATS_LIST`, `SECTIONS`, `WORDS`, `NARRATION_DURATION`); `narration.response.json` (keep it for `--from-response`).
+- Act on every warning (a low alignment score, words heard ≠ words written, estimated words — listed by the script, beats on an estimated word, unnamed beats) before the storyboard. Log characters billed (0 for VoiceStudio).
 
 Play the narration to the user and **wait for approval**. Mispronounced word → respell it in `narration.txt` and regenerate.

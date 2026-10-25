@@ -16,20 +16,20 @@ npx hyperframes snapshot --review --describe false
 
 - `--describe false` on every snapshot: with `GEMINI_API_KEY` set, snapshot otherwise uploads frames to Gemini. Drop it only if the user agreed.
 - **Fresh-eyes review** by a new subagent on the sheets (`review.md`); fix every P0 and P1 it writes to `QC-REVIEW.md`.
-- Run the **visual rubric** (`visual-direction.md` §11) on the review sheet's beat frames and compare with the approved style frames: the film must look like them, not drift back to defaults. Realism and Reality are judged on full-resolution snapshots of every shot with the subject (people judged in motion); any fail is fixed before Gate 4, never shipped as a known weak shot.
-- Too quiet → raise the narration in the mix; still off → `loudness.mjs final.mp4 --fix final-14lufs.mp4`. Too still → add motion where the script points.
+- The reviewer runs the rubric; you compare the review sheet's beat frames with the approved style frames (the film must look like them, not drift back to defaults) and check Realism and Reality yourself, judged on full-resolution snapshots of every shot with the subject (people judged in motion); any fail is fixed before Gate 4, never shipped as a known weak shot.
+- Too quiet → raise the narration in the mix. Too still → add motion where the script points.
 - A render far slower than the last one (over 3×) → stop it and look for a cause (`--debug`, other Chrome processes, a heavy filter) instead of waiting.
 - Log every problem in `PRODUCTION.md`.
 
 Then `npx hyperframes preview --background`, give the URL, and **wait for approval** (changes → Steps 6–7). After approval:
 
 ```bash
-node <skill-dir>/scripts/state.mjs approve 4 && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
+node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
 npx hyperframes render --quality high --quiet --output final.mp4
 node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4
 ```
 
-`--commercial` when the video will be monetised (fails non-commercial licences).
+`--commercial` when the video will be monetised (fails non-commercial licences). Loudness still off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4` and deliver that file.
 
 A clean final encode can measure stiller than the draft; over target → add motion and render again.
 

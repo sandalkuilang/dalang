@@ -43,8 +43,8 @@ if (!hasAudio) problems.push('no audio track');
 if (v.codec_name !== 'h264' || v.pix_fmt !== 'yuv420p') problems.push(`video is ${v.codec_name}/${v.pix_fmt}, expected h264/yuv420p`);
 const tags = [v.color_primaries, v.color_transfer, v.color_space, v.color_range].join('/');
 if (tags !== 'bt709/bt709/bt709/tv') problems.push(`colour tags ${tags}, expected bt709/bt709/bt709/tv (re-encode with -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv)`);
-// A fade from/to black at the very start or end is fine; anywhere else it is a hole in the film.
-const holes = blacks.filter(([s, e]) => s > 0.2 && e < dur - 0.2);
+// A fade from/to black at the very start or end (≤ 1 s) is fine; anywhere else, or longer, it is a hole.
+const holes = blacks.filter(([s, e]) => (s > 0.2 && e < dur - 0.2) || e - s > 1);
 if (holes.length) problems.push(`black frames at ${holes.map(([s, e]) => `${s.toFixed(2)}–${e.toFixed(2)} s`).join(', ')}`);
 if (Number.isFinite(peak) && peak >= -0.1) problems.push(`audio clips (sample peak ${peak.toFixed(2)} dBFS)`);
 if (silences.length) problems.push(`silence ≥ 2 s at ${silences.map(([s, e]) => `${s.toFixed(1)}–${e.toFixed(1)} s`).join(', ')}`);
