@@ -172,6 +172,8 @@ scripts/
   check_assets.mjs     licence gate for every asset → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
+engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics,
+                  cloth, air, plants, particles, water, fur) with a self-check; examples/ ready pieces
 docs/             workflow + architecture, with diagrams
 ```
 
@@ -208,6 +210,7 @@ State lives in files, so a session can die and you resume from `BRIEF.md` + the 
 | Node.js · ffmpeg | everything | `preflight.mjs` says what's missing |
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
+| three 0.186.1 · Rapier 0.14.0 (pinned, in `engine/three/vendor`) | 3D sets and physics | free, MIT / Apache-2.0; `build.mjs` installs them once and bundles them into each project |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
 | mflux (Z-Image Turbo, SeedVR2) · ACE-Step 1.5 | photoreal stills + upscale · music | not in the default path: only when you ask for generated stills or music (heavy local installs); free, Apache-2.0 / MIT; set `ACESTEP_DIR` to the ACE-Step checkout |
 

@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-25
+
 ### Added
 
 - **Nature in the engine**: one shared air field with a breeze (log-law profile, gusts carried downwind) and fans;
@@ -242,6 +244,7 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/sandalkuilang/dalang/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sandalkuilang/dalang/releases/tag/v1.0.0
