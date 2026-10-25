@@ -59,6 +59,8 @@ that reads as:
   time (slow motion, timelapse, freeze-and-annotate), editing (cross-cutting, collision montage, graphic match,
   invisible cut) and explainer signatures (scale journey, x-ray shell, cutaway, exploded view, world-space labels).
   Each film picks a 6–10 technique palette on SPEC's CAMERA line.
+- The 3D rig recipes in `camera-motion.md` §10 are verified by a render on 16 GB (orbit, x-ray shell, push-through,
+  motion-control repeat, freeze-and-annotate, speed ramp), with timings and the three.js / canvas-font gotchas.
 - Preflight reports a free stock-video key (Pexels / Pixabay) for real motion footage; local LTX-2 image-to-video
   is listed as an optional install.
 - Asset pass (`review.md`): a fresh reviewer compares every generated still with its real reference before Gate 3
