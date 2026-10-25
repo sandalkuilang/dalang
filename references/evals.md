@@ -12,6 +12,7 @@ Each brief stresses a different part. Pick fresh topics each time (never reuse a
 | 2 | "A 60–90 s landscape explainer on <a number-led topic>, autonomous." | data look, facts, `beats_per_10s` (one beat every 2–4 s ≈ 2.5–5) |
 | 3 | "A 45 s dialogue scene between two people about <an everyday situation>, autonomous." | people (hyperreal, no puppets), multi-voice, `LINES` |
 | 4 | "Turn this recording into a 60 s video: <user audio file>, autonomous." | `--from-audio`, timing from a real voice |
+| 5 | "A 60 s stylized explainer of <a process too small, too large or too slow to film>, autonomous." | a subject outside `engine/three`: its own law, scale changes shown, a self-check, nothing borrowed from earlier sets |
 
 ## What to compare
 

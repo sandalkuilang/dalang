@@ -32,6 +32,14 @@ that reads as:
 
 ### Added
 
+- **Nature in the engine**: one shared air field with a breeze (log-law profile, gusts carried downwind) and fans;
+  trees, grass and kit plants bending by drag-driven oscillators; steam, smoke, dust and rain particles in the air
+  (rain at terminal speed, its impacts ringing on water); wind-driven water (fetch-limited waves, capillary-gravity
+  speeds); each with self-checks against its physics.
+- **three.js engine** (`engine/three/`): the proven modules as a generic library — real scale, procedural
+  surfaces, lowest-point settling, Rapier physics with reports and audit, a caster-chair rig and loose soft props,
+  PBD cloth, a fan's air jet with obstacles and leaf sway, shell fur, American-Japandi props, the frame finish —
+  with a pinned bundle build (`build.mjs`) and a self-check that fails on the traps met so far.
 - **Real scale and interior direction** (`looks.md`, `brief.md`): metres per unit measured from known objects,
   props modelled in metres, physics in real units; a `condition` (lived-in by default; worn only when the topic is
   about age) and an `interior` style (American-Japandi by default) recorded in the brief; soft things stuffed and
@@ -76,6 +84,27 @@ that reads as:
   as a paid exception the user asks for.
 
 ### Changed
+
+- **Subjects beyond the engine** (`SKILL.md`, `looks.md`, `camera-motion.md` §5, `engine/three/README.md`): the
+  engine is a toolbox, not the limit. Any subject moves by its own law (orbits, ions drifting and diffusing, heat,
+  rhythms) with real constants from a cited source, a scale changed on purpose and shown, and a self-check; built
+  generic, then brought back to the engine. Set dressing, scale and sound examples cover more than rooms.
+- **Engine defaults assume no kit or style:** `makeKit` dresses materials only from the `palette` and `kinds` a set
+  passes (`kits.furniture`, `palettes.americanJapandi`); unmapped materials stay as they came. Placement
+  in `camera-motion.md` §5 now matches the engine's lowest-points `settle()`. The place's gravity is an option
+  (`makeKit({ gravity })`: the Moon, orbit); every engine tolerance is in metres, so a set in centimetres or
+  kilometres audits and settles correctly (self-checked);
+  `model(..., { crease: false })` keeps a scan's own normals; plaster, grain and cloth defaults no longer assume a
+  worn room, a film look or a 1 m unit.
+- **Engine core is behaviours only:** the pieces from earlier sets (caster chair, fan, cat, American-Japandi
+  interior pieces and kit presets) moved to `engine/three/examples/`; the fan's air became a generic `jet()` for
+  any outlet (self-checked: 1/x decay, obstacles shadow it). Objects are never declared: any model is a body from
+  its own mesh and its looked-up mass and friction.
+- **Generality pass on the docs:** scale changes for unseeable subjects are the fewest needed, each shown; set
+  dressing and the Realism review judge the true context at its real density (space nearly empty, a cell
+  crowded), with type and data shots exempt; D and H fit either realism and lead for ideas with no physical
+  subject; look C sits on a seamless sweep (no void contradiction); test-set numbers became looked-up examples;
+  `condition` covers any made thing; a fifth golden eval brief for a subject outside the engine.
 
 - **No image or music generator in the default path.** `mflux` stills and ACE-Step music are heavy local
   installs that load a laptop; they run only when the user asks. Music is a licensed free track (Openverse

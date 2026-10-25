@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+// node selfcheck.mjs <project>/assets/engine — after build.mjs: each check fails loudly if a known trap is back.
+import assert from "node:assert/strict";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
+const { THREE } = await use("three-vendor.js");
+const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
+const { makeSim } = await use("physics.js");
+const { bakeCurtain } = await use("cloth.js");
+const { sweep } = await use("fur.js");
+const { get } = await use("surfaces.js");
+const { loose } = await use("bodies.js");
+const { cushion } = await use("examples/interior.js");
+const { makeWind, breeze, bakeBend } = await use("wind.js");
+const { jet } = await use("air.js");
+const { tree, grass } = await use("plants.js");
+const { particles } = await use("particles.js");
+const { water, dispersion, seaState } = await use("water.js");
+
+const scene = new THREE.Scene();
+const kit = K.makeKit(scene, { mpu: 2 });
+const M = K.M;
+assert.equal(M, 2, "makeKit sets the scale every module reads");
+const finite = (a) => Array.from(a).every(Number.isFinite);
+
+// Surfaces: tileable maps with no NaN.
+for (const k of ["fabric", "pile", "wood", "bamboo", "micro"]) { const s = get(k); assert.ok(finite(s.a.image.data) && finite(s.b.image.data), k + " map has NaN"); }
+
+// Physics in real units: a 30 cm box dropped 10 cm onto a floor lands, touching it, within 2 mm, and the report
+// says nothing floats or moves; a stuffed cushion (thousands of crowded points) builds a hull without aborting.
+const floor = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 4), new THREE.MeshStandardMaterial());
+floor.position.y = -0.05; scene.add(floor);
+const cube = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial());
+cube.position.set(0, 0.075 + 0.05, 0); cube.name = "box"; scene.add(cube);
+const pillow = cushion(kit); // the stuffed shape: crowded, nearly coplanar points at its seam
+assert.ok(finite(pillow.geometry.attributes.position.array), "cushion has NaN vertices");
+pillow.position.set(0.5, 0.2, 0); pillow.name = "cushion"; scene.add(pillow);
+scene.updateMatrixWorld(true);
+const sim = await makeSim(THREE);
+assert.ok(Math.abs(sim.world.gravity.y + 9.81 / 2) < 1e-6, "gravity in scene units: 9.81 / M");
+sim.staticScene(scene, [cube, pillow]);
+sim.roundBox(cube, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 });
+loose(sim, [pillow]);
+const baked = sim.bake(3, null, 0.5); // a cushion toppling from upright needs ~2 s
+assert.deepEqual(baked.report.floating, [], "nothing floats");
+assert.deepEqual(baked.report.moving, [], "everything is at rest");
+assert.ok(baked.report.penetration_mm < 2, "penetration " + JSON.stringify(baked.report.deepest));
+baked.apply(3);
+assert.ok(Math.abs(cube.position.y - 0.075) * M * 1000 < 2, "the box rests on the floor, off by " + ((cube.position.y - 0.075) * M * 1000).toFixed(1) + " mm");
+
+// Cloth hangs and stays finite; a swept tube has no zero normals (a NaN in the shader blacks out the frame).
+const c = bakeCurtain({ cx: 0, width: 0.2, top: 1, length: 0.5, z: 0, wall: -0.1, wind: (p, t, o) => o.set(0, 0, 0), duration: 1, mpu: M });
+c.apply(0.9);
+assert.ok(finite(c.geometry.attributes.position.array), "cloth has NaN");
+assert.ok(c.travel(0.9) < 0.002, "still cloth settles");
+const g = sweep([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.1, 0.02, 0), new THREE.Vector3(0.2, 0, 0.05)], () => 0.02, { colour: () => new THREE.Color(1, 1, 1) });
+const n = g.attributes.normal;
+for (let i = 0; i < n.count; i++) assert.ok(Math.hypot(n.getX(i), n.getY(i), n.getZ(i)) > 0.5, "zero normal at " + i);
+// Wind: a breeze averages its speed at its reference height and is slower near the ground (log law); sources add.
+const air = makeWind().add(breeze({ dir: [1, 0, 0], speed: 4, ref: 2, ground: 0 })), v = new THREE.Vector3();
+let mean = 0, low = 0;
+for (let i = 0; i < 400; i++) { mean += air.at(new THREE.Vector3(i * 0.37, 2 / M, i * 0.11), i * 0.05, v).x * M / 400; low += air.at(new THREE.Vector3(i * 0.37, 0.2 / M, i * 0.11), i * 0.05, v).x * M / 400; }
+assert.ok(Math.abs(mean - 4) < 0.4, "breeze mean at 2 m: " + mean.toFixed(2) + " m/s");
+assert.ok(low < 0.75 * mean && low > 0.3 * mean, "log profile near the ground: " + low.toFixed(2));
+const two = makeWind().add(breeze({ speed: 4 })).add(breeze({ speed: 4 }));
+assert.ok(Math.abs(two.at(new THREE.Vector3(1, 2 / M, 1), 0.3, v).x - 2 * air.at(new THREE.Vector3(1, 2 / M, 1), 0.3, new THREE.Vector3()).x) < 1e-9, "sources add");
+// A flexible thing in steady 10 m/s air leans by its set amount (±15 %) and stays finite; in still air it stays.
+const steady = makeWind().add((p, t, o) => o.set(10 / M, 0, 0)), calm = makeWind();
+const lean = bakeBend({ count: 1, at: (i, p) => p.set(0, 1, 0), f: 2, zeta: 0.3, lean: 0.2, field: steady, duration: 1 }).bend(1)[0];
+assert.ok(Math.abs(lean - 0.2) < 0.03, "steady lean " + lean.toFixed(3) + " rad");
+assert.equal(bakeBend({ count: 1, at: (i, p) => p.set(0, 1, 0), f: 2, lean: 0.2, field: calm, duration: 1 }).bend(1)[0], 0, "still air, no bend");
+// Plants: a tree grows its branches and about the leaves asked for; grass fills its area at its density.
+const tr = tree(kit, { at: new THREE.Vector3(0, 0, 0), height: 3, leaves: 800 });
+tr.bake(air, 1); tr.apply(0.5);
+assert.ok(tr.branches > 20 && Math.abs(tr.leaves - 800) < 80, "tree " + tr.branches + " branches, " + tr.leaves + " leaves");
+assert.ok(finite(tr.group.children[0].geometry.attributes.position.array), "tree has NaN");
+const gr = grass(kit, { x0: 0, x1: 0.5, z0: 0, z1: 0.5, density: 1000 });
+assert.ok(Math.abs(gr.blades - 1000 * (0.5 * M) ** 2) < 30, "grass blades " + gr.blades);
+// Particles: rain falls at its terminal speed in still air and drifts with a crosswind; steam rises; the same twice.
+const rainBox = { x0: 0, x1: 0.5, y0: 0, y1: 2 / M, z0: 0, z1: 0.5 };
+const drop = particles(kit, { kind: "rain", box: rainBox, rate: 200, diameter: [2, 2], field: calm, seed: 3 }).bake(1);
+const flux = drop.impacts.length / (0.5 * M) ** 2; // per m² over 1 s
+assert.ok(Math.abs(flux - 200) < 40, "rain lands at its rate: " + flux.toFixed(0) + " /m²/s");
+const vt = drop.impacts.length && (() => { const r = particles(kit, { kind: "rain", box: rainBox, rate: 200, diameter: [2, 2], field: calm, seed: 3 }); r.bake(1); return r; })();
+const side = particles(kit, { kind: "rain", box: rainBox, rate: 200, diameter: [2, 2], field: makeWind().add((p, t, o) => o.set(3 / M, 0, 0)), seed: 3 }).bake(1);
+const xs = side.impacts.map((d) => d.x), drift = (xs.reduce((a, b) => a + b, 0) / xs.length - 0.25) * M;
+assert.ok(drift > 0.8 * 3 * (2 / 7.1) - 0.05 && drift < 1.2 * 3 * (2 / 7.1) + 0.1, "rain drifts with the wind: " + drift.toFixed(2) + " m over a 2 m fall");
+const steam = particles(kit, { kind: "steam", at: new THREE.Vector3(0, 0, 0), field: calm, seed: 4 }), steam2 = particles(kit, { kind: "steam", at: new THREE.Vector3(0, 0, 0), field: calm, seed: 4 });
+steam.bake(1); steam2.bake(1);
+const last = steam.frames.at(-1); let rise = 0, alive = 0;
+for (let i = 0; i < steam.count; i++) if (last[i * 8 + 7] > 0) { rise += last[i * 8 + 1] * M; alive++; }
+assert.ok(alive > 10 && rise / alive > 0.05, "steam rises: mean " + (rise / alive * 100).toFixed(1) + " cm");
+assert.deepEqual(steam.frames.at(-1), steam2.frames.at(-1), "particles are the same every bake");
+assert.equal(vt.impacts.length, drop.impacts.length, "rain is the same twice");
+// Water: capillary-gravity dispersion; a pond's sea state; no folding crests.
+const k1 = 2 * Math.PI; assert.ok(Math.abs(dispersion(k1) / k1 - Math.sqrt(9.81 / k1 + 7.4e-5 * k1)) < 1e-9, "dispersion");
+const ss = seaState(5, 10); assert.ok(ss.hs > 0.005 && ss.hs < 0.012, "pond Hs " + (ss.hs * 1000).toFixed(1) + " mm");
+const pond = water(kit, { x0: 0, x1: 1, z0: 0, z1: 1, y: 0, wind: { speed: 5, dir: [1, 0, 0] }, fetch: 10 });
+assert.ok(pond.waves.reduce((a, w) => a + w.q * w.k * w.a, 0) <= 0.71, "Gerstner crests do not fold");
+// Air from an outlet: a round jet whose core speed falls as 1/x past ~2 diameters, and only ~15 % gets behind a thing.
+const J = jet({ D: 0.4, u0: 2.5, frame: (t, o, ax) => { o.set(0, 1 / M, 0); ax.set(1, 0, 0); } }), jv = new THREE.Vector3();
+const jm = (x) => { let u = 0; for (let i = 0; i < 2000; i++) u += J.wind(new THREE.Vector3(x / M, 1 / M, 0), i * 0.0137, jv).x; return (u / 2000) * M; };
+assert.ok(Math.abs(jm(0.5) - 2.5) < 0.1 && Math.abs(jm(1.6) / jm(3.2) - 2) < 0.1, "jet core and 1/x decay: " + jm(0.5).toFixed(2) + ", " + (jm(1.6) / jm(3.2)).toFixed(2));
+const wall = new THREE.Mesh(new THREE.BoxGeometry(0.1 / M, 1 / M, 1 / M)); wall.position.set(1 / M, 1 / M, 0); wall.updateMatrixWorld(true);
+const free = J.wind(new THREE.Vector3(2 / M, 1 / M, 0), 0.3, jv).x; J.block([wall]);
+assert.ok(Math.abs(J.wind(new THREE.Vector3(2 / M, 1 / M, 0), 0.3, jv).x / free - 0.15) < 1e-6, "air does not pass through things");
+// Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
+// the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
+const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
+assert.ok(Math.abs(K.G - 162) < 1e-9, "gravity is the place's, in units/s²");
+const ground = new THREE.Mesh(new THREE.BoxGeometry(400, 10, 400), new THREE.MeshStandardMaterial()); ground.position.y = -5; ground.name = "ground"; moon.add(ground);
+const hover = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshStandardMaterial()); hover.position.set(0, 7.5 + 0.5, 0); hover.name = "hover"; moon.add(hover);
+const sunk = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshStandardMaterial()); sunk.position.set(50, 7.5 - 2, 0); sunk.name = "sunk"; moon.add(sunk);
+const deep = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshStandardMaterial()); deep.position.set(-50, 7.5 - 5, 0); deep.name = "deep"; moon.add(deep);
+moon.updateMatrixWorld(true);
+const msim = await makeSim(THREE);
+msim.staticScene(moon, [hover, sunk]);
+const gap = msim.audit([hover])[0];
+assert.ok(gap && Math.abs(gap.gap_mm - 5) < 0.5, "audit in real mm at any scale: " + JSON.stringify(gap));
+mk.rest(sunk); mk.rest(deep);
+const misses = mk.settle();
+assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
+assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
+console.log("selfcheck ok: surfaces, physics in real units, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), any scale and gravity");

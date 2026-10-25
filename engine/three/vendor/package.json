@@ -1,0 +1,15 @@
+{
+  "name": "dalang-three-vendor",
+  "private": true,
+  "description": "Pinned sources for the engine's two bundles: three.js with its add-ons, and Rapier.",
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.14.0",
+    "n8ao": "2.0.1",
+    "postprocessing": "6.39.5",
+    "three": "0.186.1",
+    "three-subdivide": "1.1.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
