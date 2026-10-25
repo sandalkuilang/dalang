@@ -17,11 +17,12 @@ npx hyperframes snapshot --review --describe false
 - `--describe false` on every snapshot: with `GEMINI_API_KEY` set, snapshot otherwise uploads frames to Gemini. Drop it only if the user agreed.
 - **Fresh-eyes review** by a new subagent on the sheets (`review.md`); fix every P0 and P1 it writes to `QC-REVIEW.md`.
 - The reviewer runs the rubric; you compare the review sheet's beat frames with the approved style frames (the film must look like them, not drift back to defaults) and check Realism and Reality yourself, judged on full-resolution snapshots of every shot with the subject (people judged in motion); any fail is fixed before Gate 4, never shipped as a known weak shot.
-- Too quiet → raise the narration in the mix. Too still → add motion where the script points.
+- Too quiet → raise the narration in the mix. Too still → add motion where the script points. `stillness.mjs` counts a drifting still as motion: it catches frozen frames, not slideshows — that is the reviewer's Action test.
+- Run `check`, snapshots and renders with no model job running: next to mflux one `check` took 121–149 s instead of 13–18 s.
 - A render far slower than the last one (over 3×) → stop it and look for a cause (`--debug`, other Chrome processes, a heavy filter) instead of waiting.
 - Log every problem in `PRODUCTION.md`.
 
-Then `npx hyperframes preview --background`, give the URL, and **wait for approval** (changes → Steps 6–7). After approval:
+Then `npx hyperframes preview --background --no-open` (without `--no-open` it launches the user's own Chrome) and show the Studio URL **only in Claude's isolated built-in browser** (the Browser pane: `preview_start` with the URL). Never the system browser, `open <url>`, or Claude in Chrome (the user's real Chrome); no built-in browser → give the URL as text. Then **wait for approval** (changes → Steps 6–7). After approval:
 
 ```bash
 node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass

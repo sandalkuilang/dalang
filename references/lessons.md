@@ -16,6 +16,8 @@ Each line is a failure that already happened. Read this file when something goes
 - **A wait loop trusted `installed: true`** while a model was still downloading; the first request hung the single Apple Silicon worker for 30 minutes. Wait for `incomplete: false`.
 - **The transcription endpoint ignored the installed MLX turbo model** and demanded a 3 GB one. Activate faster-whisper turbo through the balanced tier (`voice.md`).
 - **"Use the voice from this chat voice note" stalled Step 4** for ~10 tool calls: no clone path was written down. Now `voice.md` "Clone".
+- **A clone profile made in the app (60 s clip, no transcript) answered a raw 500** and cost ~6 calls to diagnose. `tts_timestamps.mjs` now names the fix (re-save 3–10 s with `--ref-text`) and `--save-profile` refuses clips over 20 s.
+- **Three voices were auditioned before anyone asked** — the user wanted their own saved profile. Ask which saved profile to try first (`script-voice.md` §4).
 
 ## Visuals
 - **The animation looked cheap and generated:** "the brief is settled, don't re-ask" made `/hyperframes` skip its SPEC/LOOK step; the hero (a vehicle) was drawn from SVG primitives; banned defaults appeared (cream ground, pill chips, side-by-side panels on 9:16, the same pop-in everywhere, a small hero in an empty frame); nine scenes were built before anyone saw one finished frame. Fixed by `SPEC.md`, the realism ladder, style frames, and blocking/polish passes.
@@ -31,14 +33,19 @@ Each line is a failure that already happened. Read this file when something goes
 - **A licensed Commons "documentary" clip was a cartoon** (37 MB downloaded for nothing). Look at posters on a contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
 - **Missing GSAP include and a timed `<video>` inside a timed wrapper** each cost a check round (`look-build.md` §6.4).
 - **Non-English catalog queries** return zero results.
+- **A generated action happened in the wrong place three times** (the right action on the wrong part of the object) — the stills passed a Reality check that looked at materials, not at where the action happens. The check now names the location (`visual-direction.md` §1).
+- **A generated machine had a major part outside its body**, then on the wrong component; four Z-Image stills, no real photo searched (only Commons video), the reference "checked" from memory. Machines start at rung 1–2 and the Reality check compares against a downloaded photo (`visual-direction.md` §1 "Machines").
+- **`remove-background` holed a product label** (it is a person-segmentation model) and a green screen keyed a dark product; ~10 calls went into a hand-written key. Products are generated on a white light box and cut with `scripts/key_white.py`.
 
 ## Audio and reference
 - **The first render was ~8 dB too quiet.** Always run `loudness.mjs`; normalising the narration before the mix gets it right first time.
 - **Lint flagged 45 "duplicate audio tracks":** SFX `<audio>` without `data-duration` count as playing to the end of the film.
+- **`hyperframes preview` opened the user's own Chrome**: its `--open` defaults to true. Always `--no-open`, then the URL in Claude's isolated built-in browser (`qc.md` §7). HyperFrames' headless render Chrome is its own bundled copy and is fine.
 - **`snapshot` sends frames to Gemini** whenever `GEMINI_API_KEY` is set. Pass `--describe false`.
 - **No music source** left Step 6 undefined. Offer the free local ACE-Step once at Step 0 (never MusicGen: non-commercial weights); otherwise deliver narration + SFX and say so.
 - **YouTube auto-captions had gaps**, including in the key sentence. Transcribe a reference again and read it to the end.
 - **The assistant studying a video cannot hear.** Sound effects read from images are guesses; mark them.
+- **`media-use resolve --type sfx` found no provider**; the free sources are the bundled `/media-use` library and Openverse CC0 (`look-build.md` §6.7).
 
 ## Working speed
 - **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.
@@ -47,3 +54,9 @@ Each line is a failure that already happened. Read this file when something goes
 - **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
 - **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.
 - **VoxCPM2 timed out** (300 s compute limit) on its first call while OmniVoice and a benchmark held the memory; alone it worked at ~22× real time. Heavy model jobs run one at a time; VoxCPM2 gets ~120-character chunks.
+- **Two queued jobs waited on `pgrep -f mflux-generate` for 25 min with nothing running**: each waiting shell's own command line matched. Chain heavy jobs in one background command, or wait on a PID (SKILL.md).
+- **The machine sat idle through a 58 min gate wait**, then remaining stills and music ran serially after it. Free local jobs that a "no" only discards run during the wait.
+- **The film read as a PowerPoint slideshow:** 14 drifting stills with text in 61 s (Punchy energy wants ≥ 34 shots), the key action a frozen photo, nothing shown of the mechanism the narration explained. `stillness.mjs` said 0.8 % still because the rule let a ≥ 30 px/s drift count as motion. Now the subject must act in every shot, camera-only plates are ≤ 15 %, every "why" gets a mechanism shot, and the reviewer runs an Action test (`visual-direction.md` §3, §8, §11).
+- **Every "camera move" was CSS on a still** (pushes and drifts on 14 stills): no tracking, no orbit, no slow motion, no B-roll — the film had no cinematography to speak of. Real moves come from footage, a 3D rig camera or a generated clip, cut as A-roll and B-roll with one wow shot (`camera-motion.md` §10).
+- **Rework, not rendering, was the slow part** of a 3 h 43 min run: a 27 % stillness fail (static plates) cost a 7.5 min re-render; 5 of the reviewer's 7 P0s were asset defects found after the full build; `check` next to mflux took 9× longer. Now: drift, scene-prefixed ids and overlapping whips from the first draft (`look-build.md` §6.4), an asset pass before building (`review.md`), browser steps never beside a model job.
+- **`PRODUCTION.md` logged every step as `HH:MM–HH:MM` with start = end** (both written at the end), so `logged_minutes` was 0 and no ETA could be given; the user asked "how long?" three times. `state.mjs log` takes the start from the previous line.

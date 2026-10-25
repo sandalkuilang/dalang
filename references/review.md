@@ -4,15 +4,23 @@ The builder sees what it meant, not what is on screen, so before Gate 4 one revi
 
 ## How
 
-1. Produce the sheets: `npx hyperframes snapshot --review --describe false` (scene sheet, a strip at every cut, a 360 px phone sheet). For a person or a generated clip, add `snapshot --at` stills sampled across the clip (about 8 per clip).
+1. Produce the sheets, plus an action strip per shot (`snapshot --at` at 10 %, 50 % and 90 % of each storyboard row) so the Action test can see whether the subject changed or only the frame moved: `npx hyperframes snapshot --review --describe false` (scene sheet, a strip at every cut, a 360 px phone sheet). For a person or a generated clip, add `snapshot --at` stills sampled across the clip (about 8 per clip).
 2. Spawn **one new subagent** (the Agent tool, a fresh agent — never a fork or a follow-up of the builder, which defends its own work). Give it only:
    - the sheet paths and the full-resolution stills of every shot with the subject,
    - `SPEC.md` (LOOK, MOTION, OBJECTS with their real reference, BANNED), `storyboard.md` (each row's job, camera reason and axis — check one still at every shot's action beat against its row) and the approved style frames,
    - `visual-direction.md` §11 (the rubric) and, for people, §1 "People are the hardest subject",
    - the beat list (`audio/beats.json`: name, start, words),
-   - this instruction: "Find defects. For each: the beat or time, what is wrong, the rubric test it fails, severity P0 (must fix: Realism/Reality fail, wrong claim, unreadable text, broken render), P1 (should fix: craft, composition, transition), P2 (nice to have). Write them to QC-REVIEW.md. Do not praise; do not fix."
+   - this instruction: "Find defects. For each: the beat or time, what is wrong, the rubric test it fails, severity P0 (must fix: Realism/Reality fail, slideshow (Action test), wrong claim, unreadable text, broken render), P1 (should fix: craft, composition, transition), P2 (nice to have). Write them to QC-REVIEW.md. Do not praise; do not fix."
 3. Fix every P0 and P1 in the builder session, re-snapshot only what changed, log each fix in `PRODUCTION.md`, and mark the item `FIXED` in `QC-REVIEW.md` (open P0s are what `score_run.mjs` counts).
 4. After the fixes, review again only if P0s were open; stop after three rounds in total and list what is still open at Gate 4.
+
+## Asset pass (before Gate 3, and again before the Step 6 blocking pass)
+
+Most P0s in a real run were asset defects (a machine part in the wrong place, garbled signs and page text, a product that changed shape between shots) found only after the whole film was built and rendered. Catch them while a fix is one regeneration:
+
+1. One pair per generated or 3D OBJECTS still, beside its downloaded reference: `ffmpeg -loglevel error -y -i assets/gen/<x>.png -i review/ref-<x>.jpg -filter_complex "[0]scale=-1:960[a];[1]scale=-1:960[b];[a][b]hstack" review/pair-<x>.jpg`.
+2. The same fresh subagent rules as above, given only the pair paths, SPEC OBJECTS and `visual-direction.md` §1 "Reality check", with: "For each pair: is the left the same kind of thing as the right — parts, where the action happens, proportions, materials; any garbled text or logo; does the same object match across pairs? P0 = Reality fail. List only defects."
+3. Regenerate or re-source every P0 before building on it. The builder doesn't open full-size stills for this; the reviewer does.
 
 ## Autonomous mode
 

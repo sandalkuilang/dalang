@@ -30,6 +30,38 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `state.mjs log "<step> | <output> | <problems>"` writes a `PRODUCTION.md` line whose start is the previous
+  line's end, so steps get real durations (`score_run.mjs` `logged_minutes` was 0) and ETAs can be given.
+- `scripts/key_white.py`: cut a product generated on a white light box (flood-fill key, `--holes` for a handle).
+
+### Fixed
+
+- Queued heavy jobs deadlocked on `pgrep -f` matching their own shell; SKILL.md now chains them or waits on a PID.
+- Reality check names where the action happens (a generated action landed on the wrong part); `tts_timestamps.mjs` explains the
+  clone-profile 500 and `--save-profile` refuses references over 20 s.
+- Gate waits queue music and all stills; saved voice profiles are offered before auditioning; SFX sources named;
+  messages give the clock time of the next gate. ([#2](https://github.com/sandalkuilang/dalang/issues/2))
+- **No more slideshows.** The subject acts in every shot; a drifting still is a ≤ 1.5 s breath, ≤ 15 % of the
+  runtime (the old rule let a ≥ 30 px/s drift count as motion, and a film of drifting stills passed at 0.8 %
+  "still"). Storyboard gains a "Subject action (+ source)" column, a shot-count floor from the energy and a
+  mechanism shot for every "why"; the Gate 3 sample includes the hardest action shot; reviewer Action test (P0).
+- **Browser isolation:** `hyperframes preview` always with `--no-open` (it opened the user's own Chrome); the Studio
+  URL opens only in Claude's isolated built-in browser, never the system browser or Claude in Chrome.
+- **Cinematography with real cameras** (`camera-motion.md` §10): A-roll (the explanation) and B-roll (short cinematic
+  shots with a real move) in a set pattern; every perceptible move from footage, a 3D rig camera (focal length,
+  damped look-at, bokeh, sub-frame motion blur) or a generated clip, never CSS on a still; 24 fps / 180° for a
+  film look; real slow motion and speed ramps from high-fps sources; one wow shot on the impact; a CAMERA line in SPEC.
+- Preflight reports a free stock-video key (Pexels / Pixabay) for real motion footage; local LTX-2 image-to-video
+  is listed as an optional install.
+- Asset pass (`review.md`): a fresh reviewer compares every generated still with its real reference before Gate 3
+  and before blocking, so Reality fails cost one regeneration instead of a rebuild and re-render.
+- Build scaffold: plate drift, scene-prefixed ids and overlapping whip pans from the first draft (each cost a
+  re-render); `check`, snapshots and renders never run beside a model job.
+- Machines and mechanisms start from the user's photos or Commons stills, not the generator (generated machines
+  put parts in impossible places); the Reality check compares against a downloaded reference photo.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added

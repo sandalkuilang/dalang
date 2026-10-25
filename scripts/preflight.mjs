@@ -88,6 +88,8 @@ async function media() {
     // Free path only: mflux (stills; `--help` also catches a broken Pillow) and ACE-Step (music: no CLI, found by its checkout). HeyGen spends metered credits, so it is listed as paid.
     ['Images (photoreal)', mflux.ok ? 'OK' : 'WARN', mflux.ok ? 'mflux + Z-Image Turbo (free, local)' : 'no free generator — real subjects come from user photos/footage or free licensed photos/video; offer local mflux (free; ask before installing) (references/visual-direction.md §1)'],
     ['Music', ace.ok ? 'OK' : 'WARN', ace.ok ? `ACE-Step 1.5 (free, local, MIT) at ${aceDir()}` : 'no free generator (or ACESTEP_DIR unset) — offer local ACE-Step 1.5 (MIT, ~8.5 GB; ask before installing); never MusicGen (non-commercial weights); 19 bundled SFX still work'],
+    // Real motion footage: Pexels and Pixabay have free APIs (commercial-OK licences) but need a key the user signs up for.
+    ['Stock video', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? 'OK' : 'WARN', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? `${['PEXELS_API_KEY', 'PIXABAY_API_KEY'].filter(k => process.env[k]).join(', ')} set (free, real motion footage)` : 'no key — ask the user once for a free PEXELS_API_KEY (pexels.com/api) or PIXABAY_API_KEY: real footage is the cheapest way to make the subject move (references/visual-direction.md §1 rung 2)'],
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
   // Forced aligner (tts_timestamps.mjs): which languages have a local model.

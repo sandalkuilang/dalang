@@ -139,6 +139,8 @@ async function vs(a, pathname, init = {}) {
       const rec = detail.recommended || {};
       die(`VoiceStudio has no usable speech-to-text model for word timing. It wants ${rec.repo_id || detail.missing_repo_id} (${rec.size_gb ?? '?'} GB): get the user's consent, then POST ${a.vsUrl}/models/install {"repo_id":"${rec.repo_id || detail.missing_repo_id}"}.`);
     }
+    // A clone profile made in the app from a long clip without a transcript: the engine can't crop or transcribe it.
+    if (/reference transcription needs/i.test(body)) die(`VoiceStudio can't use this clone profile: its reference has no transcript (often a clip over 20 s made in the app) and no speech-to-text model is selected. Re-save it: cut 3–10 s of clean speech (ffmpeg -ss <start> -t 8 -i <clip> -vn -ac 1 ref.wav), then --save-profile "<name>" --ref ref.wav --language <lang> --ref-text "<exact words>" (references/voice.md "Clone").`);
     die(`VoiceStudio answered ${res.status} on ${pathname}: ${body.slice(0, 600)}`);
   }
   return res;
@@ -173,6 +175,7 @@ async function vsSaveProfile(a) {
   try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', a.ref, '-vn', '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', wav]); }
   catch (e) { die(`ffmpeg could not read ${a.ref}: ${e.message}`); }
   const dur = probeDuration(wav);
+  if (dur > 20) die(`reference is ${dur} s; the engine takes at most 20 s. Cut 3–10 s of clean speech first.`);
   if (dur && (dur < 3 || dur > 15)) console.warn(`WARNING: reference is ${dur} s; 3–10 s of clean speech clones best.`);
   const refText = a.refText || (await vsTranscribe(a, wav, '')).transcript.text.trim();
   const form = new FormData();

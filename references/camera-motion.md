@@ -1,10 +1,10 @@
 # Camera and motion: film grammar, physical timing, compositing
 
-Read in Step 5 (§1–4 and §8 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
+Read in Step 5 (§1–4, §8 and §10 for the storyboard and `SPEC.md`, §9 when generating stills) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
-A HyperFrames camera can only change a layer's **size, position, focus and time**. Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query and `mflux` prompt carries them.
+Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from footage, 3D or a generated clip (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query and `mflux` prompt carries them.
 
 | Size | Job | Sourcing rule |
 |---|---|---|
@@ -32,7 +32,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 
 ## 2. Camera moves: every perceptible move answers "what changed?"
 
-- **Drift vs move.** Drift is sub-perceptual (scale ≤ 1.04 over a shot) and always allowed, but drift alone rarely passes `stillness.mjs` (`visual-direction.md` §3 "Minimum motion": the subject acting or a background drift ≥ 30 px/s does). A **move** (scale ≥ 1.06, a translate, a focus change) needs a reason written in the storyboard: a decision, new information, rising pressure, a look the camera follows. No reason → locked camera, motion from the subject or the light.
+- **Drift vs move.** Drift is sub-perceptual (scale ≤ 1.04 over a shot) and always allowed, but drift — of any speed — is never the shot's motion: the subject acts (`visual-direction.md` §3 "Minimum motion"). A **move** (scale ≥ 1.06, a translate, a focus change) needs a reason written in the storyboard: a decision, new information, rising pressure, a look the camera follows. No reason → locked camera, motion from the subject or the light.
 - **One camera move per beat:** push *or* pan *or* tilt *or* rack focus. Push + pan + rotate together reads as chaos.
 - **Push-in (dolly):** starts on the trigger word, stops on the reaction. Scale **per layer** so the parallax changes (fg 1.00→1.10, hero 1.00→1.06, bg 1.00→1.03), `transform-origin` on the focal point (the eyes, the detail), not the frame centre, `power2.inOut`; an optional background blur ramp 0 → 3 px sells the depth. A **zoom** scales all layers equally — flatter, observational; use it knowingly.
 - **Pull-back:** consequence, isolation, scale revealed; needs overscanned plates; lands on the aftermath.
@@ -42,7 +42,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Rack focus with breathing:** while focus moves, scale the frame 1.00 → 1.01–1.02 (stills lenses breathe; skip it for a "cine lens" look). A focus puller eases `power2.inOut` and lands slightly early. Pre-render 3–4 blur levels with `media-treatment` and crossfade along the ease.
 - **Handheld (anxiety, pressure, phone feel; never calm or premium) [O]:** a sum of sines on the camera wrapper — drift 0.5–1 Hz (60 % of the amplitude), body 3–5 Hz (30 %), tremor 8–12 Hz (10 %), incommensurate frequencies, fixed phases, driven by timeline time (never `Math.random()`). Calm: translate 0.15–0.4 % of the frame width, roll 0.1–0.3°; walking: 0.6–1.2 % plus a 1.7–2 Hz bob. Overscan ≈ 1.02. Never under text meant to be read.
 - **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam. A rolling-shutter skew (`skewX(atan(v·readout/H))`, readout 9–28 ms) sells "phone or mirrorless"; leave it off for "cinema camera".
-- Orbit, crane, aerial: footage or real 3D only (look B), never faked on a still.
+- Orbit, crane, aerial, tracking, fly-through: a real camera only (§10), never faked on a still.
 
 ## 3. Axis, eyelines, cuts, rhythm
 
@@ -85,7 +85,7 @@ Adds to `visual-direction.md` §1 "Compositing" and §9:
 5. **Shadows beyond the contact shadow:** cast shadow along the key light, sharp at the touch point and softer with distance; a dark occlusion band (1–3 % of object height) where it meets the ground; foreground objects of the plate go **over** the subject (occlusion beats every other depth cue).
 6. **Atmospheric perspective per layer:** farther = lower contrast (60–75 % of near), blacks lifted 8–15 % toward the haze colour, less saturated, cooler. Depth then reads even in a still frame.
 7. **Grain, vignette (−0.3 to −0.7 stop at the corners) and lens softness once, over the finished comp**, never per layer. Grain 3–5 % also kills gradient banding.
-8. **2.5D from one photo:** a depth map from **Depth Anything V2 Small** (Apache-2.0; Base and Large are non-commercial) → slice into 3–5 layers by depth → inpaint the revealed background (LaMa, Apache-2.0; OpenCV Telea for small holes) → move the camera within translate ≤ 3–5 % of frame width, orbit ≤ 2–3°, dolly ≤ 8%. Dilate the foreground edge 2–4 px; mask hair with the cut-out's alpha. This turns a flat Ken Burns into real parallax. Install only with permission (free, local).
+8. **2.5D from one photo:** a depth map from **Depth Anything V2 Small** (Apache-2.0; Base and Large are non-commercial) → slice into 3–5 layers by depth → inpaint the revealed background (LaMa, Apache-2.0; OpenCV Telea for small holes) → move the camera within translate ≤ 3–5 % of frame width, orbit ≤ 2–3°, dolly ≤ 8%. Dilate the foreground edge 2–4 px; mask hair with the cut-out's alpha. This turns a flat Ken Burns into real parallax — still a camera-only plate, so the subject must also act in it. Install only with permission (free, local).
 
 ## 7. Design in time
 
@@ -99,7 +99,7 @@ Adds to `visual-direction.md` §1 "Compositing" and §9:
 
 ## 8. The motion-language line in `SPEC.md`
 
-Lock the vocabulary before animating, next to the LOOK line: **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
+Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = frame rate and shutter, the lens set in mm, the rigs the film uses (§10), the A/B pattern and the one wow shot; **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
 
 ## 9. Generating stills with the angle in them (`mflux`)
 
@@ -111,6 +111,28 @@ Lock the vocabulary before animating, next to the LOOK line: **MOTION** = one ar
 - **Consistency across shots:** a fixed template; the identity block and the lighting block repeated **verbatim** in every prompt; same seed where possible; every shot still changes size, angle, action or the foreground/background relation.
 - **A miss is an under-specified variable, not a bad roll:** split the failing description into finer facts, change one thing, re-run the same seed. Explore at low resolution, render the final at full size.
 - Artist and director names stay out of prompts: translate a reference into light, palette and framing.
+
+## 10. A-roll, B-roll and real camera moves
+
+The difference between a slideshow and a film is a real camera. A faceless explainer cuts two lines together:
+
+- **A-roll — the explanation.** The subject the narration names, acting, on screen while the claim is spoken: the mechanism in 3D, footage of the real thing working, a generated clip. It carries the claim.
+- **B-roll — the cinema.** Short shots (0.8–2 s) of the topic's world filmed with a real move: a slow-motion macro of the material on a slider, a gimbal tracking a person or vehicle at golden hour, a drone over the place, hands working under a lamp, a rack focus across the workspace. It sets mood and rhythm, bridges sections and lands on the music; it never carries a claim alone. **[O]** About one B in three shots at Punchy, one in four at Calm; a B before each new section and right after the impact; never two Bs from the same source in a row.
+
+**Where each move comes from:**
+
+| Move | Real source |
+|---|---|
+| Push / dolly, slider, tracking, gimbal follow, orbit, crane, drone, FPV fly-through | footage shot that way (put the move and the speed in the query: "slow motion macro <subject>", "tracking shot <subject> sunset", "drone <place> aerial"); or the 3D camera below; or a generated clip whose prompt names the move |
+| Over a still | drift, push ≤ 1.06, rack focus, 2.5D parallax (§6.8) — accents inside a shot, never its move |
+
+**3D camera that moves like a rig (three.js):** `camera.filmGauge = 36; camera.setFocalLength(<storyboard mm>)`; the path is one `CatmullRomCurve3` through 3–5 points, sampled with one ease over the whole shot (no stops at points); the look-at target trails the subject by 80–150 ms (critically damped), so the frame is operated, not glued; §2's handheld sines at 10–20 % of their amplitude on top; depth of field (`BokehPass`) focused on the subject, the focus pull on the beat word; motion blur by averaging 4–8 sub-frame renders across a 180° shutter (each sub-frame is `render(t + k·(0.5/fps)/n)`, so it stays deterministic). One dive into the mechanism per film beats any orbit.
+
+**Frame rate and speed:** 24 fps with a 180° shutter (motion blur on every layer above ~8 px/frame, §5) reads as film; 30 fps reads as video — set `BRIEF.md` fps 24 for a cinematic film unless the platform needs 30. Slow motion needs a high-frame-rate source (≥ 50 fps; footage APIs list each file's fps): `data-playback-rate` 0.4–0.5, or a speed ramp — a `rate` lane in `data-automation` (1× → 0.3× on the impact frame → 1×; `/hyperframes` `motion.md`, registry `beat-freeze-cut`). Never slow a 25–30 fps clip below 0.8×: it stutters.
+
+**One wow shot per film**, on the impact beat, built first and shown in the style frames: a fly-through into the mechanism, a macro slow-motion action with a ramp, a dolly-zoom on the realisation, a drone pull-back reveal.
+
+**A and B must cut as one film:** the same grade, grain and white balance through `media-treatment` on every clip; matched motion direction across the cut (§3); reject footage with a watermark, compression blocks, judder from a mismatched frame rate, or a look the grade can't pull together.
 
 ---
 Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns).

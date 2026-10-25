@@ -14,13 +14,13 @@ One call, ~3 s: Node, ffmpeg, HyperFrames, VoiceStudio (backend, TTS model, spee
 - **Music WARN** → offer once the free local option: ACE-Step 1.5 (MIT; `git clone --depth 1 https://github.com/ace-step/ACE-Step-1.5 && cd ACE-Step-1.5 && uv sync`, then the turbo, VAE, Qwen3-Embedding-0.6B and 0.6B-LM checkpoints, ~8.5 GB in all; set `ACESTEP_DIR`). Already installed but WARN → `ACESTEP_DIR` is unset. Never MusicGen (its weights are non-commercial). Without music, deliver narration + SFX.
 - **Licences to mention once:** VoiceStudio's default OmniVoice weights are non-commercial (CC-BY-NC); so is the ElevenLabs free tier. For a monetised video, the user needs a commercial-OK voice (`voice.md` "Licence").
 
-Create `video/<topic-slug>/` and `PRODUCTION.md`, and log the preflight result in one line.
+Create `video/<topic-slug>/` and log the preflight result with `state.mjs log` (it creates `PRODUCTION.md`).
 
 ## Step 1 — Brief (always via AskUserQuestion)
 
 **Topic first.** If the user named none, ask in plain text. Never guess a topic.
 
-**The user may bring material** — a finished script, a voice recording, photos, a reference video. Use what they bring and skip the questions it already answers: a script replaces Step 3's writing (still convert it to `narration.txt` and show it at Gate 1); a recording replaces the voice question and Step 4's generation (`--from-audio`). Before using someone's recorded voice, confirm the speaker gave permission. A video from someone else's channel is only a reference to measure (Step 2), never material to reuse.
+**The user may bring material** — a finished script, a voice recording, photos, a reference video. Use what they bring and skip the questions it already answers: a script replaces Step 3's writing (still convert it to `narration.txt` and show it at Gate 1); a recording replaces the voice question and Step 4's generation (`--from-audio`). Before using someone's recorded voice, confirm the speaker gave permission. A video from someone else's channel is only a reference to measure (Step 2), never material to reuse. When the subject is a machine they may own (a car, a bicycle, an appliance, a tool), ask for 3–5 phone photos of it (the part the video is about, close and wide): generators get machine anatomy wrong.
 
 Then two AskUserQuestion calls (4 questions each at most). Ask about the platform **even if the user named one** ("YouTube" can be Shorts or landscape); put what they said first, marked "(Recommended)". Nothing named, or an answer of "no preference" → recommend / use the Autonomous-mode default for that question. Context the user should read goes in plain text before the call (the tool has no intro field): no reference video unless they have one (then Step 2); the voice itself is picked by audition in Step 4; the engine, when only one is ready.
 
@@ -36,6 +36,6 @@ Then two AskUserQuestion calls (4 questions each at most). Ask about the platfor
 7. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" goes on Punchy for 9:16 under 60 s, else on Modern balanced.
 8. **Voice** (only when the user has an ElevenLabs key) — "VoiceStudio — free, runs locally (Recommended)"; "ElevenLabs — paid cloud" (never recommended; free tier is non-commercial and small).
 
-Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (30 unless the platform or user says otherwise), duration, narration language (ISO code), angle, look, energy, audience, voice engine. Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
+Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (24 — reads as film, `camera-motion.md` §10 — unless the platform or user needs 30), duration, narration language (ISO code), angle, look, energy, audience, voice engine. Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
 
 Step 2 (optional, measuring a reference's craft): `measure-reference.md`.

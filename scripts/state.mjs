@@ -6,6 +6,9 @@
 // Usage: node state.mjs [dir]                     -> status (resume from here)
 //        node state.mjs approve <1-4> [dir] [--by "user"|"agent"] [--note "..."]
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
+//        node state.mjs log "<step> | <output> | <problems or ->" [dir]
+//                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
+//                                                    starts where the day's last logged line ended
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -21,7 +24,7 @@ const GATES = {
 const args = process.argv.slice(2);
 const flag = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : null; };
 const by = flag('--by') ?? 'user', note = flag('--note');
-const [cmd, gateArg, dirArg] = ['approve', 'check'].includes(args[0]) ? args : [null, null, args[0]];
+const [cmd, gateArg, dirArg] = ['approve', 'check', 'log'].includes(args[0]) ? args : [null, null, args[0]];
 const dir = dirArg ?? '.';
 const file = path.join(dir, 'state.json');
 const state = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : { approvals: {} };
@@ -46,6 +49,17 @@ if (cmd === 'approve') {
   state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
+} else if (cmd === 'log') {
+  if (!gateArg?.includes('|')) { console.error('FAILED: log needs "<step> | <output> | <problems or ->"'); process.exit(1); }
+  const p = path.join(dir, 'PRODUCTION.md');
+  const [day, now] = new Date().toLocaleString('sv').slice(0, 16).split(' ');
+  let text = existsSync(p) ? readFileSync(p, 'utf8') : '# PRODUCTION\n';
+  if (!text.includes(`## ${day}`)) text = text.trimEnd() + `\n\n## ${day}\n`;
+  // Writing "$(date)–$(date)" at the end of a step logged zero minutes; the previous line's end is this step's start.
+  const ends = text.slice(text.indexOf(`## ${day}`)).match(/^\d\d:\d\d[–-]\d\d:\d\d/gm) || [];
+  const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg}`;
+  writeFileSync(p, text.trimEnd() + '\n' + row + '\n');
+  console.log(row);
 } else if (cmd === 'check') {
   if (!GATES[Number(gateArg)]) { console.error('FAILED: check needs a gate 1–4'); process.exit(1); }
   const s = status(Number(gateArg));
