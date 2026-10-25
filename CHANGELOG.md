@@ -30,6 +30,12 @@ that reads as:
 
 ## [Unreleased]
 
+### Removed
+
+- **Local image and music generators:** `mflux` (Z-Image Turbo, SeedVR2) and ACE-Step
+  (`scripts/music_acestep.py`) are gone from the skill. Stills, footage and music come from real licensed
+  sources and three.js; a generated still only on request through a paid service.
+
 ## [1.2.0] - 2026-10-25
 
 ### Added

@@ -4,7 +4,7 @@ Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`, §9 wh
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
-Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from footage or three.js 3D (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query and `mflux` prompt carries them.
+Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from footage or three.js 3D (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle photo, clip or generation, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** sourcing, and every footage query (and any image prompt the user asks for) carries them.
 
 | Size | Job | Sourcing rule |
 |---|---|---|
@@ -118,7 +118,7 @@ Adds to `visual-direction.md` §1 "Compositing" and §9:
 
 Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = the rulebook (§12: frame ratio, lens set, movement rule, light rule, palette and its arc, texture, never-shown, rule breaks with their reason), frame rate and shutter, the rigs the film uses (§10), the A/B pattern, the one wow shot and the film's technique palette (6–10, §11); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
 
-## 9. Generating stills with the angle in them (`mflux`, only when the user asks for generated stills)
+## 9. Generating stills with the angle in them (only when the user asks for a generated still, a paid service)
 
 - **Capture medium as a fact, not adjectives:** "a mirrorless still, natural window light, no flash, no retouch" · "a video frame grab, slight motion smear" · "a 35 mm negative scan, soft blacks" · "a phone photo, shadow noise".
 - **Never write boosters:** 4K, 8K, ultra-detailed, hyper-realistic, photorealistic, masterpiece, sharp focus, cinematic, epic, stunning, beautiful lighting — **and never "hyperreal"**, which pulls straight into AI-art territory.

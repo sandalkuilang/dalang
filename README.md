@@ -170,7 +170,6 @@ scripts/
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
-  music_acestep.py     instrumental bed from ACE-Step 1.5 (only on request), no UI
   check_assets.mjs     licence gate for every asset → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets

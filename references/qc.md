@@ -24,7 +24,7 @@ npx hyperframes snapshot --review --describe false
 - **Fresh-eyes review** by a new subagent on the sheets (`review.md`); fix every P0 and P1 it writes to `QC-REVIEW.md`.
 - The reviewer runs the rubric; you compare the review sheet's beat frames with the approved style frames (the film must look like them, not drift back to defaults) and check Realism and Reality yourself, judged on full-resolution snapshots of every shot with the subject (people judged in motion); any fail is fixed before Gate 4, never shipped as a known weak shot.
 - Too quiet → raise the narration in the mix. Too still → add motion where the script points. `stillness.mjs` counts a drifting still as motion: it catches frozen frames, not slideshows — that is the reviewer's Action test.
-- Run `check`, snapshots and renders with no model job running: next to mflux one `check` took 121–149 s instead of 13–18 s.
+- Run `check`, snapshots and renders with no model job running: next to a model job one `check` took 121–149 s instead of 13–18 s.
 - A render far slower than the last one (over 3×) → stop it and look for a cause (`--debug`, other Chrome processes, a heavy filter) instead of waiting.
 - Log every problem in `PRODUCTION.md`.
 

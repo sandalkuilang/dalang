@@ -3,7 +3,7 @@
 // that allows the use, and generated files record their model and prompt. Writes CREDITS.md.
 //
 // ASSETS.json: [{ "file": "assets/bee.jpg", "source": "<URL, or 'generated', or 'user'>",
-//   "licence": "CC-BY-4.0", "author": "Name", "model": "z-image-turbo (Apache-2.0)",
+//   "licence": "CC-BY-4.0", "author": "Name", "model": "<model> (<its licence>)",
 //   "prompt": "...", "seed": 42, "beat": "hook" }]
 // Usage: node check_assets.mjs [project dir] [--commercial]
 //   --commercial  also fail non-commercial licences (NC, research-only). ND (no derivatives) always fails: a video edit is a derivative.
