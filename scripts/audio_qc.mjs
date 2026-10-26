@@ -313,6 +313,12 @@ const attrsOf = (text, dups = []) => {
   }
   return attrs;
 };
+// The character references a browser decodes before it runs the script text of an attribute (numeric and the few named ones).
+const htmlDecode = (t) => t.replace(/&(?:#(\d+)|#x([\da-f]+)|(lt|gt|quot|apos|amp|nbsp));/gi, (all, d, h, n) => {
+  if (n) return { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&', nbsp: ' ' }[n.toLowerCase()];
+  const c = d != null ? Number(d) : parseInt(h, 16);
+  return c <= 0x10ffff ? String.fromCodePoint(c) : all;
+});
 // A fade length as HyperFrames reads it: parseFloat, and only a finite value above 0 is a fade.
 const fadeOf = (v) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 
@@ -341,15 +347,21 @@ const RAW_TAGS = new Set(['script', 'style', 'textarea', 'title']);
 //     unmodelled }. A member is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
 //   master: the data-fx-chain of the first data-composition-id element (the master bus), or null.
 //   scripts: { attrs, text } of every <script>.
+//   handlers: { tag, attr, text } of every script text that sits in an attribute, on any element: an on* event handler
+//     (onload, onerror...) and a javascript: URL (character references decoded). Script text like any <script>, see scriptProblem.
 //   base: the href of the first <base href> (a page with one is NOT CHECKED, see scriptProblem), or null.
 export function scanHtml(html) {
-  const media = [], groups = new Map(), scripts = [], stack = [];
+  const media = [], groups = new Map(), scripts = [], handlers = [], stack = [];
   let master, base;
   const re = /<!--[\s\S]*?(?:-->|$)|<\/([a-zA-Z][\w:.-]*)[^>]*>|<([a-zA-Z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
   for (let m; (m = re.exec(html));) {
     if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
     if (!m[2]) continue;
     const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups);
+    for (const [attr, v] of Object.entries(attrs)) {
+      const js = /^on[a-z]+$/.test(attr) ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
+      if (js != null) handlers.push({ tag: name, attr, text: htmlDecode(js) });
+    }
     if (RAW_TAGS.has(name)) {
       const close = html.slice(re.lastIndex).search(new RegExp(`</${name}\\s*>`, 'i')), end = close < 0 ? html.length : re.lastIndex + close;
       if (name === 'script') scripts.push({ attrs, text: html.slice(re.lastIndex, end) });
@@ -371,7 +383,7 @@ export function scanHtml(html) {
     }
     if (!VOID_TAGS.has(name)) stack.push({ name, hidden: Object.hasOwn(attrs, 'data-hidden'), id: attrs.id || '' });
   }
-  return { media, groups, master: master ?? null, scripts, base: base ?? null };
+  return { media, groups, master: master ?? null, scripts, handlers, base: base ?? null };
 }
 function mediaTag(kind, attrs, rest, context, dups = []) {
   const bad = [];
@@ -403,14 +415,25 @@ export const masterFxChain = (html) => scanHtml(html).master;
 // The one rule for scripts: HyperFrames samples element.volume from the timeline and a script can change the mix in more ways
 // than a check can parse, so any script text with one of these words may change it. No JS form is parsed.
 export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
-const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
+// The script types a browser runs: "module" and the JavaScript MIME essences of the HTML spec (Chromium, the HyperFrames
+// renderer, runs all of them). Any other type (json, a template, speculationrules, vbscript) is a data block, never run.
+const JS_TYPES = new Set(['module', 'application/ecmascript', 'application/javascript', 'application/x-ecmascript', 'application/x-javascript',
+  'text/ecmascript', 'text/javascript', 'text/javascript1.0', 'text/javascript1.1', 'text/javascript1.2', 'text/javascript1.3',
+  'text/javascript1.4', 'text/javascript1.5', 'text/jscript', 'text/livescript', 'text/x-ecmascript', 'text/x-javascript']);
+// The script's type string as the HTML spec derives it: an empty or absent type is JavaScript unless a non-empty language
+// attribute stands alone (text/<language>); parameters (charset...) are dropped, on the safe side: a script is not skipped.
+export function isJsScript(attrs) {
+  const has = (k) => Object.hasOwn(attrs, k) && String(attrs[k]).trim() !== '';
+  const type = has('type') ? String(attrs.type) : has('language') && !Object.hasOwn(attrs, 'type') ? `text/${String(attrs.language).trim()}` : 'text/javascript';
+  return JS_TYPES.has(type.split(';')[0].trim().toLowerCase());
+}
 // Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either loads) with a MIX_TOKENS
 // word, a local script that cannot be read, or a load the check does not resolve. THE SCRIPT-LOAD LIMIT, bounded on purpose:
 // only a plain relative <script src> and a static quoted relative or root import specifier are followed, resolved against the
 // folder of index.html (a remote http(s) library and a bare name are vendor code, not read). A page with a <base href>, a
 // <script type="importmap"> or a dynamic import( of any form loads scripts the check does not resolve: NOT CHECKED (UNRESOLVED).
 export const UNRESOLVED = 'page loads scripts the check does not resolve; check the bed by ear on the draft';
-export function scriptProblem(scripts, dir, read, { base = null } = {}) {
+export function scriptProblem(scripts, dir, read, { base = null, handlers = [] } = {}) {
   const ORIGIN = 'http://project.invalid', seen = new Set(), doc = new URL(`${ORIGIN}/index.html`);
   const unresolved = (what) => `${UNRESOLVED} (${String(what).replace(/\s+/g, ' ').slice(0, 50)})`;
   if (base !== null) return unresolved(`<base href="${base}">`);
@@ -468,13 +491,18 @@ export function scriptProblem(scripts, dir, read, { base = null } = {}) {
     return visit(r.text, where, fileUrl(p));
   };
   for (const s of scripts) {
-    if (!JS_TYPE.test((s.attrs.type || '').trim())) continue;
+    if (!isJsScript(s.attrs)) continue;
     let why;
     if (s.attrs.src) {
       let u = null;
       try { u = new URL(s.attrs.src, doc); } catch { /* not a URL */ }
       why = u ? loadUrl(u, s.attrs.src) : unresolved(s.attrs.src);
     } else why = visit(s.text, 'an inline <script>', doc);
+    if (why) return why;
+  }
+  // script text in an attribute (an on* handler, a javascript: URL) on any element runs in the page like an inline script
+  for (const h of handlers) {
+    const why = visit(h.text, `the ${h.attr} attribute of <${h.tag}>`, doc);
     if (why) return why;
   }
   return null;
@@ -615,7 +643,7 @@ function main(argv) {
 
   // Inputs
   const html = readText(at('index.html'));
-  const page = html.text ? scanHtml(html.text) : { media: [], groups: new Map(), master: null, scripts: [] }, tags = page.media;
+  const page = html.text ? scanHtml(html.text) : { media: [], groups: new Map(), master: null, scripts: [], handlers: [] }, tags = page.media;
   if (html.err) warn(html.err);
   else if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
   for (const t of tags) if (t.bad.length) warn(`<audio${t.id ? ' id="' + t.id + '"' : ''}> ${t.bad.join(', ')} is not a number (a template expression?): read as the default`);
@@ -662,7 +690,7 @@ function main(argv) {
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
     if (narrLaneErr) return `the narration's data-automation cannot be modelled (${narrLaneErr}), so its level is unknown`;
     if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
-    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; }, { base: page.base });
+    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; }, { base: page.base, handlers: page.handlers });
     if (sp) return sp;
     if (narrTag) {
       const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
