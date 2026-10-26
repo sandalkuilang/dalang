@@ -1272,6 +1272,16 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   p = windowProblems([{ name: "tail", cue: 2.9, text: "a long label of seven words in all" }], shots, { fps });
   assert.ok(p.length === 1 && /tail.*under its minimum read time/.test(p[0]), "short window: " + nm(p));
   assert.deepEqual(windowProblems([{ name: "tail", cue: 2.9, text: "a long label of seven words in all", min: 0.05 }], shots, { fps }), [], "an explicit min overrides the text");
+  // The minimum is the item's min, else the option's min, else readTime(text): the option beats the text, both ways.
+  assert.deepEqual(windowProblems([{ name: "t", cue: 2.9, text: "x" }], shots, { fps, min: 0.05 }), [], "an option min below the read time lets a short window pass");
+  p = windowProblems([{ name: "t", cue: 2.9, text: "x", min: 0.05 }], shots, { fps, min: 2 });
+  assert.deepEqual(p, [], "an item min beats the option min");
+  p = windowProblems([{ name: "t", cue: 2.0, text: "x" }], shots, { fps, min: 1.5 });
+  assert.ok(p.length === 1 && /t.*window 1 s is under its minimum read time 1.5 s/.test(p[0]), "a stricter option min applies over the text: " + nm(p));
+  assert.deepEqual(windowProblems([{ name: "t", cue: 1.056, text: "x" }], shots, { fps, min: 1.5 }), [], "a window above the option min passes");
+  assert.deepEqual(windowProblems([{ name: "ok", cue: 0.5 }], shots, { fps, min: 0.5 }), [], "an option min with a long enough window and no text");
+  assert.ok(windowProblems([{ name: "ok", cue: 2.9 }], shots, { fps, min: 0.5 }).length === 1, "an option min applies to an item with no text");
+  assert.throws(() => windowProblems([{ name: "t", cue: 1 }], shots, { fps, min: "2" }), /min/);
   assert.deepEqual(windowProblems([{ name: "ok", cue: 0.5 }], shots, { fps }), [], "no text and no min: only an empty window fails");
   assert.equal(readTime("42"), 1); assert.equal(readTime("2 million years"), 1.4); assert.equal(readTime("a b c d e f g"), 2.6);
   assert.equal(readTime("十個漢字"), 1.1); assert.equal(readTime(""), 1); assert.equal(readTime("  "), 1);
