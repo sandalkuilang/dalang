@@ -38,6 +38,20 @@ export function breeze({ dir = [1, 0, 0], speed = 3, ground = 0, z0 = 0.03, ref 
   };
 }
 
+// Room air: never perfectly still indoors. Convection from people, lamps, a warm cup and the gap under a door keeps
+// ~0.05-0.2 m/s moving (ASHRAE 55 counts above ~0.2 m/s as a felt draught), in slow eddies ~size metres carried along
+// dir. Light things barely notice it (a leaf stirs < 1°); a plume does: it breaks into wisps instead of standing as a
+// column. speed (m/s), gust: ± fraction of it, size: eddy size (m).
+export function draught({ dir = [1, 0, 0], speed = 0.1, gust = 0.6, size = 0.3, seed = 3 } = {}) {
+  const d = new THREE.Vector3(dir[0], 0, dir[2]).normalize(), side = new THREE.Vector3(-d.z, 0, d.x), U = speed / M, L = size / M;
+  return (p, t, out) => {
+    const x = (p.x - d.x * U * t) / L, y = p.y / L, z = (p.z - d.z * U * t) / L;
+    const along = noise3(x, y, z, seed) - 0.5 + 0.5 * (noise3(x * 3, y * 3, z * 3, seed + 7) - 0.5);
+    const u = U * (1 + 2 * gust * along), cross = 2 * U * gust * (noise3(x + 31.7, y, z, seed + 1) - 0.5), up = U * gust * (noise3(x, y + 17.3, z, seed + 2) - 0.5);
+    return out.copy(d).multiplyScalar(u).addScaledVector(side, cross).setY(up);
+  };
+}
+
 // A damped oscillator per flexible thing (a blade, a branch, a stem), driven by the drag of the air on it, baked at
 // 120 Hz over the shot and stored per frame: bend(i, t) is its deflection (radians, x and z) at time t, the same in
 // every render. f: natural frequency (Hz), zeta: damping ratio, lean: steady deflection (rad) at v_ref m/s (drag
