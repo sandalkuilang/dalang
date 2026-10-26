@@ -68,6 +68,28 @@ try {
   assert.match(r.err, /Usage/);
   console.log("ok  no storyboard, no beats → exit 1 with usage");
 
+  // 3b. Stills that match no shot time (captured before the times moved): exit 2 with a message, no crash, no sheets.
+  const stale = mk("stale");
+  fs.writeFileSync(path.join(stale, "frame-01-at-9s.png"), "x");
+  fs.writeFileSync(path.join(stale, "contact-sheet.jpg"), "x");
+  r = await run([sb, "--frames", stale]);
+  assert.equal(r.code, 2, `no still within 10 ms of any shot time exits 2: ${r.err}`);
+  assert.match(r.err, /no still .*within 10 ms/i);
+  assert.doesNotMatch(r.err, /TypeError|at .*strips\.mjs/);
+  r = await run([sb, "--frames", mk("none")]);
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, /No stills named/);
+  console.log("ok  stills that match no shot time → exit 2 with a message, not a crash");
+
+  // 3c. A beats.json that is valid JSON but not an object is no shot list: exit 1 with usage, not a TypeError.
+  const nb = mk("nullbeats");
+  fs.mkdirSync(path.join(nb, "audio"));
+  fs.writeFileSync(path.join(nb, "audio", "beats.json"), "null");
+  r = await run([nb, "--dry-run"]);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /Usage/);
+  console.log("ok  beats.json of null → exit 1 with usage");
+
   // 4. Tiling stills captured elsewhere (--frames).
   if (!has("ffmpeg", "-version")) console.log("tiling case skipped: ffmpeg not found");
   else {
@@ -93,6 +115,13 @@ try {
     r = await run([sb, "--frames", fr, "--per-sheet", "12"]);
     assert.equal(r.code, 3, r.err);
     assert.deepEqual(sheets(sb), ["strip-01.jpg"], "a smaller rerun leaves no stale sheet");
+    // The other side: stamps rounded by the snapshot (within 10 ms) still match, so nothing is missing.
+    const near = mk("near");
+    want.forEach((t, i) => fs.copyFileSync(path.join(fr, "frame-01-at-0.16s.png"), path.join(near, `frame-0${i + 1}-at-${(t + 0.004).toFixed(3)}s.png`)));
+    r = await run([sb, "--frames", near]);
+    assert.equal(r.code, 0, `stamps 4 ms off still match: ${r.err}${r.out}`);
+    assert.equal(index(sb).filter((x) => /missing/.test(x.note)).length, 0);
+    console.log("ok  tiling: stamps within 10 ms match");
     console.log("ok  tiling: a missing still is a black cell and a WARN, sheets are numbered, stale sheets go");
   }
   console.log("OK");
