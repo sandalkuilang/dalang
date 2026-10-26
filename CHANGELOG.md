@@ -83,6 +83,13 @@ that reads as:
   size, the kept side and separate grains. The fill's cut is the cutaway's plane in world space (any normal, a
   rotated container too) and follows its timeline (`on`, `off`, `set`) through a `userData.cutTo` hook that
   `cutaway()` calls; a fill shallower than its grains stays above the floor; `max` capping is asserted.
+- **Mechanism parts and time remap** in the engine: `mechanism.js` `slide` and `hinge` (limits are the stops),
+  `spring` (stiffness, rest or preload, damping, real units) and `latch` (holds a part, still colliding, until a time
+  or a condition), baked and hashed with the set (release times in `report.latches`, refused in `opts.islands`);
+  `physics.js` `slow` and `replay` return a `tau(t)` for `apply`, `pose` and `travel`, so slow motion and a replay read
+  the one bake. `camera-motion.md` §5: mechanisms use these parts, never a custom integrator or a per-phase time
+  function; `lessons.md`; the self-check asserts the stop time against the analytic one, that a released part stays at
+  its stop through every remap, and the cache and island rules.
 
 ### Changed
 

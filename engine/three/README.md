@@ -58,9 +58,10 @@ here with a line in this table. Air is one shared field: every source adds into 
 |---|---|
 | `kit.js` | `makeKit(scene, { mpu, floor, wear, palette, kinds, grain, gravity })`: sets the scale and the place (`M` metres per unit; `G` the place's gravity, 9.81 m/s² by default, in units/s²; live for every module; every tolerance is in metres, so any scale works); `model(path, opts)` loads a `.glb`/`.obj`, its materials dressed by name (`palette` colours, `kinds` surfaces: presets `kits.furniture`, `palettes.americanJapandi`; unmapped materials stay as they came), soft goods subdivided; `box`, `cyl`, `tube` (cables kept off the floor), `mat`, `cloth`, `canvasTex`, `group`, `paint`; `rest(o)` + `settle()` drop every prop onto its first contact by its own lowest points and return what could not be placed (nothing below, or more than 3 cm inside something; up to 3 cm it lifts out); `model(path, { crease: false })` keeps a detailed model's own normals; `screenOn(model, material, picture)` lays a display on the model's own screen face. |
 | `surfaces.js` | `surface(material, kind, { world, wear, floor })`: procedural triplanar detail with no UVs — `fabric`, `pile`, `wood`, `bamboo`, `plaster` (wear 0..1), `micro`, `bark`, `stone`, `soil`, `grains` (packed grains, `{ size, long }`). |
-| `physics.js` | `makeSim(THREE)`: Rapier in real units. `staticScene(scene, exclude)`, `roundBox`, `dynamicHull` (spokes, joints, soft), `kinematicHull`, `hold(body, t)` (out of the solver until its cue), `bake(duration, onStep, preroll, { track })` → `{ impacts, report, apply(t), travel(t, fps), pose, at(name, t) }`, `bakeCached(...)` (the same, stored in `assets/bake/` by `bake.mjs` and replayed; one per sim, after `audit`; `{ keep }` carries what onStep built, `{ key }` any value an inline script feeds the bake, `{ islands: [[a, b], [c]] }` bakes groups that never touch in parallel workers), `audit(objects)`. Poses are stored only while a body moves. Report: penetration (rigid only), floating, moving, pre-roll drift at the centre of mass with tilt. |
+| `physics.js` | `makeSim(THREE)`: Rapier in real units. `staticScene(scene, exclude)`, `roundBox`, `dynamicHull` (spokes, joints, soft), `kinematicHull`, `hold(body, t)` (out of the solver until its cue), `bake(duration, onStep, preroll, { track })` → `{ impacts, report, apply(t), travel(t, fps), pose, at(name, t) }`, `bakeCached(...)` (the same, stored in `assets/bake/` by `bake.mjs` and replayed; one per sim, after `audit`; `{ keep }` carries what onStep built, `{ key }` any value an inline script feeds the bake, `{ islands: [[a, b], [c]] }` bakes groups that never touch in parallel workers), `audit(objects)`. `slow(t0, rate, rampOut, hold)` and `replay(tEvent, tShot)` return `tau(t)`, a time remap for slow motion and replays of one baked event: `apply(tau(t))`, `pose(i, tau(t))`, `travel(t, fps, tau)`. Poses are stored only while a body moves. Report: penetration (rigid only), floating, moving, pre-roll drift at the centre of mass with tilt. |
 | `bakecore.js`, `pool.js`, `bake-worker.js` | The bake's step loop without three.js or the DOM, the pool that runs declared islands in workers (one per spare core, in this thread when none starts), and the worker itself. Used by `physics.js`; a set never imports them. |
 | `bodies.js` | `loose(sim, objects, { kg, friction })`: soft things that are not placed (cushions, bags, a dropped coat) settle by simulation in the pre-roll. |
+| `mechanism.js` | `slide(sim, part, { axis, min, max })` and `hinge(sim, part, { at, axis, min, max })`: a part (what `roundBox` or `dynamicHull` returned) on a prismatic or revolute joint whose limits are its stops (m, or rad; the start is 0, inside them); `spring(sim, joint, { stiffness, rest \| preload, damping })` (N/m and N, or N·m/rad and N·m; refused when too stiff for the 480 Hz step); `latch(sim, part, until)` holds the part in place, still colliding, until a time in s or a condition `(t) => boolean`, then lets it go once. Baked with the set: hashed into the cache key, release times in `report.latches`, refused in `opts.islands`. The frame is the set; a part on a moving frame is not covered. |
 | `cloth.js` | `bakeCurtain({ cx, width, top, length, z, wall, wind, duration, mpu })`: any cloth hung from its top row (a curtain, a flag, a banner, laundry), PBD, drag in real units, drawn through a Catmull-Rom spline. |
 | `air.js` | `jet({ frame, D, u0 })`: air blown from any outlet (a fan, a blower, a vent, an exhaust) as a turbulent round jet; `frame(t, outlet, axis)` moves or turns it; `wind(p, t, out)` — add it to the set's air field (`wind.js`); `block(objects)` makes obstacles shadow it. |
 | `fur.js` | `sweep(points, radius, opts)` a tube with a skin laid out for fur; `coat(mesh, opts)` shell fur combed along the body: any animal, part by part from its anatomy. |
@@ -88,7 +89,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 1. `makeKit` with the measured `mpu` and the floor's height; place models and props, `rest()` what is set down.
 2. `settle()` once everything is placed; read what it could not place.
 3. Air (`block` with every obstacle in place), cloth bakes.
-4. `makeSim`, `staticScene` (excluding what moves), dynamic bodies and rigs, `hold` for what enters on a cue,
+4. `makeSim`, `staticScene` (excluding what moves), dynamic bodies and rigs, mechanism parts (`mechanism.js`), `hold` for what enters on a cue,
    `audit`, then one `await bakeCached(...)` for the whole set with a pre-roll (≥ 1.2 s with loose props): a replay
    does not run onStep, so a per-step value it computes goes in `track`, anything else it builds in `keep`, and a
    value from an inline script in `key` (the set's `assets/` modules and `beats.js` are hashed already). Read
@@ -116,6 +117,29 @@ here with a line in this table. Air is one shared field: every source adds into 
    that settle slowly (stacks, props, pieces dropped or nudged): a body moving over 10 mm in one step (about 4.8 m/s at
    480 Hz, spin included: a free fall of about 1.2 m, a throw, a piece dropped from above the frame) refuses the island bake, since inside a step Rapier's CCD can stop a fast body and pass a hit
    on in ways no recorded pose shows. Bake such a set as one world.
-5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
+5. Render loop: pose everything at `t` (a slowed or replayed shot at `tau(t)`); when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
 6. Sounds on `impacts` and on the measured speeds (`camera-motion.md` §5).
+
+### A mechanism on cue, and its slow-motion replay
+
+A spring-loaded plunger held by a latch, released on its cue, then shown again 50 times slower from another camera. One
+bake; both shots read it.
+
+```js
+import { slide, spring, latch } from "./mechanism.js";
+import { slow, replay } from "./physics.js";
+const part = sim.roundBox(plunger, 0.02, 0.02, 0.06, 0.002, { density: 7850 * M ** 3, name: "plunger" });
+const j = slide(sim, part, { axis: { x: 0, y: 0, z: 1 }, min: 0, max: 0.03 }); // 3 cm of travel to its stop
+spring(sim, j, { stiffness: 400, preload: 6 });            // N/m, and N at the held pose
+latch(sim, part, beats.release);                           // or (t) => trigger.body.translation().y < y0
+const baked = await sim.bakeCached(4, onStep, 0.5, opts);
+const tRel = baked.report.latches[0].t;                    // when it let go, also from a cached replay
+// shot 1 in real time; shot 2 (from shot2 s) replays the release, 1/50 slower for a moment, from another angle:
+const again = replay(tRel - 0.05, shot2), ramp = slow(shot2 + 0.05, 1 / 50, 0.6);
+const tau = (t) => (t < shot2 ? t : again(ramp(t)));
+baked.apply(tau(t));
+```
+
+The released part never shows back in its held pose: every shot reads the same baked motion. A part that must go back
+needs a visible cause (a drive, a press), built as a body or a joint, not a second time function.
