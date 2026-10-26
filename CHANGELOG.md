@@ -37,9 +37,9 @@ that reads as:
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by
   time like the cutaway (everything outside the beat's subject fades to a light, desaturated, translucent ghost on cloned
-  materials; the exact original comes back by reference on release; optional fresnel `edge`). `examples/oner.js`: home,
+  materials, one ghost per mesh so parts sharing a material fade at their own weights; the exact original comes back by reference on release; optional fresnel `edge`). `examples/oner.js`: home,
   dive, push-through, home. The self-check asserts determinism, units, the arc over the set, no jump beyond the reported
-  speed, the loop pose to 1e-6, the exact restore of every material, ghosting with a cutaway, and the edge hook.
+  speed, a path that does not follow a moving part (`over` is a Box3; a route measures an object once), the loop pose to 1e-6, a last frame that is solid (`oner` refuses a `look.dur` over 2.5 s), the exact restore of every material, ghosting with a cutaway, and the edge hook.
   `camera-motion.md` §11 gains *Home shot + dives*, *Attention by ghosting* and *Loop end (9:16 Shorts)*; the engine README,
   README and `docs/architecture.md` list the module. Cutaway fix: `cut.at()` no longer clones a ghost made by `attend`.
 - **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[assume: …]` (a stated

@@ -1046,7 +1046,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     const top = new THREE.Box3().setFromObject(world).max.y;
     const a = { position: V(-1, 0.05, 1), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 0.05, 1), target: V(0, 0, 0), fov: 30 };
     assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", lift: 0 }).position.y < top, "a straight push at this height crosses the set");
-    assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", over: world }).position.y >= top + 0.1 / M - 1e-9, "over: the apex clears the set by 10 cm");
+    assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", over: new THREE.Box3().setFromObject(world) }).position.y >= top + 0.1 / M - 1e-9, "over: the apex clears the set by 10 cm");
     assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", over: new THREE.Box3().setFromObject(world), clear: 0.3 }).position.y >= top + 0.3 / M - 1e-9, "over takes a Box3 and a clearance");
   }
   // frame: the object's bounding sphere fits the smaller half-angle of the lens.
@@ -1192,11 +1192,11 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     look.at(6); assert.ok(Math.abs(op(w.shell) - 0.25) < 1e-9 && Math.abs(op(w.B) - 0.25) < 1e-9, "both settle at the full ghost");
     assert.ok(w.shared.opacity === 1 && w.shared.color.getHex() === 0xc08040, "the shared original is never written");
     // The legitimate case: parts on one material at ONE weight still look alike, and an array holding it twice works.
-    const both = attend(w.world, { keep: [w.base] }).focus(w.core, 0); both.at(2);
-    assert.ok(op(w.shell) === op(w.B) && w.shell.material.color.getHex() === w.B.material.color.getHex(), "equal weights look equal");
-    const dup = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), [w.shared, w.shared]); w.world.add(dup);
+    const w2 = build(), both = attend(w2.world, { keep: [w2.base] }).focus(w2.core, 0); both.at(2);
+    assert.ok(op(w2.shell) === op(w2.B) && w2.shell.material.color.getHex() === w2.B.material.color.getHex(), "equal weights look equal");
+    const dup = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), [w2.shared, w2.shared]); w2.world.add(dup);
     both.at(2); assert.ok(dup.material[0].userData.ghost && dup.material[1].userData.ghost, "a material array is ghosted slot by slot");
-    both.release(3); both.at(6); assert.ok(dup.material[0] === w.shared && w.shell.material === w.shared && w.B.material === w.shared, "and restored by reference");
+    both.release(3); both.at(6); assert.ok(dup.material[0] === w2.shared && w2.shell.material === w2.shared && w2.B.material === w2.shared, "and restored by reference");
   }
   // A camera path is a pure function of t: `over` is read when the route is built, so a part that rises later (a lid
   // opening, a ball bouncing) never moves the camera; a Box3 you pass is the envelope you chose.
