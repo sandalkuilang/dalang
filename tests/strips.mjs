@@ -17,7 +17,7 @@ const has = (cmd, ...a) => !spawnSync(cmd, a, { stdio: "ignore" }).error;
 const mk = (name) => { const p = path.join(tmp, name); fs.mkdirSync(p, { recursive: true }); return p; };
 const index = (proj) => fs.readFileSync(path.join(proj, "review", "strips", "index.md"), "utf8").split("\n")
   .filter((l) => /^\|\s*\d+\s*\|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()))
-  .map(([frame, sheet, row, col, time, shot, beat, note]) => ({ frame: +frame, sheet, row: +row, col: +col, time: +time, shot, beat, note }));
+  .map(([frame, sheet, row, col, time, shot, beat, note, change, diff]) => ({ frame: +frame, sheet, row: +row, col: +col, time: +time, shot, beat, note, change, diff }));
 const sheets = (proj) => fs.readdirSync(path.join(proj, "review", "strips")).filter((f) => /^strip-\d+\.jpg$/.test(f)).sort();
 
 const storyboard = `# Storyboard
@@ -123,6 +123,57 @@ try {
     assert.equal(index(sb).filter((x) => /missing/.test(x.note)).length, 0);
     console.log("ok  tiling: stamps within 10 ms match");
     console.log("ok  tiling: a missing still is a black cell and a WARN, sheets are numbered, stale sheets go");
+
+    // 5. --against: each frame labelled against the previous round (unchanged / changed (targeted) / changed (not targeted)).
+    const png = (file, lavfi) => { const f = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", lavfi, "-frames:v", "1", file]); assert.equal(f.status, 0, String(f.stderr)); };
+    const grey = "color=c=0x808080:s=64x36";
+    const prev = mk("prev");
+    fs.mkdirSync(path.join(prev, "frames"));
+    want.forEach((t, i) => png(path.join(prev, "frames", `frame-0${i + 1}-at-${t}s.png`), grey));
+    const cur = mk("cur");
+    want.forEach((t, i) => png(path.join(cur, `frame-0${i + 1}-at-${t}s.png`),
+      t === 2.8 ? "color=c=white:s=64x36" : t === 5 ? `${grey},drawbox=x=10:y=10:w=6:h=6:color=white:t=fill` : t === 0.8 ? "color=c=0x818181:s=64x36" : grey));
+    const expect = (what, t5, t8) => {
+      const l = index(sb).map((q) => q.change);
+      assert.equal(l[4], t5, `${what}: frame 5`);
+      assert.equal(l[7], t8, `${what}: frame 8`);
+      l.forEach((c, i) => { if (i !== 4 && i !== 7) assert.equal(c, "unchanged", `${what}: frame ${i + 1}`); });
+    };
+    r = await run([sb, "--frames", cur, "--against", prev, "--targets", "2"]);
+    assert.equal(r.code, 0, r.err + r.out);
+    expect("shot number", "changed (targeted)", "changed (not targeted)");
+    assert.match(fs.readFileSync(path.join(sb, "review", "strips", "index.md"), "utf8"), /Possible regressions[^\n]*frame 8/);
+    assert.match(r.out, /FLAG: frame 8/);
+    r = await run([sb, "--frames", cur, "--against", prev, "--targets", "why"]);
+    assert.equal(r.code, 0, r.err);
+    expect("beat name", "changed (targeted)", "changed (not targeted)");
+    r = await run([sb, "--frames", cur, "--against", prev, "--targets", "3"]);
+    assert.equal(r.code, 0, r.err);
+    expect("other shot", "changed (not targeted)", "changed (targeted)");
+    r = await run([sb, "--frames", cur, "--against", prev, "--targets", "1"]);
+    assert.equal(r.code, 0, r.err);
+    expect("quiet shot", "changed (not targeted)", "changed (not targeted)");
+    assert.match(r.out, /WARN: targeted shot 1 shows no change/);
+    r = await run([sb, "--frames", cur, "--against", path.join(prev, "frames"), "--targets", "2"]);
+    assert.equal(r.code, 0, r.err);
+    expect("no frames/ subfolder", "changed (targeted)", "changed (not targeted)");
+    for (const [name, args] of [
+      ["--against without --targets", ["--against", prev]],
+      ["--targets without --against", ["--targets", "2"]],
+      ["a target that matches nothing", ["--against", prev, "--targets", "nosuch"]],
+      ["its own out dir", ["--against", path.join(sb, "review", "strips"), "--targets", "2"]],
+      ["--dry-run", ["--against", prev, "--targets", "2", "--dry-run"]],
+    ]) {
+      r = await run([sb, "--frames", cur, ...args]);
+      assert.equal(r.code, 1, `${name}: ${r.err}`);
+      assert.match(r.err, /Usage|--targets|--against/, name);
+    }
+    const cur2 = mk("cur2");
+    fs.readdirSync(cur).filter((f) => !/at-2\.8s/.test(f)).forEach((f) => fs.copyFileSync(path.join(cur, f), path.join(cur2, f)));
+    r = await run([sb, "--frames", cur2, "--against", prev, "--targets", "2"]);
+    assert.equal(r.code, 3, r.err + r.out);
+    assert.equal(index(sb)[4].change, "-");
+    console.log("ok  --against: three labels, beat or shot targets, usage errors, a missing still is not compared");
   }
   console.log("OK");
 } finally {
