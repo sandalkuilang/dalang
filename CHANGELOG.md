@@ -263,6 +263,13 @@ that reads as:
   `--retake`, `--sample`, `--from-audio`, `--speed` and on ElevenLabs takes. `voice.md` says: slower or faster
   approved take = `--tempo`, regenerating = `--speed`, never ffmpeg + `--from-audio` on a TTS take. Test:
   `tests/retake.mjs`.
+- **Showing a quantity** (`visual-direction.md` §13, Steps 5–7): six devices that show a compared number in the world
+  before it is said: twin sets for an A/B, flow arrows whose width is their value, the formula on the set (dimension
+  tags, a tile fill, a range card with the option that fits), condition tags, a sound word on a physical event, a
+  macro insert to a real instrument. Engine: `quantity.js` (`flowArrow`, `tileFill`), `rangeBar` in `type.js`,
+  `examples/twin.js` (`twinSets`); the self-check asserts the arrow width ratio equals the value ratio, the tile
+  count and area, the range card's fill and fit, the twin gap. Review rubric: a `Quantity` row (§11), a compared
+  quantity shown only in text is a P1.
 
 ### Changed
 

@@ -152,7 +152,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
-  visual-direction.md  realism ladder, restraint, composition, review rubric, information layers
+  visual-direction.md  realism ladder, restraint, composition, review rubric, information layers, showing a quantity
   looks.md             the nine looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
@@ -183,8 +183,9 @@ scripts/
   gate.sh              the repo's gate (--fast static, reading budget included; full adds the engine self-check and tests/)
 engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms,
                   cloth, air, plants, particles, grains, water, fur, cutaways, captions and labels,
-                  camera stations and attention) with a self-check; bake.mjs caches a
-                  physics bake once for every snapshot and render; examples/ ready pieces
+                  quantities (flow arrows, tile fills, range cards), camera stations and
+                  attention) with a self-check; bake.mjs caches a physics bake once for every
+                  snapshot and render; examples/ ready pieces
 tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
