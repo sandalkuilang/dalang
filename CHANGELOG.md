@@ -88,8 +88,10 @@ that reads as:
   them with each file's real origin and licence (the repo's MIT for engine and examples; each vendored package, with
   version and licence, for the bundles). `check_assets.mjs` reads every `.engine.json` under `assets/` (an unreadable one
   or a row outside its folder is a problem, fail closed), checks a licence `A AND B` part by part (also `A + B`, `A / B`, `A, B`, `A OR B`, brackets; each part is matched
-  whole, so `MIT GPL-3.0` fails), asks an author and writes a `CREDITS.md` line for a CC BY part wherever it stands, and
-  allows Zlib, ISC and BSD-2/3-Clause.
+  whole, so `MIT GPL-3.0` fails; SPDX ids such as `CC0-1.0`, `CC-BY-4.0 International` and a lone credit note such as
+  `attribution` in the ElevenLabs free-tier string still pass), asks an author and writes a `CREDITS.md` line for a CC BY
+  part wherever it stands, and allows Zlib, ISC and BSD-2/3-Clause. The narration cross-check reads engine-manifest rows
+  as well as `ASSETS.json` rows, so a non-commercial voice cannot be listed commercial through a `.engine.json`.
 - **Unattended runs: Realism, Reality and Clarity P1s block the final** like a P0 until a round fixed them or two
   rounds failed; a Realism or Reality fail stays a P0 that never ships; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
   `review.md`). `lessons.md` gains the `font:` shorthand and scene-id lessons.
