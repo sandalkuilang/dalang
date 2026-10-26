@@ -39,8 +39,10 @@ try {
     "  tl.to(box, { x: 1 }); // slide tl.to(box, { y: 2 });",
     "</script>",
   ]);
-  put(bad, "assets/engine/.engine.json", ["[]"]);
-  put(bad, "assets/engine/core.js", ["a.b = 1; // x c.d = 2;"]);
+  // The engine is installed straight into assets/ (`build.mjs assets`): the manifest sits beside the film's own modules.
+  put(bad, "assets/.engine.json", [JSON.stringify([{ file: "core.js" }, { file: "examples/chair.js" }])]);
+  put(bad, "assets/core.js", ["a.b = 1; // x c.d = 2;"]);
+  put(bad, "assets/examples/chair.js", ["a.b = 1; // x c.d = 2;"]);
   const b = run(bad);
   assert.equal(b.code, 1, b.out + b.err);
   assert.deepEqual(found(b.out), ["assets/light.js:1", "assets/parts.js:1", "assets/scene.js:2", "assets/shots.js:2", "src/index.tpl.html:4"]);
@@ -67,6 +69,53 @@ try {
   assert.match(c.out, /Result\s+: OK/);
   assert.ok(!/PROBLEM/.test(c.out));
   console.log("ok  clean project passes (end-of-line prose, strings, regex, block, whole-line and template text)");
+
+  // 2b. Engine manifest in assets/: only the files it lists are skipped, never the folder, and only inside its folder.
+  const eng = path.join(tmp, "eng");
+  put(eng, "assets/.engine.json", [JSON.stringify([{ file: "core.js" }, { file: "../src/index.tpl.html" }])]);
+  put(eng, "assets/core.js", ["a.b = 1; // x c.d = 2;"]);
+  put(eng, "assets/scene.js", ["obj.position.y = 0.02; // lift it obj.scale.y = 0.04;"]);
+  put(eng, "src/index.tpl.html", ["<script>go(); // x tl.to(a, { y: 2 });</script>"]);
+  const g = run(eng);
+  assert.equal(g.code, 1, g.out + g.err);
+  assert.deepEqual(found(g.out), ["assets/scene.js:1", "src/index.tpl.html:1"], "a row outside the manifest's folder hides nothing");
+  assert.match(g.out, /WARN.*\.engine\.json/);
+  const engOnly = path.join(tmp, "eng-only");
+  put(engOnly, "assets/.engine.json", [JSON.stringify([{ file: "core.js" }])]);
+  put(engOnly, "assets/core.js", ["a.b = 1; // x c.d = 2;"]);
+  put(engOnly, "src/index.tpl.html", ["<script>go();</script>"]);
+  const go = run(engOnly);
+  assert.equal(go.code, 0, go.out + go.err);
+  assert.ok(!/PROBLEM/.test(go.out));
+  const badMan = path.join(tmp, "bad-manifest");
+  put(badMan, "assets/.engine.json", ["{not json"]);
+  put(badMan, "assets/scene.js", ["obj.position.y = 0.02; // lift it obj.scale.y = 0.04;"]);
+  const bm = run(badMan);
+  assert.equal(bm.code, 1, bm.out + bm.err);
+  assert.deepEqual(found(bm.out), ["assets/scene.js:1"], "an unreadable manifest does not hide the folder");
+  assert.match(bm.out, /WARN.*\.engine\.json/);
+  const unlisted = run(tmp, path.join(engOnly, "assets", "core.js"));
+  assert.equal(unlisted.code, 1, "a file named on the command line is linted even when the manifest lists it");
+  console.log("ok  engine manifest in assets/: listed files skipped, the film's modules beside it linted, bad rows and manifests hide nothing");
+
+  // 2c. A backslash before a newline (a continued string) keeps the line count: file:line points at the right line.
+  const cont = path.join(tmp, "cont");
+  put(cont, "assets/scene.js", [
+    'const s = "a\\',
+    'b // not a comment";',
+    "const t = 1;",
+    "obj.position.y = 0.02; // lift it obj.scale.y = 0.04;",
+    "const u = `x\\",
+    "y`; obj.pos.z = 1; // a b.c = 1;",
+  ]);
+  const k = run(cont);
+  assert.equal(k.code, 1, k.out + k.err);
+  assert.deepEqual(found(k.out), ["assets/scene.js:4", "assets/scene.js:6"]);
+  const contClean = path.join(tmp, "cont-clean");
+  put(contClean, "assets/scene.js", ['const s = "a\\', 'b // c.d = 1;";', "go(); // it's fine"]);
+  const kc = run(contClean);
+  assert.equal(kc.code, 0, kc.out + kc.err);
+  console.log("ok  a continued string keeps line numbers right and its second line is still string text");
 
   // 3. Nothing to lint is not "OK".
   const empty = path.join(tmp, "empty");
