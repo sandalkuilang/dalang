@@ -65,7 +65,7 @@ The classic principles of animation, translated into what a timeline can do:
 - **One hero move per shot.** Everything else holds still or moves as secondary action.
 - At most **two** things move at once, not counting the background or camera.
 - The accent colour appears on **one** element per shot.
-- One text block per frame besides the caption, at most 6 words; an evidence or calculation card (below) is the exception, sized by its own rule. The caption never repeats the on-screen label word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns when it does).
+- Text besides the caption follows the layers of §12: one claim headline (at most 8 words) and at most 3 cards on screen at once; an evidence or calculation card is sized by its own rule. The caption never repeats any of them word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns when it does).
 - 3–5 kinds of transition in a film, each caused by something on screen (`/hyperframes` `references/motion.md`). Never the same entrance two beats in a row.
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`), a subtle lens imperfection on photoreal looks (chromatic aberration ≤ 1 px at the edges).
 - Banned: glow, bloom, particles as decoration, lens flares, glass cards, pill chips (a caption's own per-line backing, `drawCaption` `pill`, is not a chip), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, isometric 3D, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax (`camera-motion.md` §6.8), the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
@@ -90,9 +90,9 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 - The hero fills at least **45 % of the frame height or 70 % of its width** (stricter than `/hyperframes`' 40 %; this one wins). A small object in an empty frame is never a shot: push in, crop, or give it a world.
 - Use thirds or a strong centre on purpose, never by default; leave lead room in the direction something faces or moves.
 - Text safe zones per format: `craft-rules.md` §6.
-- Comparisons on 9:16 are sequential, stacked, or one object in two states, never two side-by-side columns.
+- Comparisons on 9:16 are sequential, stacked, one object in two states, or two subjects each with a data card anchored beside it (each card ≤ 30 % of the frame width, §12), which reads well at phone size; never two side-by-side columns of prose.
 - When a number is the point, it is the biggest thing on screen (220–320 px at 1080 wide), in tabular figures, counting up over 1.2–1.6 s and then holding.
-- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (its `[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card is the frame's one text block: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
+- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (its `[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card counts toward the 3 cards of §12: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
 
 ## 8. What the best educational videos do
 
@@ -102,7 +102,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 - **Something new every 2–4 s** (a beat, a camera move, a reveal) — the retention curve punishes static stretches more than fast ones.
 - **One visual metaphor per idea**, introduced once and reused (callbacks), so the viewer learns the film's language.
 - **Progressive disclosure:** build a diagram piece by piece in reading order, on the words that name each piece.
-- **Real numbers as physical comparisons** (a stack of coins, a distance on a map, a fill level) beat bar charts.
+- **Real numbers as physical comparisons** (a stack of coins, a distance on a map, a fill level, the quantity shown as an everyday object at true scale) beat bar charts; a small running tally beside them (§12) keeps the thread across sections.
 - **Payoff frame:** the last idea is the cleanest, biggest frame of the film, held at least 2 s.
 
 ## 9. Type, light, colour
@@ -132,9 +132,44 @@ Three style frames at final quality plus a moving hook sample, approved at Gate 
 | Consistency | Comparable moves use the same eases and durations on the MOTION line's base unit and stagger; groups move together. |
 | Camera | The film uses its SPEC technique palette, each technique doing a story job; every perceptible move comes from a real camera (footage or three.js 3D; CSS only drifts) and has its reason from the storyboard, one move per beat; A-roll and B-roll alternate and cut as one film; the wow shot lands on the impact; angle and lens came from the asset, not a CSS rotation; the scene's axis and eyelines hold; cuts land on the emotional or story word. |
 | Cinematography | Shot sizes change with the shot's job and tighten toward the key beat, screen direction is kept, the colour script shifts by section. Each shot's lens, move, light and colour fit its named emotion (`camera-motion.md` §12) and the SPEC rulebook; the frame ratio, grain and halation are constant except at a logged rule break; light is motivated with a short-side key; the final image rhymes with the opening. |
-| Composition | The hero meets the 45 % / 70 % size, text sits in the safe band, no side-by-side columns on 9:16, and the caption sits at its target position (`craft-rules.md` §6): a 9:16 caption block whose top edge is above ~70 % of the height (Reels, TikTok) or whose bottom edge is above ~65 % (Shorts) is a P1, "captions too high, compete with the hero". |
+| Composition | The hero meets the 45 % / 70 % size, text sits in the safe band, no side-by-side columns of prose on 9:16 (anchored side cards, §12, are fine), and the caption sits at its target position (`craft-rules.md` §6): a 9:16 caption block whose top edge is above ~70 % of the height (Reels, TikTok) or whose bottom edge is above ~65 % (Shorts) is a P1, "captions too high, compete with the hero". |
 | Figure-ground | At thumbnail size (360 px wide, squinted) the hero's silhouette separates from the ground behind it by value: its dark parts, AO and contact shadow give ≥ ~0.2 OKLCH L (`palette.mjs --compare`, colours picked from a snapshot). A weak separation is a P1; a hero that merges into its ground is a P0. |
 | Clarity | The claim is visualised (not just written), and the eye lands on the right thing within 0.3 s. |
+| Sound off | Muted, headlines and cards only: a viewer can state the claim of each section. A section whose claim only the narration carries is a P1 (Clarity). |
+| No repeat | One fact, one layer: no fact appears in two of caption, headline, card and label (a caption repeating a headline or card word for word, a headline restating a card's number). A repeat is a P1. |
 | Phone | Every line meant to be read is readable at 360 px wide (`npx hyperframes snapshot --review`); the captions clear the hero and the platform overlay at that size. |
 
 Fix every failure before Gate 4; a Realism or Reality fail (P0) is never "kept as weakest shot", and neither is a hero merged into its ground (Figure-ground, P0); a smaller detail (P1) follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (not in `SPEC.md`: editing it makes Gate 3 stale). Judge realism on full-resolution `snapshot` stills (rendered from the composition at final quality; zoom on the subject with `--zoom`), never on frames of the 10 fps draft or the contact sheet alone.
+
+## 12. Information layers: headline, cards, labels, captions
+
+With the sound off, on-screen text is how the viewer follows the argument. Up to four layers run at once, each with one job and its own style, never repeating each other: **one fact appears in one layer only** (the caption speaks it, the headline states its takeaway, a card holds its number, a label names its part). Sizes are px at the 1080 px short side (the `type.js` scale); every line meant to be read is at least 36 px and in the narration language.
+
+| Layer | Job | Size | Where and when |
+|---|---|---|---|
+| Claim headline | the current claim as a takeaway, its key term styled (italic + accent underline); over it a kicker (section or source, monospace caps, tracked +8–12 %); under it an optional status tag (the `[illus]` illustration tag, `script-voice.md` §3) | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes on each claim beat (about one every 3–5 s); read alone, the headlines tell the argument |
+| Data card | one option's value, counting in sync with what happens in the world (a reading on the object, a gauge filling segment by segment) | ≤ 30 % of the frame width; value 72–110 px tabular figures, label 36 px | beside its subject: option A left, option B right, one hue per option for the whole film (§6 screen direction) |
+| World label | names a part ("PART · size") with a leader line | ≥ 36 px (`pinLabel`) | on its part, above the caption |
+| Caption | the spoken words | 54–64 px (`drawCaption`) | its target position (`craft-rules.md` §6) |
+
+Card types that carry the argument (each counts as one of the 3 cards):
+- **Evidence card** (`[src]`): a short quote (about 12 words or less, 44–52 px), then the source and "translation ours" when translated, in 36 px monospace.
+- **Calculation card** (`[calc]`): the kicker "our calculation", the arithmetic one line per step, at most 4 lines at 44–56 px, `[assume]` inputs on a line labelled "assumption".
+- **Running tally**: a card that persists across sections and accumulates rows and bars (row 1 fills; later row 2 joins and outgrows it), at most 4 rows, labels 36–44 px, in the same place all film: the argument's state and a callback device, next to (never instead of) the physical comparison of §8.
+- **Impact numeral**: a large accent number ("≈ 4×", "+2 h"), 220–320 px (§7), that lands on its beat word next to its subject; it is the shot's one accent.
+- **Recap checklist**: in the conclusion, one icon row added per spoken item, at most 5 rows at 44–56 px.
+
+Positions inside the format's text band (`craft-rules.md` §6, `safeArea` in `type.js`), as fractions of the height:
+
+| Format | Headline (kicker, tag) | Cards | Caption |
+|---|---|---|---|
+| 9:16 Reels, TikTok | 13–28 %, inside x 6–88 % | 30–68 %, beside the subject, nothing right of 88 % | 72–82 % |
+| 9:16 Shorts | 9–25 % (from 168 px) | 27–58 %, nothing right of x 950 px | ends at 69 % |
+| 4:5 feed | 8–22 % | 25–72 %, inside the 8 % margins | 76–92 % |
+| 16:9 landscape | 5–20 %, left-aligned, ≤ 50 % of the width | 22–80 %, beside the subject | 85–95 % |
+
+- At most **3 cards** on screen besides the caption (the headline and labels are not cards), never three in a row (§5 Banned); the hero still meets §7's size.
+- A/B sides and hues are fixed for the film; a card stays beside its own subject.
+- A layer **enters on its beat word** (`BEATS`/`WORDS`), is **dead still while read** (§9), and **transforms, not vanishes**, when the claim changes: the headline's words change in place, a card's value counts to the new value, the tally gains a row. A layer leaves only when its subject or section does.
+- Text is decided in the storyboard's Overlay column (`look-build.md` Step 5), before the build, never per scene; Step 6 draws it from there and adds headline and card texts to `repeats()`.
+- Examples: two training plans compared over weeks (a card per plan with the weekly load, a tally of total hours); two ways to store bread over days (a card per method counting days, an evidence card for the source); two routes across a city (minutes and cost per route, an impact numeral on the difference); a household device's monthly cost (a calculation card: power × hours × price, a recap checklist of the savings).
