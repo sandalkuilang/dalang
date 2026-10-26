@@ -159,7 +159,8 @@ that reads as:
   the code after it (a member assignment or call, `const`/`let`/`var`, `x = …;`, `fn(…);`) and a `]`, `}` or `)`
   whose comma sits inside the comment, with `file:line` and the swallowed text, exit 1. It reads the film's own code
   (`assets/`, `src/`, `style-frames/src/`; `.html` only inside `<script>`), never the files an engine copy lists in its
-  `.engine.json` (the engine installs into `assets/`, beside the film's own modules, which are linted), and ignores end-of-line comments, whole-line comments and `//` inside strings; exit 2 when nothing could be linted.
+  `.engine.json` (the engine installs into `assets/`, beside the film's own modules, which are linted), and ignores
+  end-of-line comments, whole-line comments and `//` inside strings; exit 2 when nothing could be linted.
   Run after every patch and before every snapshot or draft render (`look-build.md` §6.8) and in the Step 7 QC block
   (`qc.md`); `lessons.md` says why; `tests/lint-scene.mjs` joins the merge gate.
 
