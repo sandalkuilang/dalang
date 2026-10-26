@@ -45,8 +45,6 @@ npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output
 node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4
 ```
 
-The fps is the brief's (30 for vertical social, never 60). At 24 with camera moves or fast bodies, confirm the blur is on: two adjacent frames across the fastest move smear into each other; sharp copies a few px apart strobe (P1, rubric "Strobing").
-
 `--commercial` when the video will be monetised (fails non-commercial licences). Loudness still off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4` and deliver that file.
 
 A clean final encode can measure stiller than the draft; over target → add motion and render again.
