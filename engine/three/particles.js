@@ -6,23 +6,42 @@ import { M, tone } from "./kit.js";
 //   steam  — a warm plume from a cup: lifts by buoyancy that fades as it cools (~0.8 s), drag ties each puff to the
 //            air (it bends with any draught), puffs swell from 6 mm to ~7 cm and thin out over ~2 s.
 //   smoke  — the same law, hotter and longer: rises ~0.7 m/s, swells to half a metre, grey, ~5 s.
+//   Steam and smoke are seen by contrast: against a darker ground, or lit from the side or behind. White steam over a
+//   light sweep or a cream wall is invisible (contrast(kind, ground) below READABLE); raising alpha only makes a
+//   solid column. Give the plume a darker part of the set behind it or a side or back light, and moving air (wind.js
+//   draught() indoors): still air makes a column. shade: how much a dense puff's side away from `light` greys
+//   (self-shadow), which also lets it read on a light ground.
 //   dust   — motes filling a volume: they follow the air almost exactly, settle ~3 mm/s, jitter (Brownian), and
 //            show only where light passes (lit(p) → 0..1, e.g. inside a lamp's cone or a sunbeam).
 //   rain   — drops 1-3 mm across, falling at their terminal speed (Gunn-Kinzer: ~4.5 m/s at 1 mm, ~8 m/s at 3 mm)
 //            plus the wind; each hit of the ground is recorded (impacts: x, z, t) for ripples and splashes.
 const kinds = {
-  steam: { rate: 30, life: [1.5, 2.5], up: 0.15, buoy: 0.5, cool: 0.8, follow: 3, size: [0.006, 0.07], alpha: 0.22, color: 0xf6f6f4 },
-  smoke: { rate: 14, life: [4, 6], up: 0.3, buoy: 1.0, cool: 2, follow: 1.5, size: [0.03, 0.5], alpha: 0.2, color: 0x8f8e8b },
+  steam: { rate: 30, life: [1.5, 2.5], up: 0.15, buoy: 0.5, cool: 0.8, follow: 3, size: [0.006, 0.07], alpha: 0.22, color: 0xf6f6f4, shade: 0.4 },
+  smoke: { rate: 14, life: [4, 6], up: 0.3, buoy: 1.0, cool: 2, follow: 1.5, size: [0.03, 0.5], alpha: 0.2, color: 0x8f8e8b, shade: 0.45 },
   dust: { count: 600, follow: 8, settle: 0.003, jitter: 0.01, size: [0.0008, 0.002], alpha: 0.9, color: 0xfff1d8 },
   rain: { rate: 0, diameter: [1, 3], alpha: 0.35, color: 0xd8e2ea },
 };
 const terminal = (dmm) => 9.65 - 10.3 * Math.exp(-0.6 * dmm); // m/s, Gunn & Kinzer (1949) fit
 
+// Weber contrast of a plume's core against the ground behind it: `layers` overlapping puffs (a plume's core is ~3
+// deep), composited over the ground in linear light; lit = the side facing the light, shaded = the side away (colour
+// × (1 − shade)). Below READABLE (0.15) a soft, moving plume is lost in a compressed 1080p video. A relative law of
+// readability, not a photometric measure.
+export const READABLE = 0.15;
+export function contrast(kind, ground, { layers = 3, ...over } = {}) {
+  const K = { ...kinds[kind], ...over }, a = 1 - (1 - K.alpha) ** layers, Y = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  const g = Y(new THREE.Color(ground)), lit = Y(new THREE.Color(K.color)), sh = lit * (1 - (K.shade || 0));
+  const C = (y) => Math.abs(a * y + (1 - a) * g - g) / Math.max(g, 1e-4);
+  return { lit: C(lit), shaded: C(sh), readable: Math.max(C(lit), C(sh)) >= READABLE };
+}
+
 // kind: one of the above; at (units): the source (steam, smoke), or box { x0, x1, y0, y1, z0, z1 } (dust, and rain
 // falls from its top onto ground y); radius (m): the source's size; rate: births per second (rain: per m² per s,
 // ~300 for steady rain); lit(p): light at a point, 0..1 (dust); ground: the height rain stops at (units), or
-// ground(x, z) for uneven ground (a pond's surface below the lawn).
-export function particles(k, { kind, at, box, radius = 0.03, field, rate, lit = () => 1, ground = 0, seed = 7, max, ...over }) {
+// ground(x, z) for uneven ground (a pond's surface below the lawn); light: the world direction TOWARD the key light
+// (steam, smoke: the side of a puff away from it greys by `shade`), read against the camera at every apply() (call
+// camera.updateMatrixWorld() first). `.contrast(groundColour)` says whether the plume reads against what is behind it.
+export function particles(k, { kind, at, box, radius = 0.03, field, rate, lit = () => 1, ground = 0, seed = 7, max, light = new THREE.Vector3(-1, 1.5, 1), ...over }) {
   const K = { ...kinds[kind], ...over }, rnd = ((i) => () => tone(i++, seed))(1), V = new THREE.Vector3(), A = new THREE.Vector3();
   const area = box ? (box.x1 - box.x0) * (box.z1 - box.z0) * M * M : 0, perSec = kind === "rain" ? (rate ?? 300) * area : rate ?? K.rate;
   const n = max ?? (kind === "dust" ? K.count : Math.ceil(perSec * (kind === "rain" ? ((box.y1 - box.y0) * M) / 4 + 0.5 : K.life[1]) * 1.2));
@@ -46,6 +65,7 @@ export function particles(k, { kind, at, box, radius = 0.03, field, rate, lit = 
     }
   }
   return {
+    contrast(ground, o) { return contrast(kind, ground, { ...over, ...o }); }, // does this plume read against that colour?
     impacts, count: n, frames, // frames: per stored frame, 8 floats a particle (position, velocity m/s, size, alpha)
     bake(duration, preroll = kind === "dust" ? 0.5 : 3) {
       if (kind === "dust") for (let i = 0; i < n; i++) spawn(i, -preroll);
@@ -94,11 +114,11 @@ export function particles(k, { kind, at, box, radius = 0.03, field, rate, lit = 
         geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
         geo.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(n), 1));
         geo.setAttribute("aAlpha", new THREE.BufferAttribute(new Float32Array(n), 1));
-        this.uniforms = { uScale: { value: 1000 }, uColor: { value: color }, uPuff: { value: kind === "dust" ? 0 : 1 } };
+        this.uniforms = { uScale: { value: 1000 }, uColor: { value: color }, uPuff: { value: kind === "dust" ? 0 : 1 }, uShade: { value: K.shade || 0 }, uLight: { value: new THREE.Vector3(0, 0, 0) } };
         this.mesh = new THREE.Points(geo, new THREE.ShaderMaterial({
           uniforms: this.uniforms, transparent: true, depthWrite: false, blending: kind === "dust" ? THREE.AdditiveBlending : THREE.NormalBlending,
           vertexShader: "attribute float aSize, aAlpha; uniform float uScale, uPuff; varying float vA, vSeed; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float px = aSize * uScale / -mv.z; gl_PointSize = max(1.0, px); vA = aAlpha * (uPuff > 0.5 ? min(1.0, px) : clamp(px * 3.0, 0.35, 1.0)); vSeed = fract(float(gl_VertexID) * 0.6180339); }", // a mote below a pixel still shows as a 1-px glint: it scatters the light it is in
-          fragmentShader: "uniform vec3 uColor; uniform float uPuff; varying float vA, vSeed; float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); } float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); } void main() { vec2 c = gl_PointCoord - 0.5; float r = length(c) * 2.0; vec2 q = gl_PointCoord * 3.0 + vSeed * 17.0; float puff = uPuff * 0.45 * (0.65 * vn(q) + 0.35 * vn(q * 2.3) - 0.5); float a = vA * smoothstep(1.0, 0.0, r + puff) * (uPuff > 0.5 ? 1.0 - 0.6 * r * r : 1.0); if (a < 0.003) discard; gl_FragColor = vec4(uColor, a); }", // soft wisps: smooth noise eats into each puff edge, a different one per particle
+          fragmentShader: "uniform vec3 uColor, uLight; uniform float uPuff, uShade; varying float vA, vSeed; float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); } float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); } void main() { vec2 c = gl_PointCoord - 0.5; float r = length(c) * 2.0; vec2 q = gl_PointCoord * 3.0 + vSeed * 17.0; float puff = uPuff * 0.45 * (0.65 * vn(q) + 0.35 * vn(q * 2.3) - 0.5); float a = vA * smoothstep(1.0, 0.0, r + puff) * (uPuff > 0.5 ? 1.0 - 0.6 * r * r : 1.0); if (a < 0.003) discard; float s = dot(c * 2.0, uLight.xy); float k = 1.0 - uShade * uLight.z * smoothstep(-0.3, 1.0, -s) * uPuff; gl_FragColor = vec4(uColor * k, a); }", // soft wisps: smooth noise eats into each puff edge, a different one per particle
         }));
       }
       this.mesh.frustumCulled = false;
@@ -122,7 +142,11 @@ export function particles(k, { kind, at, box, radius = 0.03, field, rate, lit = 
         }
       }
       for (const k2 in attr) attr[k2].needsUpdate = true;
-      if (this.uniforms && camera) this.uniforms.uScale.value = heightPx / (2 * Math.tan((camera.fov * Math.PI) / 360));
+      if (this.uniforms && camera) {
+        this.uniforms.uScale.value = heightPx / (2 * Math.tan((camera.fov * Math.PI) / 360));
+        const L = light.clone().normalize().transformDirection(camera.matrixWorldInverse), h = Math.hypot(L.x, L.y); // gl_PointCoord's y runs down; a light behind the plume has L.z < 0
+        this.uniforms.uLight.value.set(h > 1e-3 ? L.x / h : 0, h > 1e-3 ? -L.y / h : 0, Math.min(1, Math.max(0, 0.5 + 0.5 * L.z)));
+      }
     },
   };
 }
