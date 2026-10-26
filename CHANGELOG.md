@@ -42,7 +42,11 @@ that reads as:
   subagent list are outside that total); `scripts/gate.sh --fast` runs it and `tests/reading.mjs`, which proves it
   fails on an oversized section, a missing heading, a bad lesson tag, an untagged lesson line and an over-budget
   total. Every line in `lessons.md` carries a step tag; a line without one fails the gate instead of being dropped
-  or guessed to hold everywhere.
+  or guessed to hold everywhere. The test also fails when a section of any reference (`lessons.md` aside) is over
+  8 KB whether the table lists it or not, when a pointer in a step's "Read now" text (`file.md` §N, `file.md` "Name")
+  has no line in that step's index, and when Step 5's or 6's index lacks the three.js engine install. The `looks.md`
+  "three.js recipes" section is split into four `###` parts (install the engine, light and material per look, set
+  dressing / scale / interior / condition, true shapes and surfaces), all in the Step 5 and 6 index.
 - **Camera stations and attention** (`engine/three/camera.js`): `stations`, `frame`, `travel` (an arc over the set, eased,
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by

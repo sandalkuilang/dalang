@@ -49,7 +49,7 @@ A clean final encode can measure stiller than the draft; over target → add mot
 
 ## Step 8 — Hand-off
 
-Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track) and `CREDITS.md`. The upload caption you draft carries no credit or licence line (no music or asset credits) unless the user chose one; where a CC BY credit goes is the user's call (`look-build.md` §7). Report in plain language, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage and render time; revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**, honestly; the one improvement with the biggest impact.
+Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track) and `CREDITS.md`. The upload caption you draft carries no credit or licence line (no music or asset credits) unless the user chose one; where a CC BY credit goes is the user's call (`look-build.md` Step 6, item 7). Report in plain language, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage and render time; revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**, honestly; the one improvement with the biggest impact.
 
 **Open P1s:** list every P1 still open in `QC-REVIEW.md` with its rubric test and why it stays (cosmetic, or two rounds failed on it).
 
