@@ -463,6 +463,44 @@ const whole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat); w
 const hatchRoot = new THREE.Group(); hatchRoot.add(whole, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat));
 const hatched = cutaway(hatchRoot, { hatch: 0.01 }); hatchRoot.updateMatrixWorld(true); hatched.at(0);
 assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatched.parts.length === 1 && hatched.parts[0].cap.material.map, "cut: false stays whole; a hatch maps the caps");
+// The render draws a clone of each material, so a set's later edits to its own reference (a glowing element, a fade,
+// a colour change, a map swap, a shader's uniforms) are carried to the clone by at(); an edit made on mesh.material
+// (the clone) is kept while the original is unchanged.
+{
+  const coil = new THREE.MeshStandardMaterial({ color: 0x552200 }), shader = new THREE.ShaderMaterial({ uniforms: { uScale: { value: 1 } } }), probeMap = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+  const lr = new THREE.Group(), el = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), coil), pts = new THREE.Points(new THREE.BufferGeometry(), shader), fixed = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+  lr.add(el, pts, fixed);
+  const lc = cutaway(lr); lr.updateMatrixWorld(true); lc.at(0);
+  assert.ok(el.material !== coil && el.material.clippingPlanes.includes(lc.plane), "the render draws a clone that carries the plane");
+  coil.emissive.setHex(0xff4400); coil.emissiveIntensity = 2.5; coil.opacity = 0.4; coil.transparent = true; coil.map = probeMap; coil.needsUpdate = true; coil.color.setHex(0x112233);
+  shader.uniforms.uScale.value = 7;
+  lc.at(1);
+  const live = el.material;
+  assert.ok(live.emissiveIntensity === 2.5 && live.emissive.getHex() === 0xff4400 && live.opacity === 0.4 && live.transparent && live.color.getHex() === 0x112233, "later edits to the set's own material reach the part (glow, fade, colour)");
+  assert.ok(live.map === probeMap, "a map swap reaches the part");
+  assert.ok(pts.material.uniforms.uScale.value === 7, "a shader's uniforms are shared: an update on the original reaches the part");
+  assert.ok(live.clippingPlanes.includes(lc.plane) && live.clipShadows, "the carried clone is still cut");
+  live.emissiveIntensity = 9; lc.at(2);
+  assert.equal(el.material.emissiveIntensity, 9, "an edit made on mesh.material is kept when the original did not change");
+  coil.emissiveIntensity = 0.5; lc.at(3);
+  assert.equal(el.material.emissiveIntensity, 0.5, "the original changing again wins again");
+  assert.equal(fixed.material.color.getHex(), 0x00ff00, "an untouched material keeps its own colour");
+}
+// The cap group is never under the root, also when at() runs before the root is in the scene (a pose or preview):
+// it joins the scene once the root has one, follows the root to another scene, and the assembly's size stays its own.
+{
+  const pr = new THREE.Group(); pr.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), new THREE.MeshStandardMaterial()));
+  const pc = cutaway(pr); pr.updateMatrixWorld(true);
+  const isUnder = (o, a) => { for (let x = o; x; x = x.parent) if (x === a) return true; return false; };
+  pc.at(0);
+  assert.ok(!isUnder(pc.group, pr), "before the root is in a scene the cap group is not put under it");
+  const size = new THREE.Box3().setFromObject(pr).getSize(new THREE.Vector3());
+  const ps = new THREE.Scene(); ps.add(pr); pc.at(1);
+  assert.ok(pc.group.parent === ps && !isUnder(pc.group, pr), "once the root is in a scene the group joins the scene");
+  assert.ok(new THREE.Box3().setFromObject(pr).getSize(new THREE.Vector3()).equals(size), "the assembly's size is not the caps'");
+  const ps2 = new THREE.Scene(); ps2.add(pr); pc.at(2);
+  assert.ok(pc.group.parent === ps2, "the group follows the root to another scene");
+}
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
