@@ -106,7 +106,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. One video = one session, because all state lives in files.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. One video = one session, because all state lives in files. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
 
 </td></tr>
 </table>

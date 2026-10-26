@@ -47,7 +47,7 @@ files and prints only that step's reading list (sections as `sed` commands, the 
 what is printed to read (sections and lesson headlines) against 60 KB for Steps 0–8; every indexed section still has
 to exist and fit 8 KB, and `tests/reading.mjs` fails when any section of a reference is over 8 KB or a pointer in the
 step's text has no index line. Images
-(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context.
+(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context. Each subagent job has a model: the strongest for the jobs that judge the film, a mid tier for fix checks, asset pair checks, media screening and research (`SKILL.md` "Work fast").
 
 ## Why timing drives everything
 
