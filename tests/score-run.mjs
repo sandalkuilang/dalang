@@ -36,13 +36,19 @@ try {
   assert.deepEqual([j.quiz_score, j.quiz_pct], [0, 0]);
   console.log("ok  all correct = 100, all wrong = a real 0");
 
-  for (const bad of [rows("correct", "maybe"), head]) {
+  for (const bad of [rows("correct", "maybe"), head, ""]) {
     const r = score(proj(bad), "--json");
     assert.equal(r.code, 0);
     assert.equal(JSON.parse(r.out).quiz_score, "error");
     assert.match(r.err, /WARN: review\/quiz-result\.md/);
   }
-  console.log("ok  unknown verdict or no rows = error + WARN, never 0");
+  console.log("ok  unknown verdict, no rows or a 0-byte file = error + WARN, never 0");
+
+  const dirp = proj(null); fs.mkdirSync(path.join(dirp, "review", "quiz-result.md"));
+  const rd = score(dirp, "--json");
+  assert.equal(JSON.parse(rd.out).quiz_score, "error");
+  assert.match(rd.err, /WARN: review\/quiz-result\.md/);
+  console.log("ok  unreadable quiz-result.md (a directory) = error + WARN, never no quiz");
 
   j = json(proj(null));
   assert.deepEqual(Object.keys(j).filter((k) => k.startsWith("quiz_")), []);
