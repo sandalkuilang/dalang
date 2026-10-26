@@ -211,6 +211,81 @@ for (const [what, make] of Object.entries(reach)) {
   assert.doesNotThrow(() => { const w = R.s.world; w.castRay(ray(), 5, true); w.getCollider(R.a.body.collider(0).handle).translation(); R.a.body.translation(); }, "every fence is lifted once the island bake is over");
 }
 
+// What the island worlds share with the main one is fixed when the bake starts: gravity, the solver, every fixed body
+// and static collider, the joints. onStep, track and keep run on the main world alone, so a change to any of these would
+// never reach an island: it is refused while they run (and a change that slips past the fence is caught after the bake),
+// and nothing is saved. The main island's own bodies stay free, and with no islands nothing is fenced.
+const statics = (I) => { const out = []; I.s.world.forEachCollider((c) => { if (!c.parent()) out.push(c); }); return out; };
+const withFixed = async () => { // a fixed body with a collider, made before the bake, beside the static scene
+  const I = await isles({ store: new Map() }), fx = I.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(3, 0.5, 0));
+  I.s.world.createCollider(RAPIER.ColliderDesc.cuboid(0.1, 0.1, 0.1), fx); I.fx = fx; return I;
+};
+const shared = {
+  "a static collider disabled": (I) => { const [f] = statics(I); return () => f.setEnabled(false); },
+  "a static collider moved": (I) => { const [f] = statics(I); return () => f.setTranslation({ x: 0, y: -5, z: 0 }); },
+  "a static collider's friction": (I) => { const [f] = statics(I); return () => f.setFriction(0); },
+  "a static collider reached by getCollider": (I) => { const h = statics(I)[0].handle; return () => I.s.world.getCollider(h).setEnabled(false); },
+  "a static collider removed": (I) => { const [f] = statics(I); return () => I.s.world.removeCollider(f, true); },
+  "gravity replaced": (I) => () => { I.s.world.gravity = { x: 0, y: 0, z: 0 }; },
+  "gravity edited in place": (I) => () => { I.s.world.gravity.y = 0; },
+  "the timestep": (I) => () => { I.s.world.timestep = 1 / 240; },
+  "the solver iterations": (I) => () => { I.s.world.numSolverIterations = 1; },
+  "the integration parameters": (I) => () => { I.s.world.integrationParameters.normalizedAllowedLinearError = 0.1; },
+  "a fixed body moved": (I) => () => I.fx.setTranslation({ x: 0.8, y: 0.2, z: 0 }, true),
+  "a fixed body's collider": (I) => () => I.fx.collider(0).setEnabled(false),
+  "a fixed body made dynamic": (I) => () => I.fx.setBodyType(RAPIER.RigidBodyType.Dynamic, true),
+  "a collider created": (I) => () => { I.s.world.createCollider(RAPIER.ColliderDesc.cuboid(1, 0.05, 1).setTranslation(0.8, 0.2, 0)); },
+  "a body created": (I) => () => { I.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed()); },
+  "a joint inside an island": (I) => () => I.s.world.impulseJoints.forEach((j) => j.setContactsEnabled(false)),
+  "a change through the raw handle": (I) => { const h = statics(I)[0].handle; return () => I.s.world.colliders.raw.coSetEnabled(h, false); },
+};
+for (const [what, make] of Object.entries(shared)) {
+  for (const via of ["onStep", "track", "keep"]) {
+    const R = await withFixed(), st = new Map(), j = what === "a joint inside an island";
+    if (j) R.s.world.createImpulseJoint(jd(R, -1.6), R.a.body, R.b.body, true);
+    const go = make(R), run = via === "onStep" ? { step: () => go(), opts: {} } : { step: null, opts: { [via]: via === "track" ? { x: () => (go(), 0) } : () => (go(), {}) } };
+    await assert.rejects(R.s.bakeCached(0.3, run.step, 0.1, { ...R.opts, ...run.opts, load: async () => null, save: async (k, v) => st.set(k, v), islands: j ? [[R.a, R.b]] : [[R.a], [R.b]] }), /opts\.islands/, `${what}: ${via} cannot change what the island worlds share`);
+    assert.equal(st.size, 0, `${what}: ${via}: nothing is saved for a refused bake`);
+  }
+}
+{
+  // Legitimate: the main island's own bodies are free, and every shared thing may be read; the result is the single world's.
+  const script = (I) => { let n = 0; return (t) => { const f = statics(I)[0]; n += I.s.world.gravity.y + f.translation().y + f.friction() + I.fx.translation().x + I.s.world.timestep + (f.isEnabled() ? 1 : 0) + I.fx.collider(0).halfExtents().x; I.push.body.addForce({ x: 0, y: 0, z: 0.01 }, true); I.push.body.applyImpulse({ x: 0, y: 0, z: 0.0001 }, true); if (t > 0.2) I.push.body.setLinvel({ x: 0, y: 0, z: 1 }, true); }; };
+  const S = await withFixed(), sr = await S.s.bakeCached(1, script(S), 0.2, S.opts);
+  const P = await withFixed(), pr = await P.s.bakeCached(1, script(P), 0.2, { ...P.opts, islands: [[P.a], [P.b]] });
+  for (const t of times) assert.deepEqual(ipose(pr, t), ipose(sr, t), `reading the shared state and driving a main body matches the single world at ${t} s`);
+  assert.deepEqual([pr.report, pr.impacts], [sr.report, sr.impacts], "same report with shared state read and a main body driven");
+  // The fences are gone afterwards, and the world is as it was.
+  assert.doesNotThrow(() => { const w = P.s.world, g = w.gravity.y; w.gravity = { x: 0, y: g, z: 0 }; w.timestep = w.timestep; w.integrationParameters.normalizedAllowedLinearError = 0.0002; statics(P)[0].setEnabled(true); P.fx.setTranslation({ x: 3, y: 0.5, z: 0 }, true); P.fx.collider(0).setEnabled(true); w.createRigidBody(RAPIER.RigidBodyDesc.fixed()); }, "every shared-state fence is lifted once the island bake is over");
+  assert.ok(P.s.world.gravity.y < 0 && !Object.hasOwn(P.s.world, "timestep"), "the world's own gravity and settings are back");
+  // With no islands, none of it is fenced: a scripted change is part of the single world, and that bake is cached as usual.
+  for (const [what, make] of Object.entries(shared)) {
+    if (what === "a joint inside an island" || what === "a static collider removed") continue; // (removing a collider is refused with islands only)
+    const Q = await withFixed(), go = make(Q);
+    await assert.doesNotReject(Q.s.bakeCached(0.2, () => go(), 0.1, Q.opts), `${what}: with no islands it is a scripted change of the single world`);
+  }
+  // A body the sim did not make is not in the island worlds (switched off there): refused. A fixed one is shared: fine.
+  const U = await isles(); U.s.world.createCollider(RAPIER.ColliderDesc.ball(0.1), U.s.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.8, 0.2, 0)));
+  await assert.rejects(U.s.bakeCached(0.3, null, 0.1, withIslands(U)), /opts\.islands.*roundBox/, "a dynamic body made by hand would never meet the island bodies");
+  const V = await withFixed(); await assert.doesNotReject(V.s.bakeCached(0.3, null, 0.1, withIslands(V)), "a hand-made fixed body is shared by every island world");
+}
+
+// The cache key is a pure function of the scene: the lazily loaded bake worker is in the page's resource timeline once
+// an earlier bake spawned it, and never otherwise; it must not decide whether the next sim finds its cache.
+{
+  const real = { document: globalThis.document, fetch: globalThis.fetch, entries: performance.getEntriesByType }, texts = new Map();
+  const hashWith = async (list) => {
+    globalThis.document = {}; performance.getEntriesByType = () => list.map((name) => ({ name })); globalThis.fetch = async (u) => ({ text: async () => texts.get(u) ?? `// ${u}` });
+    try { const I = await isles({ store: new Map() }); return (await I.s.bakeCached(0.2, null, 0.1, I.opts)).hash; } finally { Object.assign(globalThis, { document: real.document, fetch: real.fetch }); performance.getEntriesByType = real.entries; }
+  };
+  const base = [dir + "kit.js", dir + "examples/interior.js", dir + "bakecore.js"], noWorker = await hashWith(base);
+  assert.equal(await hashWith([...base, dir + "bake-worker.js"]), noWorker, "a page that spawned a bake worker hashes like one that did not");
+  assert.equal(await hashWith([...base, dir + "bake-worker.js?v=2", dir + "bake/abc.bin"]), noWorker, "a worker script with a query, and the bake files themselves, are no input either");
+  assert.notEqual(await hashWith([...base, dir + "set.js"]), noWorker, "a module the set loads is an input: a new one misses the cache");
+  texts.set(dir + "kit.js", "// edited");
+  assert.notEqual(await hashWith(base), noWorker, "a changed module misses the cache");
+}
+
 // Cloth hangs and stays finite; a swept tube has no zero normals (a NaN in the shader blacks out the frame).
 const c = bakeCurtain({ cx: 0, width: 0.2, top: 1, length: 0.5, z: 0, wall: -0.1, wind: (p, t, o) => o.set(0, 0, 0), duration: 1, mpu: M });
 c.apply(0.9);
