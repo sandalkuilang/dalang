@@ -353,6 +353,8 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     // the set's modules in assets/, the narration timing (beats.js) and opts.key — put in key anything else onStep reads.
     // A page cannot write files: a miss is posted to engine/three/bake.mjs when it runs; otherwise it is just baked.
     // After a cached bake the Rapier world is not at the shot's end: read only the returned object.
+    // opts.islands = [[a, b], [c]]: groups that never touch for the whole shot, baked as separate worlds in workers
+    // beside the main island (every body not listed, the only one that runs onStep, kinematic paths, track and keep).
     async bakeCached(duration, onStep, preroll = 0.5, opts = {}) {
       if (replayed) throw new Error("one bakeCached per sim: a shot that continues another is part of the same bake");
       replayed = true;
