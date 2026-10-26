@@ -50,6 +50,46 @@ assert.ok(baked.report.penetration_mm < 2, "penetration " + JSON.stringify(baked
 baked.apply(3);
 assert.ok(Math.abs(cube.position.y - 0.075) * M * 1000 < 2, "the box rests on the floor, off by " + ((cube.position.y - 0.075) * M * 1000).toFixed(1) + " mm");
 
+// Bake cache, holds and sparse poses: an unchanged scene replays its cached bake exactly (sub-frames, report,
+// tracked series, what onStep kept), a changed scene or onStep misses and a damaged file is a miss, not a crash; the
+// world is not used after a replay; a held box stays put until its release, then falls; a resting box stores almost
+// no poses.
+async function boxes(y, until) {
+  const sc = new THREE.Scene(); sc.add(floor.clone());
+  const drop = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); drop.position.set(0, y, 0); drop.name = "drop"; sc.add(drop);
+  const rest = drop.clone(); rest.position.set(0.6, 0.075, 0); rest.name = "rest"; sc.add(rest);
+  sc.updateMatrixWorld(true);
+  const s = await makeSim(THREE); s.staticScene(sc, [drop, rest]);
+  const tb = s.roundBox(drop, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }); s.roundBox(rest, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 });
+  if (until != null) s.hold(tb, until);
+  let touch = null;
+  const step = (t) => { if (touch === null && tb.body.translation().y < 0.08) touch = t; };
+  return { s, step, opts: { track: { y: () => tb.body.translation().y }, keep: () => ({ touch }), load: async (k) => (store.has(k) ? store.get(k).slice().buffer : null), save: async (k, v) => store.set(k, v) } };
+}
+const store = new Map(), poseAt = (b, i, t) => { const { p, q } = b.pose(i, t); return [...p.toArray(), ...q.toArray()]; }, times = [0, 0.3, 0.3 + 1 / 1440, 0.71, 1.5];
+const A = await boxes(0.5), live = await A.s.bakeCached(1.5, A.step, 0.2, A.opts);
+assert.ok(!live.cached && store.size === 1, "a first bake is computed and saved");
+const B = await boxes(0.5), hit = await B.s.bakeCached(1.5, B.step, 0.2, B.opts);
+assert.ok(hit.cached && hit.hash === live.hash, "an unchanged scene replays its cache");
+for (const t of times) for (const i of [0, 1]) assert.deepEqual(poseAt(hit, i, t), poseAt(live, i, t), `cached pose ${i} at ${t} s`);
+assert.deepEqual(hit.report, live.report, "cached report"); assert.equal(hit.at("y", 0.7), live.at("y", 0.7), "cached series");
+assert.ok(live.kept.touch > 0 && hit.kept.touch === live.kept.touch, "what onStep kept survives a replay");
+assert.throws(() => B.s.bake(1, null), /bakeCached/, "the world is not baked again after a replay");
+const E = await boxes(0.5), other = await E.s.bakeCached(1.5, (t) => {}, 0.2, E.opts);
+assert.ok(!other.cached, "a changed onStep misses the cache");
+store.set(live.hash, store.get(live.hash).slice(0, 5000));
+const F = await boxes(0.5), damaged = await F.s.bakeCached(1.5, F.step, 0.2, F.opts);
+assert.ok(!damaged.cached && damaged.kept.touch === live.kept.touch, "a truncated cache file is baked again");
+const D = await boxes(0.5), again = D.s.bake(1.5, D.step, 0.2, D.opts);
+for (const t of times) assert.deepEqual(poseAt(again, 0, t), poseAt(live, 0, t), `a re-bake is deterministic at ${t} s`);
+const C = await boxes(0.51), miss = await C.s.bakeCached(1.5, C.step, 0.2, C.opts);
+assert.ok(!miss.cached && miss.hash !== live.hash, "a changed drop height misses the cache");
+assert.ok(live.data.poses[1].s.length < live.data.n / 5, "a resting box stores " + live.data.poses[1].s.length + " of " + live.data.n + " poses"); // only its last micro-settling
+const H = await boxes(0.5, 1), held = H.s.bake(2.5, null, 0.2);
+assert.ok(Math.abs(held.pose(0, 0.95).p.y - 0.5) < 1e-6, "a held box stays where it was put");
+assert.ok(held.pose(0, 1.2).p.y < 0.45 && Math.abs(held.pose(0, 2.5).p.y - 0.075) * M * 1000 < 2, "released, it falls and lands");
+assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after its release it is audited like any body");
+
 // Cloth hangs and stays finite; a swept tube has no zero normals (a NaN in the shader blacks out the frame).
 const c = bakeCurtain({ cx: 0, width: 0.2, top: 1, length: 0.5, z: 0, wall: -0.1, wind: (p, t, o) => o.set(0, 0, 0), duration: 1, mpu: M });
 c.apply(0.9);
@@ -123,4 +163,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), any scale and gravity");

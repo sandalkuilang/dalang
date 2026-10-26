@@ -45,8 +45,24 @@ that reads as:
 - **Brief Call 0**: setup choices preflight leaves (HyperFrames skills, a free stock-footage key, the voice engine,
   which moved here from Call 2) are asked before Call 1, so they have an answer path and the Realism recommendation
   knows its sources.
+- **Bake once, replay everywhere**: `physics.bakeCached()` stores a bake in `assets/bake/<hash>.bin` (the hash covers
+  every collider and body, solver settings, onStep, kinematic paths, holds, the set's modules and the narration timing) and
+  `engine/three/bake.mjs <project>` writes it once; snapshots, the preview and every render worker replay it instead
+  of simulating again on each page load. `track` keeps per-step values onStep computed (`baked.at(name, t)`).
+- **`sim.hold(body, t)`** keeps a body out of the solver until its cue, instead of teleporting it every step.
+- **Working-speed rules**: verification loops in a subagent, `/compact` offered at Gates 3 and 4, Edit over
+  whole-file Write, a review round's fixes then one re-snapshot, estimates from measured times.
+
+### Changed
+
+- **Cheaper bakes, same result**: poses are stored only while a body moves (float32, so a live bake and its replay
+  match), and a resting body's contacts are audited every 10 ms instead of every step (moving bodies still every
+  step, all at the last step). Solver settings are unchanged.
 
 ### Fixed
+
+- **`tts_timestamps.mjs` sent VoiceStudio a profile's name**, which it does not match, so the default voice spoke
+  with no error; names now resolve to their id, and an unknown voice stops the run.
 
 - **Stale generator promises**: Principle 6 and the Brief's Angle and Realism options no longer offer generated
   stills or clips as a default Hyperreal source, nor do look C, the storyboard checks or the A-roll list; they

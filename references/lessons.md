@@ -39,6 +39,9 @@ Each line is a failure that already happened. Read this file when something goes
 - **A generated action happened in the wrong place three times** (the right action on the wrong part of the object) — the stills passed a Reality check that looked at materials, not at where the action happens. The check now names the location (`visual-direction.md` §1).
 - **A generated machine had a major part outside its body**, then on the wrong component; four generated stills, no real photo searched (only Commons video), the reference "checked" from memory. Machines start at rung 1–2 and the Reality check compares against a downloaded photo (`visual-direction.md` §1 "Machines").
 - **`remove-background` holed a product label** (it is a person-segmentation model) and a green screen keyed a dark product; ~10 calls went into a hand-written key. Products are generated on a white light box and cut with `scripts/key_white.py`.
+- **A kinematic body that jumped flung what it touched:** a tool parked away from the set and then set straight into place got a huge speed for one step. A kinematic body moves along a smooth path (ease in and out of its place), never a jump.
+- **Thin pieces tunnelled through a thin triangle-mesh wall or floor** (a leaf through a vessel's shell) even with CCD. Back a thin static shell with solid colliders (a cylinder under a floor, a ring of cuboids outside a wall).
+- **Floating pieces read as sinking** when buoyancy used the liquid's own level: the surface stands on the liquid plus the volume everything in it displaces. Raise the level by the submerged volume (last step's) before computing each piece's buoyancy.
 
 ## Audio and reference
 - **The first render was ~8 dB too quiet.** Always run `loudness.mjs`; normalising the narration before the mix gets it right first time.
@@ -77,4 +80,6 @@ Each line is a failure that already happened. Read this file when something goes
 - **A rolling chair barely slowed:** the resistance acted on its base while the seat, on a joint, kept its momentum. Resistance goes on every body of a jointed thing.
 - **Hull building aborted (wasm `unreachable`)** on a cushion: thousands of crowded near-coplanar points, then NaN vertices from `sqrt` of a tiny negative at the edges. Points one per cell; clamp before `sqrt`.
 - **Reading a stale preview iframe** gave identical numbers after a change: the Studio keeps an old player iframe beside the new one. Read the newest (`_t=` in its URL) and record build errors on the host object.
+- **A physics bake ran again for every snapshot and every page load of a render** (~100 s each; one final render loaded the page twice, so half its 9 min was the same bake). `bakeCached` + `engine/three/bake.mjs` bake once; every snapshot, preview and render worker reads the file.
+- **Context grew to ~590k tokens in one run, never compacted:** 21 full-size snapshots and every verification log stayed in it, and each of 257 calls re-read it all. Verification loops run in a subagent that returns a text verdict; the user is told at Gates 3 and 4 that `/compact` is safe.
 

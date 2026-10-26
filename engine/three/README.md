@@ -16,6 +16,16 @@ node <skill-dir>/engine/three/build.mjs <project>/assets
 node <skill-dir>/engine/three/selfcheck.mjs <project>/assets
 ```
 
+After each change to a set that bakes physics, and before any snapshot, preview or render:
+
+```bash
+node <skill-dir>/engine/three/bake.mjs <project>
+```
+
+It loads the composition once, headless, and stores every `bakeCached()` result in `assets/bake/<hash>.bin`; every
+later page load (each snapshot, the preview, every render worker) replays it instead of simulating again. The hash
+covers everything that decides the result, so a changed scene simply bakes again; `assets/bake/` can be deleted.
+
 The build copies the modules and bundles `three-vendor.js` (three 0.186.1 and its add-ons, postprocessing, N8AO,
 three-subdivide) and `rapier.js` (Rapier 0.14.0) from pinned versions; the first run installs them into
 `vendor/node_modules`. The self-check fails loudly if a known trap is back (gravity not in scene units, a soft prop
@@ -46,7 +56,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 |---|---|
 | `kit.js` | `makeKit(scene, { mpu, floor, wear, palette, kinds, grain, gravity })`: sets the scale and the place (`M` metres per unit; `G` the place's gravity, 9.81 m/s² by default, in units/s²; live for every module; every tolerance is in metres, so any scale works); `model(path, opts)` loads a `.glb`/`.obj`, its materials dressed by name (`palette` colours, `kinds` surfaces: presets `kits.furniture`, `palettes.americanJapandi`; unmapped materials stay as they came), soft goods subdivided; `box`, `cyl`, `tube` (cables kept off the floor), `mat`, `cloth`, `canvasTex`, `group`, `paint`; `rest(o)` + `settle()` drop every prop onto its first contact by its own lowest points and return what could not be placed (nothing below, or more than 3 cm inside something; up to 3 cm it lifts out); `model(path, { crease: false })` keeps a detailed model's own normals; `screenOn(model, material, picture)` lays a display on the model's own screen face. |
 | `surfaces.js` | `surface(material, kind, { world, wear, floor })`: procedural triplanar detail with no UVs — `fabric`, `pile`, `wood`, `bamboo`, `plaster` (wear 0..1), `micro`, `bark`, `stone`, `soil`. |
-| `physics.js` | `makeSim(THREE)`: Rapier in real units. `staticScene(scene, exclude)`, `roundBox`, `dynamicHull` (spokes, joints, soft), `kinematicHull`, `bake(duration, onStep, preroll)` → `{ impacts, report, apply(t), travel(t, fps), pose }`, `audit(objects)`. Report: penetration (rigid only), floating, moving, pre-roll drift at the centre of mass with tilt. |
+| `physics.js` | `makeSim(THREE)`: Rapier in real units. `staticScene(scene, exclude)`, `roundBox`, `dynamicHull` (spokes, joints, soft), `kinematicHull`, `hold(body, t)` (out of the solver until its cue), `bake(duration, onStep, preroll, { track })` → `{ impacts, report, apply(t), travel(t, fps), pose, at(name, t) }`, `bakeCached(...)` (the same, stored in `assets/bake/` by `bake.mjs` and replayed; one per sim, after `audit`; `{ keep }` carries what onStep built, `{ key }` any value an inline script feeds the bake), `audit(objects)`. Poses are stored only while a body moves. Report: penetration (rigid only), floating, moving, pre-roll drift at the centre of mass with tilt. |
 | `bodies.js` | `loose(sim, objects, { kg, friction })`: soft things that are not placed (cushions, bags, a dropped coat) settle by simulation in the pre-roll. |
 | `cloth.js` | `bakeCurtain({ cx, width, top, length, z, wall, wind, duration, mpu })`: any cloth hung from its top row (a curtain, a flag, a banner, laundry), PBD, drag in real units, drawn through a Catmull-Rom spline. |
 | `air.js` | `jet({ frame, D, u0 })`: air blown from any outlet (a fan, a blower, a vent, an exhaust) as a turbulent round jet; `frame(t, outlet, axis)` moves or turns it; `wind(p, t, out)` — add it to the set's air field (`wind.js`); `block(objects)` makes obstacles shadow it. |
@@ -71,8 +81,11 @@ here with a line in this table. Air is one shared field: every source adds into 
 1. `makeKit` with the measured `mpu` and the floor's height; place models and props, `rest()` what is set down.
 2. `settle()` once everything is placed; read what it could not place.
 3. Air (`block` with every obstacle in place), cloth bakes.
-4. `makeSim`, `staticScene` (excluding what moves), dynamic bodies and rigs, `bake(...)` with a pre-roll (≥ 1.2 s
-   with loose props); read `report`, `audit`, and the bodies' stillness at frame 0.
+4. `makeSim`, `staticScene` (excluding what moves), dynamic bodies and rigs, `hold` for what enters on a cue,
+   `audit`, then one `await bakeCached(...)` for the whole set with a pre-roll (≥ 1.2 s with loose props): a replay
+   does not run onStep, so a per-step value it computes goes in `track`, anything else it builds in `keep`, and a
+   value from an inline script in `key` (the set's `assets/` modules and `beats.js` are hashed already). Read
+   `report` and the bodies' stillness at frame 0. Then `bake.mjs` once, before snapshots and renders.
 5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
 6. Sounds on `impacts` and on the measured speeds (`camera-motion.md` §5).
