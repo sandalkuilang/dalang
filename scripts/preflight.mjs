@@ -11,7 +11,7 @@
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -201,56 +201,70 @@ async function media() {
 // The skill's own clone, read-only except the fetch (which writes inside its .git): behind origin/main means fixes
 // the run would miss. Every unknown is a WARN to rerun, never "up to date", never "not a clone", never a reason to install.
 // A pinned install (README: a tag clone, or a checkout of a tag) is detached: it moves by release, never by a pull.
+//
+// The one rule, enforced in one place: a row states a known fact only from git reads that succeeded. Every read goes
+// through `g`, which throws Unread on any failure (an exit, a timeout, output of an unexpected shape), and skillClone
+// turns every throw into "could not check". "Not a clone" is a known fact too: notClone() needs proof that no .git
+// is here, and a .git it cannot rule out (present, or unreadable) makes it Unread as well.
 const clean = t => String(t).replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 80); // remote text printed to the agent
+class Unread extends Error {}
+const gitWhy = r => r.killed ? 'timeout' : clean(String(r.err).split('\n')[0]) || 'git failed';
 async function skillClone() {
   const item = 'DALANG skill', dir = skillDir;
+  try { return await readClone(item, dir); }
+  catch (e) { return [[item, 'WARN', `could not check (${e instanceof Unread ? e.message : clean(e.message) || 'error'}) — rerun preflight; this is not "up to date"`]]; }
+}
+async function readClone(item, dir) {
   const q = /[^\w@%+=:,./-]/.test(dir) ? `'${dir.replace(/'/g, `'\\''`)}'` : dir; // shell-safe in the printed fix
-  const g = (...a) => run('git', ['-C', dir, ...a], 20000, { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -o BatchMode=yes', LC_ALL: 'C' });
-  const unread = r => [[item, 'WARN', `could not check (${r.killed ? 'timeout' : clean(String(r.err).split('\n')[0]) || 'git failed'}) — rerun preflight; this is not "up to date"`]];
-  const top = await g('rev-parse', '--show-toplevel');
-  // Only git saying so, with no .git here, is a plain copy. A .git that git cannot read (another owner, no git on PATH,
-  // a timeout) is a clone whose state is unknown.
-  if (!top.ok) return !top.killed && !existsSync(path.join(dir, '.git')) && /not a git repository/i.test(top.err) ? notClone() : unread(top);
-  let own;
-  try { own = realpathSync(top.out.trim()) === realpathSync(dir); } catch (e) { return unread({ err: e.message }); }
+  const exec = (...a) => run('git', ['-C', dir, ...a], 20000, { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -o BatchMode=yes', LC_ALL: 'C' });
+  const g = async (...a) => { const r = await exec(...a); if (!r.ok) throw new Unread(gitWhy(r)); return r.out.trim(); };
+  // A plain copy, proven: no .git entry here. A .git that git cannot read or skips (another owner, a corrupt HEAD
+  // inside a repo higher up) is a clone whose state is unknown.
+  const notClone = reason => {
+    try { lstatSync(path.join(dir, '.git')); } catch (e) {
+      if (e.code === 'ENOENT') return [[item, 'INFO', 'not a git clone — no update check; to update, clone the repo again (README "Install")']];
+      throw new Unread(clean(e.message));
+    }
+    throw new Unread(reason);
+  };
+  const top = await exec('rev-parse', '--show-toplevel');
+  if (!top.ok) { if (!top.killed && /not a git repository/i.test(top.err)) return notClone(gitWhy(top)); throw new Unread(gitWhy(top)); }
   // A copy or zip of the skill (or a folder inside some other repo) has no clone of its own to compare.
-  if (!own) return notClone();
-  const [h, d] = await Promise.all([g('rev-parse', '--abbrev-ref', 'HEAD'), g('status', '--porcelain', '--untracked-files=no')]);
-  if (!h.ok) return unread(h);
-  const dirty = d.ok && d.out.trim() !== '', pl = n => n === 1 ? 'commit' : 'commits', branch = h.out.trim();
-  if (branch === 'HEAD') return pinnedClone(g, unread, item, q, dirty || !d.ok);
+  if (realpathSync(top.out.trim()) !== realpathSync(dir)) return notClone('.git here is not the clone git reads');
+  const [branch, status] = await Promise.all([g('rev-parse', '--abbrev-ref', 'HEAD'), g('status', '--porcelain', '--untracked-files=no')]);
+  const dirty = status !== '', pl = n => n === 1 ? 'commit' : 'commits';
+  if (branch === 'HEAD') return pinnedClone(g, item, q, dirty);
   if (branch !== 'main') return [[item, 'INFO', `on branch ${clean(branch)}, not main — no update check against origin/main; ask the user before switching branches`]];
   // The explicit refspec writes origin/main even in a single-branch clone, where a bare "origin main" only writes FETCH_HEAD.
-  const f = await g('fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main');
-  if (!f.ok) return unread(f);
+  await g('fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main');
   const [c, sj] = await Promise.all([g('rev-list', '--left-right', '--count', 'HEAD...origin/main'), g('log', '-1', '--format=%h %s', 'origin/main')]);
-  const m = c.ok && /^(\d+)\s+(\d+)$/.exec(c.out.trim());
-  if (!m || !sj.ok) return [[item, 'WARN', 'could not read origin/main — rerun preflight']];
-  const ahead = +m[1], behind = +m[2], [sha, ...subj] = sj.out.trim().split(' ');
-  const latest = clean(subj.join(' '));
+  const m = /^(\d+)\s+(\d+)$/.exec(c), [sha, ...subj] = sj.split(' ');
+  if (!m || !/^[0-9a-f]{4,}$/.test(sha)) throw new Unread('unexpected git output for origin/main');
+  const ahead = +m[1], behind = +m[2], latest = clean(subj.join(' '));
   if (behind > 0 && ahead > 0) return [[item, 'WARN', `diverged: ${behind} ${pl(behind)} behind and ${ahead} ahead of origin/main — cannot fast-forward; tell the user, never pull or reset on your own`]];
-  if (behind > 0 && (dirty || !d.ok)) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) but the clone has uncommitted changes (or its state could not be read) — a pull may refuse; ask the user, never stash or reset on your own`]];
+  if (behind > 0 && dirty) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) but the clone has uncommitted changes — a pull may refuse; ask the user, never stash or reset on your own`]];
   if (behind > 0) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) — asked in Brief Call 0: git -C ${q} pull --ff-only, then re-read SKILL.md`]];
   if (ahead > 0) return [[item, 'INFO', `${ahead} ${pl(ahead)} ahead of origin/main (local work) — nothing to pull`]];
   return [[item, 'OK', `up to date with origin/main (${sha})${dirty ? '; uncommitted local changes' : ''}`]];
 }
-const notClone = () => [['DALANG skill', 'INFO', 'not a git clone — no update check; to update, clone the repo again (README "Install")']];
 
 // A detached HEAD is a pinned release: compare it with the newest release tag on origin (ls-remote writes nothing).
 // "pull --ff-only" fails there ("not currently on a branch"), and the pin is the user's choice, so the note names the
-// README update (fetch tags, check out the newest) and never moves to main.
-async function pinnedClone(g, unread, item, q, dirty) {
+// README update (fetch tags, check out the newest) and never moves to main. HEAD's tags come from `tag --points-at`,
+// which succeeds with an empty list on an untagged commit: "not a release tag" is git's answer, never a failed read.
+async function pinnedClone(g, item, q, dirty) {
   const semver = t => (/^v(\d+)\.(\d+)\.(\d+)$/.exec(t) || []).slice(1).map(Number);
   const cmp = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
-  const [lt, cur, sha] = await Promise.all([g('ls-remote', '--tags', '--refs', 'origin'), g('describe', '--tags', '--exact-match', 'HEAD'), g('rev-parse', '--short', 'HEAD')]);
-  if (!lt.ok) return unread(lt);
-  const tags = lt.out.split('\n').map(l => /\trefs\/tags\/(\S+)$/.exec(l)?.[1]).filter(t => t && semver(t).length).sort((x, y) => cmp(semver(y), semver(x)));
+  const releases = list => list.filter(t => t && semver(t).length).sort((x, y) => cmp(semver(y), semver(x)));
+  const [lt, here, sha] = await Promise.all([g('ls-remote', '--tags', '--refs', 'origin'), g('tag', '--points-at', 'HEAD'), g('rev-parse', '--short', 'HEAD')]);
+  if (!/^[0-9a-f]{4,}$/.test(sha)) throw new Unread('unexpected git output for HEAD');
+  const tags = releases(lt.split('\n').map(l => /\trefs\/tags\/(\S+)$/.exec(l)?.[1]));
   if (!tags.length) return [[item, 'INFO', 'detached HEAD and origin has no release tag (vX.Y.Z) — no update check']];
   const newest = tags[0], fix = `git -C ${q} fetch --tags origin && git -C ${q} checkout ${newest}`;
-  const tag = cur.ok ? cur.out.trim().split('\n').find(t => semver(t).length) : undefined;
-  if (!tag) return [[item, 'INFO', `detached at ${clean(sha.out)} (not a release tag), newest release is ${newest} — no update check; to move to it: ${fix}, then re-read SKILL.md`]];
+  const tag = releases(here.split('\n'))[0];
+  if (!tag) return [[item, 'INFO', `detached at ${sha} (not a release tag), newest release is ${newest} — no update check; to move to it: ${fix}, then re-read SKILL.md`]];
   if (cmp(semver(tag), semver(newest)) >= 0) return [[item, 'OK', `pinned at ${tag} (detached), the newest release${dirty ? '; uncommitted local changes' : ''}`]];
-  if (dirty) return [[item, 'WARN', `pinned at ${tag} (detached), newest release is ${newest} but the clone has uncommitted changes (or its state could not be read) — a checkout may refuse; ask the user, never stash or reset on your own`]];
+  if (dirty) return [[item, 'WARN', `pinned at ${tag} (detached), newest release is ${newest} but the clone has uncommitted changes — a checkout may refuse; ask the user, never stash or reset on your own`]];
   return [[item, 'WARN', `pinned at ${tag} (detached), newest release is ${newest} — asked in Brief Call 0: ${fix}, then re-read SKILL.md; a pinned clone moves by release, not by a pull from main`]];
 }
 

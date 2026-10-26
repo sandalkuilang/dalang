@@ -35,7 +35,9 @@ that reads as:
 
 - **Preflight checks the skill's own clone** (row `DALANG skill`): a `fetch` (20 s cap, the only write, inside the
   clone's `.git`) then behind/ahead against `origin/main`: `N commits behind (latest: …) — pull --ff-only`; dirty and
-  diverged clones are named without pull advice; a failed fetch, or a clone git cannot read (another owner, no `git`, a timeout), is `could not check — rerun` (never "up to date", never "not a clone"); a
+  diverged clones are named without pull advice; a failed fetch, or a clone git cannot read (another owner, no `git`, a timeout, a `.git` git skips inside a parent repo), is `could not check — rerun` (never
+  "up to date", never "not a clone"): every git read goes through one check, and any read that fails or answers in an
+  unexpected shape makes the row `could not check`, so a known state comes only from reads that succeeded; a
   folder without a `.git` is INFO; a pinned clone (detached HEAD, e.g. a tag clone) is compared with the newest release tag
   on origin and told to fetch tags and check it out, never to pull; a branch other than `main` is INFO. `--check-skill` runs only this row, `--skill-dir` points it at another folder. It
   never pulls. Brief Call 0 asks the update; an unattended run pulls a clean fast-forwardable clone, logs it and
