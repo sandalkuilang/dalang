@@ -24,6 +24,7 @@ const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
+const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor } = await use("type.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -823,6 +824,115 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     for (let t = 0.4; t <= 0.8; t += 1 / 60) assert.ok(ang(t) > 59, "the flap stays at its stop: " + ang(t).toFixed(2) + "° at " + t.toFixed(2));
   }
 }
+// Type: shared captions and pinned labels. phrases() splits like craft-rules §6 in several languages (CJK by
+// characters) and holds each through the pause that follows; drawCaption picks its ink from the ground under its own
+// box and switches the active word on its start; pinLabel keeps a label inside the safe area at every t; repeats()
+// warns when a caption says what a visible label says.
+{
+  const strip = (w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const toWords = (plain, step = 0.3) => plain.split(/\s+/).filter((k) => /[\p{L}\p{N}]/u.test(k)).map((k, i) => ({ i, text: strip(k), start: +(step * i).toFixed(3), end: +(step * i + 0.25).toFixed(3) }));
+  const texts = (c) => c.map((p) => p.text);
+  const mockCtx = (W, H, paint) => {
+    let px = 10; const log = [];
+    const noop = () => {};
+    const c = {
+      canvas: { width: W, height: H }, log, fillStyle: "", strokeStyle: "", lineWidth: 1, lineJoin: "", textAlign: "", textBaseline: "",
+      get font() { return this._f; }, set font(v) { this._f = v; px = parseFloat(/(\d+(?:\.\d+)?)px/.exec(v)[1]); },
+      measureText: (s) => ({ width: [...s].length * 0.55 * px }),
+      getImageData(x, y, w, h) {
+        const data = new Uint8ClampedArray(w * h * 4);
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const [r, g, b] = paint(x + i, y + j), o = (j * w + i) * 4; data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255; }
+        return { width: w, height: h, data };
+      },
+      fillText(s, x, y) { log.push({ s, x, y, fill: c.fillStyle }); },
+      roundRect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, rect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, fillRect(...r) { log.push({ rect: r, fill: c.fillStyle }); },
+    };
+    for (const k of ["save", "restore", "beginPath", "closePath", "moveTo", "lineTo", "stroke", "strokeText", "arc", "fill", "clip", "setLineDash"]) c[k] = noop;
+    return c;
+  };
+  const gray = () => [128, 128, 128];
+
+  // English: sentence ends, a comma after 4 words, a colon after 5, a run of 8 balanced 4 + 4 (no 7 + 1 orphan); markup is not text.
+  const en = "Water boils at a lower temperature up high. The air is thinner, so the bubbles form sooner: about three minutes earlier in total.";
+  const enWords = toWords(en), enNarr = "# Opening\nWater boils at a lower temperature up high. {The air is thinner|thin}, so the bubbles form sooner: about three minutes earlier in total.\n";
+  const caps = phrases(enNarr, enWords);
+  assert.deepEqual(texts(caps), ["Water boils at a", "lower temperature up high.", "The air is thinner,", "so the bubbles form sooner:", "about three minutes earlier in total."], "English splits");
+  for (let i = 0; i + 1 < caps.length; i++) assert.equal(caps[i].end, caps[i + 1].start, "a phrase stays up through the pause that follows");
+  assert.equal(caps[0].start, enWords[0].start, "the first phrase starts on its first word");
+  assert.ok(Math.abs(caps[4].end - (enWords[enWords.length - 1].end + 0.5)) < 1e-9, "the last phrase is held 0.5 s past its last word");
+  assert.equal(caps[0].words.length, 4, "a phrase carries its words");
+  assert.ok(caps.every((p) => p.words.length <= 7), "at most 7 words");
+  // Spanish: accents, a comma after 1 word is no break, a run of 8 balanced.
+  const es = "Sí, claro. La presión baja y el agua hierve antes, más o menos a noventa grados.";
+  assert.deepEqual(texts(phrases(es, toWords(es))), ["Sí, claro.", "La presión baja y", "el agua hierve antes,", "más o menos a noventa grados."], "Spanish splits");
+  // Ellipsis and a token of punctuation only; dialogue lines lose their speaker.
+  const dl = phrases("A: Wait ... then it boils.\nB: Yes.", toWords("Wait then it boils. Yes."));
+  assert.deepEqual(texts(dl), ["Wait ...", "then it boils.", "Yes."], "ellipsis breaks, the speaker label is not caption text");
+  // Japanese: one words.json word, split by characters, 16 at most; 25 characters balance to 13 + 12.
+  const ja = "標高が高いと、水は低い温度で沸騰します。気圧が下がるからです。", jw = [{ i: 0, text: strip(ja), start: 0, end: 6 }];
+  const jp = phrases(ja, jw);
+  assert.deepEqual(texts(jp), ["標高が高いと、", "水は低い温度で沸騰します。", "気圧が下がるからです。"], "Japanese splits by characters");
+  assert.ok(jp.every((p, k) => p.start >= 0 && p.start <= 6 && (k === 0 || p.start > jp[k - 1].start)), "Japanese times are interpolated inside the word and increase");
+  const kana = "あいうえおかきくけこさしすせそたちつてとなにぬねの。", kp = phrases(kana, [{ i: 0, text: strip(kana), start: 0, end: 5 }]);
+  assert.deepEqual(kp.map((p) => [...p.text.replace("。", "")].length), [13, 12], "25 characters balance to 13 + 12");
+  // A narration from another take is refused, never mis-timed.
+  assert.throws(() => phrases(enNarr, enWords.map((w, i) => (i === 5 ? { ...w, text: "other" } : w))), /narration word 5/, "a different word is refused");
+  assert.throws(() => phrases(enNarr, enWords.slice(1)), /narration word/, "a different word count is refused");
+
+  // Ink follows the ground under the caption's own box.
+  const W = 1080, H = 1920, area = safeArea("shorts", W, H), t0 = caps[4].start;
+  assert.equal(inkFor(0), "light", "light ink on black"); assert.equal(inkFor(1), "dark", "dark ink on white");
+  let c1 = mockCtx(W, H, () => [0, 0, 0]), r = drawCaption(c1, t0, caps);
+  assert.equal(r.ink, "light", "dark box, light ink"); assert.ok(c1.log.filter((l) => l.s).every((l) => l.fill === "#ffffff"), "light ink is drawn");
+  c1 = mockCtx(W, H, () => [255, 255, 255]); r = drawCaption(c1, t0, caps);
+  assert.equal(r.ink, "dark", "light box, dark ink"); assert.ok(c1.log.filter((l) => l.s).every((l) => l.fill === "#111111"), "dark ink is drawn");
+  const inCap = (x, y) => x >= area.caption.x0 && x < area.caption.x1 && y >= area.caption.y0 && y < area.caption.y1;
+  assert.equal(drawCaption(mockCtx(W, H, (x, y) => (inCap(x, y) ? [0, 0, 0] : [255, 255, 255])), t0, caps).ink, "light", "dark only under the box: the ink reads the box, not the frame");
+  assert.equal(drawCaption(mockCtx(W, H, (x, y) => (inCap(x, y) ? [255, 255, 255] : [0, 0, 0])), t0, caps).ink, "dark", "light only under the box: dark ink");
+  // Safe zone and size.
+  assert.ok(r.box.x0 >= 0.06 * W - 1e-6 && r.box.x1 <= 950 + 1e-6 && r.box.y1 <= 1330 + 1e-6 && r.box.y0 >= area.caption.y0 - 1e-6, "the caption stays inside its safe zone: " + JSON.stringify(r.box));
+  assert.ok(r.size >= 54 && r.size <= 64, "caption size 54-64 px at 1080 wide: " + r.size);
+  assert.equal(r.lines.length, 2, "a long phrase takes two lines");
+  const lr = drawCaption(mockCtx(1920, 1080, gray), caps[0].start, caps, { format: "landscape" });
+  assert.ok(lr.box.y0 >= 0.85 * 1080 - 1e-6 && lr.box.y1 <= 0.95 * 1080 + 1e-6, "landscape: the caption sits in the bottom 15 %: " + JSON.stringify(lr.box));
+  assert.throws(() => safeArea("cinema", W, H), /shorts/, "an unknown format is refused");
+  // Active word: the accent box and dark ink move to each word on its start, within one frame.
+  const hand = [{ text: "one two three", start: 1, end: 3, words: [{ text: "one", start: 1, end: 1.25 }, { text: "two", start: 1.3, end: 1.55 }, { text: "three", start: 1.6, end: 1.85 }] }];
+  const act = (t) => drawCaption(mockCtx(W, H, gray), t, hand, { accent: "#ffd400" }).active;
+  assert.deepEqual([act(1), act(1.3 - 1 / 60), act(1.3), act(1.6)], [0, 0, 1, 2], "the active word switches on its start");
+  const ac = mockCtx(W, H, gray); drawCaption(ac, 1.3, hand, { accent: "#ffd400" });
+  assert.ok(ac.log.some((l) => l.rect && l.fill === "#ffd400"), "the active word has an accent box");
+  assert.equal(ac.log.find((l) => l.s === "two").fill, "#111111", "the active word is dark on the accent");
+  assert.equal(ac.log.find((l) => l.s === "one").fill, "#ffffff", "the others keep the phrase ink");
+  assert.equal(drawCaption(mockCtx(W, H, gray), 0.5, hand), null, "no caption before the first phrase");
+  assert.equal(drawCaption(mockCtx(W, H, gray), 3, hand), null, "no caption after the last phrase");
+  // A label pinned anywhere in the frame stays inside the label safe area at every t, above the caption.
+  const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 100); cam.position.set(0, 0, 5); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
+  const world = (nx, ny) => new THREE.Vector3(nx, ny, 0.5).unproject(cam), lab = safeArea("shorts", W, H).labels;
+  assert.ok(lab.y1 <= area.caption.y0, "labels stay above the caption");
+  const inside = (b, a) => b.x >= a.x0 - 1e-6 && b.x + b.w <= a.x1 + 1e-6 && b.y >= a.y0 - 1e-6 && b.y + b.h <= a.y1 + 1e-6;
+  const pts = [[0.97, 0.97], [-0.97, -0.97], [0.97, -0.5], [-0.97, 0.5], [0, 0]];
+  for (let t = 0; t <= 3; t += 1 / 30) pts.push([0.97 * (t / 3), 0.9 * Math.sin(t * 2)]);
+  for (const [nx, ny] of pts) {
+    const b = pinLabel(mockCtx(W, H, gray), { at: world(nx, ny), camera: cam, text: "valve" });
+    assert.ok(b && inside(b, lab) && b.size >= 36, "label at NDC " + nx.toFixed(2) + "," + ny.toFixed(2) + " is inside the safe area: " + JSON.stringify(b));
+  }
+  assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(0.97, 0), camera: cam, text: "valve" }).side, "left", "near the right edge the label flips left");
+  assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(-0.97, 0), camera: cam, text: "valve" }, { side: "left" }).side, "right", "near the left edge a left label flips right");
+  assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(0, 0), camera: cam, text: "valve" }).side, "right", "in the middle the asked side is kept");
+  assert.equal(pinLabel(mockCtx(W, H, gray), { at: new THREE.Vector3(0, 0, 10), camera: cam, text: "valve" }), null, "a point behind the camera draws nothing");
+  assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(2, 0), camera: cam, text: "valve" }), null, "a point off the frame draws nothing");
+  const o3 = new THREE.Object3D(); o3.position.copy(world(0.3, 0.2));
+  assert.deepEqual(pinLabel(mockCtx(W, H, gray), { at: o3, camera: cam, text: "valve" }), pinLabel(mockCtx(W, H, gray), { at: world(0.3, 0.2), camera: cam, text: "valve" }), "an object pins like its world point");
+  assert.equal(pinLabel(mockCtx(W, H, () => [0, 0, 0]), { at: world(0, 0), camera: cam, text: "valve" }).ink, "light", "a label over a dark ground gets light ink");
+  assert.equal(pinLabel(mockCtx(W, H, () => [255, 255, 255]), { at: world(0, 0), camera: cam, text: "valve" }).ink, "dark", "a label over a light ground gets dark ink");
+  // A caption that says what a label says is a warning; a word of it, or a label shown at another time, is not.
+  assert.equal(repeats(caps, [{ text: "The air is thinner" }]).length, 1, "an equal label repeats");
+  assert.match(repeats(caps, [{ text: "The air is thinner" }])[0], /repeats the label/, "the warning says so");
+  assert.equal(repeats(caps, [{ text: "air" }]).length, 0, "one word of a phrase is not a repeat");
+  assert.equal(repeats(caps, [{ text: "air is", from: 0, to: 100 }]).length, 1, "a label inside a phrase repeats");
+  assert.equal(repeats(caps, [{ text: "The air is thinner", from: 100, to: 110 }]).length, 0, "the same words at another time are not a repeat");
+}
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
@@ -840,4 +950,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), any scale and gravity");
