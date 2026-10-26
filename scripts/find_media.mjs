@@ -157,7 +157,7 @@ const maxDur = args['max-duration'] !== undefined ? Number(args['max-duration'])
 if (maxDur !== null && !(maxDur > 0)) usage('--max-duration must be a number of seconds');
 const DEFAULT_MIN_MUSIC = 20;
 const minDurGiven = args['min-duration'] !== undefined;
-const minDur = minDurGiven ? Number(args['min-duration']) : type === 'music' ? DEFAULT_MIN_MUSIC : null;
+const minDur = minDurGiven ? Number(args['min-duration']) : type === 'music' && (maxDur === null || maxDur >= DEFAULT_MIN_MUSIC) ? DEFAULT_MIN_MUSIC : null;   // the default never clashes with a --max-duration the user gave
 if (minDurGiven && !(minDur > 0)) usage('--min-duration must be a number of seconds');
 if (minDur !== null && maxDur !== null && minDur > maxDur) usage('--min-duration is longer than --max-duration');
 const hint = `take one: node <skill-dir>/scripts/find_media.mjs --take ${path.join(args.out, '<file>')} --as assets/<path>`;
