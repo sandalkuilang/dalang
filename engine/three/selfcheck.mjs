@@ -19,6 +19,7 @@ const { jet } = await use("air.js");
 const { tree, grass } = await use("plants.js");
 const { particles } = await use("particles.js");
 const { water, dispersion, seaState } = await use("water.js");
+const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 
 const scene = new THREE.Scene();
@@ -413,10 +414,10 @@ assert.ok(Math.abs(J.wind(new THREE.Vector3(2 / M, 1 / M, 0), 0.3, jv).x / free 
 // the planes (a swap recompiles shaders mid-shot); a slide eases between its keys.
 const cs = new THREE.Scene(), sharedMat = new THREE.MeshStandardMaterial({ color: 0x808080 });
 const outside = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat); cs.add(outside);
-const F = makeFlask({ ...kit, scene: cs, rest: (o) => o }, { at: new THREE.Vector3(1, 0, 0) }), cut = F.cut;
-const late = new THREE.Group(); late.add(new THREE.Mesh(new THREE.SphereGeometry(0.01, 16, 8), sharedMat)); F.group.add(late);
+const FL = makeFlask({ ...kit, scene: cs, rest: (o) => o }, { at: new THREE.Vector3(1, 0, 0) }), cut = FL.cut;
+const late = new THREE.Group(); late.add(new THREE.Mesh(new THREE.SphereGeometry(0.01, 16, 8), sharedMat)); FL.group.add(late);
 late.add(new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), sharedMat)); // into a part that was itself added late
-const cutMeshes = []; F.group.traverse((o) => o.isMesh && !o.userData.cutaway && cutMeshes.push(o));
+const cutMeshes = []; FL.group.traverse((o) => o.isMesh && !o.userData.cutaway && cutMeshes.push(o));
 assert.ok(cutMeshes.length >= 7, "flask parts, its late cup and two late meshes: " + cutMeshes.length);
 for (const o of cutMeshes) for (const m of [].concat(o.material)) assert.ok(m.clippingPlanes?.includes(cut.plane) && m.clipShadows, "every part under the root is cut: " + (o.name || o.type));
 assert.ok(!sharedMat.clippingPlanes && outside.material === sharedMat, "a material shared outside the root stays whole");
@@ -439,7 +440,7 @@ const crossings = (part, y) => {
   return hits.map((h) => h.distance * M).filter((d, i, a) => i === 0 || d - a[i - 1] > 1e-7);
 };
 const partOf = (mesh) => cut.parts.find((p) => p.mesh === mesh);
-const wallX = crossings(partOf(F.parts.outer), 0.1), plug = crossings(partOf(F.parts.stopper), 0.24);
+const wallX = crossings(partOf(FL.parts.outer), 0.1), plug = crossings(partOf(FL.parts.stopper), 0.24);
 assert.ok(wallX.length === 2 && Math.abs(wallX[1] - wallX[0] - 0.0006) < 0.0001, "a shell's cap is its wall ring: " + wallX);
 assert.equal(plug.length, 1, "a solid part's cap is a disc: " + plug);
 assert.ok(new THREE.Raycaster(new THREE.Vector3(1, 0.1 / M, -1), new THREE.Vector3(0, 0, 1)).intersectObjects(cs.children, true).every((h) => !h.object.userData.cutaway), "caps and stencils are never hit by a ray (settle, audit)");
@@ -452,6 +453,16 @@ assert.ok(cut.plane.constant > 1e6 && caps.every((c) => !c.visible), "off: nothi
 assert.ok(cutMeshes[0].material.clippingPlanes === planes && planes.length === 1, "off never swaps the planes");
 cut.at(1);
 assert.ok(cut.plane.constant < 1 && caps.every((c) => c.visible), "seeking back turns it on");
+// Without a stencil buffer the caps vanish silently, so ready() refuses the renderer loudly.
+const gl = (stencil) => ({ localClippingEnabled: false, getContext: () => ({ getContextAttributes: () => ({ stencil }) }) });
+assert.throws(() => cut.ready(gl(false)), /no stencil buffer/, "a renderer without a stencil buffer is refused");
+const okGl = gl(true); cut.ready(okGl);
+assert.ok(okGl.localClippingEnabled, "ready turns local clipping on");
+// A part flagged to stay whole is listed, not cut; a hatch puts its texture on the caps.
+const whole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat); whole.userData.cut = false;
+const hatchRoot = new THREE.Group(); hatchRoot.add(whole, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat));
+const hatched = cutaway(hatchRoot, { hatch: 0.01 }); hatchRoot.updateMatrixWorld(true); hatched.at(0);
+assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatched.parts.length === 1 && hatched.parts[0].cap.material.map, "cut: false stays whole; a hatch maps the caps");
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });

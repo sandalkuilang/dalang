@@ -47,7 +47,7 @@ flowchart LR
 | `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
 | `scripts/stillness.mjs`, `loudness.mjs`, `qc.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, black frames, colour tags, cuts inside words) | judge taste |
 | `scripts/state.mjs`, `check_assets.mjs` | gate approvals (stale on change), licence gate + `CREDITS.md` | approve on the user's behalf outside autonomous mode |
-| `engine/three/` | generic 3D systems (real scale and settling, surfaces, physics, cloth, air, plants, particles, water, fur), each with a self-check; `bake.mjs` stores a physics bake once for every snapshot and render worker (groups that never touch bake in parallel workers); ready pieces in `examples/` | know a scene, a topic or a list of objects |
+| `engine/three/` | generic 3D systems (real scale and settling, surfaces, physics, cloth, air, plants, particles, water, fur, cutaways), each with a self-check; `bake.mjs` stores a physics bake once for every snapshot and render worker (groups that never touch bake in parallel workers); ready pieces in `examples/` | know a scene, a topic or a list of objects |
 | fresh-eyes reviewer (`references/review.md`) | a defect list from a subagent with no build history | fix anything |
 | HyperFrames skills | scene building, preview, render | pick the script or voice |
 | Project files | all state (one video = one session) | live in the skill repo |
