@@ -278,24 +278,25 @@ for (const [what, make] of Object.entries(shared)) {
 // mesh to a declared body the drawn geometry never comes near: the proof judges each body's reach (every collider it
 // has, with its offset and contact skin, and the drawn geometry), and while the islands bake no script can change a
 // collider's reach (a change by a call the lock does not know is caught after the bake). "a" rests 225 mm from the
-// drawn "push" and 5 mm or more from its collider in every case below, so the drawn geometry alone would pass them all.
+// drawn "push", and in every case below a collider of "push" reaches it: the drawn geometry alone would pass them all.
 {
   const dens = { density: 600 * M ** 3 }, wide = (w) => (s, m) => s.roundBox(m, w, 0.15, 0.15, 0.001, dens);
   const late = (go) => (I) => (t) => { if (t >= 0.5) go(I.push.body.collider(0)); };
   const grow = (c) => c.setHalfExtents({ x: 0.74, y: 0.074, z: 0.074 });
+  const met = /main island and island 1 meet: "push" and "a"/, locked = /opts\.islands: set\w+\(\) on a collider of "push" changes where it can touch/;
   const reach = {
-    "a roundBox wider than its mesh": { build: wide(1.5) },
-    "an extra collider beside the hull": { build: (s, m) => s.dynamicHull(m, { ...dens, extra: [{ desc: RAPIER.ColliderDesc.ball(0.05).setTranslation(0.7, 0, 0), ...dens }] }) },
-    "a collider grown while the islands bake": { step: late(grow), vias: true },
-    "a collider moved off its body while the islands bake": { step: late((c) => c.setTranslationWrtParent({ x: 0.7, y: 0, z: 0 })) },
-    "a collider's round radius grown while the islands bake": { step: late((c) => c.setRoundRadius(0.7)) },
-    "a contact skin while the islands bake": { step: late((c) => c.setContactSkin(0.7)) },
-    "a collider grown by a call the lock does not know": { step: late((c) => Object.getPrototypeOf(c).setHalfExtents.call(c, { x: 0.74, y: 0.074, z: 0.074 })) },
+    "a roundBox wider than its mesh": { build: wide(1.5), rx: met },
+    "an extra collider beside the hull": { build: (s, m) => s.dynamicHull(m, { ...dens, extra: [{ desc: RAPIER.ColliderDesc.ball(0.05).setTranslation(0.7, 0, 0), ...dens }] }), rx: met },
+    "a collider grown while the islands bake": { step: late(grow), vias: true, rx: locked },
+    "a collider moved off its body while the islands bake": { step: late((c) => c.setTranslationWrtParent({ x: 0.7, y: 0, z: 0 })), rx: locked },
+    "a collider's round radius grown while the islands bake": { step: late((c) => c.setRoundRadius(0.7)), rx: locked },
+    "a contact skin while the islands bake": { step: late((c) => c.setContactSkin(0.7)), rx: locked },
+    "a collider grown by a call the lock does not know": { step: late((c) => Object.getPrototypeOf(c).setHalfExtents.call(c, { x: 0.74, y: 0.074, z: 0.074 })), rx: /opts\.islands: a collider of "push" reaches further after the bake/ },
   };
   for (const [what, v] of Object.entries(reach)) for (const via of v.vias ? ["onStep", "track", "keep"] : ["onStep"]) {
     const R = await isles({ ay: 0.075, still: true, build: v.build, store: new Map() }), go = v.step ? v.step(R) : R.step;
     const run = via === "onStep" ? { step: go, opts: {} } : { step: R.step, opts: { [via]: via === "track" ? { x: () => (go(0.6), 0) } : () => (go(0.6), {}) } };
-    await refused(R, R.s.bakeCached(1, run.step, 0.2, withIslands(R, run.opts)), /opts\.islands|main island and island 1 meet/, `${what} (${via}): a cross-island contact through a collider fails loudly`);
+    await refused(R, R.s.bakeCached(1, run.step, 0.2, withIslands(R, run.opts)), v.rx, `${what} (${via}): a cross-island contact through a collider fails loudly`);
   }
   // Legitimate: a collider wider than its mesh but far from every other island bakes and matches the single world; a
   // main collider's friction and restitution may change while the islands bake; the lock is lifted after the bake; with

@@ -51,6 +51,9 @@ function fence(obj, active, refuse, allow = []) {
 // shadowed by one that calls refuse(key, args) first when active() says so, and so is each property with a setter.
 // Reads stay open. A key the object already shadows (a fence) is left to that. Returns the function that lifts the lock.
 const CHANGES = /^(set|enable|lock|restrict|add|apply|reset|remove|create|configure)[A-Z]|^(step|sleep|wakeUp|recompute\w*|switchTo\w*|finalizeDeserialization)$/;
+// The collider changes that leave where it can touch as it is (material, mass, filters, on/off: an island bake counts
+// every collider, on or off, sensor or not). Any other change of a main-island collider is refused while islands bake.
+const REACH_KEEPS = new Set(["setFriction", "setRestitution", "setFrictionCombineRule", "setRestitutionCombineRule", "setDensity", "setMass", "setMassProperties", "setEnabled", "setSensor", "setCollisionGroups", "setSolverGroups", "setActiveCollisionTypes", "setActiveEvents", "setActiveHooks", "setContactForceEventThreshold"]);
 function lock(obj, active, refuse) {
   const done = new Set();
   for (let p = Object.getPrototypeOf(obj); p && p !== Object.prototype; p = Object.getPrototypeOf(p))
@@ -243,23 +246,42 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     return out;
   }
 
-  // A bounding sphere per tracked body, in the body's frame (the root's own frame), from the drawn geometry.
-  const sphereOf = (t) => {
-    const p = localPoints(t.root, null, 0.01 / mpu), lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-    for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[i + k]); hi[k] = Math.max(hi[k], p[i + k]); }
-    if (!p.length) return { c: [0, 0, 0], r: 0 };
+  // A body's reach: one bounding sphere, in the body's frame (the root's own frame), around everything of it that can
+  // touch: each of its colliders (its shape, where it sits on the body, its contact skin) and the drawn geometry.
+  // Rapier's contacts come from the colliders, and a collider can reach past what is drawn (a roundBox built wider than
+  // its mesh, an extra collider beside a hull): the island proof judges this, never the drawn geometry alone. A shape it
+  // cannot bound is refused. Read with every collider where its body is (propagateModifiedBodyPositionsToColliders first).
+  const rot = (q, [x, y, z]) => { const tx = 2 * (q.y * z - q.z * y), ty = 2 * (q.z * x - q.x * z), tz = 2 * (q.x * y - q.y * x); return [x + q.w * tx + (q.y * tz - q.z * ty), y + q.w * ty + (q.z * tx - q.x * tz), z + q.w * tz + (q.x * ty - q.y * tx)]; };
+  function reachOf(t) {
+    const S = RAPIER.ShapeType, pts = [], d = localPoints(t.root, null, 0.01 / mpu); // pts: [x, y, z, radius around it]
+    for (let i = 0; i < d.length; i += 3) pts.push([d[i], d[i + 1], d[i + 2], 0]);
+    const bp = t.body.translation(), bq = t.body.rotation(), inv = { x: -bq.x, y: -bq.y, z: -bq.z, w: bq.w };
+    for (let k = 0; k < t.body.numColliders(); k++) {
+      const c = t.body.collider(k), ty = c.shapeType(), cp = c.translation(), cq = c.rotation(), box = (x, y, z) => [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [-1, 1].map((e) => [a * x, b * y, e * z])));
+      let local, r = c.contactSkin() + ([S.RoundCuboid, S.RoundCylinder, S.RoundCone, S.RoundConvexPolyhedron].includes(ty) ? c.roundRadius() : 0);
+      if (ty === S.Ball) { local = [[0, 0, 0]]; r += c.radius(); }
+      else if (ty === S.Capsule) { local = [[0, -c.halfHeight(), 0], [0, c.halfHeight(), 0]]; r += c.radius(); }
+      else if (ty === S.Cuboid || ty === S.RoundCuboid) { const h = c.halfExtents(); local = box(h.x, h.y, h.z); }
+      else if ([S.Cylinder, S.RoundCylinder, S.Cone, S.RoundCone].includes(ty)) local = box(c.radius(), c.halfHeight(), c.radius());
+      else if ([S.ConvexPolyhedron, S.RoundConvexPolyhedron, S.TriMesh, S.Polyline].includes(ty)) { const v = c.vertices(); local = []; for (let i = 0; i < v.length; i += 3) local.push([v[i], v[i + 1], v[i + 2]]); }
+      else throw new Error(`opts.islands: "${t.name}" has a collider (shape type ${ty}) whose reach the island proof cannot bound: give it a ball, box, capsule, cylinder, cone or hull collider (or drop opts.islands)`);
+      local.forEach((v) => { const w = rot(cq, v), p = rot(inv, [w[0] + cp.x - bp.x, w[1] + cp.y - bp.y, w[2] + cp.z - bp.z]); pts.push([...p, r]); });
+    }
+    if (!pts.length) return { c: [0, 0, 0], r: 0 };
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const p of pts) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k] - p[3]); hi[k] = Math.max(hi[k], p[k] + p[3]); }
     const c = lo.map((x, k) => (x + hi[k]) / 2); let r = 0;
-    for (let i = 0; i < p.length; i += 3) r = Math.max(r, Math.hypot(p[i] - c[0], p[i + 1] - c[1], p[i + 2] - c[2]));
+    for (const p of pts) r = Math.max(r, Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]) + p[3]);
     return { c, r };
-  };
+  }
   // Proof that the islands stayed apart: at every pre-roll step and every stored step, no body came within 5 mm of a
-  // body of another island (main counts as one), judged on the drawn geometry's bounding spheres. A meeting throws:
+  // body of another island (main counts as one), judged on each body's reach (reachOf: its colliders and drawn geometry). A meeting throws:
   // this bake is not the single-world bake. The pre-roll counts as much as the shot: it is where loose pieces drop and
   // settle, and each island's world bakes it without the others' bodies, so a piece that would have landed on a
   // declared body falls through its place and ends far from it, with nothing left to see at t = 0. pre: each body's
-  // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot.
-  function crossing(poses, pre, of, n, dt) {
-    const sp = tracked.map(sphereOf), margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values()), at = tracked.map(() => [0, 0, 0]);
+  // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot; sp: each body's reach.
+  function crossing(poses, pre, of, n, dt, sp) {
+    const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values()), at = tracked.map(() => [0, 0, 0]);
     const isle = tracked.map((t) => of.get(t.body.handle) || 0), P = pre.length ? pre[0].length / 7 : 0;
     const frame = (pose, when) => {
       const lo = Array.from({ length: K }, () => [Infinity, Infinity, Infinity]), hi = Array.from({ length: K }, () => [-Infinity, -Infinity, -Infinity]);
@@ -297,6 +319,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     const own = new Set(tracked.map((t) => t.body.handle)), stray = []; // a body the sim did not make is switched off in every island world: it would never meet a declared body
     world.forEachRigidBody((b) => { if (!b.isFixed() && !own.has(b.handle)) stray.push(b.handle); });
     if (stray.length) throw new Error(`opts.islands: body ${stray[0]} is neither fixed nor made by roundBox, dynamicHull or kinematicHull: the island worlds switch it off, so it would never touch their bodies (or drop opts.islands)`);
+    // Each body's reach, read once with every collider where its body is (a body placed by hand since the last step
+    // moves its colliders only at the next one, which would then do the same): crossing() judges these, and the lock
+    // below keeps them as they are while the set's scripts run.
+    world.propagateModifiedBodyPositionsToColliders();
+    const reach0 = tracked.map(reachOf);
     const nm = names(), snap = world.takeSnapshot(), shared0 = sharedState();
     const jobs = isl.map((hs, k) => ({ snap, handles: hs, items: idx[k + 1].map((i) => ({ h: tracked[i].body.handle, name: tracked[i].name, impacts: tracked[i].impacts, soft: tracked[i].soft, until: held.get(tracked[i].body.handle) ?? -Infinity })), duration, preroll, mpu, names: nm }));
     const finish = await startPool(RAPIER, jobs, opts.workers); // every worker has its job before this thread is busy
@@ -347,6 +374,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         lock(world, live, keeps("world")), lock(world.integrationParameters, live, keeps("world.integrationParameters")),
         ...bodies.map((b) => lock(b, live, keeps(`fixed body ${b.handle}`))), ...colliders.map((c) => lock(c, live, keeps(`static collider ${c.handle}`))),
       );
+      // A main-island collider's reach (its shape, where it sits on its body, its contact skin) is what crossing() proved
+      // apart from the other islands: a script may change its material, mass and filters, never where it can touch.
+      // Deny by default: every change but those in REACH_KEEPS is refused (the check after the bake catches one no lock knew).
+      const reachKept = (name) => (key) => { if (!REACH_KEEPS.has(key)) throw new Error(`opts.islands: ${key}() on a collider of "${name}" changes where it can touch, and the islands were proved apart on the colliders as they were when the bake started: change it before the bake (or drop opts.islands)`); };
+      idx[0].forEach((i) => { const t = tracked[i]; for (let c = 0; c < t.body.numColliders(); c++) lift.push(lock(t.body.collider(c), live, reachKept(t.name))); });
       let gv = world.gravity; const guard = (v) => new Proxy(v, { set(o, k, x) { if (live()) keeps("world")("gravity"); return Reflect.set(o, k, x); } });
       let gp = guard(gv);
       Object.defineProperty(world, "gravity", { configurable: true, enumerable: true, get: () => gp, set(v) { if (live()) keeps("world")("gravity"); gv = v; gp = guard(v); } });
@@ -359,6 +391,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       main = runBake(world, idx[0].map((i) => itemOf(tracked[i])), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: nm, script, trace: true });
     } finally { lift.reverse().forEach((undo) => undo()); }
     if (sharedState() !== shared0) throw new Error("opts.islands: gravity, the solver, a fixed body, a static collider or a joint changed during the bake, and the island worlds never saw it: change them before the bake, or leave the bodies they touch out of opts.islands");
+    world.propagateModifiedBodyPositionsToColliders(); // the bake is over: read every collider where its body is
+    tracked.forEach((t, i) => {
+      const a = reach0[i], b = reachOf(t);
+      if (Math.hypot(b.c[0] - a.c[0], b.c[1] - a.c[1], b.c[2] - a.c[2]) + b.r > a.r + 1e-4 / mpu) throw new Error(`opts.islands: a collider of "${t.name}" reaches further after the bake than when it started (changed by a call no lock knew), and the islands were proved apart on the colliders as they were: change it before the bake (or drop opts.islands)`);
+    });
     const parts = [{ res: main, idx: idx[0] }, ...(await finish()).map((res, k) => ({ res, idx: idx[k + 1] }))];
     parts.forEach(({ res }) => { if (res.n !== main.n || res.dt !== main.dt) throw new Error("islands disagree on the number of steps"); });
     // One result in tracked order: poses by body, the report lists by body, the impacts by time then body (a single world's order).
@@ -366,7 +403,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; pre[gi] = res.pre[li]; }));
     const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
     const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
-    crossing(poses, pre, of, main.n, main.dt);
+    crossing(poses, pre, of, main.n, main.dt, reach0);
     return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled") } });
   }
 
