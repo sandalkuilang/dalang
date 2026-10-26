@@ -139,7 +139,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches), cloth, one air field, plants, particles, granular fills, water, fur, section views, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
-| **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide |
+| **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide (a bake's impacts, latches and breaks place and level their own SFX: `sfx.js`) |
 
 <br/>
 

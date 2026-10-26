@@ -3,7 +3,7 @@
 # SKILL.md front-matter, README diagrams, the reading list (state.mjs reading: headings exist, sections within budget), for a worker
 # before its PR. Without it, the merge gate: the static checks, then the engine built into a temp dir and its
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the palette measurement. CI runs the merge gate on every push and pull request.
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint. CI runs the merge gate on every push and pull request.
+# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the SFX-from-impacts check. CI runs the merge gate on every push and pull request.
 # Ends with a "Gate summary" block, one ✓/✗ line per step; exits non-zero when any step failed.
 set -u
 root=$(git rev-parse --show-toplevel) && cd "$root" || exit 2 # the tree the gate is run in (a PR worktree), never this file's own location
@@ -35,6 +35,7 @@ if [ $fast -eq 0 ]; then
   step "retake, busy retry, chunk limit vs mock VoiceStudio" node tests/retake.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
   step "numbers lint (spoken model numbers = numbers.json)" node tests/numbers-lint.mjs
+  step "SFX from impacts (tags, gains, merge, licence rows vs check_assets)" node tests/sfx.mjs
 fi
 
 echo "Gate summary ($([ $fast -eq 1 ] && echo fast || echo merge))"
