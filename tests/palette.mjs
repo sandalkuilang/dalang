@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(here, "..", "scripts", "palette.mjs");
 const measure = path.join(here, "..", "scripts", "measure_reference.sh");
-const { oklchL, dominant, spawnProblem } = await import(script);
+const { oklchL, dominant, spawnProblem, osProblem } = await import(script);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-palette-"));
 const cli = (args, env = process.env) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env });
 // A PATH holding only the given ffmpeg stand-in (a shell script body, or null for a file that cannot run).
@@ -58,11 +58,54 @@ try {
   assert.match(r.stderr, /FAILED/);
   console.log("ok  --compare: light vs dark separates (0), light vs light merges (3), bad colour exits 1");
 
-  // 4. A missing file is a failure, never an empty palette.
+  // 4. A missing file is a failure, never an empty palette; it is the only input state that says "not found".
   r = cli([path.join(tmp, "nope.mp4")]);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /FAILED/);
-  console.log("ok  missing file: exit 1 with FAILED");
+  assert.match(r.stderr, /^FAILED: file not found: .*nope\.mp4/);
+  console.log("ok  missing file: exit 1 with FAILED: file not found");
+
+  // 4b. An input that exists but cannot be checked is unknown, never "not found": a symlink loop (ELOOP) and, where
+  // permissions bite (not root), a clip inside a folder with no search permission (EACCES). Each names its code and
+  // says to check the permissions and rerun.
+  const unknownInput = (r, code) => {
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stderr, /^FAILED: /);
+    assert.match(r.stderr, new RegExp(code));
+    assert.match(r.stderr, /permissions.*rerun/s);
+    assert.doesNotMatch(r.stderr, /not found/);
+    assert.equal(r.stdout, "");
+  };
+  const loop = path.join(tmp, "loop.mp4");
+  fs.symlinkSync(path.join(tmp, "loop2.mp4"), loop);
+  fs.symlinkSync(loop, path.join(tmp, "loop2.mp4"));
+  unknownInput(cli([loop]), "ELOOP");
+  const locked = path.join(tmp, "locked");
+  fs.mkdirSync(locked);
+  fs.writeFileSync(path.join(locked, "clip.mp4"), "not a video");
+  fs.chmodSync(locked, 0o000);
+  try {
+    if (process.getuid && process.getuid() === 0) console.log("EACCES case skipped: root ignores folder permissions");
+    else unknownInput(cli([path.join(locked, "clip.mp4")]), "EACCES");
+  } finally {
+    fs.chmodSync(locked, 0o755);
+  }
+  console.log("ok  unreadable input: ELOOP and EACCES name their code and say rerun, never not found");
+
+  // 4c. The class, structurally: every OS error in palette.mjs becomes words in ONE place, osProblem, and only its
+  // ENOENT branch says "not found". No existsSync (false on any stat error), and no other code line says "not found".
+  const src = fs.readFileSync(script, "utf8");
+  assert.doesNotMatch(src, /existsSync/, "existsSync reads every stat error as missing");
+  const sayNotFound = src.split("\n").filter((l) => /not found/.test(l) && !/^\s*\/\//.test(l));
+  assert.equal(sayNotFound.length, 1, "only osProblem may say not found:\n" + sayNotFound.join("\n"));
+  assert.match(sayNotFound[0], /ENOENT/);
+  for (const code of ["EACCES", "EPERM", "ELOOP", "EIO", "ENOTDIR", "EMFILE", "ENOBUFS", undefined]) {
+    const m = osProblem(code ? { code } : {}, "file", { where: ": x.mp4" });
+    assert.doesNotMatch(m, /not found/, String(code));
+    assert.match(m, new RegExp(code || "unknown error"));
+    assert.match(m, /rerun/);
+  }
+  assert.equal(osProblem({ code: "ENOENT" }, "file", { where: ": x.mp4" }), "file not found: x.mp4");
+  console.log("ok  one choke point: osProblem says not found only for ENOENT; every other code (or none) says rerun");
 
   // 5. ffmpeg stand-ins: each way ffmpeg can fail is its own FAILED line, and only a real ENOENT says "not found".
   const failed = (r, re, notRe) => {
