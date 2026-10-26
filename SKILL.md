@@ -47,7 +47,7 @@ The folder **is** the HyperFrames project; run every command from it: edit only 
 | Step | Do | Ends with | Read |
 |---|---|---|---|
 | 0 Setup | `node <skill-dir>/scripts/preflight.mjs`; fix only what it reports (ask before installs, state sizes and licences); create the project folder | `PRODUCTION.md` | `references/brief.md` §0 |
-| 1 Brief | Topic first (ask if none, never guess). AskUserQuestion: Call 0 only for setup choices preflight left (skills update, stock key, voice engine); then platform (always asked), language, angle, realism; then duration, visual style (4 looks with previews, real subjects, no banned defaults), energy, audience | `BRIEF.md` | `references/brief.md` §1 |
+| 1 Brief | Topic first (ask if none, never guess). AskUserQuestion: Call 0 only for setup choices preflight left (skills update, stock key, voice engine); then platform (always asked), language, angle, realism; then duration, visual style (4 looks with previews, real subjects, no banned defaults), energy, audience; then the voice when more than one sensible choice exists (Call 3, recommended by audience) | `BRIEF.md` | `references/brief.md` §1 |
 | 2 Reference (optional) | Measure a reference's craft, never copy its images or script | `reference-measurements.md` | `references/measure-reference.md` |
 | 3 Script | `script.md` + `narration.txt` with named `{text\|name}` beats; facts verified, numbers never invented | **Gate 1** | `references/script-voice.md` §3 |
 | 4 Voice | `scripts/tts_timestamps.mjs` (free VoiceStudio by default): audition with `--sample`, same `--seed` for the full take, act on every warning | **Gate 2** | `references/script-voice.md` §4, `references/voice.md` "Use" |
