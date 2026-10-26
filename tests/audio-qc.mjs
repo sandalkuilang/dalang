@@ -433,6 +433,9 @@ try {
       assert.match(fr('<iframe srcdoc="&lt;base href=&quot;js/&quot;&gt;&lt;script src=&quot;duck.js&quot;&gt;&lt;/script&gt;"></iframe>') || "", unresolved, "a srcdoc's own <base href>");
       assert.match(fr('<iframe srcdoc="&lt;iframe src=&quot;widget.html&quot;&gt;&lt;/iframe&gt;"></iframe>') || "", unresolved, "a local frame inside a srcdoc");
       assert.match(fr('<iframe srcdoc="&lt;iframe srcdoc=&quot;&amp;lt;script src=&amp;quot;js/duck.js&amp;quot;&amp;gt;&amp;lt;/script&amp;gt;&quot;&gt;&lt;/iframe&gt;"></iframe>') || "", mixed, "a srcdoc inside a srcdoc");
+      assert.match(fr('<iframe srcdoc="&lt;audio src=&quot;assets/m.wav&quot;&gt;&lt;/audio&gt;"></iframe>') || "", /srcdoc of <iframe> has its own <audio>/, "a srcdoc's own media is a mix the check does not read");
+      assert.match(fr('<iframe src="java&#115;cript:parent.m.volu&#x6d;e=0"></iframe>') || "", mixed, "a javascript: URL written with character references is decoded once, in full");
+      assert.equal(fr('<p onclick="a.volu&amp;#109;e">x</p><a href="java&amp;#115;cript:x">y</a>'), null, "a reference decoded once is not decoded twice");
       assert.match(fr('<svg><script href="js/duck.js"></script></svg>') || "", mixed, "an SVG <script href> is read");
       assert.match(fr('<svg><script xlink:href="js/duck.js"></script></svg>') || "", mixed, "an SVG <script xlink:href> is read");
       assert.ok(Object.keys(q.FRAMES).length >= 6, "the elements that open a document");
