@@ -4,11 +4,12 @@
 // tags a model number `[calc: <name>]`, and narration.txt speaks it in a beat named after it: `{about forty dollars|<name>}`;
 // a further mention is a beat `<name>__<suffix>`.
 // Checks: every [calc: name] is in numbers.json; numbers.json is not older than model.mjs (an input changed, the model
-// not rerun); every beat named after a model number says it — in words first: contains its `say` (whole words, case,
-// punctuation and hyphens ignored; a figure beside them is another figure); else in digits: one figure equals the value
-// after the narration's rounding (decimals as spoken, "40" = one significant figure, "1,200" / "1.200" thousands),
-// unless the words around it are the `say` with one word changed. A beat name used twice is a problem; a beat of
-// another name holding a `say` with one word changed is a WARN. `[calc: a × b = c]` hand arithmetic is listed, not checked.
+// not rerun); every beat named after a model number holds a mention of it in a declared form (anything else in the
+// beat is not read): its `say` (whole words; case, punctuation and hyphens ignored), or a figure equal to the value
+// after the narration's rounding (decimals as spoken, "40" = one significant figure, "1,200" / "1.200" thousands) that
+// stands alone in the beat or in the place of the say's number ("40 dollars", "about 40"; any figure when there is no
+// `say`). A beat name used twice is a problem; a beat of another name, or of none, is not read.
+// `[calc: a × b = c]` hand arithmetic is listed, not checked.
 // Usage: node numbers_lint.mjs [project]   (default: .)
 // Exit 1 on a problem (file:line, what is spoken, the model value), 2 when a file cannot be read or a beat cannot be
 // checked (rerun / add say), 0 when clean.
@@ -72,19 +73,6 @@ const says = (text, say) => {
   for (let i = tc.indexOf(s); i >= 0; i = tc.indexOf(s, i + 1)) if ((edge(t[i - 1]) || UNSPACED.test(s[0])) && (edge(t[i + s.length]) || UNSPACED.test(s.at(-1)))) return true;
   return false;
 };
-// The words of a text, dashes as spaces. nearMiss: a window of the text as long as a multi-word `say` that differs
-// from it in exactly one word (no figure in it, and not any model number's own words): the say with another number.
-const wordsOf = text => norm(text).replace(/-/g, ' ').split(' ').filter(Boolean);
-const nearMiss = (text, say, allSays) => {
-  const sw = wordsOf(say), tw = wordsOf(text);
-  if (sw.length < 2) return null;
-  for (let i = 0; i + sw.length <= tw.length; i++) {
-    const w = tw.slice(i, i + sw.length);
-    if (w.some(x => /^\p{N}+$/u.test(x)) || allSays.has(w.join(' '))) continue;
-    if (w.filter((x, k) => x !== sw[k]).length === 1) return w.join(' ');
-  }
-  return null;
-};
 // A figure as spoken -> every value it can mean, each with its rounding: [{ n, round: v => rounded }].
 const readings = tok => {
   const out = [], seps = tok.match(/[.,]/g) ?? [];
@@ -100,38 +88,57 @@ const readings = tok => {
 const show = v => String(Number(v.toPrecision(12))); // 15.99, not 15.990000000000002
 const close = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a));
 
+// The one rule (the only path to a PROBLEM about what a beat says): a beat named after a model number passes when it
+// holds a mention of that number in a declared form, and fails when it holds none. Nothing else in the beat is read,
+// and a beat of another name, or of none, claims no model number and is never read. Declared forms: the `say`; a
+// figure that rounds to the value, alone in the beat (no letters beside it) or in the place of the say's number (the
+// say's own words end right before it or resume right after it: "about 40", "40 dollars" for "about forty dollars");
+// with no `say`, any figure that rounds to the value.
+const FIGURE = /\d+(?:[.,]\d+)*/g;
+const flat = s => norm(s).replace(/-/g, ' '); // the words of a text, a dash as a space
+// In the say's place: the word right before the figure is a word of the say that has more of the say after it, or the
+// word right after it is a word of the say that has more of the say before it (a word = a character in unspaced
+// scripts). "about 40", "40 dollars" for "about forty dollars", "40 dollars" for "about forty dollars a month".
+const lastWord = s => (UNSPACED.test(s.at(-1) ?? '') ? s.at(-1) : s.slice(s.lastIndexOf(' ') + 1));
+const firstWord = s => (UNSPACED.test(s[0] ?? '') ? s[0] : s.split(' ')[0]);
+const inPlace = (before, after, say) => {
+  const s = flat(say);
+  for (let k = 1; k < s.length; k++) { // every split of the say between two words (or two unspaced characters)
+    if (!(s[k] === ' ' || UNSPACED.test(s[k - 1]) || UNSPACED.test(s[k]))) continue;
+    const p = s.slice(0, k).trim(), q = s.slice(k).trim();
+    if ((p && before && lastWord(before) === lastWord(p)) || (q && after && firstWord(after) === firstWord(q))) return true;
+  }
+  return false;
+};
+const mentions = (text, n) => {
+  const hasSay = typeof n.say === 'string';
+  if (hasSay && says(text, n.say)) return true;
+  const v = Math.abs(n.value), alone = !/\p{L}/u.test(text.replace(FIGURE, ' '));
+  for (const m of text.matchAll(FIGURE)) {
+    if (!readings(m[0]).some(r => close(r.round(v), r.n))) continue;
+    if (!hasSay || alone || inPlace(flat(text.slice(0, m.index)), flat(text.slice(m.index + m[0].length)), n.say)) return true;
+  }
+  return false;
+};
+
 // A beat is named after a model number (`cost`); a further mention of it is `cost__recap` (the key, two underscores,
-// any suffix; the longest key wins). Any other beat is not a model beat, but words one word off a model number's `say`
-// there are reported (WARN), never passed as OK.
+// any suffix; the longest key wins).
 const keyOf = name => model[name] !== undefined ? name
   : Object.keys(model).filter(k => name.startsWith(k + '__') && name.length > k.length + 2).sort((a, b) => b.length - a.length)[0];
-const allSays = new Set(model ? Object.values(model).filter(n => typeof n?.say === 'string').map(n => wordsOf(n.say).join(' ')) : []);
 let beats = 0;
 const named = new Map(); // beat name -> first line (the voice step renames the second beat of one name: cost -> cost_5)
 if (model) lines(narration ?? '').forEach((l, i) => {
-  // every beat, named or not; the voice step trims the name, so a name with spaces around it is the same name
+  // every beat; the voice step trims the name, so a name with spaces around it is the same name
   for (const m of l.matchAll(/\{([^{}|]*)(?:\|([^{}]*))?\}/g)) {
     const text = m[1], name = (m[2] ?? '').trim(), key = name && keyOf(name), n = key && model[key], at = `narration.txt:${i + 1}`;
-    if (!key) { // not a model beat
-      for (const [k, o] of Object.entries(model)) {
-        const near = typeof o?.say === 'string' && nearMiss(text, o.say, allSays);
-        if (near) warns.push(`${at} {${text}|${name}} says "${near}", one word off ${k} "${o.say}" — if it is the model number, name the beat ${k}__<suffix> so it is checked; if not, reword`);
-      }
-      continue;
-    }
-    if (!n) continue; // an invalid model number, already reported
+    if (!n) continue; // not a model beat (or an invalid model number, already reported)
     beats++;
     if (named.has(name)) { problems.push(`${at} {${text}|${name}} is the second beat named ${name} (first at ${named.get(name)}): the voice step renames it; a further mention is named ${key}__<suffix>`); continue; }
     named.set(name, at);
-    const toks = text.match(/\d+(?:[.,]\d+)*/g), v = Math.abs(n.value), hasSay = typeof n.say === 'string';
-    // Words first: the say decides, a figure beside them is another figure. Else the figure, unless the words around
-    // it are the say with another number.
-    if (hasSay && says(text, n.say)) continue;
-    if (toks && toks.some(t => readings(t).some(r => close(r.round(v), r.n)))) {
-      const near = hasSay && nearMiss(text, n.say, allSays);
-      if (near) problems.push(`${at} {${text}|${name}} says "${near}" and a figure, model ${show(n.value)} — expects "${n.say}"`);
-    } else if (toks) problems.push(`${at} {${text}|${name}} says ${toks.join(', ')}, model ${show(n.value)}${hasSay ? ` — expects "${n.say}"` : ''}`);
-    else if (hasSay) problems.push(`${at} {${text}|${name}} says "${text.trim()}", model ${show(n.value)} — expects "${n.say}"`);
+    if (mentions(text, n)) continue;
+    const toks = text.match(FIGURE);
+    if (typeof n.say === 'string') problems.push(`${at} {${text}|${name}} says "${text.trim()}", model ${show(n.value)} — expects "${n.say}" (or a figure for its number, alone or beside its words)`);
+    else if (toks) problems.push(`${at} {${text}|${name}} says ${toks.join(', ')}, model ${show(n.value)}`);
     else warns.push(`${at} {${text}|${name}} is spoken in words and numbers.json gives no say for ${key} — add say in model.mjs`);
   }
 });
