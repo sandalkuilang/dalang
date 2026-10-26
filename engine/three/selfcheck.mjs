@@ -898,9 +898,10 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.throws(() => safeArea("cinema", W, H), /shorts/, "an unknown format is refused");
   // Active word: the accent box and dark ink move to each word on its start, within one frame.
   const hand = [{ text: "one two three", start: 1, end: 3, words: [{ text: "one", start: 1, end: 1.25 }, { text: "two", start: 1.3, end: 1.55 }, { text: "three", start: 1.6, end: 1.85 }] }];
-  const act = (t) => drawCaption(mockCtx(W, H, gray), t, hand, { accent: "#ffd400" }).active;
+  const dim = () => [20, 20, 20];
+  const act = (t) => drawCaption(mockCtx(W, H, dim), t, hand, { accent: "#ffd400" }).active;
   assert.deepEqual([act(1), act(1.3 - 1 / 60), act(1.3), act(1.6)], [0, 0, 1, 2], "the active word switches on its start");
-  const ac = mockCtx(W, H, gray); drawCaption(ac, 1.3, hand, { accent: "#ffd400" });
+  const ac = mockCtx(W, H, dim); drawCaption(ac, 1.3, hand, { accent: "#ffd400" });
   assert.ok(ac.log.some((l) => l.rect && l.fill === "#ffd400"), "the active word has an accent box");
   assert.equal(ac.log.find((l) => l.s === "two").fill, "#111111", "the active word is dark on the accent");
   assert.equal(ac.log.find((l) => l.s === "one").fill, "#ffffff", "the others keep the phrase ink");
