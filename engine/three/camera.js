@@ -1,5 +1,6 @@
 import { THREE } from "./three-vendor.js";
 import { M } from "./kit.js";
+import { readTime } from "./type.js";
 
 // One world, one camera, no cut: an explainer that stays inside one persistent set and moves between a few named
 // places instead of cutting (a kitchen appliance and its heating element, a bicycle and its freewheel, a hive and one
@@ -8,6 +9,9 @@ import { M } from "./kit.js";
 //  - a camera path that cuts through the set, or jumps between two stations: travel() follows an arc whose middle
 //    rises (over the set's top, with `over`), eases in and out, and is a pure function of t (seek anywhere, same
 //    pose); route() refuses a leg that starts before the one before it ends;
+//  - cues and shots share one frame grid: snap/shotAt/overlayWindow snap a cue the way a cut is snapped (a raw cue
+//    against a snapped cut lands in the previous shot by up to half a frame); windowProblems names every overlay
+//    window that is empty or shorter than its read time;
 //  - the speed is not known: every pose carries `speed` in m/s, so the set can add motion blur to a fast leg;
 //  - attention: on each beat everything but the subject fades to a pale, desaturated, translucent ghost and the
 //    subject alone keeps its colour. attend() does it on CLONED materials (kit materials are shared by name: a write
@@ -108,7 +112,7 @@ export function route(st, legs) {
   // `over` as an Object3D is measured ONCE, here, so the path stays a function of t when a part of the set moves later
   // (a lid opening, a ball bouncing): it is the set as it stands when the route is built (pose it first, or pass a Box3
   // covering the motion).
-  const snap = (over) => {
+  const measure = (over) => {
     if (!over) return over;
     if (over.isBox3) return over.clone();
     if (over.isObject3D) { over.updateWorldMatrix(true, true); return new THREE.Box3().setFromObject(over); }
@@ -119,7 +123,7 @@ export function route(st, legs) {
     if (!num(l.start)) throw new Error("route(): leg " + i + " needs a start time (seconds)");
     if (!(num(l.dur) && l.dur > 0)) throw new Error("route(): leg " + i + " needs dur > 0 seconds");
     if (l.start < free - 1e-9) throw new Error("route(): leg " + i + " starts at " + l.start + " s, before the leg before it ends at " + free + " s; a leg cannot jump (that is a cut)");
-    out.push({ ...l, over: snap(l.over), from, end: l.start + l.dur });
+    out.push({ ...l, over: measure(l.over), from, end: l.start + l.dur });
     from = l.to; free = l.start + l.dur;
   });
   const opts = (l) => ({ start: l.start, dur: l.dur, ease: l.ease, lift: l.lift, over: l.over, clear: l.clear });
@@ -263,8 +267,75 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
   return api;
 }
 
-// Cues and shots (stubs, red).
-export function snap() { throw new Error("todo"); }
-export function shotAt() { throw new Error("todo"); }
-export function overlayWindow() { throw new Error("todo"); }
-export function windowProblems() { throw new Error("todo"); }
+// Cues and shots on one frame grid. A cut is snapped to a frame (Math.round(t * fps) / fps); a cue read raw against a
+// snapped cut lands in the shot before it when the cut rounds later (up to half a frame). Everything below works on
+// whole frame numbers, so there is no epsilon. Times are seconds, fps is frames per second.
+const fr = (t, fps) => Math.round(t * fps);
+const fpsOf = (fn, o) => {
+  const fps = o?.fps;
+  if (!(num(fps) && fps > 0)) throw new Error(fn + "(): fps must be a number greater than 0 (got " + fps + ")");
+  return fps;
+};
+const timeOf = (fn, t, what) => { if (!num(t)) throw new Error(fn + "(): " + what + " must be a number of seconds (got " + t + ")"); return t; };
+const checkShots = (fn, shots) => {
+  if (!Array.isArray(shots)) throw new Error(fn + "(): shots is an array of { start, end, name } in seconds");
+  let prev = -Infinity;
+  shots.forEach((s, i) => {
+    const id = '"' + (s?.name ?? "shot " + i) + '"';
+    if (!s || !num(s.start) || !num(s.end)) throw new Error(fn + "(): " + id + " needs a start and an end (seconds)");
+    if (!(s.end > s.start)) throw new Error(fn + "(): " + id + " ends at " + s.end + " s, not after its start " + s.start + " s");
+    if (s.start < prev) throw new Error(fn + "(): " + id + " starts before the shot before it; list shots in time order");
+    prev = s.start;
+  });
+};
+
+// The time of the frame nearest `t`: how a cut is snapped, so snap a cue the same way.
+export function snap(t, fps) {
+  timeOf("snap", t, "t"); fpsOf("snap", { fps });
+  return fr(t, fps) / fps;
+}
+
+// Index of the shot that holds the frame of `t` (a shot spans frames [snapped start, snapped end)), else -1.
+export function shotAt(t, shots, o) {
+  const fps = fpsOf("shotAt", o); timeOf("shotAt", t, "t"); checkShots("shotAt", shots);
+  const f = fr(t, fps);
+  return shots.findIndex((s) => fr(s.start, fps) <= f && f < fr(s.end, fps));
+}
+
+// The window an overlay cued at `cue` has: from its snapped cue to the snapped end of its shot. No shot holds the cue:
+// index -1 and dur 0 (windowProblems reports it). Never throws on a cue outside the shots.
+export function overlayWindow(cue, shots, o) {
+  const fps = fpsOf("overlayWindow", o); timeOf("overlayWindow", cue, "cue");
+  const index = shotAt(cue, shots, { fps }), from = snap(cue, fps);
+  if (index < 0) return { index: -1, name: undefined, from, to: from, dur: 0 };
+  const s = shots[index], f = fr(cue, fps), e = fr(s.end, fps);
+  return { index, name: s.name, from, to: e / fps, dur: (e - f) / fps };
+}
+
+// Problems (strings, each naming the item) for overlay or label windows that are empty, in no shot, or shorter than
+// their read time. items: { name, cue, text?, end?, min? }: `end` gives an explicit window, else the cue's shot decides;
+// `min` (item, else option, else readTime(text)) is the shortest window in seconds. [] when all is well; the caller
+// throws on a non-empty list.
+export function windowProblems(items, shots, o = {}) {
+  const fps = fpsOf("windowProblems", o); checkShots("windowProblems", shots);
+  if (!Array.isArray(items)) throw new Error("windowProblems(): items is an array of { name, cue, text, end, min }");
+  const out = [], r3 = (x) => Math.round(x * 1000) / 1000;
+  const lastEnd = shots.length ? Math.max(...shots.map((s) => fr(s.end, fps))) / fps : 0;
+  items.forEach((it, i) => {
+    const name = it?.name ?? "item " + i;
+    if (!it || !num(it.cue)) { out.push(name + ": needs a cue (seconds)"); return; }
+    let from = snap(it.cue, fps), to, dur;
+    if (it.end !== undefined) {
+      if (!num(it.end)) { out.push(name + ": end must be a number of seconds"); return; }
+      to = snap(it.end, fps); dur = (fr(it.end, fps) - fr(it.cue, fps)) / fps;
+    } else {
+      const w = overlayWindow(it.cue, shots, { fps });
+      if (w.index < 0) { out.push(name + ": cue " + it.cue + " s is in no shot (shots end at " + r3(lastEnd) + " s)"); return; }
+      to = w.to; dur = w.dur;
+    }
+    if (dur <= 0) { out.push(name + ": window is zero or negative (cue " + it.cue + " s -> " + r3(to) + " s at " + fps + " fps)"); return; }
+    const need = it.min ?? (it.text !== undefined ? readTime(it.text) : o.min ?? 0);
+    if (dur < need) out.push(name + ": window " + r3(dur) + " s is under its minimum read time " + r3(need) + " s");
+  });
+  return out;
+}
