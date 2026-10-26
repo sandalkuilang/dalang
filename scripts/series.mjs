@@ -11,7 +11,8 @@
 // Never in a kit: scene code (a module that builds a scene or imports the engine's 3D / physics: heuristic, see
 // isScene), per-video files (script, storyboard, audio, BRIEF.md ...), the engine copy, env files, anything outside
 // the project, symlinks. The real guarantee: save copies only the files named with --file, apply copies only files/.
-// Exit 0 ok, 1 refused / problem (nothing written), 2 cannot read (WARN: rerun; never read as "no kits").
+// Exit 0 ok, 1 refused / problem (nothing written), 2 cannot read (WARN: rerun; never read as "no kits"): every read
+// goes through fsRead, the one choke point that turns any error other than "missing" into that WARN.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,36 +82,50 @@ const isScene = (rel, text) => /\.(m?js|html)$/i.test(rel) && (ENGINE_3D.test(te
   ? 'a scene module (builds a scene or imports the engine\'s 3D / physics): scene code stays per video' : null;
 const checkName = n => /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(n ?? '') ? null : `series name "${n ?? ''}": letters, digits, - and _ (start with a letter or digit)`;
 
-// ---- fs helpers: every read error that is not "missing" is WARN, never a verdict
+// ---- fs helpers
 const code = e => e?.code ?? 'error';
-const tryRead = (f, enc = 'utf8') => { try { return fs.readFileSync(f, enc); } catch (e) { return { err: e }; } };
-const isErr = v => v && typeof v === 'object' && 'err' in v;
+// <fs-read> The one place that reads the file system (tests/series.mjs fails on any read outside it). A caller names
+// the error codes that are an answer for it (ENOENT "missing", ENOTDIR "a folder on the path is a file"; nothing else
+// can be one) and gets them back as a Missing. Every other error (EACCES, EIO, ELOOP ...) is WARN + rerun, exit 2,
+// here: it never reaches a caller, so no caller can read an unknown state as "not found", "0 files" or a refusal.
+class Missing { constructor(c) { this.code = c; } }
+const ANSWERS = new Set(['ENOENT', 'ENOTDIR']);
+const READS = new Set(['readFileSync', 'readdirSync', 'lstatSync', 'statSync', 'realpathSync']);
+const fsRead = (what, op, args, answers = ['ENOENT']) => {
+  if (!READS.has(op)) throw new Error(`fsRead: ${op} is not a read`);
+  try { return fs[op](...args); } catch (e) {
+    if (ANSWERS.has(e?.code) && answers.includes(e.code)) return new Missing(e.code);
+    warn(`cannot read ${what} (${code(e)})`);
+  }
+};
+// </fs-read>
+const gone = v => v instanceof Missing;
+const readText = (what, f, answers) => fsRead(what, 'readFileSync', [f, 'utf8'], answers);
 // p with its deepest existing ancestor resolved (symlinks followed) and the not-yet-existing tail appended.
-// A dangling symlink is not "missing": it throws code DANGLING. Any other error throws as is (the caller decides).
-const resolveDeep = p => {
-  const tail = [];
+// A dangling symlink is not "missing": it is refused, like a folder on the path that is a file.
+const resolveDeep = (rel, p) => {
+  const tail = [], what = `the path of ${rel}`, A = ['ENOENT', 'ENOTDIR'];
   for (let q = p; ;) {
-    try { return path.join(fs.realpathSync(q), ...tail); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-    let link = false;
-    try { fs.lstatSync(q); link = true; } catch (e) { if (e.code !== 'ENOENT') throw e; }
-    if (link) throw Object.assign(new Error('dangling symlink'), { code: 'DANGLING' });
+    const r = fsRead(what, 'realpathSync', [q], A);
+    if (!gone(r)) return path.join(r, ...tail);
+    if (r.code === 'ENOTDIR') problem(`${rel}: a folder on its path is a file`);
+    const l = fsRead(what, 'lstatSync', [q], A);
+    if (!gone(l)) problem(`${rel}: would land outside the project (a dangling symlinked folder)`);
+    if (l.code === 'ENOTDIR') problem(`${rel}: a folder on its path is a file`);
     const up = path.dirname(q);
-    if (up === q) throw Object.assign(new Error('no existing ancestor'), { code: 'ENOENT' });
+    if (up === q) warn(`cannot read ${what} (no existing ancestor)`);
     tail.unshift(path.basename(q)); q = up;
   }
 };
 // target, resolved, must stay inside base (no symlinked folder leads out); base may not exist yet.
-// A path that cannot be read is WARN + rerun, never the verdict "outside".
-const insideOrStop = (rel, base, target) => {
-  try { const b = resolveDeep(base), t = resolveDeep(target); return t === b || t.startsWith(b + path.sep); } catch (e) {
-    if (e.code === 'DANGLING') problem(`${rel}: would land outside the project (a dangling symlinked folder)`);
-    if (e.code === 'ENOTDIR') problem(`${rel}: a folder on its path is a file`);
-    warn(`cannot read the path of ${rel} (${code(e)})`);
-  }
-};
+const inside = (rel, base, target) => { const b = resolveDeep(rel, base), t = resolveDeep(rel, target); return t === b || t.startsWith(b + path.sep); };
+// every file under dir; a Missing when dir itself does not exist; a folder that vanishes mid-walk is WARN
 const walk = (dir, rel = '') => {
+  const at = path.join(dir, rel);
+  const ents = fsRead(at, 'readdirSync', [at, { withFileTypes: true }]);
+  if (gone(ents)) { if (!rel) return ents; warn(`cannot read ${at} (it changed while being read)`); }
   const res = [];
-  for (const d of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+  for (const d of ents) {
     const r = rel ? `${rel}/${d.name}` : d.name;
     if (d.isDirectory()) res.push(...walk(dir, r)); else res.push({ rel: r, link: d.isSymbolicLink(), file: d.isFile() });
   }
@@ -118,8 +133,9 @@ const walk = (dir, rel = '') => {
 };
 const readKit = nm => {
   const bad = checkName(nm); if (bad) problem(bad);
-  const t = tryRead(path.join(ROOT, nm, 'SERIES.md'));
-  if (isErr(t)) { if (code(t.err) === 'ENOENT') problem(`no series "${nm}": node series.mjs list`); warn(`cannot read ${path.join(ROOT, nm, 'SERIES.md')} (${code(t.err)})`); }
+  const f = path.join(ROOT, nm, 'SERIES.md');
+  const t = readText(f, f);
+  if (gone(t)) problem(`no series "${nm}": node series.mjs list`);
   return t;
 };
 
@@ -127,8 +143,8 @@ const readKit = nm => {
 const save = () => {
   const bad = checkName(name); if (bad) problem(bad);
   const proj = path.resolve(from);
-  const b = tryRead(path.join(proj, 'BRIEF.md'));
-  if (isErr(b)) { if (code(b.err) === 'ENOENT') problem(`BRIEF.md not found in ${proj}: finish Step 1 first`); warn(`cannot read BRIEF.md (${code(b.err)})`); }
+  const b = readText('BRIEF.md', path.join(proj, 'BRIEF.md'));
+  if (gone(b)) problem(`BRIEF.md not found in ${proj}: finish Step 1 first`);
   const lines = briefLines(b);
   if (!lines.length) problem('no channel-level lines in BRIEF.md (platform, look, voice ...): nothing to keep');
   const rels = [...new Set(files.map(f => f.split(path.sep).join('/')))];
@@ -136,21 +152,21 @@ const save = () => {
   for (const rel of rels) { // validate everything before writing anything
     const why = checkRel(rel); if (why) problem(`${rel}: ${why}`);
     const abs = path.join(proj, rel);
-    let st; try { st = fs.lstatSync(abs); } catch (e) { problem(`${rel}: ${code(e) === 'ENOENT' ? 'not found in the project' : `cannot read (${code(e)})`}`); }
+    const st = fsRead(rel, 'lstatSync', [abs], ['ENOENT', 'ENOTDIR']);
+    if (gone(st)) problem(`${rel}: ${st.code === 'ENOENT' ? 'not found in the project' : 'a folder on its path is a file'}`);
     if (st.isSymbolicLink()) problem(`${rel}: a symlink`);
     if (!st.isFile()) problem(`${rel}: not a regular file`);
-    if (!insideOrStop(rel, proj, abs)) problem(`${rel}: leaves the project (a symlinked folder)`);
-    const t = tryRead(abs); if (isErr(t)) warn(`cannot read ${rel} (${code(t.err)})`);
+    if (!inside(rel, proj, abs)) problem(`${rel}: leaves the project (a symlinked folder)`);
+    const t = readText(rel, abs, []);
     const sc = isScene(rel, t); if (sc) problem(`${rel}: ${sc}`);
     picked.push({ rel, abs });
   }
   const kit = path.join(ROOT, name);
   let keep = [];
-  if (fs.existsSync(kit)) {
+  if (!gone(fsRead(kit, 'lstatSync', [kit]))) {
     if (!force) problem(`series ${name} exists: --force replaces its brief and files and keeps its Channel rules`);
-    const old = tryRead(path.join(kit, 'SERIES.md')); // missing: nothing to keep; unreadable: the rules must not be dropped
-    if (!isErr(old)) keep = kitRules(old);
-    else if (code(old.err) !== 'ENOENT') warn(`cannot read ${path.join(kit, 'SERIES.md')} (${code(old.err)}); nothing written, the Channel rules stay`);
+    const old = readText(`${path.join(kit, 'SERIES.md')}; nothing written, the Channel rules stay`, path.join(kit, 'SERIES.md'));
+    if (!gone(old)) keep = kitRules(old); // missing: nothing to keep
   }
   try {
     fs.rmSync(path.join(kit, 'files'), { recursive: true, force: true });
@@ -169,23 +185,18 @@ const save = () => {
 
 // ---- list
 const list = () => {
-  let ents;
-  try { ents = fs.readdirSync(ROOT, { withFileTypes: true }); } catch (e) {
-    if (code(e) === 'ENOENT') { out(`No series kits yet (${ROOT})`); return; }
-    warn(`cannot read ${ROOT} (${code(e)})`);
-  }
+  const ents = fsRead(ROOT, 'readdirSync', [ROOT, { withFileTypes: true }]);
+  if (gone(ents)) { out(`No series kits yet (${ROOT})`); return; }
   const kits = ents.filter(d => d.isDirectory()).map(d => d.name).sort();
   if (!kits.length) { out(`No series kits yet (${ROOT})`); return; }
   let bad = false;
   for (const k of kits) {
-    const t = tryRead(path.join(ROOT, k, 'SERIES.md'));
-    if (isErr(t)) { out(`  WARN     : ${k}: ${code(t.err) === 'ENOENT' ? 'no SERIES.md' : `cannot read SERIES.md (${code(t.err)})`}`); bad = true; continue; }
+    const t = readText(`${k}/SERIES.md`, path.join(ROOT, k, 'SERIES.md'));
+    if (gone(t)) { out(`  WARN     : ${k}: no SERIES.md`); bad = true; continue; }
     const lines = kitBrief(t);
     const v = key => { const l = lines.find(x => keyOf(x) === key); return l ? valueOf(l) : '-'; };
-    let n = 0;
-    try { n = walk(path.join(ROOT, k, 'files')).length; } catch (e) { // no files/ folder = 0 files; any other error is not a count
-      if (code(e) !== 'ENOENT') { out(`  WARN     : ${k}: cannot read files/ (${code(e)})`); bad = true; continue; }
-    }
+    const w = walk(path.join(ROOT, k, 'files'));
+    const n = gone(w) ? 0 : w.length; // no files/ folder = 0 files
     out(`  ${k}  ${v('platform')} · ${v('look')} · ${v('voice')} · ${n} file(s)`);
   }
   if (bad) { out('  WARN     : a kit above could not be read — rerun'); process.exit(2); }
@@ -195,27 +206,26 @@ const list = () => {
 const apply = () => {
   const text = readKit(name);
   const proj = path.resolve(arg3 ?? '.');
-  try { if (!fs.statSync(proj).isDirectory()) problem(`${proj} is not a folder`); } catch (e) { // missing: apply creates it
-    if (code(e) === 'ENOTDIR') problem(`${proj}: a folder on its path is a file`);
-    if (code(e) !== 'ENOENT') warn(`cannot read ${proj} (${code(e)})`);
-  }
+  const pst = fsRead(proj, 'statSync', [proj], ['ENOENT', 'ENOTDIR']); // missing: apply creates it
+  if (gone(pst) && pst.code === 'ENOTDIR') problem(`${proj}: a folder on its path is a file`);
+  if (!gone(pst) && !pst.isDirectory()) problem(`${proj} is not a folder`);
   const kitFiles = path.join(ROOT, name, 'files');
-  let found = [];
-  try { found = walk(kitFiles); } catch (e) { if (code(e) !== 'ENOENT') warn(`cannot read ${kitFiles} (${code(e)})`); }
+  const w = walk(kitFiles);
+  const found = gone(w) ? [] : w; // no files/ folder: a kit of Brief lines only
   const plan = [];
   for (const f of found) { // a hand-edited kit must not slip a scene module, an env file or a link in
     if (f.link || !f.file) problem(`kit file ${f.rel}: a symlink or not a regular file`);
     const why = checkRel(f.rel); if (why) problem(`kit file ${f.rel}: ${why}`);
     const src = path.join(kitFiles, f.rel);
-    const t = tryRead(src); if (isErr(t)) warn(`cannot read kit file ${f.rel} (${code(t.err)})`);
+    const t = readText(`kit file ${f.rel}`, src, []);
     const sc = isScene(f.rel, t); if (sc) problem(`kit file ${f.rel}: ${sc}`);
     const dst = path.join(proj, f.rel);
-    if (!insideOrStop(f.rel, proj, dst)) problem(`${f.rel}: would land outside the project (a symlinked folder)`);
-    let st = null; try { st = fs.lstatSync(dst); } catch (e) { if (code(e) !== 'ENOENT') warn(`cannot read ${dst} (${code(e)})`); }
-    if (st) {
+    if (!inside(f.rel, proj, dst)) problem(`${f.rel}: would land outside the project (a symlinked folder)`);
+    const st = fsRead(dst, 'lstatSync', [dst]);
+    if (!gone(st)) {
       if (st.isSymbolicLink() || !st.isFile()) { problem(`${f.rel}: exists and is not a regular file`); }
-      const dBuf = tryRead(dst, null); if (isErr(dBuf)) warn(`cannot read ${f.rel} in the project (${code(dBuf.err)})`);
-      const sBuf = tryRead(src, null); if (isErr(sBuf)) warn(`cannot read kit file ${f.rel} (${code(sBuf.err)})`);
+      const dBuf = fsRead(`${f.rel} in the project`, 'readFileSync', [dst], []);
+      const sBuf = fsRead(`kit file ${f.rel}`, 'readFileSync', [src], []);
       if (dBuf.equals(sBuf)) continue;
       plan.push({ f, src, dst, differs: true });
     } else plan.push({ f, src, dst });
@@ -225,9 +235,8 @@ const apply = () => {
   // BRIEF.md
   const lines = kitBrief(text);
   const bp = path.join(proj, 'BRIEF.md');
-  const cur = tryRead(bp);
-  if (isErr(cur) && code(cur.err) !== 'ENOENT') warn(`cannot read BRIEF.md (${code(cur.err)})`);
-  const have = isErr(cur) ? null : cur;
+  const cur = readText('BRIEF.md', bp);
+  const have = gone(cur) ? null : cur;
   const keys = new Set(have ? have.split('\n').map(keyOf).filter(Boolean) : []);
   const add = [], infos = [];
   if (!keys.has('series')) add.push(`- series: ${name}`);
