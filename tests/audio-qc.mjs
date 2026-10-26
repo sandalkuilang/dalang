@@ -199,6 +199,41 @@ try {
     console.log("ok  voiceFlags: judged is false under 3 voiced sentences, true from 3");
   }
 
+  // 8f. The class 'unknown reported as OK': the Result is made in one place, and OK needs an outcome for every check.
+  {
+    const v = (o) => q.verdict({ flags: [], notChecked: [], done: [], absent: [], ...o });
+    let r = v({ done: ["bed", "clicks"] });
+    assert.equal(r.exit, 2, "a check with no recorded outcome (here the voice) is NOT CHECKED, never OK");
+    assert.match(r.text, /NOT CHECKED: voice/);
+    r = v({ done: ["clicks", "voice"] });
+    assert.equal(r.exit, 2, "a bed that was neither measured nor found absent is NOT CHECKED");
+    assert.doesNotMatch(r.text, /OK|no bed/);
+    r = v({ done: ["bed", "clicks", "voice"] });
+    assert.equal(r.exit, 0); assert.match(r.text, /^OK — bed audible/);
+    r = v({ done: ["clicks", "voice"], absent: ["bed"] });
+    assert.equal(r.exit, 0); assert.match(r.text, /^OK — no bed in the film/);
+    r = v({ done: ["bed", "clicks", "voice"], notChecked: ["mix"] });
+    assert.equal(r.exit, 2); assert.match(r.text, /NOT CHECKED: mix/);
+    r = v({ done: ["bed"], flags: ["x"] });
+    assert.equal(r.exit, 3); assert.match(r.text, /1 flag/); assert.match(r.text, /NOT CHECKED: clicks, voice/);
+    console.log("ok  verdict: OK only when bed, clicks and voice each have an outcome; a missing one is NOT CHECKED");
+  }
+
+  // 8g. tagRoles: every <audio> is narration, a bed, an SFX (at most THRESHOLDS.sfxMaxS long) or unknown; never dropped.
+  {
+    const t = (id, src, o = {}) => ({ id, src, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], ...o });
+    const lens = { "assets/lofi-calm.wav": 60, "track.wav": 45, "assets/bed-creak.wav": 0.3, "assets/whoosh.wav": 30, "assets/x.wav": 60 };
+    const lengthOf = (tag) => (tag.src in lens ? lens[tag.src] : { why: "not found" });
+    const narr = t("narration", "audio/narration.wav");
+    const tags = [narr, t("music-bed", "assets/lofi-calm.wav"), t("bgm-chill", "track.wav"), t("hit", "assets/hit.wav", { duration: 0.3 }),
+      t("creak", "assets/bed-creak.wav"), t("whoosh", "assets/whoosh.wav", { duration: 2 }), t("gone", "assets/gone.wav"),
+      t("tmpl", "assets/x.wav", { bad: ["data-duration"] }), t("music", "assets/x.wav"), t("", "")];
+    const roles = Object.fromEntries(q.tagRoles(tags, narr, lengthOf).map((r) => [r.tag.id || "(none)", r.role]));
+    assert.deepEqual(roles, { narration: "narration", "music-bed": "unknown", "bgm-chill": "unknown", hit: "sfx", creak: "sfx", whoosh: "sfx", gone: "unknown", tmpl: "unknown", music: "bed", "(none)": "unknown" });
+    assert.equal(q.tagRoles([narr, t("long", "assets/x.wav", { duration: q.THRESHOLDS.sfxMaxS + 1 })], narr, lengthOf)[1].role, "unknown", "a clip longer than an SFX is never assumed to be one");
+    console.log("ok  tagRoles: a long or unreadable <audio> that is not named as music is unknown, never 'no bed'; short clips are SFX");
+  }
+
   // 9. No interpreter anywhere in the script.
   {
     const src = fs.readFileSync(script, "utf8");
@@ -381,6 +416,41 @@ try {
       r = run(withFiles("dur", `<audio id="music" src="assets/music.wav" data-duration="0.5"></audio>`, { "music.wav": bedTone(4.5, 15) }));
       assert.equal(r.status, 3, "data-duration is honoured: " + r.stdout + r.stderr);
       console.log("ok  CLI: SFX named like a bed are not the bed; two cues are both measured; data-duration is honoured");
+    }
+
+    // 13e. A bed whose name the script does not know is NOT CHECKED (name it with --music), never 'no bed in the film'.
+    {
+      const html = (tags) => `<div id="root"><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${tags}</div>`;
+      const withFiles = (name, tags, files) => {
+        const dir = project(name, { narr: voice(steady), bedDb: null, html: html(tags) });
+        for (const [f, x] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), wav(x, RATE));
+        return dir;
+      };
+      const bedTone = (secs, under) => tone(880, secs, 0.3 * db(-under), RATE);
+      let dir = withFiles("musicbed40", `<audio id="music-bed" src="assets/lofi-calm.wav" data-volume="1"></audio>`, { "assets/lofi-calm.wav": bedTone(12, 40) });
+      let r = run(dir);
+      assert.equal(r.status, 2, "an unknown name is never OK: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      assert.match(r.stdout, /--music/);
+      assert.doesNotMatch(r.stdout, /no bed in the film/);
+      r = run(dir, ["--music", "music-bed"]);
+      assert.equal(r.status, 3, "named with --music, the same bed is measured: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(withFiles("bgmchill", `<audio id="bgm-chill" src="track.wav"></audio>`, { "track.wav": bedTone(12, 40) }));
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      assert.doesNotMatch(r.stdout, /no bed in the film/);
+      // an unknown long clip next to a named cue: the bed's sum is incomplete, so NOT CHECKED too
+      r = run(withFiles("cueplus", `<audio id="music" src="assets/music.wav"></audio><audio id="lofi" src="assets/lofi.wav"></audio>`, { "assets/music.wav": bedTone(4.5, 15), "assets/lofi.wav": bedTone(12, 15) }));
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      // the legitimate side: narration and short SFX only is a film without a bed (OK), measured or by data-duration
+      dir = withFiles("sfxonly", `<audio id="hit" src="assets/hit.wav" data-start="1" data-duration="0.3"></audio><audio id="whoosh" src="assets/whoosh.wav" data-start="2"></audio>`,
+        { "assets/hit.wav": tone(300, 0.3, 0.1, RATE), "assets/whoosh.wav": tone(300, 1.5, 0.1, RATE) });
+      r = run(dir);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /no bed in the film/);
+      r = run(withFiles("bed15named", `<audio id="music-bed" src="assets/lofi-calm.wav"></audio>`, { "assets/lofi-calm.wav": bedTone(12, 15) }), ["--music", "music-bed"]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      console.log("ok  CLI: an unknown bed name (music-bed, bgm-chill) = exit 2 NOT CHECKED, measured once --music names it; SFX only = OK no bed");
     }
 
     // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
