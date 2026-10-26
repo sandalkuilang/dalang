@@ -1,6 +1,6 @@
 # Voice engines: setup and use
 
-Read the part you need: **Setup** when `preflight.mjs` reports a voice item as MISSING, **Use** at Step 4. Free comes first: most users won't subscribe to a paid TTS.
+Read the part you need: **Setup** when `preflight.mjs` reports a voice item as MISSING (`STOPPED` only needs `preflight.mjs --start`; `BUSY` needs only waiting), **Use** at Step 4. Free comes first: most users won't subscribe to a paid TTS.
 
 | Engine | Cost | Timing source | When |
 |---|---|---|---|
@@ -9,7 +9,7 @@ Read the part you need: **Setup** when `preflight.mjs` reports a voice item as M
 
 ## Setup — VoiceStudio
 
-- **Install** (ask first). macOS/Linux: `curl -fsSL https://raw.githubusercontent.com/debpalash/VoiceStudio/main/scripts/install.sh | sh`; Windows: `irm https://voicestudio.sh/install | iex`. It verifies the release checksum and installs the desktop app. Then open it (`open /Applications/VoiceStudio.app` on macOS). First launch downloads a Python runtime (several GB, 10+ minutes): wait in the background until `GET http://localhost:3900/health` answers. Leave the analytics consent prompt to the user. Intel Macs only get the UI; they need a remote backend.
+- **Install** (ask first). macOS/Linux: `curl -fsSL https://raw.githubusercontent.com/debpalash/VoiceStudio/main/scripts/install.sh | sh`; Windows: `irm https://voicestudio.sh/install | iex`. It verifies the release checksum and installs the desktop app. Then start it: on macOS `node <skill-dir>/scripts/preflight.mjs --start` (it opens the app and waits ≤ 60 s); elsewhere open the app, then rerun preflight. First launch downloads a Python runtime (several GB, 10+ minutes): rerun preflight (`--start` on macOS) every few minutes until VoiceStudio reads OK, never your own polling loop. Leave the analytics consent prompt to the user. Intel Macs only get the UI; they need a remote backend (`--vs-url http://<host>:3900` on every preflight and `tts_timestamps.mjs` call). dalang sends no API key: a remote backend must accept this machine without one, or its reads come back "refused".
 - **Models.** `GET http://localhost:3900/models`. Ready means `"installed": true` **and** `"incomplete": false` — `installed` alone flips true while weights are still downloading. For a missing model, tell the user its size and licence and get consent before `POST /models/install` with `{"repo_id": "…"}`; poll `GET /models/install/status`. A TTS model and a speech-to-text model are both needed (the second gives the word timing).
 - **Recommended models:** TTS `k2-fsa/OmniVoice` (3.3 GB, 600+ languages, zero-shot cloning from a 3–10 s clip); ASR `deepdml/faster-whisper-large-v3-turbo-ct2` (1.6 GB, upstream MIT) on every platform, because the balanced tier activates it. (`mlx-community/whisper-large-v3-turbo` installs but the transcription endpoint won't select it; it wants the 3 GB `whisper-large-v3-mlx`.)
 - **Activate the speech-to-text model.** Installing is not enough: transcription answers `asr_model_missing` until a tier selects it. After the faster-whisper model is installed: `PUT http://localhost:3900/api/settings/performance-profile` with `{"tier":"balanced"}` (same as "Install Balanced pack" in the app's wizard). Check `selections.asr` in the response.

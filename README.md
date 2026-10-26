@@ -61,13 +61,13 @@ Restart Claude Code. Then just ask, in any language:
 "haz un video de 90 s sobre la fotosíntesis"
 ```
 
-Check your machine once — one call, ~3 s, never prints secrets:
+Check your machine once — one call, a few seconds, never prints secrets:
 
 ```bash
 node ~/.claude/skills/dalang/scripts/preflight.mjs
 ```
 
-It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` **with the fix**.
+It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits.
 
 <br/>
 
