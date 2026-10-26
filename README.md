@@ -228,7 +228,7 @@ The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — n
 
 <br/>
 
-Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, fixes every Reality or Clarity P1 before a final — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
+Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, holds the final until every Realism, Reality or Clarity P1 is fixed (or two fix rounds failed on it, and the hand-off names it) — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
 
 </details>
 

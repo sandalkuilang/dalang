@@ -56,8 +56,8 @@ that reads as:
 
 ### Changed
 
-- **Unattended runs: Reality and Clarity P1s block the final** like a P0 until a round fixed them or two rounds
-  failed; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
+- **Unattended runs: Realism, Reality and Clarity P1s block the final** like a P0 until a round fixed them or two
+  rounds failed; a Realism or Reality fail stays a P0 that never ships; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
   `review.md`). `lessons.md` gains the `font:` shorthand and scene-id lessons.
 
 ### Fixed

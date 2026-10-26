@@ -133,4 +133,4 @@ Three style frames at final quality plus a moving hook sample, approved at Gate 
 | Clarity | The claim is visualised (not just written), and the eye lands on the right thing within 0.3 s. |
 | Phone | Every line meant to be read is readable at 360 px wide (`npx hyperframes snapshot --review`). |
 
-Fix every failure before Gate 4; a Realism or Reality fail is never "kept as weakest shot". Log each default the render fell into in `PRODUCTION.md` (not in `SPEC.md`: editing it makes Gate 3 stale). Judge realism on full-resolution `snapshot` stills (rendered from the composition at final quality; zoom on the subject with `--zoom`), never on frames of the 10 fps draft or the contact sheet alone.
+Fix every failure before Gate 4; a Realism or Reality fail (P0) is never "kept as weakest shot"; a smaller detail (P1) follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (not in `SPEC.md`: editing it makes Gate 3 stale). Judge realism on full-resolution `snapshot` stills (rendered from the composition at final quality; zoom on the subject with `--zoom`), never on frames of the 10 fps draft or the contact sheet alone.
