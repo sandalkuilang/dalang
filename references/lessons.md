@@ -61,7 +61,7 @@ Each line is a failure that already happened. Read this file when something goes
 - **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
 - **The final came out at 30 fps, not the brief's 24:** `hyperframes render` defaults to 30 fps and the Step 8 command passed no `--fps`; `qc.mjs --fps` caught it, after a full re-render. The brief's fps is always passed to every render (`qc.md` §8).
 - **Every QC round rebuilt its review sheets by hand:** still times computed from the shot list, ~70 frames snapshotted, then ~10 ad-hoc ffmpeg tile commands per run (snapshot names large sets `contact-sheet-1.jpg`, so the expected name missed). `strips.mjs` does it in one call (`qc.md` Step 7).
-- **An unattended run delivered known "looks wrong" P1s** (Reality, Clarity); the user's first ask was to fix them: another polish pass and another final render. With the user away those P1s now block the final.
+- **An unattended run delivered known "looks wrong" P1s** (Reality, Clarity); the user's first ask was to fix them: another polish pass and another final render. With the user away those P1s (and Realism ones) now block the final.
 - **Generic build traps went into the user's private memory**, so the skill and its other users never learned them. The hand-off's `## Skill feedback` section carries them upstream (`qc.md` Step 8).
 - **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
 - **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.

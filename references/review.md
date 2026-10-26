@@ -10,9 +10,9 @@ The builder sees what it meant, not what is on screen, so before Gate 4 one revi
    - `SPEC.md` (LOOK, MOTION, OBJECTS with their real reference, BANNED), `storyboard.md` (each row's job, camera reason and axis — check one still at every shot's action beat against its row) and the approved style frames,
    - `visual-direction.md` §11 (the rubric) and, for people, §1 "People are the hardest subject",
    - the beat list (`audio/beats.json`: name, start, words),
-   - this instruction: "Find defects. For each: the beat or time, what is wrong, the rubric test it fails (its name on the line: Reality, Clarity, Action…), severity P0 (must fix: Realism/Reality fail, slideshow (Action test), wrong claim, unreadable text, broken render), P1 (should fix: craft, composition, transition), P2 (nice to have). Write them to QC-REVIEW.md. Do not praise; do not fix."
+   - this instruction: "Find defects. For each: the beat or time, what is wrong, the rubric test it fails (its name on the line: Reality, Clarity, Action…), severity P0 (must fix: Realism/Reality fail of the subject or the shot, slideshow (Action test), wrong claim, unreadable text, broken render), P1 (should fix: craft, composition, transition, and a Realism, Reality or Clarity defect smaller than a fail: one detail off, the narrated cause shown only in part), P2 (nice to have). Write them to QC-REVIEW.md. Do not praise; do not fix."
 3. Fix every P0 and P1 in the builder session — all of the round's fixes first, then one re-snapshot of only what changed (a physics set re-baked once with `bake.mjs` before it). A subagent checks the new stills against the findings and returns pass/fail per item, so the stills stay out of the builder's context. Log each fix in `PRODUCTION.md`, and mark the item `FIXED` in `QC-REVIEW.md` (open P0s are what `score_run.mjs` counts).
-4. After the fixes, review again only if P0s were open, or, with the user away, Reality or Clarity P1s (`qc.md` Step 7); stop after three rounds in total and list what is still open at Gate 4.
+4. After the fixes, review again only if P0s were open, or, with the user away, Realism, Reality or Clarity P1s (`qc.md` Step 7); stop after three rounds in total and list what is still open at Gate 4.
 
 ## Asset pass (before Gate 3, and again before the Step 6 blocking pass)
 
@@ -24,4 +24,4 @@ Most P0s in a real run were asset defects (a machine part in the wrong place, ga
 
 ## Autonomous mode
 
-Same review; the reviewer's P0 list and its Reality and Clarity P1s replace the human's eye at Gate 4 (`qc.md` Step 7). Anything still open goes into the hand-off as a known bug; each open P1 with why it stays.
+Same review; the reviewer's P0 list and its Realism, Reality and Clarity P1s replace the human's eye at Gate 4 (`qc.md` Step 7). Anything still open goes into the hand-off as a known bug; each open P1 with why it stays.
