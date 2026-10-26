@@ -97,18 +97,23 @@ that reads as:
   function; `lessons.md`; the self-check asserts the stop time against the analytic one, that a released part stays at
   its stop through every remap, and the cache and island rules.
 - **Captions and pinned labels** in the engine: `engine/three/type.js` (no imports, browser and Node) has
-  `phrases(narration, words)` (sentence ends, `,` `:` after 3 words, at most 7 words balanced, 16 characters for CJK
-  split by character, an ellipsis, a phrase held through the pause that follows), `drawCaption` (fixed in the
-  platform's safe zone, ink chosen every frame from the luminance under its own box with a halo, an optional accent box
-  on the word being spoken that switches on its start, an optional dark pill per line), `pinLabel` (projects a world
-  point, flips side and clamps inside the label zone above the caption, at least 36 px, leader and dot, nothing when
-  the point is behind the camera or off the frame), `repeats(captions, labels)` (warns when a caption says what a visible
+  `phrases(narration, words)` (a narration line end or speaker change, sentence ends, `,` `:` after 3 words, a run over
+  7 words at its longest speech pause in `words.json` (at least 0.3 s, 2 words on each side) and, with no pause, split
+  balanced, 16 characters for CJK split by character, an ellipsis, a phrase held through the pause that follows),
+  `drawCaption` (fixed in the platform's safe zone and never drawn outside it: a phrase that does not fit in two lines
+  at 54 px shrinks below it and reports `shrunk`, ink chosen every frame from the luminance under its own box with a
+  halo, an optional accent box on the word being spoken that switches on its start, an optional dark pill per line),
+  `pinLabel` (projects a world point, flips side and clamps inside the label zone above the caption, wraps a label
+  wider than the zone at its spaces, at least 36 px unless one word is wider than the zone, leader and dot, nothing
+  when the point is behind the camera or off the frame), `repeats(captions, labels)` (warns when a caption says what a visible
   label says), plus `safeArea`, `luminance` and `inkFor`. `scripts/captions.mjs` writes `audio/captions.json` and
   `audio/captions.js` from `narration.txt` and `words.json` (a narration from another take is refused). `craft-rules.md`
   §6, `visual-direction.md` §5 and §9, `look-build.md` Step 6, the engine README and `lessons.md` point to them. The
   self-check asserts the splits in English, Spanish, with an ellipsis and dialogue, and in Japanese; light ink on a dark
   box and dark ink on a light one, including a frame dark only under the box; the active word switching within one
-  frame; a label at the frame edge staying inside the safe area at every t; and the repeat rules.
+  frame; a label at the frame edge staying inside the safe area at every t; a long phrase, a long label and one long
+  word drawn inside their zones (the drawn glyphs, not the returned box); breaks at speech pauses and at line ends; and
+  the repeat rules.
 
 ### Changed
 

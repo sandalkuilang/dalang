@@ -45,7 +45,7 @@ These are the numbers that make code-made animation feel alive. They come from m
   - **9:16 Reels:** bottom 25% (caption + audio sit higher), top 12%, right 12%.
   - **4:5 feed:** 8% on every side. Text must read without sound.
   - **16:9 landscape:** 5% on every side. Reserve the bottom 15% for captions/subtitles.
-- At most about 7 words per caption line (about 16 characters for CJK). Break long sentences at the speech pauses in `words.json`. The engine's `type.js` does this (`phrases()`: sentence ends, `,` `:` after 3 words, a longer run split in near-equal parts, a phrase held through the pause that follows; `node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`).
+- At most about 7 words per caption line (about 16 characters for CJK). Break long sentences at the speech pauses in `words.json`. The engine's `type.js` does this (`phrases()`: a narration line end, a sentence end, `,` `:` after 3 words, a run over 7 words at its longest pause of at least 0.3 s with 2 words on each side and, with no pause, in near-equal parts, a phrase held through the pause that follows; `drawCaption` never draws outside the caption zone: a phrase that does not fit in two lines at 54 px is shrunk, so keep phrases short; `node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`).
 - The same module holds the zones above (`safeArea`) and the drawing (`drawCaption`, `pinLabel`): use it, never per-film caption code. The caption sits at the bottom of the text band, under the subject; world labels stay above it.
 
 ## 7. Sound

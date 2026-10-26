@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Caption phrases for a film: narration.txt (punctuation) + words.json (timing) -> audio/captions.json and
 // audio/captions.js (`window.CAPTIONS = [...]`, loaded like beats.js). The split rules live in engine/three/type.js
-// (phrases): sentence ends, `,` `:` after 3 words, at most 7 words (16 characters for CJK), held through the pause.
+// (phrases): a narration line end, sentence ends, `,` `:` after 3 words, a run over 7 words (16 characters for CJK) at
+// its longest speech pause in words.json (else balanced), held through the pause.
 // Rerun after every take: a narration from another take than words.json is refused.
 //
 // Usage: node captions.mjs <narration.txt> <words.json> [--out <dir>] [--format shorts|reels|feed|landscape]
