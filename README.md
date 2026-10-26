@@ -93,7 +93,7 @@ The voice is recorded *before* a single frame exists. Every change on screen is 
 
 **📏 Measure, don't guess**
 
-Every number reported — duration, cost, stillness %, LUFS — comes from a script's output, not from memory. A good reference film is ~5 % still; your draft gets measured against that.
+Every number reported — duration, cost, stillness %, LUFS, bed level — comes from a script's output, not from memory. A good reference film is ~5 % still; your draft gets measured against that.
 
 </td></tr>
 <tr><td width="50%" valign="top">
@@ -169,6 +169,7 @@ scripts/
   state.mjs            gate approvals, stale when files change; `next`: the step's reading list
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
+  audio_qc.mjs         music bed under the voice, clicks, dropouts, voice drift per sentence
   qc.mjs               black frames, clipping, silences, codec + colour tags
   scopes.mjs           exposure and hue as numbers per cut; PNGs only for a flagged cut
   timing_lint.mjs      every cut between words, no flicker scenes

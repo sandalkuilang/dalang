@@ -20,7 +20,7 @@ flowchart TD
     S5 --> G3{{"GATE 3<br/>approve the look"}}
     G3 -- changes --> S5
     G3 -- ok --> S6["Step 6 · Build with HyperFrames<br/>pilot group, then groups in parallel<br/>blocking pass, then polish pass"]
-    S6 --> S7["Step 7 · Quality check<br/>check, stillness, loudness, rubric"]
+    S6 --> S7["Step 7 · Quality check<br/>check, stillness, loudness, audio, rubric"]
     S7 --> G4{{"GATE 4<br/>approve draft preview"}}
     G4 -- changes --> S6
     G4 -- ok --> R["Final render<br/>--fps from brief, --quality high"]
@@ -38,7 +38,7 @@ flowchart TD
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills) | **3** |
 | 6 Build | HyperFrames composition: a pilot shot group, then the other groups built in parallel subagents as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
-| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
+| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0, scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
 | 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md` | — |
 
 Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's
