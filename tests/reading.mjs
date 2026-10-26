@@ -143,6 +143,31 @@ try {
   assert.equal(rc.code, 1, "a lesson tag outside 0–8 fails");
   assert.match(rc.err, /lessons\.md:\d+/);
 
+  // A lesson with no tag holds at every step (lessons.md's header): it is printed at Steps 0–8, never dropped. A tagged
+  // one stays at its own steps. A bullet that is neither (no headline, no tag) fails instead of vanishing.
+  const rd2 = (skill) => run("reading", "--json", "--skill", skill);
+  const u = skillCopy("s-untagged");
+  edit(u, "lessons.md", (s) => s.trimEnd() + "\n- **Untagged fixture lesson** holds everywhere.\n- [4] **Tagged fixture lesson** holds at Step 4 only.\n");
+  const ru = rd2(u);
+  assert.equal(ru.code, 0, `an untagged lesson is valid: ${ru.err}`);
+  const su = JSON.parse(ru.out).steps;
+  for (let n = 0; n <= 8; n++) {
+    assert.ok(su[n].lessons.includes("**Untagged fixture lesson**"), `step ${n}: the untagged lesson is printed`);
+    assert.equal(su[n].lessons.includes("**Tagged fixture lesson**"), n === 4, `step ${n}: a tagged lesson stays at its own step`);
+  }
+  // the repo's own untagged lessons reach every step through `next` as well
+  const untaggedInRepo = fs.readFileSync(path.join(root, "references", "lessons.md"), "utf8").split("\n").filter((l) => l.startsWith("- **"));
+  assert.ok(untaggedInRepo.length > 0, "the repo has untagged lessons to check");
+  for (let n = 0; n <= 8; n++) {
+    const out = run("next", mk(`p-untagged-${n}`), "--step", String(n)).out;
+    for (const l of untaggedInRepo) assert.ok(out.includes(l.match(/^- (\*\*.+?\*\*)/)[1]), `step ${n}: next prints the untagged lesson ${l.slice(0, 40)}`);
+  }
+  const um = skillCopy("s-malformed");
+  edit(um, "lessons.md", (s) => s.trimEnd() + "\n- A bullet with neither a tag nor a bold headline.\n");
+  const rum = rd(um);
+  assert.equal(rum.code, 1, "a lesson bullet the reader cannot parse fails, never skipped");
+  assert.match(rum.err, /lessons\.md:\d+/);
+
   const d = skillCopy("s-total"); // every section stays under 8 KB; only the sum is over 60 KB
   let need = TOTAL_MAX - json.total + 300;
   const seen = new Set();
