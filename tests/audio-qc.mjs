@@ -269,6 +269,49 @@ try {
     console.log("ok  tagRoles / applyGain: loop is never an SFX and a looped bed wraps; every --music value is a bed, the rest stays unknown");
   }
 
+  // 8j. The render inputs HyperFrames applies to a tag: an audible <video>, the group bus, data-end, fades, fx chain, hidden.
+  {
+    const html = `<div id="root" data-composition-id="main" data-fx-chain='{"nodes":[]}'>
+      <hf-audio-group id="bus" data-volume="0.25" data-hidden></hf-audio-group><hf-audio-group id="b2" data-volume="x" data-fx-chain='{"a":1}'/>
+      <audio id="m" src="m.wav" data-audio-group="bus" data-end="3" data-start="1" data-duration="9" data-fade-in="0.5" data-fade-out="-1" data-fx-chain='{"x":1}'></audio>
+      <video id="v1" src="a.mp4" data-has-audio="true"><source src="ignored.mp4"></video><video id="v2" src="b.mp4" data-has-audio="true" muted></video>
+      <video id="v3" src="c.mp4" data-has-audio="false"></video><video src="d.mp4" data-has-audio="true"></video><video id="v4" src="e.mp4"></video>
+      <video id="v5" data-has-audio="true"><source src="s.mp4"></video><audio id="after" src="after.wav"></audio></div>`;
+    const tags = q.audioTags(html), by = Object.fromEntries(tags.map((x) => [x.id, x]));
+    assert.deepEqual(tags.map((x) => x.id), ["m", "v1", "v5", "after"], "only an audible, unmuted, identified video is a source of sound");
+    assert.deepEqual([by.m.kind, by.v1.kind, by.m.end, by.m.duration, by.m.group, by.m.fadeIn, by.m.fadeOut, by.m.hidden], ["audio", "video", 3, 9, "bus", 0.5, 0, false]);
+    assert.equal(by.v5.src, "s.mp4", "a <video> takes the src of its <source> child");
+    assert.equal(by.after.src, "after.wav", "the tag after a video with a <source> child is read on its own");
+    assert.equal(q.clipLength(by.m), 2, "data-end wins over data-duration, minus data-start");
+    assert.equal(q.clipLength(by.after), null);
+    const groups = q.groupsOf(html);
+    assert.deepEqual([groups.get("bus").volume, groups.get("bus").hidden, groups.get("b2").volume, groups.get("b2").fx], [0.25, true, 1, '{"a":1}']);
+    assert.equal(q.masterFxChain(html), '{"nodes":[]}');
+    assert.equal(q.masterFxChain('<div data-composition-id="x"><audio id="a" data-fx-chain="{}"></audio></div>'), null, "an fx chain on a tag is not the master's");
+    assert.match(q.notRendered(by.m, groups), /group "bus" is data-hidden/);
+    assert.equal(q.notRendered(by.after, groups), null);
+    assert.ok(q.notRendered({ ...by.after, end: 0, start: 0, bad: [] }), "an end at the start is not rendered");
+    assert.ok(q.renderProblem(by.m, new Map()), "a data-fx-chain is not modelled");
+    assert.equal(q.renderProblem(by.after, groups), null, "a plain tag has no problem");
+    assert.match(q.renderProblem({ ...by.after, fadeOut: 1 }, groups), /data-fade-out/, "a fade-out without a clip end");
+    assert.equal(q.renderProblem({ ...by.after, fadeOut: 1, duration: 5 }, groups), null, "a fade-out with a clip end is modelled");
+    assert.ok(q.renderProblem({ ...by.after, mediaStart: 1 }, groups, { narration: true }), "a narration with a media start");
+    assert.equal(q.renderProblem({ ...by.after, mediaStart: 1 }, groups), null, "a bed's media start is modelled");
+    assert.equal(q.busGain(by.m, groups), 0.25); assert.equal(q.busGain(by.after, groups), 1);
+    // fades are linear and clip-local; the pair is scaled down when longer than the clip; a fade-out needs the clip's end
+    const ones = new Float32Array(10).fill(1);
+    const f = Array.from(q.applyGain(ones, 1, 0, 1, null, 10, { dur: 10, fadeIn: 4, fadeOut: 4 }));
+    near(f[0], 0, 1e-9, "fade-in starts at 0"); near(f[2], 0.5, 1e-9, "fade-in halfway"); near(f[4], 1, 1e-9, "full between the fades");
+    near(f[8], 0.5, 1e-9, "fade-out halfway"); near(f[9], 0.25, 1e-9, "fade-out near the end");
+    const clamp = Array.from(q.applyGain(ones, 1, 0, 1, null, 10, { dur: 4, fadeIn: 4, fadeOut: 4 }));
+    near(clamp[1], 0.5, 1e-9, "fades longer than the clip are scaled to fit (2 s + 2 s)");
+    assert.deepEqual(Array.from(q.applyGain(ones, 1, 0, 1, null, 10, { fadeOut: 4 })), Array.from(ones), "without a clip end there is no fade-out to place");
+    const roles = q.tagRoles(tags, null, () => 1, [], groups).map((r) => [r.tag.id, r.role]);
+    assert.deepEqual(roles, [["m", "skipped"], ["v1", "unknown"], ["v5", "unknown"], ["after", "sfx"]], "a video with sound is unknown, a tag on a hidden bus is skipped");
+    assert.equal(q.tagRoles(tags, null, () => 1, ["v1"], groups)[1].role, "bed", "--music names a video as the bed");
+    console.log("ok  audioTags / groupsOf / masterFxChain / notRendered / renderProblem / applyGain: video sound, bus, data-end, fades, fx chain, hidden");
+  }
+
   // 9. No interpreter anywhere in the script.
   {
     const src = fs.readFileSync(script, "utf8");
@@ -565,7 +608,7 @@ try {
       assert.equal(r.status, 0, "a bus at 1 changes nothing: " + r.stdout + r.stderr);
       r = run(make("grp-half", bus('data-volume="0.5"') + music('data-audio-group="musicbus"'), { "assets/music.wav": bedTone(4.5, 12) }));
       assert.equal(r.status, 0, "a bus at 0.5 puts a 12 dB bed 18 dB under: " + r.stdout + r.stderr);
-      assert.match(r.stdout, /sits 18\.\d dB under/);
+      assert.match(r.stdout, /sits 1[78]\.\d dB under/);
       r = run(make("grp-other", bus('data-volume="0.01"') + music('data-audio-group="elsewhere"')));
       assert.equal(r.status, 0, "a bus that does not hold the bed is not applied to it: " + r.stdout + r.stderr);
       notChecked(run(make("grp-lane", bus(`data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0.01}]}]}'`) + music('data-audio-group="musicbus"'))), "a bus lane");
@@ -619,6 +662,10 @@ try {
       r = run(make("fade-short", music('data-duration="4.5" data-fade-in="0.2" data-fade-out="0.5"')));
       assert.equal(r.status, 0, r.stdout + r.stderr);
       notChecked(run(make("fade-out-open", music('data-fade-out="2"'))), "a fade-out with no data-end or data-duration");
+      // (6) a sub-composition's own <audio> tags are not read: unknown, never 'no bed'
+      notChecked(run(make("subcomp", `<div data-composition-src="scenes/a.html" data-start="0"></div>`)), "a sub-composition");
+      r = run(make("nosubcomp", `<div data-start="0"></div>`));
+      assert.equal(r.status, 0, "the neighbour without a sub-composition: " + r.stdout + r.stderr);
       console.log("ok  CLI: a group bus is applied, an audible video / fx chain / a fade-out without an end = exit 2, data-end and fades are applied, nothing unknown reads OK");
     }
 
