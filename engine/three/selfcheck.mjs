@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // node selfcheck.mjs <project>/assets/engine — after build.mjs: each check fails loudly if a known trap is back.
 import assert from "node:assert/strict";
-import { resolve } from "node:path";
-import { realpathSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { resolve, join } from "node:path";
+import { realpathSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
 const { THREE } = await use("three-vendor.js");
@@ -879,6 +881,21 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.throws(() => phrases(enNarr, enWords.map((w, i) => (i === 5 ? { ...w, text: "other" } : w))), /narration word 5/, "a different word is refused");
   assert.throws(() => phrases(enNarr, enWords.slice(1)), /narration word/, "a different word count is refused");
 
+  // The CLI writes captions.json and captions.js from the same call; a narration of another take exits 1, no arguments 2.
+  {
+    const cli = fileURLToPath(new URL("../../scripts/captions.mjs", import.meta.url)), tmp = mkdtempSync(join(tmpdir(), "captions-"));
+    try {
+      writeFileSync(join(tmp, "narration.txt"), enNarr); writeFileSync(join(tmp, "words.json"), JSON.stringify(enWords));
+      const ok = spawnSync(process.execPath, [cli, join(tmp, "narration.txt"), join(tmp, "words.json")], { encoding: "utf8" });
+      assert.equal(ok.status, 0, "captions.mjs runs: " + ok.stderr);
+      const js = readFileSync(join(tmp, "captions.js"), "utf8");
+      assert.ok(js.startsWith("// Generated") && js.includes("window.CAPTIONS = "), "captions.js sets window.CAPTIONS");
+      assert.deepEqual(texts(JSON.parse(readFileSync(join(tmp, "captions.json"), "utf8")).phrases), texts(caps), "the CLI writes what phrases() returns");
+      writeFileSync(join(tmp, "other.txt"), "Another take entirely.");
+      assert.equal(spawnSync(process.execPath, [cli, join(tmp, "other.txt"), join(tmp, "words.json")], { encoding: "utf8" }).status, 1, "another take's narration exits 1");
+      assert.equal(spawnSync(process.execPath, [cli], { encoding: "utf8" }).status, 2, "no arguments exits 2");
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
   // Ink follows the ground under the caption's own box.
   const W = 1080, H = 1920, area = safeArea("shorts", W, H), t0 = caps[4].start;
   assert.equal(inkFor(0), "light", "light ink on black"); assert.equal(inkFor(1), "dark", "dark ink on white");
