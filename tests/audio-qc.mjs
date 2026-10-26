@@ -391,6 +391,43 @@ try {
       assert.equal(run1(mod("await import(`./js/ok.js`); await import('https://cdn.example.test/x.js'); await import(`https://cdn.example.test/x.js`);")), null, "dynamic imports of a clean local module and of remote ones");
       assert.equal(run1(imap({ imports: {} }), mod("const m = import.meta.url; // important (volumes)")), null, "import.meta and a word that merely contains import");
     }
+    // The class rule for module loads: every specifier (bare, relative, root, absolute or protocol-relative URL) is resolved to
+    // its URL, then through the import maps (keys resolved against the document base), before it is called local, remote or a
+    // vendor name. A local file that loads is read; a load that is neither local nor a remote http(s) library is NOT CHECKED.
+    {
+      const files = { "/p/js/duck.js": "gsap.to('#music-a', { volume: 0 });", "/p/js/a.js": "export const a = 1;", "/p/js/ok.js": "export const f = () => 1;", "/p/js/b.js": 'import "./a.js";', "/p/js/lib/x.js": "gain(0);", "/p/duck.js": "export const d = 1;" };
+      const rd = (p) => (p in files ? { text: files[p] } : { why: "not found" });
+      const imap = (o) => ({ attrs: { type: "importmap" }, text: JSON.stringify(o) });
+      const mod = (text) => ({ attrs: { type: "module" }, text });
+      const run1 = (scripts, opts) => q.scriptProblem(scripts, "/p", rd, opts);
+      const mixed = /may change the mix/;
+      // the three repros of the finding
+      assert.match(run1([imap({ imports: { "https://cdn.example.test/gsap.js": "./js/duck.js" } }), mod('import "https://cdn.example.test/gsap.js";')]) || "", mixed, "an absolute-URL key mapped to a local file");
+      assert.match(run1([imap({ imports: { "./js/a.js": "./js/duck.js" } }), mod('import "./js/a.js";')]) || "", mixed, "a relative key mapped to another local file");
+      assert.match(run1([imap({ imports: { "/js/a.js": "/js/duck.js" } }), mod('import { a } from "./js/a.js";')]) || "", mixed, "a root key matched by a relative specifier");
+      // the class: each specifier form x each key form that names the same URL, mapped to the local file with the volume write
+      for (const spec of ["duck", "./js/a.js", "../js/a.js", "/js/a.js", "https://cdn.example.test/gsap.js", "//cdn.example.test/gsap.js"]) {
+        const keys = spec === "duck" || /cdn/.test(spec) ? [spec] : ["./js/a.js", "/js/a.js"];
+        for (const key of keys) for (const how of ["static", "dynamic"]) {
+          const code = how === "static" ? `import "${spec}";` : `await import(\`${spec}\`);`;
+          assert.match(run1([imap({ imports: { [key]: "./js/duck.js" } }), mod(code)]) || "", mixed, `${how} ${spec} with the key ${key}`);
+        }
+      }
+      assert.match(run1([imap({ imports: { "https://cdn.example.test/lib/": "./js/lib/" } }), mod('import "https://cdn.example.test/lib/x.js";')]) || "", mixed, "a URL prefix key");
+      assert.match(run1([imap({ imports: { "./js/a.js": "./js/duck.js" } }), mod('import "./js/b.js";')]) || "", mixed, "a relative key is resolved against the document, and matches an import from a module in js/");
+      assert.match(run1([mod('import "./duck.js";')], { base: "js/" }) || "", mixed, "a <base href> changes what a relative import loads");
+      assert.match(run1([{ attrs: { src: "duck.js" }, text: "" }], { base: "/js/" }) || "", mixed, "a <base href> changes what a script src loads");
+      assert.match(run1([mod('import "data:text/javascript;base64,Z3NhcA==";')]) || "", /cannot resolve/, "a data: module is neither a local file nor a remote library");
+      assert.match(run1([mod('import "http://localhost:8080/js/duck.js";')]) || "", /cannot resolve/, "a module from this machine may be the project's own file");
+      assert.match(run1([imap({ imports: { duck: "data:text/javascript,1" } }), mod('import "duck";')]) || "", /cannot resolve/, "an import map target that is not a file or a remote library");
+      // the other side
+      assert.equal(run1([imap({ imports: { "https://cdn.example.test/gsap.js": "./js/ok.js" } }), mod('import "https://cdn.example.test/gsap.js";')]), null, "a URL key mapped to a clean local file");
+      assert.equal(run1([imap({ imports: { "./js/a.js": "./js/ok.js" } }), mod('import "./js/a.js";')]), null, "a relative key mapped to a clean local file");
+      assert.equal(run1([imap({ imports: { "https://cdn.example.test/other.js": "./js/duck.js" } }), mod('import "https://cdn.example.test/gsap.js";')]), null, "a URL key that the page does not import is not read");
+      assert.equal(run1([imap({ imports: { "./js/zz.js": "./js/duck.js" } }), mod('import "./js/a.js";')]), null, "a relative key that the page does not import is not read");
+      assert.equal(run1([mod('import "./duck.js";')]), null, "without <base>, the relative import loads the clean file at the root");
+      assert.equal(run1([imap({ imports: { "https://cdn.example.test/gsap.js": "https://cdn2.example.test/gsap.js" } }), mod('import "https://cdn.example.test/gsap.js"; import "//cdn.example.test/x.js";')]), null, "a remote library mapped to another remote library");
+    }
     console.log("ok  the class rule: an attribute outside the inventory, a hidden or <template> ancestor, a lane or a script volume the check does not model = not modelled; inert ones pass");
   }
 
@@ -784,6 +821,8 @@ try {
         ["c-script-file", `${music()}<script src="js/duck.js"></script>`, { "js/duck.js": 'document.getElementById("music-a").volume = 0.02;\n' }, "a local script sets the volume"],
         ["c-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { duck } from "./b.js";\nduck();\n', "js/b.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "an imported module tweens the volume"],
         ["c-importmap", `${music()}<script type="importmap">{"imports":{"duck":"./js/duck.js"}}</script><script type="module">import { duck } from "duck"; duck();</script>`, { "js/duck.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "a module an import map maps a bare name to"],
+        ["c-importmap-url", `${music()}<script type="importmap">{"imports":{"https://cdn.example.test/gsap.js":"./js/duck.js"}}</script><script type="module">import "https://cdn.example.test/gsap.js";</script>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "an absolute-URL import map key mapped to a local module"],
+        ["c-importmap-rel", `${music()}<script type="importmap">{"imports":{"/js/a.js":"/js/duck.js"}}</script><script type="module">import { a } from "./js/a.js";</script>`, { "js/a.js": "export const a = 1;\n", "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "a root import map key that remaps a relative import"],
         ["c-dyn-template", `${music()}<script type="module">await import(\`./js/duck.js\`);</script>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "a dynamic import with a template literal"],
         ["c-dyn-computed", `${music()}<script type="module">const n = "duck"; await import(\`./js/\${n}.js\`);</script>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "a dynamic import whose specifier is computed"],
         ["c-dup-volume", music('data-volume="0.01" data-volume="1"'), {}, "a duplicated data-volume (the first is read, but a duplicate is not modelled)"],
@@ -801,6 +840,7 @@ try {
       ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
       ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
       ok(run(make("k-importmap", `${music()}<script type="importmap">{"imports":{"duck":"./js/ok.js","three":"https://cdn.example.test/three.module.js"}}</script><script type="module">import { f } from "duck"; import * as T from "three"; await import(\`./js/ok.js\`);</script>`, { "js/ok.js": "export const f = () => gsap.to('#title', { y: 10 });\n" })), "an import map to a clean local module and a remote library");
+      ok(run(make("k-importmap-url", `${music()}<script type="importmap">{"imports":{"https://cdn.example.test/gsap.js":"./js/ok.js"}}</script><script type="module">import "https://cdn.example.test/gsap.js"; import "./js/ok.js";</script>`, { "js/ok.js": "export const f = () => 1;\n" })), "a URL import map key mapped to a clean local module");
       // the DALANG engine copy (listed by the .engine.json beside it) is a vendored library, like a remote script: not read; a file it does not list is read
       const engineImport = `${music()}<script type="module">import { dust } from "./assets/kit.js";</script>`, engineFile = { "assets/kit.js": "// motes fill a volume\nexport const dust = 1;\n" };
       ok(run(make("k-engine", engineImport, { ...engineFile, "assets/.engine.json": JSON.stringify([{ file: "kit.js", licence: "MIT" }]) })), "an engine file listed in .engine.json is a library, not read");
