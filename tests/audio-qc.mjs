@@ -346,9 +346,19 @@ try {
     }
     assert.deepEqual(q.laneOf(lane([{ target: "volume", points: [{ t: 2, v: 0.5 }, { t: 0, v: 1, curve: 0 }] }])), [{ t: 0, v: 1, curve: 0 }, { t: 2, v: 0.5 }], "a straight lane is modelled, sorted");
     assert.equal(q.laneOf(lane([])), null);
-    // scripts: a write to a media volume is sampled from the timeline by HyperFrames; this check does not run it
-    for (const code of ['tl.to("#music", { volume: 0.1 }, 2)', "el.volume = 0.2", "gsap.to(m, {'volume':0})", 'a.setAttribute("data-volume", "0.1")']) assert.ok(q.volumeWrite(code), code);
-    for (const code of ['tl.to("#title", { opacity: 1 }, 0)', "// the volume: set in the lane\nconst x = 1;", "/* volume: 0 */", "if (el.volume == 1) {}", 'fetch("https://x.test/a")']) assert.equal(q.volumeWrite(code), null, code);
+    // duplicated attributes: the first value is read, like the DOM, and the tag is not modelled (media and bus alike)
+    const dupTag = q.audioTags('<audio id="music" src="m.wav" data-volume="0.5" data-volume="1" DATA-VOLUME="2"></audio>')[0];
+    assert.equal(dupTag.volume, 0.5, "the first value of a duplicated attribute is read");
+    assert.ok(q.renderProblem(dupTag), "a duplicated attribute: not modelled");
+    assert.ok(q.renderProblem(tagOf('class="a" class="b"')), "a duplicated inert attribute is not modelled either");
+    assert.equal(q.renderProblem(tagOf('class="a" data-volume="1"')), null, "distinct attributes still pass");
+    assert.ok(q.renderProblem({ ...base, group: "d" }, q.groupsOf('<hf-audio-group id="d" data-volume="1" data-volume="0.01"></hf-audio-group>')), "a bus with a duplicated attribute");
+    // scripts: one token rule, no parsing of JS forms. Any script whose text has volume, muted, playbackRate, gain or fx may change the mix
+    const none = () => ({ why: "x" }), scriptOf = (text, attrs = {}) => q.scriptProblem([{ attrs, text }], ".", none);
+    for (const code of ['tl.to("#music", { volume: 0.1 }, 2)', "el.volume = 0.2", "const { volume } = opts; duck(volume);", "a.muted = true", "a.playbackRate = 2", "node.gain.value = 0", "ctx.fx.carve()", "// the volume: set in the lane"]) assert.match(scriptOf(code) || "", /script may change the mix; check the bed by ear on the draft/, code);
+    for (const code of ['tl.to("#title", { opacity: 1 }, 0)', "const volumes = 1; const mutedColor = 2; gains(); fxx();", 'fetch("https://x.test/a")']) assert.equal(scriptOf(code), null, code);
+    assert.equal(q.scriptProblem([{ attrs: { type: "application/json" }, text: '{"volume": 1}' }], ".", none), null, "a JSON block is data, not a script");
+    assert.match(q.scriptProblem([{ attrs: { src: "js/a.js" }, text: "" }], "/p", () => ({ text: "export const f = () => { gain(0); };" })) || "", /may change the mix/, "a local script file is read");
     console.log("ok  the class rule: an attribute outside the inventory, a hidden or <template> ancestor, a lane or a script volume the check does not model = not modelled; inert ones pass");
   }
 
@@ -741,6 +751,10 @@ try {
         ["c-tween", `${music()}<script>tl.to("#music-a", { volume: 0.02 }, 1);</script>`, {}, "an inline script tweens the volume"],
         ["c-script-file", `${music()}<script src="js/duck.js"></script>`, { "js/duck.js": 'document.getElementById("music-a").volume = 0.02;\n' }, "a local script sets the volume"],
         ["c-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { duck } from "./b.js";\nduck();\n', "js/b.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "an imported module tweens the volume"],
+        ["c-dup-volume", music('data-volume="0.01" data-volume="1"'), {}, "a duplicated data-volume (the first is read, but a duplicate is not modelled)"],
+        ["c-dup-bus", `<hf-audio-group id="mb" data-volume="1" data-volume="0.01"></hf-audio-group>${music('data-audio-group="mb"')}`, {}, "a bus with a duplicated attribute"],
+        ["c-shorthand", `${music()}<script>const { volume } = cfg; duck(volume);</script>`, {}, "a script that passes volume on as a shorthand"],
+        ["c-muted", `${music()}<script>document.getElementById("music-a").muted = true;</script>`, {}, "a script that mutes the bed"],
         ["c-script-missing", `${music()}<script src="js/gone.js"></script>`, {}, "a local script that cannot be read"],
       ]) notChecked(run(make(name, tags, files)), what);
       notChecked(run(project("c-narr-hidden", { narr: voice(steady), bedDb: 15, html: `<div id="root"><section data-hidden><audio id="narration" src="audio/narration.wav"></audio></section><audio id="music" src="assets/music.wav"></audio></div>` })), "the narration under a hidden ancestor");
@@ -749,7 +763,7 @@ try {
       ok(run(make("k-hidden-sfx", `<div data-hidden><audio id="whoosh" src="assets/whoosh.wav" data-duration="1"></audio></div>${music()}`)), "an SFX under a hidden ancestor is never the bed");
       ok(run(make("k-inert", music('class="a" data-hf-id="h1" data-track-index="2" data-layer="1" preload="auto"'))), "inert attributes");
       ok(run(make("k-bus-inert", `<hf-audio-group id="mb" data-volume="1" data-label="Music"></hf-audio-group>${music('data-audio-group="mb"')}`)), "a bus with a label");
-      ok(run(make("k-script", `${music()}<script>// the volume: lives in the lane\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script with no volume write, a JSON block, a remote library");
+      ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
       ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
       ok(run(make("k-comment", `<!-- ${music()} -->`)), "a commented-out bed is not in the film", /OK — no bed in the film/);
       ok(run(make("k-lane", music(lane([{ target: "volume", points: [{ t: 0, v: 1 }, { t: 4, v: 1, curve: 0 }] }])))), "a straight volume lane");
