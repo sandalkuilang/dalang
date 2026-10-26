@@ -109,7 +109,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     if (orig.version !== pr.version) { pr.version = orig.version; clone.needsUpdate = true; }
   };
   const clip = (m, both) => {
-    if (clones.has(m)) return m;
+    if (clones.has(m) || m.userData?.ghost) return m; // an attend() ghost shares its original's planes
     const key = both && m.side !== THREE.DoubleSide ? "two" : "one";
     if (!made.has(m)) made.set(m, {});
     const mine = made.get(m);
