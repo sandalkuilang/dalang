@@ -16,7 +16,9 @@
 // The starting values come from real films; tune them here only (THRESHOLDS). Every flag is a P1 (references/qc.md,
 // Step 7); the results go into PRODUCTION.md. A bed whose level the script cannot compute (index.html unreadable or
 // absent without --music, no src in the HTML, a data-volume or lane that does not parse, a data-playback-rate other than
-// 1) is NOT CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. Known limits: lane
+// 1, an <audio> not named as music that plays longer than an SFX or cannot be read, until --music names the bed) is NOT
+// CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. The Result is made in one
+// place (verdict): OK only when the bed, clicks and voice each have an outcome. Known limits: lane
 // curves are read as straight lines between points; `loop` is ignored; a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
 // show a false dropout.
 //
@@ -34,6 +36,7 @@ export const THRESHOLDS = {
   dropMinS: 0.005, dropMaxS: 0.15, dropFloor: 1e-5, // a digital silence of 5–150 ms
   soundDb: -40,                           // "sound" and "voiced" start here, dBFS
   maxSemitones: 3, maxCentroid: 0.25,     // a sentence off the take's median pitch / centroid
+  sfxMaxS: 10,                            // an <audio> not named as music plays at most this long to count as an SFX
 };
 const T = THRESHOLDS;
 
@@ -289,6 +292,38 @@ export function musicTags(tags) {
   return tags.filter((t) => BED_NAME.test(t.id) || BED_NAME.test(base(t.src)));
 }
 
+// Every <audio> tag gets exactly one role; "no bed in the film" is concluded only when none is 'unknown'.
+// narration: the narration tag. bed: a music cue by name (musicTags). sfx: plays at most THRESHOLDS.sfxMaxS (its
+// data-duration, else lengthOf(tag): the file's length in seconds, or { why } when it cannot be read, after
+// data-media-start and at its playback rate). unknown: anything else (a longer clip, a file that cannot be read, a timing
+// attribute that does not parse); it may be the bed, so the bed is NOT CHECKED until --music names it.
+export function tagRoles(tags, narrTag, lengthOf) {
+  const beds = new Set(musicTags(tags.filter((t) => t !== narrTag)));
+  return tags.map((t) => {
+    if (t === narrTag) return { tag: t, role: 'narration' };
+    if (beds.has(t)) return { tag: t, role: 'bed' };
+    const badTime = t.bad.filter((k) => k !== 'data-volume' && k !== 'data-start');
+    if (badTime.length) return { tag: t, role: 'unknown', why: `${badTime.join(', ')} is not a number` };
+    if (!(t.rate > 0)) return { tag: t, role: 'unknown', why: `data-playback-rate ${t.rate}` };
+    if (t.duration != null && t.duration >= 0 && t.duration <= T.sfxMaxS) return { tag: t, role: 'sfx' };
+    const len = lengthOf(t);
+    if (typeof len !== 'number' || !Number.isFinite(len)) return { tag: t, role: 'unknown', why: (len && len.why) || 'its length could not be read' };
+    const plays = Math.min(t.duration ?? Infinity, Math.max(0, len - t.mediaStart) / t.rate);
+    return plays <= T.sfxMaxS ? { tag: t, role: 'sfx' } : { tag: t, role: 'unknown', why: `plays ${plays.toFixed(1)} s` };
+  });
+}
+
+// The one place the Result is made. Each of CHECKS must end 'done' (judged) or, for the bed only, 'absent' (no music in
+// the film, proved by tagRoles); a check with neither outcome is NOT CHECKED, whatever path skipped it. So an unknown
+// can never print OK: OK is not a fallback, it needs every outcome.
+export const CHECKS = ['bed', 'clicks', 'voice'];
+export function verdict({ flags, notChecked, done, absent }) {
+  const open = [...new Set([...CHECKS.filter((c) => !done.includes(c) && !(c === 'bed' && absent.includes('bed'))), ...notChecked])];
+  if (flags.length) return { exit: 3, text: `${flags.length} flag(s) — each is a P1: fix and rerun.${open.length ? ` NOT CHECKED: ${open.join(', ')}.` : ''}` };
+  if (open.length) return { exit: 2, text: `NOT CHECKED: ${open.join(', ')} — rerun after fixing the WARN above.` };
+  return { exit: 0, text: `OK — ${done.includes('bed') ? 'bed audible' : 'no bed in the film'}, no clicks or dropouts, voice steady.` };
+}
+
 // ── I/O ──────────────────────────────────────────────────────────────────────
 const fmt = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, '0')}`; };
 class Fatal extends Error {}
@@ -333,7 +368,7 @@ function main(argv) {
   const info = (m) => lines.push(row('INFO', m));
   const skip = (what, why) => { warn(`${what} not checked: ${why}`); notChecked.push(what); };
   const flag = (m) => flags.push(row('FLAG (P1)', m));
-  const done = [];
+  const done = [], absent = [];
   const bad = missing(a.dir, 'project folder');
   if (bad) { console.error(`FAILED: ${bad}`); process.exit(1); }
 
@@ -358,15 +393,25 @@ function main(argv) {
   const nm = missing(narrFile, 'the narration');
   const rate16 = 16000, rate48 = 48000;
   let narr16 = null, narr48 = null;
-  if (nm) { skip('narration (bed, clicks, voice)', nm); } else {
-    try { narr16 = decode(narrFile, rate16); narr48 = decode(narrFile, rate48); } catch (e) { if (e instanceof Fatal) { console.error(e.message); process.exit(1); } skip('narration (bed, clicks, voice)', e.message); }
+  if (nm) { skip('narration', nm); } else {
+    try { narr16 = decode(narrFile, rate16); narr48 = decode(narrFile, rate48); } catch (e) { if (e instanceof Fatal) { console.error(e.message); process.exit(1); } skip('narration', e.message); }
   }
   const rel = (f) => path.relative(a.dir, f) || f;
 
   // 1. Bed: every music cue at its gain, summed. A level the script cannot compute is NOT CHECKED, never "no bed".
-  const musicCues = a.music ? tags.filter((t) => t.id === a.music || t.src === a.music) : musicTags(tags);
+  // Without --music, every tag is classified first (tagRoles); one it cannot classify makes the bed NOT CHECKED.
+  const lengthOf = (t) => {
+    if (!t.src) return { why: 'no src in index.html' };
+    if (/^[a-z][a-z0-9+.-]*:/i.test(t.src)) return { why: 'a remote file' };
+    const f = at(t.src), mm = missing(f, 'the file');
+    if (mm) return { why: mm };
+    try { return decode(f, 8000).length / 8000; } catch (e) { if (e instanceof Fatal) { console.error(e.message); process.exit(1); } return { why: e.message }; }
+  };
+  const roles = a.music || html.text == null ? [] : tagRoles(tags, narrTag, lengthOf);
+  const unknown = roles.filter((r) => r.role === 'unknown');
+  const musicCues = a.music ? tags.filter((t) => t.id === a.music || t.src === a.music) : roles.filter((r) => r.role === 'bed').map((r) => r.tag);
   if (a.music && !musicCues.length) musicCues.push({ id: '', src: a.music, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [] });
-  let bedLine = null, noBed = false;
+  let bedLine = null;
   const bedProblem = () => {
     if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
@@ -381,13 +426,16 @@ function main(argv) {
     }
     return null;
   };
-  if (!musicCues.length) {
+  if (unknown.length) {
+    const names = unknown.slice(0, 6).map((r) => `${r.tag.id ? `<audio id="${r.tag.id}">` : r.tag.src || '<audio>'} (${r.why})`).join(', ');
+    skip('bed', `${names} is neither a music cue by name (music, bgm, bed, soundtrack, e.g. music-a) nor an SFX (at most ${T.sfxMaxS} s): if it is the bed (or one of them) name it with --music <id>, then rerun`);
+  } else if (!musicCues.length) {
     if (html.err) skip('bed', 'index.html could not be read, so which music plays is unknown: fix the WARN above and rerun');
     else if (html.text == null) skip('bed', 'there is no index.html to say which music plays: pass the file with --music <file>');
     else {
-      noBed = true;
-      const others = tags.filter((t) => t !== narrTag).map((t) => t.id || t.src).filter(Boolean);
-      info(`bed: no music <audio> in index.html (id or file name music/bgm/bed/soundtrack, e.g. music-a)${others.length ? `; not taken as the bed: ${others.slice(0, 6).join(', ')}` : ''}; --music <id> names it`);
+      absent.push('bed');
+      const sfx = roles.filter((r) => r.role === 'sfx').map((r) => r.tag.id || r.tag.src);
+      info(`bed: no music <audio> in index.html (id or file name music/bgm/bed/soundtrack, e.g. music-a)${sfx.length ? `; SFX (at most ${T.sfxMaxS} s): ${sfx.slice(0, 6).join(', ')}` : ''}; --music <id> names a bed`);
     }
   } else {
     const why = bedProblem();
@@ -487,11 +535,10 @@ function main(argv) {
   }
 
   lines.push(...flags);
-  if (flags.length) lines.push(row('Result', `${flags.length} flag(s) — each is a P1: fix and rerun.`));
-  else if (notChecked.length) lines.push(row('Result', `NOT CHECKED: ${[...new Set(notChecked)].join(', ')} — rerun after fixing the WARN above.`));
-  else lines.push(row('Result', `OK — ${done.includes('bed') ? 'bed audible' : noBed ? 'no bed in the film' : 'bed not judged'}, no clicks or dropouts, voice steady.`));
+  const res = verdict({ flags, notChecked, done, absent });
+  lines.push(row('Result', res.text));
   console.log(lines.join('\n'));
-  process.exit(flags.length ? 3 : notChecked.length ? 2 : 0);
+  process.exit(res.exit);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
