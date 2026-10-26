@@ -96,7 +96,7 @@ assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after it
 // scripted help (onStep, track and keep see only the main island), and the cache tells the two kinds of bake apart.
 async function isles(o = {}) {
   const sc = new THREE.Scene(); sc.add(floor.clone());
-  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, o.ay == null ? 0.35 : 0], [o.bName ?? "b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
+  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, o.pz ?? 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, o.ay == null ? 0.35 : 0], [o.bName ?? "b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); m.position.set(x, y, z); m.rotation.z = tilt; m.name = name; sc.add(m); return m;
   });
   sc.updateMatrixWorld(true);
@@ -158,6 +158,14 @@ await refused(preHit, preHit.s.bakeCached(1.5, preHit.step, 0.2, withIslands(pre
 // refuses the island bake, wherever it is.
 const fast = await isles({ px: 0.175, pv: { x: 600, y: 0, z: 0 }, ay: 0.075 });
 await refused(fast, fast.s.bakeCached(1.5, fast.step, 0.2, withIslands(fast)), /"push" moves .* mm in one step.*one world/, "a body too fast for the island proof refuses the island bake");
+// A slow step is judged as a capsule widened by the step's length (a thin collider's CCD can bounce a body inside it).
+// "push" beside "a", 3.5 mm-equivalent beyond the margin (reach: the cube's half-diagonal each): at rest it bakes; sliding
+// past at about 4 mm a step it is refused, though no stored pose comes within the margin.
+const besideA = 0.15 * Math.sqrt(3) + 0.0035;
+const restBy = await isles({ px: 0.8, pz: besideA, ay: 0.075, still: true });
+await restBy.s.bakeCached(1, restBy.step, 0.2, withIslands(restBy));
+const slideBy = await isles({ px: 0.5, pz: besideA, pv: { x: 2.2, y: 0, z: 0 }, ay: 0.075, still: true });
+await refused(slideBy, slideBy.s.bakeCached(1, slideBy.step, 0.2, withIslands(slideBy)), /main island and island 1 meet: "push" and "a"/, "a slow body passing a declared one is judged on its widened step, not its poses");
 // A script's teleport is not a path: a held piece put at its cue jumps over "a" and "b" without touching them, as in the
 // single world, and the islands bake.
 const tp = await isles({ px: -3.5, still: true }); tp.s.hold(tp.push, 0.5);

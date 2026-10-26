@@ -36,7 +36,7 @@ that reads as:
   for the whole shot as separate worlds, each in a worker (Web Worker in a page, `worker_threads` in Node, in the
   calling thread when none starts) beside the main island, which alone keeps `onStep`, kinematic paths, `track` and
   `keep`. The result and the cache file are the same as a single world's (the self-check compares them exactly); a
-  body of one island meeting another's (in the pre-roll too, where loose pieces settle; between two steps too, but not along a script's teleport; a body moving over 10 mm in one step refuses the island bake, which is for sets that settle slowly; judged on every collider a body
+  body of one island meeting another's (in the pre-roll too, where loose pieces settle; between two steps too, but not along a script's teleport; a body moving over 10 mm in one step (about 4.8 m/s, a free fall of about 1.2 m) refuses the island bake, which is for sets that settle slowly; judged on every collider a body
   has, not only on what is drawn, and a script cannot grow, move or skin a collider while islands bake), a script reaching a declared
   body (its methods, a world query such as `castRay` or `contactPairsWith`, a lookup of its handle), a kinematic body,
   a joint across islands or one impact name on bodies of two islands throw instead of baking something different. While islands are declared, `onStep`,
