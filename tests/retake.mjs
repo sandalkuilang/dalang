@@ -385,7 +385,7 @@ await test("H4. --retake 2 on a take where sentence 3 is flagged: sentence 3 is 
   const flagged = await take(NARRATION, { speak: adds((k) => k === 0) });
   const r = await take(NARRATION, { dir: flagged.dir }, ["--retake", "2"]);
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /sentence 3 may not say the script/);
+  assert.match(r.out, /WARNING\s+: sentence 3 may not say the script/);
   const clean = await take(NARRATION);
   const c = await take(NARRATION, { dir: clean.dir }, ["--retake", "2"]);
   assert.equal(c.code, 0, c.out);

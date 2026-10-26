@@ -52,7 +52,10 @@ that reads as:
   every sentence with a low alignment run, an untimed word or heard words that differ from `narration.txt`, splices
   each in at the measured pauses around it (10 ms equal-power crossfade, never inside a word), then transcribes and
   times the whole file again and rewrites `words.json`, beats, subtitles and the response. At most two tries per
-  sentence (the second with another seed), then a WARNING naming it. `--retake <n,…>` re-speaks numbered sentences and
+  sentence (the second with another seed, also when every clip of the first came back without words), then a WARNING
+  naming it; a sentence still flagged that the run did not target is named too. The audio and its response are swapped
+  together only after the new transcript is in hand, so a stop (a second 503, no words) leaves the old pair and
+  removes the temp files; `words.json` and beats follow each splice. `--retake <n,…>` re-speaks numbered sentences and
   `--retake changed` only those that differ from the text of the take on disk (a new sentence is added, a removed one
   is cut out); both work on the take that exists, with no full take. VoiceStudio single-voice narration only
   (ElevenLabs, `--sample`, `--from-audio` and dialogue are refused). `voice.md`, `script-voice.md`, `SKILL.md` step 4.

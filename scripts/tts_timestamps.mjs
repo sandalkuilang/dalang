@@ -69,7 +69,7 @@
 
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -957,6 +957,12 @@ async function retake(a, ctx) {
   }
   const dir = path.join(a.out, '_retake');
   const jsonPath = a.fromResponse || path.join(a.out, `${ctx.base}.response.json`);
+  // The audio and its response are swapped together: the new ones are made beside the old, and only once the new
+  // transcript is in hand do both replace them. A stop before that (a second 503, a clip with no words, any die)
+  // leaves the old pair, which still match; the exit handler removes the leftovers, since process.exit skips `finally`.
+  const tmpAudio = path.join(path.dirname(audioPath), `.${ctx.base}.retake.wav`), tmpJson = `${jsonPath}.retake.tmp`;
+  const cleanup = () => { rmSync(dir, { recursive: true, force: true }); rmSync(tmpAudio, { force: true }); rmSync(tmpJson, { force: true }); };
+  process.once('exit', cleanup);
   const dur = () => probeDuration(audioPath) ?? (t.words.length ? t.words[t.words.length - 1].end : 0);
   const survey = () => {
     const sents = sentencesOf(cleanNow, t.words);
@@ -976,6 +982,8 @@ async function retake(a, ctx) {
   }
   const why = new Map(targets.map(n => [n, flags[n - 1].length ? flags[n - 1].join(', ') : 'asked for']));
   const tries = new Map();
+  const failed = new Set(); // sentences whose latest try came back without words: the old audio stays there
+  const warned = new Set(); // sentences the final WARNING names
   const short = s => s.length > 40 ? `${s.slice(0, 40)}…` : s;
   // The pauses a sentence with no old counterpart gets: the median of the take's own.
   const median = xs => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)] ?? 0;
@@ -1003,33 +1011,40 @@ async function retake(a, ctx) {
         tries.set(n, round);
         const heard = await vsTranscribe(a, raw, text, true);
         const ws = heard?.transcript.words;
-        if (!ws?.length) { console.log(`Retake     : sentence ${n} "${short(text)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
+        if (!ws?.length) { failed.add(n); console.log(`Retake     : sentence ${n} "${short(text)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
+        failed.delete(n);
         pieces[k] = { clip: normalisePcm(raw, path.join(dir, `s${n}.wav`)), r0: ws[0].start, r1: ws[ws.length - 1].end, lead: r.lead, trail: r.trail };
         spliced++;
         console.log(`Retake     : sentence ${n} "${short(text)}" re-spoken (try ${round}, seed ${seed}) — ${why.get(n)}`);
       }
-      if (!spliced && !plan) break;
-      writePcm(audioPath, assemble(old, regions, pieces.filter(Boolean)));
-      const meta = response._meta;
-      response = await vsTranscribe(a, audioPath, stripTags(clean));
-      response._meta = { ...meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
-      await writeFile(jsonPath, JSON.stringify(response));
+      if (!spliced && !plan) continue; // no clip had words: nothing to splice; the next round is the second try (seed + 1)
+      writePcm(tmpAudio, assemble(old, regions, pieces.filter(Boolean)));
+      const fresh = await vsTranscribe(a, tmpAudio, stripTags(clean));
+      fresh.audio_file = path.basename(audioPath);
+      fresh._meta = { ...response._meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
+      writeFileSync(tmpJson, JSON.stringify(fresh));
+      renameSync(tmpAudio, audioPath); renameSync(tmpJson, jsonPath);
+      response = fresh;
       t = timeTake(a, response, clean, gaps, audioPath);
+      await ctx.persist?.(t); // words.json, beats and subtitles follow the audio now, so a later stop leaves them matching it
       cleanNow = clean;
       ({ sents, regions, flags } = survey());
       if (plan) {
         // round 2 looks at the sentences just spoken; the count must still be the script's, or the numbers no longer line up
         const spoken = jobs.filter(j => tries.get(j.n) === round).map(j => j.n);
         if (sents.length !== plan.length) { console.log(`WARNING    : the take now has ${sents.length} sentences but the script has ${plan.length}; check words.json against narration.txt.`); plan = null; targets = []; break; }
-        targets = spoken.filter(n => flags[n - 1].length);
+        targets = spoken.filter(n => flags[n - 1].length || failed.has(n));
         plan = null;
-      } else targets = targets.filter(n => flags[n - 1].length);
+      } else targets = targets.filter(n => flags[n - 1].length || failed.has(n));
     }
+    // Every sentence still open names itself: unattended, a take never leaves with an open flag in silence.
     for (const n of targets) {
-      if (tries.get(n) === 2) console.log(`WARNING    : sentence ${n} "${short(sents[n - 1].text)}" still ${flags[n - 1].join(', ')} after 2 tries — do not deliver this take: respell the sentence in narration.txt, then --retake changed.`);
+      const open = [...(flags[n - 1] || []), ...(failed.has(n) ? ['without words from the retake, the old audio stays'] : [])];
+      warned.add(n);
+      console.log(`WARNING    : sentence ${n} "${short(sents[n - 1].text)}" still ${open.join(', ')} after ${tries.get(n) ?? 0} tries — do not deliver this take: respell the sentence in narration.txt, then --retake changed.`);
     }
-  } finally { rmSync(dir, { recursive: true, force: true }); }
-  return { response, t };
+  } finally { cleanup(); process.removeListener('exit', cleanup); }
+  return { response, t, warned };
 }
 
 async function main() {
@@ -1158,33 +1173,41 @@ async function main() {
 
   // --retake changed times the take on the text it was made from (inside retake), not on the edited script
   let t = a.retake === 'changed' ? null : timeTake(a, response, clean, gaps, audioPath);
-  if (a.retake) ({ response, t } = await retake(a, { response, clean, gaps, audioPath, base, t }));
-  const { times, exact, words, missing, aligned } = t;
-  const beatList = buildBeats(beats, words, times, clean);
-  const sectionList = buildSections(sections, words);
-  const lineList = buildLines(dlines, words);
-  const lastEnd = words.length ? words[words.length - 1].end : 0;
-  const duration = probeDuration(audioPath) ?? lastEnd;
+  // words.json, beats.json, beats.js and the subtitles for a timed take; --retake writes them after every splice too,
+  // so a run that stops later still leaves them on the audio that is on disk.
+  const emit = async (t) => {
+    const { times, words } = t;
+    const beatList = buildBeats(beats, words, times, clean);
+    const sectionList = buildSections(sections, words);
+    const lineList = buildLines(dlines, words);
+    const lastEnd = words.length ? words[words.length - 1].end : 0;
+    const duration = probeDuration(audioPath) ?? lastEnd;
 
-  const publicWords = words.map(({ _s, _e, ...w }) => w);
-  await writeFile(path.join(a.out, a.sample ? `${base}.words.json` : 'words.json'), JSON.stringify(publicWords, null, 2));
+    const publicWords = words.map(({ _s, _e, ...w }) => w);
+    await writeFile(path.join(a.out, a.sample ? `${base}.words.json` : 'words.json'), JSON.stringify(publicWords, null, 2));
 
-  if (!a.sample) {
-    const payload = { duration, audio_file: path.basename(audioPath), beats: beatList, sections: sectionList, ...(lineList.length && { lines: lineList }) };
-    await writeFile(path.join(a.out, 'beats.json'), JSON.stringify(payload, null, 2));
-    const byName = Object.fromEntries(beatList.map(b => [b.name, { text: b.text, start: b.start, end: b.end }]));
-    const js = `// Generated by tts_timestamps.mjs — do not edit by hand.\n` +
-      `// Use: BEATS.<name>.start (seconds). Ordered list: BEATS_LIST. Sections: SECTIONS.\n` +
-      `window.BEATS = ${JSON.stringify(byName, null, 2)};\n` +
-      `window.BEATS_LIST = ${JSON.stringify(beatList)};\n` +
-      `window.SECTIONS = ${JSON.stringify(sectionList)};\n` +
-      `// Every spoken word, for changes on words that are not beats: WORDS[i].start (i from words.json).\n` +
-      `window.WORDS = ${JSON.stringify(publicWords.map(({ text, start, end }) => ({ text, start, end })))};\n` +
-      `window.NARRATION_DURATION = ${duration};\n` +
-      (lineList.length ? `// Dialogue: who speaks when — drives cuts, close-ups and mouth movement.\nwindow.LINES = ${JSON.stringify(lineList)};\n` : '');
-    await writeFile(path.join(a.out, 'beats.js'), js);
-    await writeFile(path.join(a.out, 'narration.srt'), buildSrt(words, clean));
-  }
+    if (!a.sample) {
+      const payload = { duration, audio_file: path.basename(audioPath), beats: beatList, sections: sectionList, ...(lineList.length && { lines: lineList }) };
+      await writeFile(path.join(a.out, 'beats.json'), JSON.stringify(payload, null, 2));
+      const byName = Object.fromEntries(beatList.map(b => [b.name, { text: b.text, start: b.start, end: b.end }]));
+      const js = `// Generated by tts_timestamps.mjs — do not edit by hand.\n` +
+        `// Use: BEATS.<name>.start (seconds). Ordered list: BEATS_LIST. Sections: SECTIONS.\n` +
+        `window.BEATS = ${JSON.stringify(byName, null, 2)};\n` +
+        `window.BEATS_LIST = ${JSON.stringify(beatList)};\n` +
+        `window.SECTIONS = ${JSON.stringify(sectionList)};\n` +
+        `// Every spoken word, for changes on words that are not beats: WORDS[i].start (i from words.json).\n` +
+        `window.WORDS = ${JSON.stringify(publicWords.map(({ text, start, end }) => ({ text, start, end })))};\n` +
+        `window.NARRATION_DURATION = ${duration};\n` +
+        (lineList.length ? `// Dialogue: who speaks when — drives cuts, close-ups and mouth movement.\nwindow.LINES = ${JSON.stringify(lineList)};\n` : '');
+      await writeFile(path.join(a.out, 'beats.js'), js);
+      await writeFile(path.join(a.out, 'narration.srt'), buildSrt(words, clean));
+    }
+    return { beatList, sectionList, lineList, duration, publicWords };
+  };
+  let warned = new Set();
+  if (a.retake) ({ response, t, warned = new Set() } = await retake(a, { response, clean, gaps, audioPath, base, t, persist: emit }));
+  const { exact, words, missing, aligned } = t;
+  const { beatList, sectionList, lineList, duration, publicWords } = await emit(t);
 
   const nWords = publicWords.length;
   console.log(`\nAudio      : ${audioPath} (${duration} s)`);
@@ -1214,12 +1237,13 @@ async function main() {
     const hit = beatList.filter(b => b.word_index !== undefined && publicWords[b.word_index]?.est);
     if (hit.length) console.log(`WARNING    : beat(s) starting on an estimated word: ${hit.map(b => b.name).join(', ')} — --retake auto, or check them in words.json.`);
   }
-  if (!a.retake && !a.sample && !a.fromAudio && !order.length && response._meta?.engine === 'voicestudio' && response.transcript) {
+  if (!a.sample && !a.fromAudio && !order.length && response._meta?.engine === 'voicestudio' && response.transcript) {
     const sents = sentencesOf(clean, words);
     const regions = regionsOf(sents, silences(audioPath), duration);
     const flags = flagsOf(a, sents, regions, response.transcript.words, aligned);
-    const hit = sents.filter((s, k) => flags[k].length);
-    if (hit.length) console.log(`Retake     : sentence${hit.length > 1 ? 's' : ''} ${hit.map(s => s.n).join(', ')} may not say the script (${[...new Set(hit.flatMap(s => flags[s.n - 1]))].join(', ')}) — run again with --retake auto --from-response ${a.fromResponse || path.join(a.out, `${base}.response.json`)}: only those are re-spoken.`);
+    const hit = sents.filter((s, k) => flags[k].length && !warned.has(s.n));
+    // After a --retake run a sentence still open is a WARNING: an unattended run never delivers a take with an open flag.
+    if (hit.length) console.log(`${a.retake ? 'WARNING    ' : 'Retake     '}: sentence${hit.length > 1 ? 's' : ''} ${hit.map(s => s.n).join(', ')} may not say the script (${[...new Set(hit.flatMap(s => flags[s.n - 1]))].join(', ')}) — run again with --retake auto --from-response ${a.fromResponse || path.join(a.out, `${base}.response.json`)}: only those are re-spoken.`);
   }
   const bad = beatList.filter(b => b.start === null);
   if (bad.length) console.log(`WARNING    : ${bad.length} beat(s) matched no word: ${bad.map(b => b.text).join(', ')}`);
