@@ -193,11 +193,23 @@ async function vsSaveProfile(a) {
 
 // Speak with VoiceStudio, transcribe it back with word timestamps, and turn the words into
 // an ElevenLabs-shaped character alignment so the rest of the pipeline stays the same.
+// VoiceStudio matches a profile by voice_id only: an unknown name silently falls back to the default voice.
+let vsVoices;
+async function vsVoiceId(a, v) {
+  if (!v || v === 'default') return 'default';
+  vsVoices ??= (await (await vs(a, '/v1/audio/voices')).json()).voices || [];
+  const want = v.trim().toLowerCase();
+  const hit = vsVoices.find(x => String(x.voice_id).toLowerCase() === want) || vsVoices.find(x => String(x.name).toLowerCase() === want);
+  if (!hit) die(`VoiceStudio has no voice "${v}" (it would silently use the default voice). List them with --list-voices`);
+  return hit.voice_id;
+}
+
 async function vsGenerate(a, text, audioPath) {
   const chunks = chunkLines(text, /voxcpm/i.test(a.model || '') ? 120 : 700);
   const parts = [];
+  const voice = await vsVoiceId(a, a.voiceId || a.voice);
   for (const [k, input] of chunks.entries()) {
-    const body = { model: a.model, input, voice: a.voiceId || a.voice || 'default', response_format: 'wav' };
+    const body = { model: a.model, input, voice, response_format: 'wav' };
     if (a.language) body.language = a.language;
     if (a.speed) body.speed = a.speed;
     // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
@@ -233,7 +245,7 @@ async function vsDialogue(a, seq, audioPath, text) {
     if (item.pause) {
       execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=24000:cl=mono', '-t', String(item.pause), part]);
     } else {
-      const voice = voices[item.speaker.toLowerCase()];
+      const voice = voices[item.speaker.toLowerCase()] && await vsVoiceId(a, voices[item.speaker.toLowerCase()]);
       if (!voice) die(`No voice for speaker "${item.speaker}". Pass --voices ${[...new Set(seq.filter(s => s.speaker).map(s => s.speaker.toLowerCase()))].map(s => `${s}=<voice>`).join(',')}`);
       const body = { model: a.model, input: item.text, voice, response_format: 'wav' };
       if (a.language) body.language = a.language;
