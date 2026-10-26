@@ -48,6 +48,11 @@ that reads as:
   reframe restated stay in the choice explainer's own Gate 1 line, so "hook + open end" and the failure explainer
   are not forced to close a loop or add a reframe). Brief Step 1 gains an optional series sign-off (`signoff` in
   `BRIEF.md`: from the request, never invented), said once after the hook. `evals.md` gains a golden brief for it.
+- **Sound-off quiz** (Clarity as a number): Gate 1 writes `review/quiz.md` (5 questions with a key from the script's
+  claims); at Step 7 a fresh subagent answers from the strips alone, each answer is scored correct / partly correct /
+  wrong into `review/quiz-result.md`, and each wrong answer is a Clarity P1 at its beat. `score_run.mjs` reports
+  `quiz_score` and `quiz_pct` (`error` for an unreadable result, never 0); `evals.md` tracks it per skill version; new
+  test `tests/score-run.mjs` in the merge gate.
 - **Failure-explainer arc** (`script-voice.md` "Arc templates"): the seven beats of a "why does X break" film (cold
   open with a quoted verdict, follow the path, a thesis with N enemies, N enemies each built as name → mechanism →
   one tagged number → visible cause, cost asymmetry, checklist, bookend), with its Gate 1 checks (every enemy has its
