@@ -89,9 +89,11 @@ process.exit(1);
 
 // ── The mock VoiceStudio ────────────────────────────────────────────────────
 // `speak(body, k)` (k = 0-based count of speech requests so far) may return [status, detail] to refuse, or
-// { tokens } to say other words than the input.
-function mock({ model = "k2-fsa/OmniVoice", speak } = {}) {
+// { tokens } to say other words than the input. `transcribe(k)` (k = 0-based count of transcription requests) may
+// return [status, detail] to refuse, or "empty" to hear no words.
+function mock({ model = "k2-fsa/OmniVoice", speak, transcribe } = {}) {
   const speech = [];
+  let heardCount = 0; // transcription requests so far
   const srv = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
@@ -110,6 +112,10 @@ function mock({ model = "k2-fsa/OmniVoice", speak } = {}) {
         return res.end(speakWords(r?.tokens || body.input.split(/\s+/).filter(Boolean)));
       }
       if (req.url === "/v1/audio/transcriptions") {
+        const k = heardCount++;
+        const r = transcribe?.(k);
+        if (Array.isArray(r)) return json(r[0], { detail: r[1] });
+        if (r === "empty") return json(200, { text: "", language: "en", words: [] });
         const heard = hear(buf);
         return json(200, { text: heard.map((w) => w.word).join(" "), language: "en", words: heard });
       }
@@ -310,6 +316,85 @@ await test("E8d. --retake changed re-speaks a changed sentence that comes out wr
   assert.equal(r.speech[0].seed, 42);
   assert.equal(r.speech[1].seed, 43);
   assert.match(r.out, /WARNING\s+: sentence 2 .*after 2 tries/);
+});
+
+// ── a retake that cannot finish never leaves the audio and its response describing different takes ────────────
+const LONGER = NARRATION.replace("It runs past the old mill.", "It runs past the old stone mill by the road.");
+const bytes = (dir, f) => fs.readFileSync(path.join(dir, "audio", f));
+const wavSeconds = (dir) => (bytes(dir, "narration.wav").length - 44) / 2 / RATE;
+for (const [label, transcribe, why] of [
+  ["a second 503 on the transcription (exit 3, rerun)", (k) => (k >= 1 ? [503, BUSY] : undefined), 3],
+  ["a transcription that comes back without words", (k) => (k >= 1 ? "empty" : undefined), 1],
+]) {
+  await test(`G1. --retake changed with ${label}: narration.wav, narration.response.json and the folder stay as they were`, async () => {
+    const first = await take(NARRATION);
+    assert.equal(first.code, 0, first.out);
+    const wavBefore = bytes(first.dir, "narration.wav"), jsonBefore = bytes(first.dir, "narration.response.json");
+    const r = await take(LONGER, { dir: first.dir, transcribe }, ["--retake", "changed"]);
+    assert.equal(r.code, why, r.out);
+    assert.ok(r.speech.length >= 1, "a sentence was re-spoken");
+    assert.ok(bytes(first.dir, "narration.wav").equals(wavBefore), "the audio is the old take, not the splice");
+    assert.ok(bytes(first.dir, "narration.response.json").equals(jsonBefore), "its response still describes that audio");
+    assert.deepEqual(fs.readdirSync(r.audio).filter((f) => /retake/i.test(f)), [], "no _retake folder or temp file left behind");
+  });
+}
+await test("G2. --retake changed with every request answered still swaps the audio and its response together", async () => {
+  const first = await take(NARRATION);
+  const r = await take(LONGER, { dir: first.dir }, ["--retake", "changed"]);
+  assert.equal(r.code, 0, r.out);
+  const resp = JSON.parse(bytes(first.dir, "narration.response.json"));
+  assert.equal(resp._meta.text.trim(), LONGER.trim());
+  assert.ok(Math.abs(resp.transcript.words.at(-1).end - wavSeconds(first.dir)) < 0.6, "the response's last word ends where the audio ends");
+  assert.deepEqual(fs.readdirSync(r.audio).filter((f) => /retake/i.test(f)), [], "nothing left behind");
+});
+await test("G3. a retake that stops in round 2 leaves words.json and beats.json on the audio round 1 committed", async () => {
+  // take: sentence 3 gets two invented words (+0.8 s); retake 1: one invented word (+0.4 s, still flagged); retake 2: 503 twice
+  const speak = (b, k) => k >= 2 ? [503, BUSY] : { tokens: b.input.split(/\s+/).flatMap((t) => (norm(t) === "wheel" ? (k === 0 ? [t, "maybe", "maybe"] : [t, "maybe"]) : [t])) };
+  const r = await take(NARRATION, { speak }, ["--retake", "auto"]);
+  assert.equal(r.code, 3, r.out);
+  const beats = JSON.parse(bytes(r.dir, "beats.json"));
+  assert.ok(Math.abs(beats.duration - wavSeconds(r.dir)) < 0.05, `beats.json says ${beats.duration} s, the audio is ${wavSeconds(r.dir)} s`);
+  assert.equal(JSON.parse(bytes(r.dir, "words.json")).length, tokensOf(NARRATION).length);
+});
+
+// ── a flagged sentence is never delivered quietly ────────────────────────────────────────────────────────────
+await test("H1. --retake auto: every clip of try 1 comes back without words, so there is a try 2 (seed + 1) and then a WARNING", async () => {
+  const r = await take(NARRATION, { speak: (b, k) => (k === 0 ? adds(() => true)(b, k) : { tokens: [] }) }, ["--retake", "auto"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 3, "the take and two tries");
+  assert.equal(r.speech[1].seed, 42);
+  assert.equal(r.speech[2].seed, 43);
+  assert.match(r.out, /WARNING\s+: sentence 3 .*do not deliver/);
+});
+await test("H2. --retake auto: try 1 comes back without words, try 2 is good: no WARNING, words match", async () => {
+  const r = await take(NARRATION, { speak: (b, k) => (k === 0 ? adds(() => true)(b, k) : k === 1 ? { tokens: [] } : undefined) }, ["--retake", "auto"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 3);
+  assert.doesNotMatch(r.out, /WARNING\s+: sentence/);
+  assert.doesNotMatch(r.out, /may not say the script/);
+  assert.deepEqual(wordsOf(r), tokensOf(NARRATION));
+});
+await test("H3. --retake 2 whose clips never come back with words: two tries, then a WARNING naming sentence 2", async () => {
+  const first = await take(NARRATION);
+  const r = await take(NARRATION, { dir: first.dir, speak: () => ({ tokens: [] }) }, ["--retake", "2"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 2);
+  assert.match(r.out, /WARNING\s+: sentence 2 .*do not deliver/);
+});
+await test("H4. --retake 2 on a take where sentence 3 is flagged: sentence 3 is named; on a clean take nothing is", async () => {
+  const flagged = await take(NARRATION, { speak: adds((k) => k === 0) });
+  const r = await take(NARRATION, { dir: flagged.dir }, ["--retake", "2"]);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /sentence 3 may not say the script/);
+  const clean = await take(NARRATION);
+  const c = await take(NARRATION, { dir: clean.dir }, ["--retake", "2"]);
+  assert.equal(c.code, 0, c.out);
+  assert.doesNotMatch(c.out, /may not say the script|WARNING\s+: sentence/);
+});
+await test("H5. a sentence flagged only after the splice is named once, and one already warned is not named twice", async () => {
+  const r = await take(NARRATION, { speak: adds(() => true) }, ["--retake", "auto"]);
+  assert.match(r.out, /WARNING\s+: sentence 3 .*after 2 tries/);
+  assert.doesNotMatch(r.out, /may not say the script/, "already warned by name");
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });
