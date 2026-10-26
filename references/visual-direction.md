@@ -168,7 +168,7 @@ Positions inside the format's text band (`craft-rules.md` §6, `safeArea` in `ty
 | 4:5 feed | 8–22 % | 25–72 %, inside the 8 % margins | 76–92 % |
 | 16:9 landscape | 5–20 %, left-aligned, ≤ 50 % of the width | 22–80 %, beside the subject | 85–95 % |
 
-- **Accent budget** (§5: one accent element per shot): the layers above use ink, never the accent colour. The shot's single accent goes to the impact numeral when one is on screen; the caption's active word then stays in ink (no box) until the numeral leaves. In a shot without a numeral the accent stays with the caption's active word, as in §9. The A/B hues of the data cards are the options' own identity colours (§9 "the subject's own colours"), not the accent.
+- **Accent budget** (§5: one accent element per shot): every layer above uses ink, except the impact numeral. The shot's single accent goes to the impact numeral when one is on screen; the caption's active word then stays in ink (no box) until the numeral leaves. In a shot without a numeral the accent stays with the caption's active word, as in §9. The A/B hues of the data cards are the options' own identity colours (§9 "the subject's own colours"), not the accent.
 - At most **3 cards** on screen besides the caption (the headline and labels are not cards), never three in a row (§5 Banned); the hero still meets §7's size.
 - A/B sides and hues are fixed for the film; a card stays beside its own subject.
 - A layer **enters on its beat word** (`BEATS`/`WORDS`), is **dead still while read** (§9), and **transforms, not vanishes**, when the claim changes: the headline's words change in place, a card's value counts to the new value, the tally gains a row. A layer leaves only when its subject or section does.
