@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
 const { THREE } = await use("three-vendor.js");
 const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
-const { makeSim } = await use("physics.js");
+const { makeSim, RAPIER } = await use("physics.js");
 const { bakeCurtain } = await use("cloth.js");
 const { sweep } = await use("fur.js");
 const { get } = await use("surfaces.js");
@@ -95,15 +95,17 @@ assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after it
 // scripted help (onStep, track and keep see only the main island), and the cache tells the two kinds of bake apart.
 async function isles(o = {}) {
   const sc = new THREE.Scene(); sc.add(floor.clone());
-  const meshes = [["push", 0, 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, 0.35], ["b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
+  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, 0.35], [o.bName ?? "b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); m.position.set(x, y, z); m.rotation.z = tilt; m.name = name; sc.add(m); return m;
   });
   sc.updateMatrixWorld(true);
   const s = await makeSim(THREE); s.staticScene(sc, meshes);
   const [push, a, b] = meshes.slice(0, 3).map((m) => s.roundBox(m, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }));
   const arm = o.kin ? s.kinematicHull(meshes[3], (t) => ({ p: { x: 0, y: 0.3, z: -1.5 + 0.1 * t } })) : null;
+  if (o.pv) push.body.setLinvel(o.pv, true); // the main island's piece already moving when the pre-roll starts
+  if (o.holdA) s.hold(a, o.holdA);
   let shoved = false;
-  const step = (t) => { if (!shoved && t >= 0.3) { shoved = true; push.body.setLinvel({ x: 0, y: 0, z: 2 }, true); } }; // the main island's scripted push
+  const step = (t) => { if (!o.still && !shoved && t >= 0.3) { shoved = true; push.body.setLinvel({ x: 0, y: 0, z: 2 }, true); } }; // the main island's scripted push
   const mem = o.store || new Map();
   return { s, a, b, push, arm, step, opts: { track: { pz: () => push.body.translation().z }, keep: () => ({ shoved }), load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v), ...(o.workers === false ? { workers: false } : {}) } };
 }
@@ -140,6 +142,73 @@ const twice = await isles();
 await assert.rejects(twice.s.bakeCached(1, null, 0.2, { ...twice.opts, islands: [[twice.a], [twice.a, twice.b]] }), /two islands/, "a body is in one island");
 const stray = await isles();
 await assert.rejects(stray.s.bakeCached(1, null, 0.2, { ...stray.opts, islands: [[{}]] }), /roundBox/, "an island holds only bodies the sim made");
+// The main island meeting a declared one (not two declared ones): "push" falls onto "a" after t = 0.
+const mainHit = await isles({ px: 0.8, py: 1.2, ay: 0.075, still: true });
+await assert.rejects(mainHit.s.bakeCached(1.5, mainHit.step, 0.2, withIslands(mainHit)), /main island and island 1 meet/, "a main-island body landing on a declared one fails loudly");
+// The pre-roll is part of the proof. "push" is already running when the pre-roll starts and, in the single world, hits
+// "a" there; in an island bake "a" is not in the main world, so "push" runs through its place and is far away by t = 0:
+// only the pre-roll poses show that they met.
+const preHit = await isles({ px: 0.2, pv: { x: 6, y: 0, z: 0 }, ay: 0.075 });
+await assert.rejects(preHit.s.bakeCached(1.5, preHit.step, 0.2, withIslands(preHit)), /island 1 meet.*pre-roll/, "a meeting in the pre-roll fails loudly, though the bodies are far apart at t = 0");
+const preFree = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 }), preFreeSingle = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 });
+const [pf, pfs] = [await preFree.s.bakeCached(1.5, preFree.step, 0.2, withIslands(preFree)), await preFreeSingle.s.bakeCached(1.5, preFreeSingle.step, 0.2, preFreeSingle.opts)];
+for (const t of times) assert.deepEqual(ipose(pf, t), ipose(pfs, t), `a pre-roll run that never meets another island matches the single world at ${t} s`);
+// A joint across islands, a name shared across islands: refused. Inside one island: baked.
+const jd = (I, dx) => RAPIER.JointData.spherical({ x: dx, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
+const tie = await isles(); tie.s.world.createImpulseJoint(jd(tie, -0.8), tie.a.body, tie.push.body, true);
+await assert.rejects(tie.s.bakeCached(1, null, 0.2, withIslands(tie)), /joint/, "a joint across islands is refused");
+const tied = await isles(); tied.s.world.createImpulseJoint(jd(tied, -1.6), tied.a.body, tied.b.body, true);
+await tied.s.bakeCached(1, null, 0.2, { ...tied.opts, islands: [[tied.a, tied.b]] });
+const twin = await isles({ bName: "a" });
+await assert.rejects(twin.s.bakeCached(1, null, 0.2, withIslands(twin)), /names bodies in two islands/, "one name on two islands would mix their impacts");
+const twin1 = await isles({ bName: "a" });
+await twin1.s.bakeCached(1, null, 0.2, { ...twin1.opts, islands: [[twin1.a, twin1.b]] });
+// A body held on a cue inside a declared island is released on time in its own world.
+const hs = await isles({ holdA: 0.6 }), hsr = await hs.s.bakeCached(1.5, hs.step, 0.2, hs.opts);
+const hi = await isles({ holdA: 0.6 }), hir = await hi.s.bakeCached(1.5, hi.step, 0.2, withIslands(hi));
+assert.ok(Math.abs(poseAt(hir, 1, 0.5)[1] - 0.5) < 1e-6 && poseAt(hir, 1, 1.2)[1] < 0.4, "a held island body stays until its release, then falls");
+for (const t of times) assert.deepEqual(ipose(hir, t), ipose(hsr, t), `a held island body matches the single world at ${t} s`);
+// A worker that cannot start or load: that island is baked in this thread, with a warning and the same result.
+for (const [what, workers] of [["throws at once", () => { throw new Error("no worker here"); }], ["fails to load", async () => new (await import("node:worker_threads")).Worker(new URL("file:///nonexistent/bake-worker.js"))]]) {
+  const fb = await isles(), seen = []; console.warn = (...m) => seen.push(m.join(" "));
+  const r = await fb.s.bakeCached(1.5, fb.step, 0.2, withIslands(fb, { workers })).finally(() => { console.warn = warn; });
+  assert.equal(seen.length, 1, `a worker that ${what} warns once`); assert.match(seen[0], /island workers unavailable/);
+  for (const t of times) assert.deepEqual(ipose(r, t), ipose(par, t), `a worker that ${what}: the in-thread island matches at ${t} s`);
+  assert.deepEqual([r.report, r.impacts], [par.report, par.impacts], `a worker that ${what}: same report`);
+}
+// Scripts see only the main island. A world query could see a declared body (switched off in the main world, it answers
+// nothing or stale numbers), so while islands are declared every query and listing of the world refuses, and so does a
+// lookup of a declared body or collider; the main island's own bodies stay open to their own methods and to lookups.
+const ray = () => new RAPIER.Ray({ x: 0.8, y: 2, z: 0 }, { x: 0, y: -1, z: 0 }), ball = RAPIER.ColliderDesc.ball(0.1).shape;
+const reach = {
+  "castRay": (I) => () => I.s.world.castRay(ray(), 5, true),
+  "contactPairsWith": (I) => () => I.s.world.contactPairsWith(I.push.body.collider(0), () => {}),
+  "intersectionsWithShape": (I) => () => I.s.world.intersectionsWithShape({ x: 0.8, y: 0.1, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, ball, () => true),
+  "forEachCollider": (I) => () => I.s.world.forEachCollider(() => {}),
+  "forEachRigidBody": (I) => () => I.s.world.forEachRigidBody(() => {}),
+  "bodies.getAll": (I) => () => I.s.world.bodies.getAll(),
+  "narrowPhase.contactPair": (I) => () => I.s.world.narrowPhase.contactPair(I.push.body.collider(0).handle, I.push.body.collider(0).handle, () => {}),
+  "getCollider of a declared body": (I) => { const h = I.a.body.collider(0).handle; return () => I.s.world.getCollider(h); },
+  "getRigidBody of a declared body": (I) => { const h = I.a.body.handle; return () => I.s.world.getRigidBody(h); },
+  "bodies.get of a declared body": (I) => { const h = I.a.body.handle; return () => I.s.world.bodies.get(h); },
+  "a collider of a declared body kept from before": (I) => { const c = I.a.body.collider(0); return () => c.translation(); },
+};
+for (const [what, make] of Object.entries(reach)) {
+  for (const via of ["onStep", "track", "keep"]) {
+    const R = await isles(), go = make(R), run = via === "onStep" ? { step: () => go(), opts: {} } : { step: null, opts: { [via]: via === "track" ? { x: () => (go(), 0) } : () => (go(), {}) } };
+    await assert.rejects(R.s.bakeCached(0.3, run.step, 0.1, { ...R.opts, ...run.opts, islands: [[R.a], [R.b]] }), /island/, `${what}: ${via} cannot reach a declared body`);
+  }
+}
+{
+  const R = await isles(), seen = [];
+  const peek = () => { const b = R.push.body; seen.push(b.translation().x, R.s.world.getRigidBody(b.handle).translation().y, R.s.world.getCollider(b.collider(0).handle).translation().z, b.collider(0).translation().x, R.s.world.bodies.get(b.handle).handle, R.s.world.bodies.len()); };
+  await R.s.bakeCached(0.3, peek, 0.1, withIslands(R));
+  assert.ok(seen.length > 10 && seen.every(Number.isFinite), "the main island's bodies stay open to their own methods and to lookups");
+  const Q = await isles(); let hits = 0; // the same queries are fine in a bake with no islands
+  await Q.s.bakeCached(0.3, () => { if (Q.s.world.castRay(ray(), 5, true)) hits++; Q.s.world.forEachCollider(() => {}); Q.s.world.getCollider(Q.a.body.collider(0).handle).translation(); }, 0.1, Q.opts);
+  assert.ok(hits > 0, "world queries still work with no islands declared");
+  assert.doesNotThrow(() => { const w = R.s.world; w.castRay(ray(), 5, true); w.getCollider(R.a.body.collider(0).handle).translation(); R.a.body.translation(); }, "every fence is lifted once the island bake is over");
+}
 
 // Cloth hangs and stays finite; a swept tube has no zero normals (a NaN in the shader blacks out the frame).
 const c = bakeCurtain({ cx: 0, width: 0.2, top: 1, length: 0.5, z: 0, wall: -0.1, wind: (p, t, o) => o.set(0, 0, 0), duration: 1, mpu: M });
