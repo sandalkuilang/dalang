@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measure a reference video mechanically: info, one frame per second, contact sheets,
-# estimated hard cuts, estimated "boil" rate, stillness, and loudness.
+# estimated hard cuts, estimated "boil" rate, stillness, loudness, and the palette (dominant colours).
 # The output is numbers to borrow the rhythm from — not material to copy.
 #
 # Usage: bash measure_reference.sh <video> <output-folder> [cut-threshold=0.35]
@@ -71,10 +71,11 @@ done
 cat "$OUT/boil.txt"
 echo "(Note: most meaningful in shots with a still camera. About 5 = lines redrawn 5x per second.)" >> "$OUT/boil.txt"
 
-# 6) Stillness & loudness (Node scripts, if Node is available)
+# 6) Stillness, loudness & palette (Node scripts, if Node is available)
 if command -v node >/dev/null; then
   node "$HERE/stillness.mjs" "$VIDEO" > "$OUT/stillness.txt" 2>&1 || true
   node "$HERE/loudness.mjs" "$VIDEO" > "$OUT/loudness.txt" 2>&1 || true
+  node "$HERE/palette.mjs" "$VIDEO" > "$OUT/palette.txt" 2>&1 || true
 fi
 
 # Summary
@@ -86,7 +87,8 @@ fi
   echo "Hard cuts        : $NCUTS (estimate, threshold $SCENE; see cuts.txt)"
   [[ -f "$OUT/stillness.txt" ]] && grep -E 'Total still|Longest still' "$OUT/stillness.txt" || true
   [[ -f "$OUT/loudness.txt" ]] && grep -E 'integrated' "$OUT/loudness.txt" || true
+  [[ -f "$OUT/palette.txt" ]] && grep -A6 '^Overall' "$OUT/palette.txt" || true
 } | tee "$OUT/summary.txt"
 
 echo
-echo "Done. Next: read the contact sheets + the full transcript, then write reference-measurements.md."
+echo "Done. Next: read the contact sheets, palette.txt + the full transcript, then write reference-measurements.md."
