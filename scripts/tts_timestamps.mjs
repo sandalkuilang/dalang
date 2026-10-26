@@ -24,7 +24,9 @@
 //   node tts_timestamps.mjs --save-profile "<name>" --ref clip.wav [--ref-text "<words>"] --language en
 //        [--instructions "..."] [--seed 42]
 //                              -> VoiceStudio profile from a clean 3–10 s single-speaker clip (an approved
-//                                 sample, or a voice whose owner gave permission); prints the id for --voice
+//                                 sample, or a voice whose owner gave permission); prints the id for --voice.
+//                                 A --sample audition over 20 s is cut at its last word end <= 15 s when its
+//                                 <name>.words.json is next to it (those words become the ref text).
 //
 // Dialogue files: every spoken line is "Speaker: text"; a line "(1.5)" is 1.5 s of silence; a leading
 // [tag] on a line becomes that line's style hint. Output adds window.LINES (speaker, text, start, end).
@@ -178,6 +180,27 @@ async function vsListVoices(a) {
   console.log(`\nUse --voice "<name or voice_id>". Saved/cloned profiles give the most repeatable narration.`);
 }
 
+// A --sample audition is ~300 characters, longer than a profile reference. Its words.json (written next to it) says
+// where words end: cut at the last timed word ending by 15 s, so the clip ends on a word and its text is known.
+// null = no words file (the caller keeps the plain "too long" error); a file that cannot be used stops here.
+function refCut(ref, dur) {
+  const file = path.join(path.dirname(ref), `${path.parse(ref).name}.words.json`);
+  if (!existsSync(file)) return null;
+  let words;
+  try { words = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { die(`reference is ${dur} s, over the engine's 20 s, and ${file} is not readable JSON (${e.message}). Cut 3–10 s of clean speech first.`); }
+  if (!Array.isArray(words)) die(`reference is ${dur} s, over the engine's 20 s, and ${file} is not a word list. Cut 3–10 s of clean speech first.`);
+  let k = -1;
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (w && !w.est && Number.isFinite(w.end) && w.end >= 3 && w.end <= 15) k = i;
+  }
+  if (k < 0) die(`reference is ${dur} s, over the engine's 20 s, and ${file} has no timed word ending between 3 and 15 s to cut at. Cut 3–10 s of clean speech first.`);
+  const next = words[k + 1];
+  // A small tail keeps the last phoneme; never past the next word's start nor past 15 s.
+  const at = round(Math.min(words[k].end + 0.15, Number.isFinite(next?.start) ? next.start : Infinity, 15));
+  return { at, n: k + 1, file, text: words.slice(0, k + 1).map(w => w.text).join(' ') };
+}
+
 // Save a clean clip as a VoiceStudio profile (clone). Without --ref-text the clip is transcribed.
 async function vsSaveProfile(a) {
   if (!a.ref) die('--save-profile needs --ref <clean 3–10 s clip of one speaker>');
@@ -185,8 +208,17 @@ async function vsSaveProfile(a) {
   await mkdir(a.out, { recursive: true });
   try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', a.ref, '-vn', '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', wav]); }
   catch (e) { die(`ffmpeg could not read ${a.ref}: ${e.message}`); }
-  const dur = probeDuration(wav);
-  if (dur > 20) die(`reference is ${dur} s; the engine takes at most 20 s. Cut 3–10 s of clean speech first.`);
+  let dur = probeDuration(wav);
+  if (dur > 20) {
+    // Only without --ref-text: a text given for the whole clip cannot be cut to match.
+    const cut = !a.refText && refCut(a.ref, dur);
+    if (!cut) die(`reference is ${dur} s; the engine takes at most 20 s. Cut 3–10 s of clean speech first.`);
+    try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', a.ref, '-t', String(cut.at), '-vn', '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', wav]); }
+    catch (e) { die(`ffmpeg could not cut ${a.ref}: ${e.message}`); }
+    a.refText = cut.text;
+    console.log(`Cut      : ${a.ref} (${dur} s) at ${cut.at} s, the first ${cut.n} words of ${cut.file} → ${wav}`);
+    dur = probeDuration(wav);
+  }
   if (dur && (dur < 3 || dur > 15)) console.warn(`WARNING: reference is ${dur} s; 3–10 s of clean speech clones best.`);
   const refText = a.refText || (await vsTranscribe(a, wav, '')).transcript.text.trim();
   const form = new FormData();
