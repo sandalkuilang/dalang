@@ -30,8 +30,8 @@
 // those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
-// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports) whose text has the
-// word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
+// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports; a file the
+// .engine.json beside it lists is the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
 // draft"; no JS is parsed); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
 // in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
 // from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
@@ -418,9 +418,22 @@ export function scriptProblem(scripts, dir, read) {
     const clean = spec.split(/[?#]/)[0];
     return clean.startsWith('/') ? path.join(dir, clean) : path.resolve(base, clean);
   };
+  // A file the .engine.json beside it lists is the DALANG engine copy (engine/three/build.mjs): a vendored library, like a
+  // remote script, not read (its text has the word volume as a measure of space). Anything the manifest does not list is read.
+  const manifests = new Map();
+  const isEngine = (p) => {
+    const d = path.dirname(p);
+    if (!manifests.has(d)) {
+      let names = new Set();
+      try { const r = read(path.join(d, '.engine.json')); if (r.text != null) names = new Set(JSON.parse(r.text).map((e) => e.file)); } catch { /* not a manifest: nothing is the engine */ }
+      manifests.set(d, names);
+    }
+    return manifests.get(d).has(path.basename(p));
+  };
   const load = (p) => {
     if (seen.has(p)) return null;
     seen.add(p);
+    if (isEngine(p)) return null;
     const r = read(p), where = `the script ${path.relative(dir, p) || p}`;
     if (r.text == null) return `${where} could not be read (${r.why}), so whether it sets a media volume is unknown: fix the path and rerun`;
     return visit(r.text, where, path.dirname(p));
