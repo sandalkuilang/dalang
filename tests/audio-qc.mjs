@@ -183,10 +183,10 @@ try {
   {
     const rate = 1000, x = Float32Array.from({ length: 4000 }, (_, i) => (i < 1000 ? 0.1 : 0.5));
     const cut = q.applyGain(x, rate, 0, 1, null, 4000, { dur: 1.5 });
-    assert.equal(cut[1400], 0.5); assert.equal(cut[1600], 0, "nothing after data-duration");
+    near(cut[1400], 0.5, 1e-6, "inside data-duration"); assert.equal(cut[1600], 0, "nothing after data-duration");
     const skip = q.applyGain(x, rate, 0, 1, null, 4000, { mediaStart: 1 });
-    assert.equal(skip[0], 0.5, "the file is entered at data-media-start");
-    assert.equal(q.applyGain(x, rate, 0, 1, null, 4000)[0], 0.1, "default: from the file start");
+    near(skip[0], 0.5, 1e-6, "the file is entered at data-media-start");
+    near(q.applyGain(x, rate, 0, 1, null, 4000)[0], 0.1, 1e-6, "default: from the file start");
     console.log("ok  applyGain: data-duration cuts, data-media-start skips in");
   }
 
@@ -318,6 +318,8 @@ try {
       assert.equal(r.status, 2, r.stdout + r.stderr);
       assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
       assert.doesNotMatch(r.stdout, /no bed in the film|no index\.html|bed: no music/, "an unreadable index.html is never 'no bed'");
+      r = run(dir, ["--mix", "mix.wav"]);
+      assert.match(r.stdout, /mix not checked: index\.html could not be read/, "the mix is lined up with the words by the narration's data-start: unknown when index.html is unreadable");
       // no index.html at all: the bed is unknown unless --music names it
       dir = project("nohtml", { narr: voice(steady), bedDb: 15 });
       fs.rmSync(path.join(dir, "index.html"));
@@ -384,7 +386,7 @@ try {
     // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
     {
       const two = (f2) => concat(...[150, f2].flatMap((f) => [0, 1, 2].flatMap(() => [tone(f, 0.3, 0.3, RATE), silence(0.05, RATE)])));
-      const dir = project("twosent", { narr: two(150 * 2 ** (5 / 12)), bedDb: 15, text: "One two three. Four five six.", nWords: 6 });
+      const dir = project("twosent", { narr: two(200), bedDb: 15, text: "One two three. Four five six.", nWords: 6 });
       const r = run(dir);
       assert.equal(r.status, 2, r.stdout + r.stderr);
       assert.match(r.stdout, /NOT CHECKED: [^\n]*voice/);

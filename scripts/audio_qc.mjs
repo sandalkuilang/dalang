@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Audio QC of a project's mix: what stills and integrated loudness cannot see. Node + ffmpeg only.
-//   1. Bed level: the music <audio> at the gain index.html gives it (data-volume x the data-automation volume lane,
-//      clip-local times, placed at data-start) against the narration, RMS in 50 ms frames, the median over the speech
+//   1. Bed level: every music <audio> (anchored names: music, bgm, bed, soundtrack, with an index or a cue word; the src
+//      may sit on a <source> child) at the gain index.html gives it (data-volume x the data-automation volume lane,
+//      clip-local times, placed at data-start, entered at data-media-start, cut at data-duration), summed, against the narration, RMS in 50 ms frames, the median over the speech
 //      frames (word spans of audio/words.json). Flag: the bed more than 25 dB under the narration (inaudible on a phone
 //      speaker) or less than 8 dB under it (masks words). Unweighted RMS in dB, not K-weighted LU.
 //   2. Clicks: a sample-to-sample jump above 8x the local RMS of the jumps (±5 ms, the sample itself left out) and
@@ -13,8 +14,10 @@
 //      10 ms, 60–400 Hz) and the mean spectral centroid (512-point FFT). Flag a sentence more than 3 semitones or
 //      25 % of centroid away from the take's median sentence.
 // The starting values come from real films; tune them here only (THRESHOLDS). Every flag is a P1 (references/qc.md,
-// Step 7); the results go into PRODUCTION.md. Known limits: data-media-start, data-playback-rate and lane curves are
-// ignored; a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
+// Step 7); the results go into PRODUCTION.md. A bed whose level the script cannot compute (index.html unreadable or
+// absent without --music, no src in the HTML, a data-volume or lane that does not parse, a data-playback-rate other than
+// 1) is NOT CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. Known limits: lane
+// curves are read as straight lines between points; `loop` is ignored; a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
 // show a false dropout.
 //
 // Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>] [--text narration.txt]
@@ -86,10 +89,15 @@ export function laneOf(automation) {
   const pts = lane && Array.isArray(lane.points) ? lane.points.filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v)) : [];
   return pts.length ? pts.sort((a, b) => a.t - b.t) : null;
 }
-// The clip placed at `start` seconds with its gain, as `total` samples of the composition's timeline.
-export function applyGain(x, rate, start, volume, lane, total) {
-  const out = new Float32Array(total), off = Math.round(start * rate);
-  for (let i = Math.max(0, off); i < total && i - off < x.length; i++) out[i] = x[i - off] * gainAt(volume, lane, (i - off) / rate);
+// The clip placed at `start` seconds with its gain, as `total` samples of the composition's timeline. opts.mediaStart:
+// seconds skipped at the head of the file (data-media-start); opts.dur: the clip's length on the timeline (data-duration).
+export function applyGain(x, rate, start, volume, lane, total, opts = {}) {
+  const out = new Float32Array(total), off = Math.round(start * rate), ms = Math.max(0, Math.round((opts.mediaStart || 0) * rate));
+  const avail = Math.max(0, x.length - ms), n = opts.dur > 0 ? Math.min(avail, Math.round(opts.dur * rate)) : avail;
+  for (let k = 0; k < n; k++) {
+    const i = off + k;
+    if (i >= 0 && i < total) out[i] = x[ms + k] * gainAt(volume, lane, k / rate);
+  }
   return out;
 }
 
@@ -201,8 +209,8 @@ export function centroidOf(x, rate) {
 // sentences: [{ n, start, end, text, f0, centroid }] -> the take's medians and the sentences far from them.
 export function voiceFlags(sentences) {
   const f0s = sentences.map((s) => s.f0).filter((v) => v != null), cs = sentences.map((s) => s.centroid).filter((v) => v != null);
-  const f0Med = median(f0s), cMed = median(cs), flags = [];
-  if (f0s.length >= 3) {
+  const f0Med = median(f0s), cMed = median(cs), flags = [], judged = f0s.length >= 3;
+  if (judged) {
     for (const s of sentences) {
       if (s.f0 == null) continue;
       const semitones = 12 * Math.log2(s.f0 / f0Med), centroidPct = s.centroid != null ? (s.centroid / cMed - 1) * 100 : 0;
@@ -211,7 +219,7 @@ export function voiceFlags(sentences) {
       }
     }
   }
-  return { f0Med, cMed, flags };
+  return { f0Med, cMed, flags, judged, voiced: f0s.length };
 }
 
 // The sentences of narration.txt with their word ranges in words.json, or null when the counts differ. The split and
@@ -242,10 +250,11 @@ export function phrasesFrom(words, gap = 0.3) {
   return out.map(({ words: t, ...p }) => ({ ...p, text: t.join(' ') }));
 }
 
-// Every <audio ...> tag: { id, src, start, volume, automation, bad } (bad: an attribute that is not a number).
+// Every <audio ...> tag: { id, src, start, volume, duration, mediaStart, rate, automation, bad } (bad: an attribute that is
+// not a number). A tag without src takes the src of its first <source> child.
 export function audioTags(html) {
   const out = [];
-  for (const m of html.matchAll(/<audio\b([^>]*?)\/?>/gi)) {
+  for (const m of html.matchAll(/<audio\b([^>]*?)(\/?)>/gi)) {
     const attrs = {};
     for (const a of m[1].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
       attrs[a[1].toLowerCase()] = (a[2] ?? a[3]).replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
@@ -257,9 +266,27 @@ export function audioTags(html) {
       if (Number.isFinite(v)) return v;
       bad.push(k); return dflt;
     };
-    out.push({ id: attrs.id || '', src: attrs.src || '', start: num('data-start', 0), volume: num('data-volume', 1), automation: attrs['data-automation'] || null, bad });
+    let src = attrs.src || '';
+    if (!src && !m[2]) {
+      const rest = html.slice(m.index + m[0].length), end = rest.search(/<\/audio\s*>|<audio\b/i);
+      const sm = (end < 0 ? rest : rest.slice(0, end)).match(/<source\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+      if (sm) src = (sm[1] ?? sm[2]).replace(/&amp;/g, '&');
+    }
+    out.push({
+      id: attrs.id || '', src, start: num('data-start', 0), volume: num('data-volume', 1), duration: num('data-duration', null),
+      mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1), automation: attrs['data-automation'] || null, bad,
+    });
   }
   return out;
+}
+
+// The music cues among the tags: a name (the id, else the file name without extension) that is the word music, bgm, bed or
+// soundtrack, optionally "background-" before and an index or cue word after (music-a, bgm_2, background-music-loop).
+// A name that merely contains the word (embedded-hit, bedroom, bed-creak, music-box) is a sound effect, not the bed.
+const BED_NAME = /^(?:(?:background|bg)[-_ ]?)?(?:music|bgm|bed|soundtrack)(?:[-_ ](?:\d{1,2}|[a-z]|intro|outro|loop|main|theme|track|cue|full|short)|\d{1,2})*$/i;
+export function musicTags(tags) {
+  const base = (src) => path.basename(String(src).split(/[?#]/)[0]).replace(/\.[a-z0-9]+$/i, '');
+  return tags.filter((t) => BED_NAME.test(t.id) || BED_NAME.test(base(t.src)));
 }
 
 // ── I/O ──────────────────────────────────────────────────────────────────────
@@ -314,13 +341,13 @@ function main(argv) {
   const html = readText(at('index.html'));
   const tags = html.text ? audioTags(html.text) : [];
   if (html.err) warn(html.err);
-  if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
+  else if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
   for (const t of tags) if (t.bad.length) warn(`<audio${t.id ? ' id="' + t.id + '"' : ''}> ${t.bad.join(', ')} is not a number (a template expression?): read as the default`);
   const narrTag = tags.find((t) => /narration/i.test(t.id + ' ' + t.src));
   const narrFile = narrTag && narrTag.src && !/^[a-z]+:/i.test(narrTag.src) && !missing(at(narrTag.src), '') ? at(narrTag.src) : at('audio/narration.wav');
   const narrStart = narrTag ? narrTag.start : 0, narrVol = narrTag ? narrTag.volume : 1;
-  let narrLane = null;
-  try { narrLane = narrTag ? laneOf(narrTag.automation) : null; } catch (e) { warn(`the narration's data-automation is not JSON (${e.message}): its lane is ignored`); }
+  let narrLane = null, narrLaneErr = null;
+  try { narrLane = narrTag ? laneOf(narrTag.automation) : null; } catch (e) { narrLaneErr = e.message; warn(`the narration's data-automation is not JSON (${e.message}): its lane is ignored`); }
 
   const wj = readText(at('audio/words.json'));
   let words = null;
@@ -336,29 +363,51 @@ function main(argv) {
   }
   const rel = (f) => path.relative(a.dir, f) || f;
 
-  // 1. Bed
-  const musicTag = a.music ? tags.find((t) => t.id === a.music || t.src === a.music) : tags.find((t) => /music|bgm|bed/i.test(t.id + ' ' + t.src));
-  const musicSrc = musicTag ? musicTag.src : a.music;
-  let bedLine = null;
-  if (!musicSrc) {
-    info('bed: no music <audio> in index.html (id or src music/bgm/bed); --music <id> names it');
-  } else if (/^[a-z][a-z0-9+.-]*:/i.test(musicSrc)) {
-    skip('bed', `${musicSrc} is a remote file: download it into the project and rerun`);
-  } else if (narr16) {
-    const mf = at(musicSrc), mm = missing(mf, 'the music file');
-    if (mm) skip('bed', mm); else {
+  // 1. Bed: every music cue at its gain, summed. A level the script cannot compute is NOT CHECKED, never "no bed".
+  const musicCues = a.music ? tags.filter((t) => t.id === a.music || t.src === a.music) : musicTags(tags);
+  if (a.music && !musicCues.length) musicCues.push({ id: '', src: a.music, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [] });
+  let bedLine = null, noBed = false;
+  const bedProblem = () => {
+    if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
+    if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
+    if (narrLaneErr) return `the narration's data-automation is not JSON (${narrLaneErr}), so its level is unknown`;
+    for (const c of musicCues) {
+      const who = c.id ? `<audio id="${c.id}">` : c.src;
+      if (!c.src) return `${who} has no src in index.html (set by a script?): pass the file with --music <file>`;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(c.src)) return `${c.src} is a remote file: download it into the project and rerun`;
+      if (c.bad.length) return `${who} ${c.bad.join(', ')} is not a number (a template expression?), so its gain is unknown`;
+      if (c.rate !== 1) return `${who} has data-playback-rate ${c.rate}, which this check does not model`;
+      try { laneOf(c.automation); } catch (e) { return `${who} data-automation is not JSON (${e.message}), so its gain is unknown`; }
+    }
+    return null;
+  };
+  if (!musicCues.length) {
+    if (html.err) skip('bed', 'index.html could not be read, so which music plays is unknown: fix the WARN above and rerun');
+    else if (html.text == null) skip('bed', 'there is no index.html to say which music plays: pass the file with --music <file>');
+    else {
+      noBed = true;
+      const others = tags.filter((t) => t !== narrTag).map((t) => t.id || t.src).filter(Boolean);
+      info(`bed: no music <audio> in index.html (id or file name music/bgm/bed/soundtrack, e.g. music-a)${others.length ? `; not taken as the bed: ${others.slice(0, 6).join(', ')}` : ''}; --music <id> names it`);
+    }
+  } else {
+    const why = bedProblem();
+    if (why) skip('bed', why);
+    else if (narr16) {
       try {
-        let lane = null;
-        try { lane = laneOf(musicTag && musicTag.automation); } catch (e) { warn(`the bed's data-automation is not JSON (${e.message}): its lane is ignored`); }
-        const music = decode(mf, rate16);
-        const vol = musicTag ? musicTag.volume : 1, st = musicTag ? musicTag.start : 0;
-        const total = Math.round((narrStart + narr16.length / rate16) * rate16);
-        const bed = applyGain(music, rate16, st, vol, lane, total);
+        const total = Math.round((narrStart + narr16.length / rate16) * rate16), bed = new Float32Array(total), shown = [];
+        for (const c of musicCues) {
+          const mf = at(c.src), mm = missing(mf, 'the music file');
+          if (mm) throw new Error(mm);
+          const lane = laneOf(c.automation);
+          const clip = applyGain(decode(mf, rate16), rate16, c.start, c.volume, lane, total, { mediaStart: c.mediaStart, dur: c.duration });
+          for (let i = 0; i < total; i++) bed[i] += clip[i];
+          shown.push(`${rel(mf)} x ${+c.volume.toFixed(3)}${lane ? ' (volume lane)' : ''}`);
+        }
         const nt = applyGain(narr16, rate16, narrStart, narrVol, narrLane, total);
         const g = bedGap({ narr: nt, bed, rate: rate16, speech: spans.map(([s, e]) => [s + narrStart, e + narrStart]) });
         if (!Number.isFinite(g.gapDb)) skip('bed', 'no speech frames to compare against (words.json empty and the narration silent)');
         else {
-          bedLine = row('Bed', `${rel(mf)} x ${+vol.toFixed(3)}${lane ? ' with a volume lane' : ''} sits ${g.gapDb.toFixed(1)} dB under the narration in speech (band ${T.bedMinUnder}–${T.bedMaxUnder})${Number.isFinite(g.pauseBedDb) ? `, pauses ${g.pauseBedDb.toFixed(1)} dBFS` : ''}`);
+          bedLine = row('Bed', `${shown.join(' + ')} sits ${g.gapDb.toFixed(1)} dB under the narration in speech (band ${T.bedMinUnder}–${T.bedMaxUnder})${Number.isFinite(g.pauseBedDb) ? `, pauses ${g.pauseBedDb.toFixed(1)} dBFS` : ''}`);
           done.push('bed');
           if (g.verdict === 'inaudible') flag(`bed inaudible: ${g.gapDb.toFixed(1)} dB under the narration (> ${T.bedMaxUnder}): raise its data-volume or lane`);
           if (g.verdict === 'masks') flag(`bed masks words: only ${g.gapDb.toFixed(1)} dB under the narration (< ${T.bedMinUnder}): lower it`);
@@ -392,7 +441,9 @@ function main(argv) {
   if (narr48) scans.push(scan(narr48, rel(narrFile), 0));
   if (a.mix) {
     const mixFile = missing(at(a.mix), '') ? a.mix : at(a.mix), mm = missing(mixFile, 'the mix file');
-    if (mm) skip('mix', mm); else {
+    if (html.err) skip('mix', 'index.html could not be read, so the narration\'s data-start is unknown: fix the WARN above and rerun');
+    else if (narrTag && narrTag.bad.includes('data-start')) skip('mix', `the narration's data-start is not a number, so the mix cannot be lined up with the words`);
+    else if (mm) skip('mix', mm); else {
       try { scans.push(scan(decode(mixFile, rate48), a.mix, narrStart)); } catch (e) { if (e instanceof Fatal) { console.error(e.message); process.exit(1); } skip('mix', e.message); }
     }
   } else if (narr48) info('pass --mix draft.mp4 to scan the mix too');
@@ -423,11 +474,12 @@ function main(argv) {
       return { ...u, f0: f0Of(x, rate16), centroid: centroidOf(x, rate16) };
     });
     const v = voiceFlags(per);
-    done.push('voice');
     const unvoiced = per.filter((s) => s.f0 == null).length;
     lines.push(row('Voice', Number.isFinite(v.f0Med)
       ? `${per.length} ${unitName}s, median ${Math.round(v.f0Med)} Hz, centroid ${Math.round(v.cMed)} Hz${unvoiced ? `, ${unvoiced} too short or unvoiced to judge` : ''}`
       : `${per.length} ${unitName}s, none long enough or voiced to judge`));
+    if (v.judged) done.push('voice');
+    else skip('voice', `only ${v.voiced} of ${per.length} ${unitName}${per.length === 1 ? '' : 's'} long enough and voiced to judge; comparing against the take's median needs at least 3 (nothing was compared)`);
     for (const f of v.flags) {
       const text = f.text.length > 60 ? f.text.slice(0, 57) + '…' : f.text;
       flag(`${unitName} ${f.n} at ${fmt(f.start)} is ${f.semitones >= 0 ? '+' : ''}${f.semitones.toFixed(1)} st / ${f.centroidPct >= 0 ? '+' : ''}${Math.round(f.centroidPct)} % centroid off the take: "${text}"${unitName === 'sentence' ? ` -> --retake ${f.n}` : ''}`);
@@ -437,7 +489,7 @@ function main(argv) {
   lines.push(...flags);
   if (flags.length) lines.push(row('Result', `${flags.length} flag(s) — each is a P1: fix and rerun.`));
   else if (notChecked.length) lines.push(row('Result', `NOT CHECKED: ${[...new Set(notChecked)].join(', ')} — rerun after fixing the WARN above.`));
-  else lines.push(row('Result', `OK — ${done.includes('bed') ? 'bed audible' : 'no bed in the film'}, no clicks or dropouts, voice steady.`));
+  else lines.push(row('Result', `OK — ${done.includes('bed') ? 'bed audible' : noBed ? 'no bed in the film' : 'bed not judged'}, no clicks or dropouts, voice steady.`));
   console.log(lines.join('\n'));
   process.exit(flags.length ? 3 : notChecked.length ? 2 : 0);
 }
