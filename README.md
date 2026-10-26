@@ -243,7 +243,7 @@ Borrowing the **craft** of a video you admire — section lengths, cut rhythm, c
 
 [MIT](LICENSE) — do what you like with the skill.
 
-Not ours to license: VoiceStudio's default **OmniVoice** weights (CC-BY-NC) and the **ElevenLabs free tier** are non-commercial; **VoxCPM2** is Apache-2.0. That limit follows the audio they generate, not this repo. `check_assets.mjs --commercial` fails any non-commercial asset before a monetised render, and `check_assets.mjs` checks the narration's licence against the model that spoke it (`scripts/voice_licences.mjs`).
+Not ours to license: VoiceStudio's default **OmniVoice** weights (CC-BY-NC) and the **ElevenLabs free tier** are non-commercial; **VoxCPM2** is Apache-2.0. That limit follows the audio they generate, not this repo. `check_assets.mjs --commercial` fails any non-commercial asset before a monetised render, and `check_assets.mjs` checks the narration's licence against the model that spoke it (`scripts/voice_licences.mjs`); a voice that table cannot identify is a `WARN`, never read as commercial-OK.
 
 Parts of `references/camera-motion.md` paraphrase [smixs/visual-skills](https://github.com/smixs/visual-skills) by Serge Shima (CC BY 4.0) and [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT); see [NOTICE](NOTICE).
 

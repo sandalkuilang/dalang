@@ -48,7 +48,10 @@ that reads as:
 - `check_assets.mjs` checks the narration's `ASSETS.json` row against the model its take recorded
   (`audio/<name>.response.json`): a non-commercial voice (OmniVoice, the ElevenLabs free tier; one table in
   `scripts/voice_licences.mjs`) listed under a commercial licence is a problem, and an unreadable response file fails
-  closed.
+  closed. A voice the table cannot identify (a model not in it, an ElevenLabs plan that could not be read, a take
+  made before the plan was recorded) is a `WARN` naming the response file, to check the model card / plan; never
+  read as commercial-OK. A non-commercial take with no `ASSETS.json` row of its name is a `WARN` too.
+- `tts_timestamps.mjs --api-url` points the ElevenLabs calls at another base URL (the tests use a mock).
 - Brief: a non-commercial voice is stated in Call 0 and at Gate 2 even when the user said not to ask.
 
 ## [1.4.0] - 2026-10-26
