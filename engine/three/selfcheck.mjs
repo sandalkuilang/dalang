@@ -1353,6 +1353,45 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.equal(zFight(set(hid), { cameras: near }).pairs.length, 0, "a hidden mesh is ignored");
   const mir = quad("decal"); mir.scale.x = -1;
   assert.equal(zFight(set(mir), { cameras: near }).pairs.length, 1, "a mirrored coplanar quad is still flagged");
+  { // review round: unchecked props nested in groups, offsets that do nothing, edge-touching tiles
+    const nest = new THREE.Scene(), grp = new THREE.Group(); grp.name = "set";
+    const cup = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat); cup.name = "cup"; cup.userData.real = { h: 0.1 };
+    const jar = new THREE.Mesh(new THREE.BoxGeometry(8, 100, 8), mat); jar.name = "jar";
+    grp.add(cup, jar); nest.add(grp);
+    let n = scaleAudit(nest);
+    assert.deepEqual([n.unchecked, n.checked], [["jar"], 1], "an undeclared prop in a group beside a declared one is unchecked: " + JSON.stringify(n));
+    const whole = new THREE.Group(); whole.name = "lamp"; whole.userData.real = { h: 0.1 };
+    const lampPart = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat); lampPart.name = "shade"; whole.add(lampPart);
+    const undeclared = new THREE.Group(); undeclared.name = "shelf"; undeclared.add(new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat), new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat));
+    const two = new THREE.Scene(); two.add(whole, undeclared);
+    n = scaleAudit(two);
+    assert.deepEqual([n.unchecked, n.checked, n.ok], [["shelf"], 1, true], "a declared group covers its parts; an undeclared group is one unchecked unit: " + JSON.stringify(n));
+    const holder = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat); holder.name = "holder"; holder.add(cup.clone());
+    holder.children[0].userData.real = { h: 0.1 };
+    const hs = new THREE.Scene(); hs.add(holder);
+    assert.deepEqual(scaleAudit(hs).unchecked, ["holder"], "a mesh whose child declares a size but not itself is unchecked");
+
+    const cam1 = near, set2 = (...ms) => { const w = new THREE.Scene(); if (!ms.some((m) => m.name === "floor")) w.add(quad("floor")); w.add(...ms); return w; };
+    const offMat = (factor, units) => new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: factor, polygonOffsetUnits: units });
+    r = zFight(set2(quad("decal", 0, offMat(0, 0))), { cameras: cam1 });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "polygonOffset with factor 0 and units 0 changes no depth: " + JSON.stringify(r));
+    r = zFight(set2(quad("decal", 0, offMat(-1, -1)), quad("floor", 0, offMat(-1, -1))), { cameras: cam1 });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "the same offset on both cancels: " + JSON.stringify(r));
+    r = zFight(set2(quad("decal", 0, offMat(-1, -1)), quad("floor", 0, offMat(1, 1))), { cameras: cam1 });
+    assert.ok(r.pairs.length === 0 && r.mitigated === 1, "different offsets separate the faces");
+    const box = (mats) => { const b = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), mats); b.name = "decal"; b.position.z = -5; return b; };
+    const six = (at) => [0, 1, 2, 3, 4, 5].map((i) => (i === at ? offMat(-1, -1) : new THREE.MeshStandardMaterial()));
+    r = zFight(set2(box(six(0))), { cameras: cam1 });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "an offset on a material of an unrelated face group hides nothing: " + JSON.stringify(r));
+    r = zFight(set2(box(six(4))), { cameras: cam1 });
+    assert.ok(r.pairs.length === 0 && r.mitigated === 1, "an offset on the material of the coplanar face group is mitigated: " + JSON.stringify(r));
+
+    const tile = (name, x, y = 0) => { const q = quad(name); q.position.set(x, y, 0); return q; };
+    const tiles = (b) => { const w = new THREE.Scene(); w.add(tile("tileA", 0), b); return w; };
+    assert.equal(zFight(tiles(tile("tileB", 100)), { cameras: cam1 }).pairs.length, 0, "tiles that only share an edge do not overlap");
+    assert.equal(zFight(tiles(tile("tileB", 100, 100)), { cameras: cam1 }).pairs.length, 0, "tiles that only share a corner do not overlap");
+    assert.equal(zFight(tiles(tile("tileB", 90)), { cameras: cam1 }).pairs.length, 1, "tiles that overlap by 10 cm fight");
+  }
   assert.throws(() => zFight(set(quad("d")), {}), /cameras/);
   assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
 }
