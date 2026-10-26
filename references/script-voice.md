@@ -38,7 +38,7 @@ Details: `voice.md` "Use".
 ```bash
 node <skill-dir>/scripts/tts_timestamps.mjs --list-voices
 node <skill-dir>/scripts/tts_timestamps.mjs --input narration.txt --out audio --voice "<voice>" --language <lang> --sample [--instructions "<gender, age, pitch, style>"]
-node <skill-dir>/scripts/tts_timestamps.mjs --input narration.txt --out audio --voice "<pick>" --language <lang> [--instructions "<same>"] [--speed 1.0]
+node <skill-dir>/scripts/tts_timestamps.mjs --input narration.txt --out audio --voice "<pick>" --language <lang> [--instructions "<same>"] [--speed 1.0] [--retake auto]
 ```
 
 The engine defaults to VoiceStudio (free); add `--engine elevenlabs` only when `BRIEF.md` says so (it bills).
@@ -52,6 +52,6 @@ The engine defaults to VoiceStudio (free); add `--engine elevenlabs` only when `
 - **Dialogue:** one voice per character with `--voices name=<voice>,name=<voice>`.
 - **The user's own recording** (any audio or video file, narration or dialogue): `--from-audio <file> --language <lang> --own-recording` keeps it as the voice track and gets the timing by transcribing it (needs VoiceStudio's speech-to-text). No audition, no generation, no cost. `--own-recording` states that the file is a human recording the user may use (their voice, or a speaker who gave permission), never TTS output; it is what makes the narration commercial-OK for `check_assets.mjs`. A generated take cut and retimed with `--from-audio` goes without it and keeps the licence of the take it was cut from (an OmniVoice take stays CC-BY-NC); an origin the script cannot trace is a `WARN`.
 - Outputs: the narration audio; `words.json` (`{ i, text, start, end, est?, score? }`); `narration.srt`; `beats.json` and `beats.js` (`window.BEATS.<name>.start`, `BEATS_LIST`, `SECTIONS`, `WORDS`, `NARRATION_DURATION`); `narration.response.json` (keep it for `--from-response`).
-- Act on every warning (a low alignment score, words heard ≠ words written, estimated words — listed by the script, beats on an estimated word, unnamed beats) before the storyboard. Log characters billed (0 for VoiceStudio).
+- Act on every warning (a low alignment score, words heard ≠ words written, estimated words — listed by the script, beats on an estimated word, unnamed beats) before the storyboard. You cannot listen, so a flagged sentence is fixed with `--retake auto` (`--retake auto --from-response audio/narration.response.json` on a take you already made): it re-speaks only that sentence, splices it in and retimes the file, and none is left open. A sentence still flagged after its two tries is respelled in `narration.txt`, then `--retake changed`. A `503` that ends in `WARN … rerun` is VoiceStudio still finishing a job: wait and rerun, never restart it. Log characters billed (0 for VoiceStudio).
 
-Play the narration to the user and **wait for approval**. Mispronounced word → respell it in `narration.txt` and regenerate.
+Play the narration to the user and **wait for approval**. Mispronounced word → respell it in `narration.txt` and run `--retake changed` (only the edited sentences are re-spoken; `voice.md` "Use").

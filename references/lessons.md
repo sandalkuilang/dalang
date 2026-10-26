@@ -8,6 +8,8 @@ Each line is a failure that already happened. Read this file when something goes
 - **The script was rewritten five times** because the brief (duration, language) was settled late. Ask everything in Step 1, before the first draft.
 
 ## Voice and timing
+- **A warning that says "listen" is not actionable for an agent.** A low-alignment warning pointed at a spot to listen to; the agent moved on and the user heard the noise there. A full re-take costs 15–25 min, so three bad sentences were re-spoken and hand-spliced with ad-hoc crossfades. `--retake auto|<n,…>|changed` re-speaks and splices only those sentences; every warning names a command, never "listen" or "check by ear".
+- **A heavy chunk timed out and the abandoned job kept the device,** so an immediate retry failed again; the script printed `FAILED` and the agent restarted the app by itself. Chunks stay within the engine's limit (120 characters for VoxCPM2), and a `503` waits, retries once, then is a `WARN … rerun` with exit 3: BUSY means wait, never restart.
 - **Per-sentence timing ≠ per-word timing.** A per-sentence transcript is accurate only to ~1/6 s. Use `words.json`.
 - **One number-heavy section is not a representative pace sample** (2.09 vs 2.30 words/s for the full script, same voice). After the full generation, re-check the real duration.
 - **Accent tags changed the pace** (2.30 → 2.57 words/s; 134 s against a 150 s target). Calibrate with the tags you will use; fix small misses with `--speed`.
