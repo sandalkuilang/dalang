@@ -5,7 +5,8 @@
 //   The same script against a mock VoiceStudio dialogue (style key per model) and a mock ElevenLabs (the plan tier it records).
 // Part 2: check_assets.mjs on fixture projects: the narration's ASSETS.json licence is checked against the model its
 //   take recorded (audio/<name>.response.json _meta), so a non-commercial voice cannot pass under a commercial licence,
-//   and a take whose voice it cannot identify is a WARN (never silence, never "commercial-OK").
+//   and a take whose voice it cannot identify is a WARN (never silence, never "commercial-OK"). A --from-audio take is
+//   commercial-OK only with --own-recording; a commercial row never matches on the engine alone (checkRows).
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs";

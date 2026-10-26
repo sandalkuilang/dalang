@@ -14,8 +14,11 @@
 //   node tts_timestamps.mjs --engine elevenlabs --input narration.txt --out audio --voice "Chris" --language en
 //   node tts_timestamps.mjs --input narration.txt --out audio --from-response audio/narration.response.json
 //                              -> re-time after moving {} markers, no new audio (language read from the response)
-//   node tts_timestamps.mjs --input dialogue.txt --out audio --from-audio recording.mp4 --language en
-//                              -> the user's own recording is the voice track (VoiceStudio only transcribes it)
+//   node tts_timestamps.mjs --input dialogue.txt --out audio --from-audio recording.mp4 --language en --own-recording
+//                              -> the user's own recording is the voice track (VoiceStudio only transcribes it).
+//                                 --own-recording states it is a human recording the user may use; without it the
+//                                 file's origin is unknown and the take keeps the take it was cut from (a TTS take
+//                                 retimed after editing stays that model's licence)
 //   node tts_timestamps.mjs --input dialogue.txt --out audio --voices <name>=<voice>,<name>=<voice>
 //                              -> multi-voice dialogue, one voice per speaker
 //   node tts_timestamps.mjs --save-profile "<name>" --ref clip.wav [--ref-text "<words>"] --language en
@@ -88,6 +91,7 @@ function parseArgs(argv) {
       case '--list-voices': a.listVoices = true; break;
       case '--from-response': a.fromResponse = next(); break;
       case '--from-audio': a.fromAudio = next(); break;
+      case '--own-recording': a.ownRecording = true; break;
       case '--voices': a.voices = next().toLowerCase(); break;
       case '--seed': a.seed = parseInt(next(), 10); if (!Number.isInteger(a.seed)) die('--seed needs an integer'); break;
       case '--steps': a.steps = parseInt(next(), 10); break;
@@ -688,6 +692,7 @@ async function main() {
   const { clean, beats, sections, dlines, order, gaps } = parseNarration(raw, a.sample);
   if (!clean.trim()) die('Narration is empty after dropping # lines and blank lines.');
   const limit = MAX_CHARS[a.engine];
+  if (a.ownRecording && !a.fromAudio) die('--own-recording states the origin of a --from-audio file; it needs --from-audio.');
   if (!a.fromAudio && !order.length && clean.length > limit) die(`Narration is ${clean.length} characters, over the ${a.engine} limit of ${limit}. Split it into one file per section.`);
   if (order.length && !a.fromAudio && !a.fromResponse && !a.sample && a.engine !== 'voicestudio') die('Multi-voice dialogue is generated with --engine voicestudio --voices name=voice,...; or record it and pass --from-audio.');
   const unnamed = beats.filter(b => !b.label).length;
@@ -714,14 +719,23 @@ async function main() {
       console.warn('WARNING: the narration words differ from when this response was made. Timing may be off; regenerate the audio if the words changed.');
     }
   } else if (a.fromAudio) {
-    // The user's own recording: keep it as the voice track, get word timing by transcribing it.
+    // A recording (the user's, or a take cut and retimed): keep it as the voice track, get word timing by transcribing it.
+    // The script cannot tell a human recording from TTS output: --own-recording states it. Without it, the take keeps
+    // what spoke before, the source file's own take or the take this one replaces (read before it is overwritten),
+    // so a non-commercial voice stays non-commercial (scripts/voice_licences.mjs).
+    const metaOf = f => { try { const m = JSON.parse(readFileSync(f, 'utf8'))._meta; return m && typeof m === 'object' ? m : null; } catch { return null; } };
+    const keep = m => m && { engine: m.engine, model: m.model, tier: m.tier, origin: m.origin, source: m.source, from: keep(m.from) };
+    const src = path.parse(a.fromAudio);
+    const from = a.ownRecording ? null : keep(metaOf(path.join(src.dir, `${src.name}.response.json`)) ?? metaOf(path.join(a.out, `${a.name}.response.json`)));
     const audioPath = path.join(a.out, `${a.name}.wav`);
     try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', a.fromAudio, '-vn', '-c:a', 'pcm_s16le', audioPath]); }
     catch (e) { die(`ffmpeg could not read the audio in ${a.fromAudio}: ${e.message}`); }
     process.stdout.write(`Transcribing ${path.basename(a.fromAudio)} with VoiceStudio for word timing... `);
     response = await vsTranscribe(a, audioPath, stripTags(clean));
     console.log('done.');
-    response._meta = { engine: 'user-audio', source: path.basename(a.fromAudio), language: a.language, text: clean, characters: 0, created: new Date().toISOString() };
+    response._meta = { engine: 'user-audio', origin: a.ownRecording ? 'own-recording' : null, ...(from && { from }), source: path.basename(a.fromAudio), language: a.language, text: clean, characters: 0, created: new Date().toISOString() };
+    const v = voiceModel(response._meta);
+    console.log(`Voice      : ${v ? `${v.name} — ${v.licence}${v.nc ? ' — non-commercial (the take it was cut from): tell the user; ASSETS.json lists the narration so' : ''}` : `licence unknown (${unknownVoice(response._meta)})`}`);
   } else if (a.engine === 'voicestudio' && order.length && !a.sample) {
     const audioPath = path.join(a.out, `${a.name}.wav`);
     process.stdout.write(`Generating ${order.filter(o => !o.pause).length} dialogue lines with VoiceStudio (${a.voices || 'no --voices'}), then transcribing for word timing... `);
