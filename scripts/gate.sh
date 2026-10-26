@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# scripts/gate.sh [--fast] — the repo's gate, run from inside the checkout it checks. --fast: static checks (seconds), for a worker
+# scripts/gate.sh [--fast] — the repo's gate, run from inside the checkout it checks. --fast: static checks (seconds): syntax,
+# SKILL.md front-matter, README diagrams, the reading list (state.mjs reading: headings exist, sections within budget), for a worker
 # before its PR. Without it, the merge gate: the static checks, then the engine built into a temp dir and its
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the palette measurement. CI runs the merge gate on every push and pull request.
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio. CI runs the merge gate on every push and pull request.
@@ -20,6 +21,8 @@ engine() { local d; d=$(mktemp -d) && node engine/three/build.mjs "$d" >/dev/nul
 step "syntax (scripts, engine, tests)" syntax
 step "SKILL.md front-matter" frontmatter
 step "README diagrams (light derived from dark)" python3 docs/assets/build.py --check
+step "reading list (headings exist, sections <= 8 KB, Steps 0–8 <= 60 KB)" node scripts/state.mjs reading
+step "state.mjs next vs fixture projects and fixture skills" node tests/reading.mjs
 if [ $fast -eq 0 ]; then
   step "engine build + self-check" engine
   step "preflight vs mock VoiceStudio" node tests/preflight-mock.mjs
