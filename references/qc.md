@@ -33,6 +33,7 @@ node <skill-dir>/scripts/strips.mjs   # 3 stills per storyboard shot, one row pe
 - Run `check`, snapshots and renders with no model job running: next to a model job one `check` took 121–149 s instead of 13–18 s.
 - A render far slower than the last one (over 3×) → stop it and look for a cause (`--debug`, other Chrome processes, a heavy filter) instead of waiting.
 - Log every problem in `PRODUCTION.md`.
+- **Strobing check** (24 fps brief with 3D camera moves or fast bodies): snapshot two adjacent frames across the fastest move and the fastest body; sharp doubles instead of a smear = P1 "strobing on camera moves". The 10 fps draft cannot show it.
 
 Then `npx hyperframes preview --background --no-open` (without `--no-open` it launches the user's own Chrome) and show the Studio URL **only in Claude's isolated built-in browser** (the Browser pane: `preview_start` with the URL). Never the system browser, `open <url>`, or Claude in Chrome (the user's real Chrome); no built-in browser → give the URL as text. Then **wait for approval** (changes → Steps 6–7). After approval:
 
@@ -43,6 +44,8 @@ node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-di
 npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output final.mp4
 node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4
 ```
+
+The fps is the brief's (30 for vertical social, never 60). At 24 with camera moves or fast bodies, confirm the blur is on: two adjacent frames across the fastest move smear into each other; sharp copies a few px apart strobe (P1, rubric "Strobing").
 
 `--commercial` when the video will be monetised (fails non-commercial licences). Loudness still off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4` and deliver that file.
 

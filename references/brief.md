@@ -53,6 +53,15 @@ Then AskUserQuestion: Call 0 only when setup left a choice, then Calls 1 and 2 (
    For a 3D set, record from the topic (ask only when it is unclear): **`condition`** for any made thing in it (a room, a machine, a street, a battery) — `lived-in` by default, `new`, or `worn` (peeling paint, scuffs, grime, corrosion: only when the topic is about age, neglect, hardship or history); and, only when the set has rooms or furniture, **`interior`** — `american-japandi` by default (honey bamboo and light oak, warm white walls, a white or navy panel door, oatmeal linen, a ceramic or two, American home motifs: Shaker panels, buffalo check, ticking stripe, a braided rug), another when the topic names a place or style.
 
 ### Call 2 (its options follow the platform)
+**fps follows the platform** (plain text before the call, no question; save it in `BRIEF.md`):
+
+| Platform | fps |
+|---|---|
+| Shorts, Reels, TikTok, Instagram feed | 30 |
+| YouTube landscape | 30; 24 only for a film look the user picks (offered under "Calm cinematic"), with the blur rule of `camera-motion.md` §10 |
+| anything else | 30 |
+
+Those platforms play at 30 (Reels caps there), so 24 repeats one frame in four and judders on pans. Never 60: double the render time, re-encoded to 30.
 5. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Narrative pacing is strongest at 30–90 s; above 3 min, one composition per section.
 6. **Visual style** — read `looks.md` and `visual-direction.md` §5. Offer the **looks of the chosen realism that best fit this topic** (up to 4), recommended first; name the others in the question text so "Other" reaches them. Every option gets a `preview`: a short sketch of one frame of *this* topic in that look (the real subject and its source, set, the ground colour and how the hero separates from it, light, type, motion), never a banned default (`looks.md`, `visual-direction.md` §5). A reference the user liked steers the palette: use its `## Palette` in `reference-measurements.md` when Step 2 measured one.
 7. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" goes on Punchy for 9:16 under 60 s, else on Modern balanced.
@@ -64,6 +73,6 @@ After Call 2: its recommendation follows the Audience answer. Never fill `voice`
 
 ### Save the brief
 
-Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (24 — reads as film, `camera-motion.md` §10 — unless the platform or user needs 30), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
+Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (from the platform, table in Call 2), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
 
 Step 2 (optional, measuring a reference's craft): `measure-reference.md`.
