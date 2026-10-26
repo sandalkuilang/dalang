@@ -140,6 +140,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 | **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide (a bake's impacts, latches and breaks place and level their own SFX: `sfx.js`) |
+| **Series** | save a channel's kit once (`series.mjs`): its next videos start from it with the same look, HUD, captions, voice and rules, and fewer questions; never scene code |
 
 <br/>
 
@@ -173,6 +174,7 @@ scripts/
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
+  series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
   strips.mjs           review strips: stills per shot on numbered sheets + index; --against labels what changed since the last round
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
@@ -186,7 +188,7 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   quantities (flow arrows, tile fills, range cards), camera stations and
                   attention) with a self-check; bake.mjs caches a physics bake once for every
                   snapshot and render; examples/ ready pieces
-tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint (run by the gate)
+tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```
@@ -200,7 +202,7 @@ Not in this repo — in **your** project, one folder per video:
 
 ```
 video/<slug>/
-├── BRIEF.md          every Step 1 decision (format, language, look, energy, sign-off)
+├── BRIEF.md          every Step 1 decision (format, language, look, energy, sign-off, series)
 ├── PRODUCTION.md     work log, one line per step — the source of every number
 ├── script.md         for humans: sections, visual notes, every number tagged with its source
 ├── narration.txt     only the spoken words + {beat|name} markers
