@@ -33,6 +33,13 @@ that reads as:
 
 ### Added
 
+- **`state.mjs next` prints a step's reading list** (`node scripts/state.mjs next [dir] [--step 0-8]`): it works out
+  where the video stands from its files and prints that step's sections as ready `sed` commands with absolute paths,
+  from one table that mirrors `SKILL.md`'s step table, plus the headlines of the step's lessons, one command per section
+  the step's text points to, and what a subagent reads. `state.mjs reading` checks the table (every heading exists,
+  every section is at most 8 KB, Steps 0–8 together at most 60 KB); `scripts/gate.sh --fast` runs it and
+  `tests/reading.mjs`, which proves it fails on an oversized section, a missing heading, a bad lesson tag and an
+  over-budget total.
 - **Camera stations and attention** (`engine/three/camera.js`): `stations`, `frame`, `travel` (an arc over the set, eased,
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by
@@ -144,6 +151,14 @@ that reads as:
 
 ### Changed
 
+- **Reading is mechanical, images stay in subagents, scenes are patched with `Edit`** (`SKILL.md` "Work fast"): the
+  agent reads only what `state.mjs next` prints and never a reference, the engine README or `lessons.md` whole (a run
+  read about three quarters of the docs into the main context); the main agent never `Read`s a still, strip, contact
+  sheet or scope, every "look at this", fix checks between QC rounds included, is a subagent with a text verdict
+  (`qc.md`, `look-build.md`); scene changes are `Edit` calls, never `python3 - <<EOF`, `sed -i` or an inline script.
+  `lessons.md` is tagged by step. Brief Step 1's calls, `camera-motion.md` §5, §11 and §12 and `visual-direction.md` §1
+  are split into `###` sections and `qc.md` gets `## Step 8 — Final render`, so every section a step reads is at most
+  8 KB. README and `docs/` in step.
 - **Look C's default ground is light and warm; the hero separates by value** ("light set, dark detail"): dark functional
   parts, AO and a contact shadow give at least ~0.2 OKLCH L between the hero and the ground behind it; a dark or saturated
   full-frame ground only when the user or a measured reference asks. The §11 rubric gains a **Figure-ground** test (P1,
