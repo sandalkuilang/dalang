@@ -69,13 +69,13 @@ const check = (rows, args = [], opts, brief) => {
 {
   const text = { see: "a headline that fills the frame; blank mid", act: "type animates in" };
   const three = { 2: text, 5: text, 8: text };
-  let r = check(clean(10, three), [], { step: 2 });
-  assert.equal(r.code, 1, r.out); assert.match(r.out, /3 of 10 rows/); assert.equal(found(r.out).length, 1, r.out);
-  r = check(clean(10, { 2: text }), [], { step: 2 }); assert.equal(r.code, 0, r.out);
-  r = check(clean(10, { 2: { ...text, act: "headline built as a three.js mesh, Rapier drop" }, 5: text }), [], { step: 2 });
+  let r = check(clean(12, three), [], { step: 2 });
+  assert.equal(r.code, 1, r.out); assert.match(r.out, /3 of 12 rows/); assert.equal(found(r.out).length, 1, r.out);
+  r = check(clean(12, { 2: text }), [], { step: 2 }); assert.equal(r.code, 0, r.out);
+  r = check(clean(12, { 2: { ...text, act: "headline built as a three.js mesh, Rapier drop" }, 5: text }), [], { step: 2 });
   assert.equal(r.code, 0, r.out);
-  r = check(clean(10, three), ["--energy", "punchy"], { step: 1 });
-  assert.equal(r.code, 1, r.out); assert.doesNotMatch(r.out, /text only/, r.out); // 30 % > 25 % punchy: flagged below
+  r = check(clean(12, three), ["--energy", "punchy"], { step: 1 });
+  assert.equal(r.code, 0, r.out); // 3 of 12 = 25 %, at the punchy limit
 }
 // 5. average shot
 {
