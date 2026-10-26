@@ -8,7 +8,8 @@
 //        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--dry-run]
 //   --frames <dir>  tile stills already captured there (…at-<s>s.png) instead of capturing
 //   --dry-run       write index.md only: no capture, no ffmpeg
-// Exit 1: usage, or no shots. Exit 2: the capture or ffmpeg failed. Exit 3: a still is missing (black cell, WARN).
+// Exit 1: usage, or no shots. Exit 2: the capture or ffmpeg failed, or no still matches any shot time (stills of an
+// earlier timing). Exit 3: some still is missing (black cell, WARN).
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -16,7 +17,7 @@ import path from 'node:path';
 
 const argv = process.argv.slice(2);
 const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames'];
-const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
+const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const dir = argv.find((x, i) => !x.startsWith('--') && !VAL.includes(argv[i - 1])) ?? '.';
 const perShot = Math.max(1, parseInt(opt('--per-shot', '3'), 10) || 3);
 const shotsPerSheet = Math.max(1, Math.floor((parseInt(opt('--per-sheet', '12'), 10) || 12) / perShot));
@@ -39,7 +40,8 @@ const fromStoryboard = () => {
 const fromBeats = () => {
   const f = path.join(dir, opt('--audio', 'audio'), 'beats.json'); if (!existsSync(f)) return null;
   let B; try { B = JSON.parse(readFileSync(f, 'utf8')); } catch { return null; }
-  const t = (B.beats ?? []).filter(b => Number.isFinite(b.start)); // an untimed beat is no shot
+  if (!Array.isArray(B?.beats)) return null; // valid JSON, but no beat list
+  const t = B.beats.filter(b => Number.isFinite(b.start)); // an untimed beat is no shot
   return t.map((b, i) => ({ shot: String(i + 1), start: b.start, end: t[i + 1]?.start ?? B.duration, beat: b.name }))
     .filter(s => Number.isFinite(s.end) && s.end > s.start);
 };
@@ -88,6 +90,11 @@ if (!dry) {
   }
   scan();
   if (!found.size) { console.error(`No stills named …at-<s>s.png in ${framesDir}.`); process.exit(2); }
+  if (!frames.some(f => still(f.t))) { // stills exist, none for any shot: an earlier timing, or stamps the snapshot rounded past 10 ms
+    const list = (a) => `${a.slice(0, 6).join(', ')}${a.length > 6 ? ', …' : ''} s`;
+    console.error(`No still in ${framesDir} is within 10 ms of a shot time: ${found.size} still${found.size > 1 ? 's' : ''} at ${list([...found.keys()].sort((a, b) => a - b).map(k => k / 1000))}, shots at ${list(frames.map(f => f.t))}.\nStills of an earlier timing? Capture again (without --frames), or point --frames at the stills of this storyboard.`);
+    process.exit(2);
+  }
   if (spawnSync('ffmpeg', ['-version']).error) { console.error(`Tiling needs ffmpeg; the stills are in ${framesDir}.`); process.exit(2); }
   for (const f of readdirSync(out)) if (/^strip-\d+\.jpg$/.test(f)) rmSync(path.join(out, f)); // a smaller rerun leaves no stale sheet
 }
