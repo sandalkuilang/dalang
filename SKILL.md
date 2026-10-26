@@ -26,11 +26,13 @@ This skill decides the order of work, when to stop for approval, and the quality
 
 - **One video = one session.** State lives in the project files. To resume, run `node <skill-dir>/scripts/state.mjs` and read `BRIEF.md` and the end of `PRODUCTION.md`; don't replay old chat.
 - **Read lazily.** At each step read only the reference file the table names (only its §); never re-read a file already in context. From `/hyperframes`, only the type guides this video needs.
-- **Small tool output.** `--json` filtered in a one-liner; never print `words.json`, `*.response.json` or full logs; `tail`/`grep` logs; `render --quiet`. Scan frames on snapshot's contact sheet; open full-size stills only to judge the subject's realism, zoomed.
+- **Small tool output.** `--json` filtered in a one-liner; never print `words.json`, `*.response.json` or full logs; `tail`/`grep` logs; `render --quiet`. Scan frames on snapshot's contact sheet; open full-size stills only to judge the subject's realism, zoomed. Change an existing file with Edit, never a whole-file Write.
+- **Verification in a subagent.** A snapshot → look → what-is-wrong loop (a fix check, the fresh-eyes review) runs in a subagent that returns a text verdict per item; the stills and logs stay out of this context, which every later call re-reads.
+- **Compact at Gates 3 and 4.** Tell the user once, at each, that `/compact` (or a fresh session resumed with `state.mjs`) is safe now — every decision is in the project files — and makes the remaining steps cheaper. You cannot run it yourself.
 - **Batch and parallelise.** Independent calls in one message; research to subagents. Long jobs in the background; you are notified on exit — never poll. Heavy jobs (VoxCPM, render, check, a model the user asked for) one at a time, chained in one command; to queue behind one, `while kill -0 <pid>` — never `pgrep -f <name>` (it matches the waiting shell).
 - **Busy machine at gate waits, no scenes ahead.** While the user reads: verify facts, find assets; pick music after Gate 2; fetch all OBJECTS stills once `storyboard.md` exists (a "no" discards them).
-- **Cheap before expensive.** `--sample` before a full voice; `--from-response` when only `{}` markers move; `--speed` for misses under 10 %; snapshots instead of renders while iterating; QC renders at `--fps 10 --quality draft`; the user reviews in `preview`; one high-quality render at the end.
-- **Short messages:** what changed, what they must decide, file links; at a wait, the clock time of the next gate and the final.
+- **Cheap before expensive.** `--sample` before a full voice; `--from-response` when only `{}` markers move; `--speed` for misses under 10 %; snapshots instead of renders while iterating; a physics set baked once per change (`engine/three/bake.mjs`), never per snapshot; a review round's fixes made together, then one re-snapshot; QC renders at `--fps 10 --quality draft`; the user reviews in `preview`; one high-quality render at the end.
+- **Short messages:** what changed, what they must decide, file links; at a wait, the clock time of the next gate and the final. A step over ~2 min gets an estimate from its last measured run (the bake's time, the render's frames per second), never a guess.
 
 ## Project files (`video/<topic-slug>/`)
 

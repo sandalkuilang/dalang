@@ -29,7 +29,7 @@ export function casterChair(sim, chair, seat, { baseKg = 6, seatKg = 6, roll = 0
   let stopped = null, pushedAt = null;
   return {
     base, top, wheels: wheels.length,
-    get stopped() { return stopped; },
+    get stopped() { return stopped; }, // set while baking: with bakeCached, pass it on with opts.keep = () => ({ stopped: chair.stopped })
     push(t, dir, speed, spin = 0) { // dir: a horizontal unit vector; speed m/s; spin rad/s on the seat
       [base, top].forEach((b) => b.body.setLinvel({ x: (dir.x * speed) / M, y: 0, z: (dir.z * speed) / M }, true));
       const wb = base.body.angvel();

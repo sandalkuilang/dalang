@@ -2,9 +2,65 @@ import { RAPIER } from "./rapier.js";
 import { G, M } from "./kit.js";
 export { RAPIER };
 
+const BAKE_FORMAT = 1; // bump when the stored layout or what a bake means changes: every older cache file then misses
+
+// 64-bit string/number hash (two 32-bit lanes, cyrb53-style): a cache key, not a security boundary.
+function hasher() {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  const f64 = new Float64Array(1), u32 = new Uint32Array(f64.buffer), mix = (x) => { h1 = Math.imul(h1 ^ x, 2654435761); h2 = Math.imul(h2 ^ x, 1597334677); };
+  return {
+    num(x) { f64[0] = x; mix(u32[0]); mix(u32[1]); },
+    str(s) { s = String(s); for (let i = 0; i < s.length; i++) mix(s.charCodeAt(i)); mix(s.length); },
+    hex() {
+      const a = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909), b = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (b >>> 0).toString(16).padStart(8, "0") + (a >>> 0).toString(16).padStart(8, "0");
+    },
+  };
+}
+
+// The set's own code and the narration's timing: every .js/.mjs/.json the page loaded from assets/ (where this module
+// lives; bake files aside) and the beats.js globals. A change to the set or its timeline changes the hash even where
+// onStep's source does not. Inline scripts are left out: the renderer rewrites them, so a snapshot and a render would
+// never share a bake — a value an inline script feeds the bake goes in opts.key. Empty outside a browser.
+async function sources() {
+  if (typeof document === "undefined" || typeof performance === "undefined") return "";
+  const root = new URL("./", import.meta.url).href;
+  const urls = [...new Set(performance.getEntriesByType("resource").map((e) => e.name.split(/[?#]/)[0]))].filter((u) => u.startsWith(root) && /\.(m?js|json)$/.test(u) && !u.startsWith(root + "bake/")).sort();
+  const texts = await Promise.all(urls.map((u) => fetch(u).then((r) => r.text()).catch(() => "")));
+  const g = globalThis, timing = JSON.stringify([g.BEATS, g.WORDS, g.SECTIONS, g.NARRATION_DURATION]);
+  return urls.map((u) => u.slice(root.length)).concat(texts, timing).join("\n");
+}
+
+// Cache file: "DLB1", header length, JSON header, then per body its stored steps (u32) and poses (7 × f32), then each
+// tracked series (n × f32). Little-endian, as every machine that renders this is.
+function encode(d, hash) {
+  const names = Object.keys(d.series), head = new TextEncoder().encode(JSON.stringify({ format: BAKE_FORMAT, hash, n: d.n, dt: d.dt, counts: d.poses.map((x) => x.s.length), series: names, impacts: d.impacts, report: d.report, kept: d.kept }));
+  const off = 8 + head.length + ((4 - (head.length % 4)) % 4), size = d.poses.reduce((a, x) => a + x.s.byteLength + x.p.byteLength, 0) + names.length * d.n * 4;
+  const out = new Uint8Array(off + size), bytes = (a) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+  out.set([0x44, 0x4c, 0x42, 0x31]); new DataView(out.buffer).setUint32(4, head.length, true); out.set(head, 8);
+  let o = off;
+  for (const x of d.poses) { out.set(bytes(x.s), o); o += x.s.byteLength; out.set(bytes(x.p), o); o += x.p.byteLength; }
+  for (const k of names) { out.set(bytes(d.series[k]), o); o += d.series[k].byteLength; }
+  return out;
+}
+function decode(buf, hash, bodies) {
+  try { // a truncated or foreign file is a miss (bake again), never a crash
+    if (!buf || buf.byteLength < 8) return null;
+    const u8 = new Uint8Array(buf), dv = new DataView(buf), len = dv.getUint32(4, true);
+    if (String.fromCharCode(...u8.subarray(0, 4)) !== "DLB1" || 8 + len > buf.byteLength) return null;
+    const h = JSON.parse(new TextDecoder().decode(u8.subarray(8, 8 + len)));
+    if (h.format !== BAKE_FORMAT || h.hash !== hash || h.counts.length !== bodies) return null;
+    let o = 8 + len + ((4 - (len % 4)) % 4);
+    if (o + h.counts.reduce((a, c) => a + c * 32, 0) + h.series.length * h.n * 4 !== buf.byteLength) return null;
+    const poses = h.counts.map((c) => { const s = new Uint32Array(buf, o, c); o += c * 4; const p = new Float32Array(buf, o, c * 7); o += c * 28; return { s, p }; });
+    const series = Object.fromEntries(h.series.map((k) => { const a = new Float32Array(buf, o, h.n); o += h.n * 4; return [k, a]; }));
+    return { n: h.n, dt: h.dt, poses, series, impacts: h.impacts, report: h.report, kept: h.kept };
+  } catch { return null; }
+}
+
 // Rigid-body physics (Rapier, deterministic), baked once before the first frame: the shot is simulated at 480 Hz
-// and every body's pose is stored per step, so any time — including motion-blur sub-frames — can be seeked and
-// every render worker gets the same result.
+// and every body's pose is stored whenever it moved, so any time — including motion-blur sub-frames — can be seeked.
+// bakeCached() stores the result in assets/bake/: later snapshots, the preview and every render worker replay it.
 //
 // Accuracy rules this module enforces:
 // - the whole static set collides (a triangle mesh per scene mesh), not a hand-picked few boxes;
@@ -21,7 +77,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   world.integrationParameters.normalizedAllowedLinearError = 0.0002;
   world.integrationParameters.contact_natural_frequency = 60;
   world.integrationParameters.maxCcdSubsteps = 4;
-  const tracked = [], kin = [], steps = [], owner = new Map(); // owner: collider handle → the object it was built from
+  const tracked = [], kin = [], held = new Map(), owner = new Map(); let replayed = false; // owner: collider handle → the object it was built from
   // o.group (1–15): parts of one object (a chair's seat and base) share a collision group and never collide with each other.
   const surface = (c, o) => { c.setFriction(o.friction ?? 0.55).setRestitution(o.restitution ?? 0.15).setDensity(o.density ?? 600); if (o.group) c.setCollisionGroups(((1 << o.group) << 16) | (0xffff & ~(1 << o.group))); return c; };
   const tmp = new THREE.Vector3();
@@ -62,7 +118,61 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   }
   function track(root, body, o) { const t = { root, body, start: { ...body.translation() }, q0: { ...body.rotation() }, impacts: o.impacts !== false, soft: !!o.soft, name: o.name || root.name || "body" }; tracked.push(t); return t; }
 
-  return {
+  // A bake's result, live or replayed: interpolated poses at any time t (sub-frames included) from the sparse store.
+  function baked(data, hash, cached = false) {
+    const { n, dt, poses, series, impacts, report, kept } = data;
+    const pose = (i, t) => { // interpolated pose of tracked body i at time t
+      const { s, p } = poses[i], u = Math.min(n - 1, Math.max(0, t / dt));
+      let lo = 0, hi = s.length - 1; // the last stored step at or before u
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (s[m] <= u) lo = m; else hi = m - 1; }
+      const f = lo + 1 < s.length && s[lo + 1] === s[lo] + 1 ? u - s[lo] : 0, a = lo * 7, b = f ? a + 7 : a; // a gap between stored steps = at rest
+      const qa = new THREE.Quaternion(p[a + 3], p[a + 4], p[a + 5], p[a + 6]), qb = new THREE.Quaternion(p[b + 3], p[b + 4], p[b + 5], p[b + 6]);
+      return { p: new THREE.Vector3(p[a] + (p[b] - p[a]) * f, p[a + 1] + (p[b + 1] - p[a + 1]) * f, p[a + 2] + (p[b + 2] - p[a + 2]) * f), q: qa.slerp(qb, f) };
+    };
+    return {
+      impacts, report, pose, hash, cached, data, kept,
+      series,
+      at(name, t) { const a = series[name]; if (!a) throw new Error(`no tracked series "${name}" (opts.track)`); const u = Math.min(n - 1, Math.max(0, t / dt)), s0 = Math.floor(u), s1 = Math.min(n - 1, s0 + 1); return a[s0] + (a[s1] - a[s0]) * (u - s0); },
+      // Fastest tracked point speed around t (m per video frame): decides whether the frame needs motion blur.
+      travel(t, fps) {
+        let m = 0;
+        tracked.forEach((b, i) => { m = Math.max(m, pose(i, t + 0.5 / fps).p.distanceTo(pose(i, t - 0.5 / fps).p)); });
+        return m;
+      },
+      apply(t) {
+        tracked.forEach((b, i) => {
+          if (b.root.userData.noApply) return;
+          const { p, q } = pose(i, t), par = b.root.parent;
+          if (par && !par.isScene) { // a part of a moving object: convert to its parent's frame
+            par.updateMatrixWorld(true);
+            b.root.position.copy(par.worldToLocal(p));
+            b.root.quaternion.copy(par.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));
+          } else {
+            b.root.position.copy(p);
+            b.root.quaternion.copy(q);
+          }
+        });
+      },
+    };
+  }
+  // Everything that decides a bake's result, hashed (64-bit). Shapes are read field by field, so any collider counts.
+  async function fingerprint(duration, onStep, preroll, opts) {
+    const h = hasher(), v3 = (v) => { h.num(v.x); h.num(v.y); h.num(v.z); }, q4 = (q) => { v3(q); h.num(q.w); };
+    const any = (x) => { if (typeof x === "number" || typeof x === "boolean") h.num(+x); else if (ArrayBuffer.isView(x)) x.forEach((e) => h.num(e)); else if (x && typeof x === "object") Object.keys(x).sort().forEach((k) => { h.str(k); any(x[k]); }); };
+    h.str(`format ${BAKE_FORMAT}`); h.num(duration); h.num(preroll); h.num(world.timestep); v3(world.gravity);
+    const ip = world.integrationParameters;
+    [world.numSolverIterations, ip.numInternalPgsIterations, ip.normalizedAllowedLinearError, ip.contact_natural_frequency, ip.maxCcdSubsteps, ip.normalizedPredictionDistance, ip.numAdditionalFrictionIterations].forEach((x) => h.num(x ?? NaN));
+    world.forEachRigidBody((b) => { h.num(b.handle); h.num(b.bodyType()); v3(b.translation()); q4(b.rotation()); v3(b.linvel()); v3(b.angvel()); h.num(b.mass()); v3(b.principalInertia()); h.num(b.linearDamping()); h.num(b.angularDamping()); h.num(b.gravityScale()); h.num(b.isEnabled()); h.num(b.isCcdEnabled()); });
+    world.forEachCollider((c) => { h.num(c.handle); h.num(c.parent()?.handle ?? -1); any(c.shape); v3(c.translation()); q4(c.rotation()); h.num(c.friction()); h.num(c.restitution()); h.num(c.density()); h.num(c.collisionGroups()); h.num(c.isSensor()); h.num(c.isEnabled()); });
+    world.impulseJoints.forEach((j) => { h.num(j.type()); h.num(j.body1().handle); h.num(j.body2().handle); v3(j.anchor1()); v3(j.anchor2()); });
+    held.forEach((u, k) => { h.num(k); h.num(u); });
+    kin.forEach((k) => { h.str(k.pose); for (let i = 0; i <= 16; i++) { const { p, q } = k.pose(-preroll + ((duration + preroll) * i) / 16); v3(p); if (q) q4(q); } });
+    h.str(onStep || ""); h.str(opts.keep || ""); Object.entries(opts.track || {}).forEach(([k, fn]) => { h.str(k); h.str(fn); });
+    h.str(JSON.stringify(opts.key ?? "")); h.str(await sources());
+    return h.hex();
+  }
+
+  const sim = {
     world,
     points: localPoints,
     // Every mesh in the scene except the excluded subtrees becomes a fixed triangle mesh, in world space.
@@ -124,15 +234,45 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       kin.push({ body, pose });
       return track(root, body, { ...o, impacts: false });
     },
+    // Keep a body out of the solver until t = until (a piece held off-frame until its cue): while held it is neither
+    // stepped, recorded nor audited; it is switched on just before onStep(until). Place or hide it yourself.
+    hold(x, until) {
+      const b = x.body || x;
+      if (!tracked.some((e) => e.body === b)) throw new Error("hold() takes a body made by roundBox, dynamicHull or kinematicHull");
+      held.set(b.handle, until); return x;
+    },
     // Simulate [0, duration] after a pre-roll that lets everything settle onto its real support (a rug's thickness,
     // a soft seat), so frame 0 shows bodies already at rest. onStep(t) runs before each step (pushes, resistance).
-    bake(duration, onStep, preroll = 0.5) {
-      const n = Math.ceil(duration / world.timestep) + 1, impacts = [], hist = [], win = Math.round(0.0125 / world.timestep);
+    // opts.track = { name: () => number } samples a value after every recorded step (a liquid level): baked.at(name, t).
+    // opts.keep = () => JSON stores what onStep built for later (a stop time, events): baked.kept.
+    bake(duration, onStep, preroll = 0.5, opts = {}) {
+      if (replayed && !opts.fromCache) throw new Error("bake after bakeCached: a cached replay leaves the world at its start — bake everything in one bakeCached");
+      const dt = world.timestep, n = Math.ceil(duration / dt) + 1, impacts = [], hist = [], win = Math.round(0.0125 / dt);
+      const every = Math.max(1, Math.round(0.01 / dt)); // a resting body's contacts are audited every 10 ms, a moving one's every step
+      const track = Object.entries(opts.track || {}), series = Object.fromEntries(track.map(([k]) => [k, new Float32Array(n)]));
       let deepest = { depth: 0 };
-      const record = () => steps.push(tracked.map((b) => { const p = b.body.translation(), q = b.body.rotation(); return [p.x, p.y, p.z, q.x, q.y, q.z, q.w]; }));
+      const until = tracked.map((b) => held.get(b.body.handle) ?? -Infinity), on = tracked.map(() => true);
+      const gate = (t) => until.forEach((u, i) => { const v = t >= u; if (v !== on[i]) { on[i] = v; tracked[i].body.setEnabled(v); } });
+      // Sparse poses: a body's pose is stored when it moved ≥ 0.01 mm or turned ≥ ~1e-5 rad since the last stored one,
+      // as float32 so a live bake and its cached replay give the same numbers. The rest pose right before a body
+      // moves again is stored too, so a gap between two stored steps always means "at rest".
+      const eps = 1e-5 / mpu, S = tracked.map(() => ({ s: [], p: [] })), last = tracked.map(() => null), prev = tracked.map(() => null), f = new Float32Array(7);
+      const record = (s) => tracked.forEach((b, i) => {
+        const p = b.body.translation(), q = b.body.rotation();
+        f[0] = p.x; f[1] = p.y; f[2] = p.z; f[3] = q.x; f[4] = q.y; f[5] = q.z; f[6] = q.w;
+        const cur = Array.from(f), L = last[i];
+        if (!L || s === n - 1 || Math.hypot(cur[0] - L[0], cur[1] - L[1], cur[2] - L[2]) >= eps || Math.max(...[3, 4, 5, 6].map((k) => Math.abs(cur[k] - L[k]))) >= 5e-6) {
+          const st = S[i];
+          if (st.s.length && st.s[st.s.length - 1] < s - 1) { st.s.push(s - 1); st.p.push(...prev[i]); }
+          st.s.push(s); st.p.push(...cur); last[i] = cur;
+        }
+        prev[i] = cur;
+      });
+      const sample = (s) => track.forEach(([k, fn]) => { series[k][s] = fn(); });
       tracked.forEach((b) => { b.com0 = { ...b.body.worldCom() }; b.q0 = { ...b.body.rotation() }; }); // pre-roll drift is measured at the centre of mass
-      for (let s = Math.round(preroll / world.timestep); s > 0; s--) {
-        const t = -s * world.timestep;
+      for (let s = Math.round(preroll / dt); s > 0; s--) {
+        const t = -s * dt;
+        gate(t);
         if (onStep) onStep(t);
         kin.forEach((k) => { const { p, q } = k.pose(t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
         world.step();
@@ -143,24 +283,28 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         const tilt = new THREE.Vector3(0, 1, 0).applyQuaternion(q1).angleTo(up.clone().applyQuaternion(q0)) * 180 / Math.PI, turn = (2 * Math.acos(Math.min(1, Math.abs(q0.dot(q1)))) * 180) / Math.PI;
         return { name: b.name, mm: +Math.hypot(...d).toFixed(1), xyz: d, deg: +turn.toFixed(2), tilt: +tilt.toFixed(2) };
       }).filter((e) => e.mm > 1 || e.deg > 0.2);
-      record();
+      gate(0); record(0); sample(0);
       for (let s = 1; s < n; s++) {
-        const t = s * world.timestep;
+        const t = s * dt;
+        gate(t);
         if (onStep) onStep(t);
         kin.forEach((k) => { const { p, q } = k.pose(t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
         world.step();
-        record();
+        record(s); sample(s);
         hist.push(tracked.map((b) => b.body.linvel()));
         if (hist.length > win + 1) hist.shift();
         tracked.forEach((b, i) => {
           if (!b.impacts || hist.length < win + 1) return;
           const v = hist[win][i], v0 = hist[0][i], dv = Math.hypot(v.x - v0.x, v.y - v0.y, v.z - v0.z) * mpu; // m/s, over 12.5 ms: stiff contacts spread a hit across steps
           const last = impacts.findLast((e) => e.name === b.name);
-          if (dv >= 0.15 && !(last && t - last.t < 0.12)) impacts.push({ t: t - (win - 1) * world.timestep, name: b.name, dv }); // ≥ 0.15 m/s is audible: a soft landing still gets its (quieter) sound
+          if (dv >= 0.15 && !(last && t - last.t < 0.12)) impacts.push({ t: t - (win - 1) * dt, name: b.name, dv }); // ≥ 0.15 m/s is audible: a soft landing still gets its (quieter) sound
         });
-        // Deepest penetration this step between any tracked body and anything else.
-        tracked.forEach((b) => {
-          if (b.soft) return; // a soft thing gives where it lands: its overlap is compression, not an error
+        // Deepest penetration between any tracked body and anything else: every step for a moving body (a knock
+        // peaks within a few steps), every 10 ms for a resting one (a slow sink), and all of them at the last step.
+        const vel = hist[hist.length - 1], all = s % every === 0 || s === n - 1, turning = all ? null : tracked.map((b) => { const w = b.body.angvel(); return Math.hypot(w.x, w.y, w.z) >= 0.2; });
+        tracked.forEach((b, i) => {
+          if (b.soft || !on[i]) return; // a soft thing gives where it lands: its overlap is compression, not an error
+          if (!all && Math.hypot(vel[i].x, vel[i].y, vel[i].z) * mpu < 0.02 && !turning[i]) return; // resting: neither sliding (2 cm/s) nor turning (0.2 rad/s)
           for (let c = 0; c < b.body.numColliders(); c++) {
             const col = b.body.collider(c);
             world.contactPairsWith(col, (other) => world.contactPair(col, other, (m) => {
@@ -172,10 +316,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
           }
         });
       }
-      // End state: resting bodies must touch something; anything still moving is reported.
+      // End state: resting bodies must touch something; anything still moving is reported. A body still held is neither.
       const floating = [], moving = [], jointed = new Set(); // a body on a joint hangs from it, it does not float
       world.impulseJoints.forEach((j) => { jointed.add(j.body1().handle); jointed.add(j.body2().handle); });
-      tracked.forEach((b) => {
+      tracked.forEach((b, i) => {
+        if (!on[i]) return;
         const v = b.body.linvel(), speed = Math.hypot(v.x, v.y, v.z) * mpu;
         let touching = false;
         for (let c = 0; c < b.body.numColliders(); c++) {
@@ -185,41 +330,36 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         if (speed > 0.01) moving.push({ name: b.name, speed: +speed.toFixed(3) });
         else if (!touching && b.body.isDynamic() && !jointed.has(b.body.handle)) floating.push(b.name);
       });
-      const pose = (i, t) => { // interpolated pose of tracked body i at time t
-        const u = Math.min(n - 1, Math.max(0, t / world.timestep)), s0 = Math.floor(u), s1 = Math.min(n - 1, s0 + 1), f = u - s0;
-        const a = steps[s0][i], b = steps[s1][i];
-        const qa = new THREE.Quaternion(a[3], a[4], a[5], a[6]), qb = new THREE.Quaternion(b[3], b[4], b[5], b[6]);
-        return { p: new THREE.Vector3(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f), q: qa.slerp(qb, f) };
-      };
-      return {
-        impacts,
+      return baked({
+        n, dt, series, impacts,
+        poses: S.map((st) => ({ s: Uint32Array.from(st.s), p: Float32Array.from(st.p) })),
+        kept: opts.keep ? JSON.parse(JSON.stringify(opts.keep())) : undefined, // what onStep built that the set reads later (a stop time)
         report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating, moving, settled }, // settled: how far a body moved in the pre-roll (a big number = it was placed wrong)
-        pose,
-        // Fastest tracked point speed around t (m per video frame): decides whether the frame needs motion blur.
-        travel(t, fps) {
-          let m = 0;
-          tracked.forEach((b, i) => { m = Math.max(m, pose(i, t + 0.5 / fps).p.distanceTo(pose(i, t - 0.5 / fps).p)); });
-          return m;
-        },
-        apply(t) {
-          tracked.forEach((b, i) => {
-            if (b.root.userData.noApply) return;
-            const { p, q } = pose(i, t), par = b.root.parent;
-            if (par && !par.isScene) { // a part of a moving object: convert to its parent's frame
-              par.updateMatrixWorld(true);
-              b.root.position.copy(par.worldToLocal(p));
-              b.root.quaternion.copy(par.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));
-            } else {
-              b.root.position.copy(p);
-              b.root.quaternion.copy(q);
-            }
-          });
-        },
-      };
+      });
+    },
+    // bake(), stored once in assets/bake/<hash>.bin and replayed from there by every later page load (a snapshot, the
+    // preview, each render worker). The hash covers everything that decides the result: every collider and body, the
+    // solver settings, duration and pre-roll, onStep's and opts.track's source, the kinematic paths (sampled), holds,
+    // the set's modules in assets/, the narration timing (beats.js) and opts.key — put in key anything else onStep reads.
+    // A page cannot write files: a miss is posted to engine/three/bake.mjs when it runs; otherwise it is just baked.
+    // After a cached bake the Rapier world is not at the shot's end: read only the returned object.
+    async bakeCached(duration, onStep, preroll = 0.5, opts = {}) {
+      if (replayed) throw new Error("one bakeCached per sim: a shot that continues another is part of the same bake");
+      replayed = true;
+      const hash = await fingerprint(duration, onStep, preroll, opts), t0 = Date.now();
+      const load = opts.load || ((name) => fetch(new URL(`./bake/${name}.bin`, import.meta.url)).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null));
+      const save = opts.save || ((name, bytes) => fetch(`${opts.receiver || "http://127.0.0.1:47613"}/bake/${name}`, { method: "POST", mode: "no-cors", body: bytes }).catch(() => null));
+      const d = decode(await load(hash), hash, tracked.length);
+      if (d) { console.info(`[physics] bake ${hash} read from cache`); return baked(d, hash, true); }
+      const r = sim.bake(duration, onStep, preroll, { ...opts, fromCache: true });
+      console.info(`[physics] bake ${hash} computed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+      await save(hash, encode(r.data, hash));
+      return Object.assign(r, { hash });
     },
     // Contact audit for props placed by hand: the gap (+) or overlap (−) between each object's lowest point and the
     // surface under its centre, in mm. A near miss (0.5–30 mm either way) is a placement error.
     audit(objects) {
+      if (replayed) throw new Error("audit before bakeCached: after a cached replay the bodies are not where the live bake left them");
       world.updateSceneQueries?.();
       const out = [], v = new THREE.Vector3(), bottoms = new Map();
       objects.forEach((o) => {
@@ -244,4 +384,5 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       return out;
     },
   };
+  return sim;
 }
