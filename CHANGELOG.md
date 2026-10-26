@@ -42,6 +42,11 @@ that reads as:
   speed, a path that does not follow a moving part (`over` is a Box3; a route measures an object once), the loop pose to 1e-6, a last frame that is solid (`oner` refuses a `look.dur` over 2.5 s), the exact restore of every material, ghosting with a cutaway, and the edge hook.
   `camera-motion.md` §11 gains *Home shot + dives*, *Attention by ghosting* and *Loop end (9:16 Shorts)*; the engine README,
   README and `docs/architecture.md` list the module. Cutaway fix: `cut.at()` no longer clones a ghost made by `attend`.
+- **Palette measurement in Step 2** (`scripts/palette.mjs`, run by `measure_reference.sh` into `measure/palette.txt`): the
+  dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall list;
+  `reference-measurements.md` gains a `## Palette` section (ground, floor, hero and its dark parts, accents with their job,
+  type and caption treatment). `palette.mjs --compare <#hex> <#hex>` gives the lightness gap for figure-ground.
+  `tests/palette.mjs` joins the merge gate.
 - **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[assume: …]` (a stated
   assumption, only as a `[calc]` input), `[illus]` or `[unknown]`; section durations, a source's own year or page and
   visual-note specs are not numbers, so Gate 1's list can be empty, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
@@ -126,6 +131,11 @@ that reads as:
 
 ### Changed
 
+- **Look C's default ground is light and warm; the hero separates by value** ("light set, dark detail"): dark functional
+  parts, AO and a contact shadow give at least ~0.2 OKLCH L between the hero and the ground behind it; a dark or saturated
+  full-frame ground only when the user or a measured reference asks. The §11 rubric gains a **Figure-ground** test (P1,
+  P0 when the hero merges into its ground; `review.md` severity follows), and the Step 1 look previews name the ground
+  colour and how the hero separates from it.
 - Music source order is CC0 first, then CC BY with a plain visible-credit note at Gate 2; the upload caption the agent
   drafts carries no credit or licence line unless the user chose one (`look-build.md` §7, `qc.md`, `lessons.md`, README).
 - Steam and smoke presets shade their side away from the light by default (`shade` 0.4 and 0.45; `shade: 0` keeps

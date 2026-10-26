@@ -6,7 +6,7 @@
 2. **Copying the script** and just changing the character names. Also theft, only slower.
 3. **Copying the craft**: measuring how the film is built, then using those measurements for your own story. **Only this one is used.**
 
-What you may take is the measurements: section lengths, number of cuts, camera movement, boil rate, stillness %, which words are beats, and loudness. What you may not take: script lines, character designs, images, music, and logos.
+What you may take is the measurements: section lengths, number of cuts, camera movement, boil rate, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a logo, a brand mark or a channel's signature colour scheme is never copied.
 
 One sentence covers it: **measure theirs, make yours.**
 
@@ -35,6 +35,7 @@ It produces:
 - `measure/cuts.txt`: estimated time of every hard cut.
 - `measure/boil.txt`: estimated unique frames per second at a few points. About 5 means the lines are redrawn 5× per second.
 - `measure/stillness.txt` and `measure/loudness.txt`: stillness % and loudness (needs Node).
+- `measure/palette.txt`: the dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall top list (`scripts/palette.mjs`, needs Node; `node <skill-dir>/scripts/palette.mjs --compare <#hex> <#hex>` gives the lightness gap of two colours).
 - `measure/summary.txt`: all of the above in one place.
 
 Note: the "still" number depends heavily on the sensitivity threshold. Use the **same** threshold when measuring the reference and when checking your own draft, then compare them relative to each other.
@@ -43,6 +44,7 @@ Note: the "still" number depends heavily on the sensitivity threshold. Use the *
 
 - If subagents are available, split the contact sheets into 4 parts and work in parallel. For a 9-minute film this takes about 17 minutes.
 - For each shot, note: start–end time, what is visible (described in general terms, never copied), camera movement, and the beat word that triggers the change (from the transcript).
+- **Colour and type.** With `palette.txt`, name what each dominant colour is (ground and walls, floor, hero, its dark parts, accents and the job each accent has, such as heat, current or cold), and read the type: ink colour, kicker and headline treatment, any tag or label style, the caption box and the highlight of the spoken word. Note how the hero separates from the ground: value (dark parts, shadow) or a coloured backdrop.
 - **Limitation:** an assistant reading images cannot hear. Sound effects written from images are guesses; mark them `(guess)`.
 
 ### 4. Write `reference-measurements.md`
@@ -61,9 +63,18 @@ Note: the "still" number depends heavily on the sensitivity threshold. Use the *
 - Captions: position ..., size ..., fixed to screen / moves with camera
 - Things viewers feel but don't notice: ...
 
+## Palette (from palette.txt; values measured, never a brand copied)
+- Ground and walls: #… (…% of frame), L …
+- Floor: #… (…%), L …
+- Hero: … ; its dark parts: … (ΔL to the ground: …)
+- Accents: #… for … (its job), …
+- Type: ink …, kicker …, headline …, tag …
+- Captions: box …, text …, active-word highlight …
+
 ## What we use for our film
 - Structure and rhythm: ...
-- Deliberately different: story, characters, palette, ...
+- Palette: our ground / hero / ink / accents, steered by the measured values above
+- Deliberately different: story, characters, brand marks, ...
 ```
 
 The "quietly does" items (boil rate, captions fixed while the ground scrolls) are what watching misses; measure them.

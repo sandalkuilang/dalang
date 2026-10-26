@@ -18,7 +18,7 @@ flowchart LR
         LD["loudness.mjs"]
         AL["align.py"]
         QC["qc.mjs · timing_lint.mjs<br/>state.mjs · check_assets.mjs"]
-        MR["measure_reference.sh"]
+        MR["measure_reference.sh · palette.mjs"]
     end
     SC --- SCR
 
