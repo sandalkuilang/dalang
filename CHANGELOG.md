@@ -40,7 +40,9 @@ that reads as:
   a stencil cap, all caps on one transform and pulled ahead by `polygonOffset`, so none z-fights a face on the plane;
   a part flagged `userData.cut = { shell: metres }` shows its wall ring instead of a disc, and `userData.cut = false`
   keeps a part whole. `on(t)`, `off(t)` and `set(offset, t)` switch or slide the cut by time without swapping planes
-  (no shader recompile). It needs a renderer with a stencil buffer. `examples/flask.js` is the ready piece, and the
+  (no shader recompile). A set's later edits to its own material (glow, fade, colour, map, shader uniforms) reach the
+  cut part, and the cap group is never put under the root (not while the root has no parent). It needs a renderer with
+  a stencil buffer. `examples/flask.js` is the ready piece, and the
   self-check asserts the plane on every part (a late one too), the caps' settings and the shell's ring.
   Documented in `engine/three/README.md`, `looks.md` and `camera-motion.md`.
 

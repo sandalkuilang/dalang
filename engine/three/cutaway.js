@@ -80,6 +80,26 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
   // original would cut things outside the root. Shell parts show their inside through the cut, so they get a
   // double-sided clone. Off never swaps the planes (their count is part of the shader's key: a swap recompiles
   // mid-shot); it moves the plane far away instead.
+  // The render draws the clone, so a set that keeps editing its own reference (a glowing element, a fade, a colour
+  // change, a map swap) would see nothing: at() carries every property the original changed since the last frame to
+  // the clone (sync), and a ShaderMaterial's uniforms are the original's own object, so its updates land at once. An
+  // edit made on mesh.material (the clone) is kept until the original changes that property.
+  const pairs = [];
+  const skip = new Set(["uuid", "id", "type", "name", "userData", "version", "clippingPlanes", "clipShadows", "onBeforeCompile", "customProgramCacheKey", "uniforms", "uniformsGroups"]);
+  const sig = (v) => (v && v.isColor ? v.getHex() : v && typeof v.toArray === "function" ? v.toArray().join() : v);
+  const props = (m) => Object.keys(m).filter((k) => k[0] !== "_" && !skip.has(k)).concat("alphaTest");
+  const snapshot = (m) => { const s = {}; for (const k of props(m)) s[k] = sig(m[k]); return s; };
+  const sync = (pr) => {
+    const { orig, clone, snap } = pr;
+    for (const k of props(orig)) {
+      const v = orig[k], g = sig(v);
+      if (snap[k] === g) continue;
+      snap[k] = g;
+      if (k === "side" && pr.both) continue; // a shell part's clone is double-sided
+      if (v && clone[k] && typeof clone[k].copy === "function" && !!v.isColor === !!clone[k].isColor) clone[k].copy(v); else clone[k] = v;
+    }
+    if (orig.version !== pr.version) { pr.version = orig.version; clone.needsUpdate = true; }
+  };
   const clip = (m, both) => {
     if (clones.has(m)) return m;
     const key = both && m.side !== THREE.DoubleSide ? "two" : "one";
@@ -88,8 +108,10 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     if (!mine[key]) {
       const c = m.clone();
       Object.assign(c, { onBeforeCompile: m.onBeforeCompile, customProgramCacheKey: m.customProgramCacheKey, clippingPlanes: [...(m.clippingPlanes || []), plane], clipShadows: true }); // clone() drops the surface
+      if (m.uniforms) c.uniforms = m.uniforms; // clone() deep-copies them, which would cut the set's updates off
       if (key === "two") c.side = THREE.DoubleSide;
       clones.add(c);
+      pairs.push({ orig: m, clone: c, snap: snapshot(m), version: m.version, both: key === "two" });
       mine[key] = c;
     }
     return mine[key];
@@ -108,11 +130,11 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     o.updateWorldMatrix(true, false);
     const s = o.matrixWorld.getMaxScaleOnAxis() || 1, geo = shell ? thicken(o.geometry, (shell / M) / s) : o.geometry, order = 10000 + 2 * parts.length; // thickness: metres → the mesh's local units
     const stencil = (side, op) => quiet(Object.assign(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side, clippingPlanes: [plane], stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op })), { renderOrder: order }));
-    const base = mats(o)[0].color, tint = color !== undefined ? new THREE.Color(color) : base ? base.clone().multiplyScalar(0.8) : new THREE.Color(0x888888);
+    const own = color === undefined && !!mats(o)[0].color, tint = color !== undefined ? new THREE.Color(color) : own ? mats(o)[0].color.clone().multiplyScalar(0.8) : new THREE.Color(0x888888);
     const cap = quiet(new THREE.Mesh(capGeo, new THREE.MeshStandardMaterial({ color: tint, map: tex, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4, depthFunc: THREE.LessEqualDepth, stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp })));
     cap.renderOrder = order + 1;
     cap.onAfterRender = (renderer) => renderer.clearStencil(); // each part is counted alone
-    parts.push({ mesh: o, stencil: geo, shell, back: stencil(THREE.BackSide, THREE.IncrementWrapStencilOp), front: stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp), cap });
+    parts.push({ mesh: o, stencil: geo, shell, own, back: stencil(THREE.BackSide, THREE.IncrementWrapStencilOp), front: stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp), cap });
   }
   // Every object under `o` is cut, and watched: a child added later to any of them is adopted at once.
   function adopt(o) {
@@ -158,8 +180,13 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     },
     // at(t): once per frame, after everything is posed and before the render.
     at(t) {
-      if (!group.parent) { let top = root; while (top.parent) top = top.parent; top.add(group); }
+      // The group sits beside the root under the scene's top ancestor, never under the root: a root with no parent yet
+      // has no place for it (the group waits), and a root moved to another scene takes it along. A root that is a
+      // scene is its own top.
+      let top = root; while (top.parent) top = top.parent;
+      if (top === root && !root.isScene) group.removeFromParent(); else if (group.parent !== top) top.add(group);
       adopt(root);
+      for (const pr of pairs) sync(pr);
       root.updateWorldMatrix(true, true);
       group.updateWorldMatrix(true, false);
       const on = stateAt(t), c = n.dot(root.getWorldPosition(origin)) + offsetAt(t) / M;
@@ -176,6 +203,8 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
         const show = on && under(p.mesh);
         p.back.visible = p.front.visible = p.cap.visible = show;
         if (!show) continue;
+        const c0 = mats(p.mesh)[0].color;
+        if (p.own && c0) p.cap.material.color.copy(c0).multiplyScalar(0.8); // the cap follows the part's colour
         place(p.back, p.mesh.matrixWorld); place(p.front, p.mesh.matrixWorld); place(p.cap, capM);
       }
     },
