@@ -153,6 +153,61 @@ await test("D. an unreadable engine manifest fails closed", async () => {
   }
 });
 
+await test("C4. a licence the base gate accepted still passes: an SPDX id with a version, an id followed by a plain word, an attribution note", async () => {
+  for (const licence of ["CC0-1.0", "CC0-1.0 Universal", "CC-BY-4.0 International", "CC-BY-SA-4.0 International", "MIT-0", "ElevenLabs free tier: non-commercial, attribution", "CC-BY-NC-4.0, attribution"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)])]);
+    assert.equal(r.code, 0, `${licence}: ${r.out}`);
+  }
+  for (const licence of ["CC0-1.0", "CC-BY-4.0 International", "MIT, attribution", "CC0 AND attribution required"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)]), "--commercial"]);
+    assert.equal(r.code, 0, `${licence} --commercial: ${r.out}`);
+  }
+  const nc = await run(check, [project({ "assets/a.png": "x" }, [row("ElevenLabs free tier: non-commercial, attribution")]), "--commercial"]);
+  assert.equal(nc.code, 3, nc.out);
+  assert.match(nc.out, /non-commercial/);
+  // The other side: a second, unknown licence beside an id, or an attribution note alone, still fails.
+  for (const licence of ["CC0-1.0 GPL-3.0", "CC0-1.0, GPL-3.0", "CC-BY-4.0 International AND GPL-3.0", "attribution", "attribution required", "MIT, attribution, GPL-3.0"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)])]);
+    assert.equal(r.code, 3, `${licence}: ${r.out}`);
+    assert.match(r.out, /is not on the allowed list/, licence);
+  }
+});
+
+// A take recorded by a voice model, with the narration beside it.
+const take = (meta, rows, files = {}) => project({ "audio/narration.response.json": JSON.stringify({ _meta: meta }), "assets/narration.mp3": "n", ...files }, rows);
+const omni = { engine: "voicestudio", model: "omnivoice" };
+const elFree = { engine: "elevenlabs", model: "eleven_v4", tier: "free" };
+
+await test("F. a non-commercial film narrated by ElevenLabs free tier reaches OK with the licence the check names", async () => {
+  const first = await run(check, [take(elFree, [{ file: "assets/narration.mp3", source: "ElevenLabs", licence: "Apache-2.0" }])]);
+  assert.equal(first.code, 3, first.out);
+  const named = first.out.match(/whose output is (.*) — listed as/);
+  assert.ok(named, first.out);
+  assert.equal(named[1], "ElevenLabs free tier: non-commercial, attribution");
+  const second = await run(check, [take(elFree, [{ file: "assets/narration.mp3", source: "ElevenLabs", licence: named[1] }])]);
+  assert.equal(second.code, 0, second.out);
+});
+
+await test("G. the narration cross-check reads engine-manifest rows too: a non-commercial voice cannot ride in as MIT", async () => {
+  const eng = (licence) => JSON.stringify([{ file: "narration.mp3", source: "VoiceStudio", licence }]);
+  const top = await run(check, [take(omni, [], { "assets/.engine.json": eng("MIT") }), "--commercial"]);
+  assert.equal(top.code, 3, top.out);
+  assert.match(top.out, /spoken by OmniVoice/);
+  assert.ok(!/Result  : OK/.test(top.out), top.out);
+  const sub = await run(check, [take(omni, [], { "assets/sub/.engine.json": eng("MIT"), "assets/sub/narration.mp3": "n" }), "--commercial"]);
+  assert.equal(sub.code, 3, sub.out);
+  assert.match(sub.out, /spoken by OmniVoice/);
+  // The same lie in ASSETS.json is refused too
+  const list = await run(check, [take(omni, [{ file: "assets/narration.mp3", source: "VoiceStudio", licence: "MIT" }]), "--commercial"]);
+  assert.equal(list.code, 3, list.out);
+  assert.match(list.out, /spoken by OmniVoice/);
+  // The other side: an engine row that tells the truth passes on a non-commercial film; a commercial voice passes commercially.
+  const truth = await run(check, [take(omni, [], { "assets/.engine.json": eng("CC-BY-NC-4.0") })]);
+  assert.equal(truth.code, 0, truth.out);
+  const vox = await run(check, [take({ engine: "voicestudio", model: "voxcpm2" }, [], { "assets/.engine.json": eng("Apache-2.0") }), "--commercial"]);
+  assert.equal(vox.code, 0, vox.out);
+});
+
 await test("E. a real build lists its own files: a fresh project passes with ASSETS.json = []", async () => {
   for (const sub of ["assets/engine", "assets"]) {
     const dir = project({}, []);
