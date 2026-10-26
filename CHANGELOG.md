@@ -48,6 +48,15 @@ that reads as:
   type and caption treatment). `palette.mjs --compare <#hex> <#hex>` gives the lightness gap for figure-ground.
   Only a missing video or ffmpeg (ENOENT) says "not found"; any other error (permissions, a symlink loop, a full
   buffer) names its code and says to rerun. `tests/palette.mjs` joins the merge gate.
+- **Sentence retake**: `tts_timestamps.mjs --retake auto` re-speaks, alone and with the take's own voice and settings,
+  every sentence with a low alignment run, an untimed word or heard words that differ from `narration.txt`, splices
+  each in at the measured pauses around it (10 ms equal-power crossfade, never inside a word), then transcribes and
+  times the whole file again and rewrites `words.json`, beats, subtitles and the response. At most two tries per
+  sentence (the second with another seed), then a WARNING naming it. `--retake <n,…>` re-speaks numbered sentences and
+  `--retake changed` only those that differ from the text of the take on disk (a new sentence is added, a removed one
+  is cut out); both work on the take that exists, with no full take. VoiceStudio single-voice narration only
+  (ElevenLabs, `--sample`, `--from-audio` and dialogue are refused). `voice.md`, `script-voice.md`, `SKILL.md` step 4.
+  `tests/retake.mjs` (a mock VoiceStudio whose audio the mock can hear again) is in the merge gate.
 - **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[assume: …]` (a stated
   assumption, only as a `[calc]` input), `[illus]` or `[unknown]`; section durations, a source's own year or page and
   visual-note specs are not numbers, so Gate 1's list can be empty, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
@@ -137,6 +146,14 @@ that reads as:
   full-frame ground only when the user or a measured reference asks. The §11 rubric gains a **Figure-ground** test (P1,
   P0 when the hero merges into its ground; `review.md` severity follows), and the Step 1 look previews name the ground
   colour and how the hero separates from it.
+- **`tts_timestamps.mjs` warnings name a command, not "listen"**: the alignment, word-count and estimated-beat
+  warnings say `--retake auto`, and a take with a flagged sentence prints the command that fixes it; `voice.md` and
+  `script-voice.md` say an unattended run never delivers a take with an open flag.
+- **A VoiceStudio `503` is BUSY, not FAILED**: the script waits (`DALANG_VS_BUSY_WAIT_S`, default 180 s) and retries
+  once; still busy it prints `WARN … rerun in a few minutes` and exits 3. It never says to restart the app or switch
+  engines. Any other error still fails with exit 1.
+- **VoxCPM2 chunks never exceed 120 characters**: a sentence longer than that splits at a comma, then at a space
+  (a text with no spaces every 120 characters); light engines keep ~700.
 - Music source order is CC0 first, then CC BY with a plain visible-credit note at Gate 2; the upload caption the agent
   drafts carries no credit or licence line unless the user chose one (`look-build.md` §7, `qc.md`, `lessons.md`, README).
 - Steam and smoke presets shade their side away from the light by default (`shade` 0.4 and 0.45; `shade: 0` keeps
