@@ -33,6 +33,23 @@ that reads as:
 
 ### Added
 
+- **Numbers model and numbers lint** (Step 3, Gate 1): when the script computes, the project's `model.mjs` is the one
+  source of every `[calc]` number. Plain JS with named `[src]`/`[assume]` inputs; it exports `numbers` (each result by
+  name, `{ value, say }`, `say` computed from `value` in the narration language) and, for a process over time,
+  `state(t)` (counters, on/off states, levels); `node model.mjs` prints the calculation card's lines and writes
+  `numbers.json`. `script.md` tags a model number `[calc: name]`, the narration stays words and speaks it in a beat of
+  that name, and the build reads `numbers` / `state(t)` (no number typed into the composition).
+  `scripts/numbers_lint.mjs [project]` fails (exit 1, `file:line`, spoken value, model value) on a beat that says
+  another number (words: its `say`, whole words; digits: after the spoken rounding, decimals, significant figures,
+  thousands separators), a `[calc: name]` missing from `numbers.json`, or a `numbers.json` older than `model.mjs`;
+  an unreadable `numbers.json` or a beat in words with no `say` is a WARN (exit 2), never "not found"; hand
+  arithmetic `[calc: a × b = c]` is listed, not checked. Docs: `script-voice.md` "Numbers model",
+  `visual-direction.md` §12, `look-build.md` Step 6. Test: `tests/numbers-lint.mjs`, in the merge gate.
+- **Time-compressed paired run and status tag vocabulary** (`visual-direction.md` §12): two identical sets that differ
+  in one variable run on the model's `state(t)`, with live A/B counters and status flips, tagged SPED UP and a
+  footnote naming the inputs; the headline's status tag reads ILLUSTRATION (`[illus]`), SPED UP or OUR MODEL
+  (`[calc]`), one colour per tag for the film, in the narration language.
+
 - **Engine runtime scale audit and z-fight probe** (`engine/three/audit.js`). `scaleAudit(root, { tol })` measures every object that declares `userData.real = { h, w, d }` (metres, world axes) and names those off by more than 15 %; a prop with no declared size, in a group or not, is listed `unchecked`, never passed, and a bad declaration is reported. `zFight(root, { cameras, bits, heightPx })` reports overlapping parallel faces less than one depth step apart at a camera, step z² (far − near) / (far · near · 2^bits) at the cameras' depth (worst over all stations), with a `polygonOffset` or lift to apply; cutaway caps are skipped, a pair is mitigated only when its polygonOffset keeps the faces a step apart at every camera, measured as the GPU applies it (factor × the face's depth slope per pixel + units × one step: a factor alone shifts nothing head-on, zero or equal offsets cancel, every material on the face counts), faces that only touch at an edge are not overlapping, faces no camera sees are counted. Self-check: a 10x prop flagged and a correct one passing, coplanar quads flagged while a 1 mm offset passes near and fights far, back-to-back, mirrored, hidden and unseen cases, factor-only offsets head-on and at an angle. A camera aspect that is not a finite number above 0 is refused, and a looked-at pair whose depth cannot be computed (edge-on, degenerate) is counted in `unseen`, never passed; the depth step assumes a standard (non-log, non-reversed) depth buffer.
 - **Preflight checks the skill's own clone** (row `DALANG skill`): a `fetch` (20 s cap, the only write, inside the
   clone's `.git`) then behind/ahead against `origin/main`: `N commits behind (latest: …) — pull --ff-only`; dirty and
@@ -196,6 +213,11 @@ that reads as:
 
 ### Changed
 
+- **`[calc]` names a model number** (`script-voice.md` Step 3): `[calc: name]` points into `numbers.json` and the
+  calculation card shows the lines `node model.mjs` prints, instead of arithmetic written by hand in the tag; the old
+  `[calc: a × b = c]` form still reads, and the numbers lint lists it as not checked. Step 3 and Step 6 index the
+  "Numbers model" section; Step 6 item 4 adds "never hard-code numbers". Two redundant phrases in Step 3 (a repeat of
+  the provenance rule's headline, two of the six two-beliefs examples) were cut to keep the 60 KB reading budget.
 - **Default fps follows the platform: 30** for Shorts, Reels, TikTok, feed and landscape (they play at 30, so 24 repeats one
   frame in four and judders); 24 only as a film look the user picks (on YouTube landscape, its own fourth Energy option "Calm cinematic, film look (24 fps)"), and then every camera move and fast body gets
   motion blur (`camera-motion.md` §10), because rendered 3D has no natural blur and strobes. Never 60 (double render time,

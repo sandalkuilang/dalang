@@ -171,6 +171,7 @@ scripts/
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
+  numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
   strips.mjs           review strips: stills per shot on numbered sheets + index
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
@@ -201,6 +202,7 @@ video/<slug>/
 ├── PRODUCTION.md     work log, one line per step — the source of every number
 ├── script.md         for humans: sections, visual notes, every number tagged with its source
 ├── narration.txt     only the spoken words + {beat|name} markers
+├── model.mjs         when the script computes: named inputs → numbers + state(t); writes numbers.json
 ├── audio/            narration, words.json, beats.json, beats.js
 ├── SPEC.md           the LOOK in numbers · OBJECTS · BANNED defaults
 ├── storyboard.md     colour script + shot table with overlays, times from beats.json
