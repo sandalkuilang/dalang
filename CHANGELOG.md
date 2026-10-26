@@ -38,8 +38,9 @@ that reads as:
   from one table that mirrors `SKILL.md`'s step table, plus the headlines of the step's lessons, one command per section
   the step's text points to, and what a subagent reads. `state.mjs reading` checks the table (every heading exists,
   every section is at most 8 KB, Steps 0–8 together at most 60 KB); `scripts/gate.sh --fast` runs it and
-  `tests/reading.mjs`, which proves it fails on an oversized section, a missing heading, a bad lesson tag and an
-  over-budget total.
+  `tests/reading.mjs`, which proves it fails on an oversized section, a missing heading, a bad lesson tag, an unreadable lesson
+  bullet and an over-budget total. A lesson with no tag is printed at every step, as `lessons.md` says; none is
+  dropped silently.
 - **Camera stations and attention** (`engine/three/camera.js`): `stations`, `frame`, `travel` (an arc over the set, eased,
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by
