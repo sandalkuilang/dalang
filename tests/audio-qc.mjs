@@ -359,6 +359,25 @@ try {
     for (const code of ['tl.to("#title", { opacity: 1 }, 0)', "const volumes = 1; const mutedColor = 2; gains(); fxx();", 'fetch("https://x.test/a")']) assert.equal(scriptOf(code), null, code);
     assert.equal(q.scriptProblem([{ attrs: { type: "application/json" }, text: '{"volume": 1}' }], ".", none), null, "a JSON block is data, not a script");
     assert.match(q.scriptProblem([{ attrs: { src: "js/a.js" }, text: "" }], "/p", () => ({ text: "export const f = () => { gain(0); };" })) || "", /may change the mix/, "a local script file is read");
+    // every JavaScript MIME essence the HTML spec lists (Chromium runs them all) is a script; a type or language attribute is read like the browser does
+    for (const type of ["application/x-javascript", "text/x-javascript", "application/x-ecmascript", "text/x-ecmascript", "text/jscript", "text/livescript", "text/javascript1.0", "text/javascript1.3", "text/javascript1.5", "TEXT/JavaScript", " application/javascript ", "text/javascript; charset=utf-8", "application/ecmascript", "text/ecmascript"]) assert.match(scriptOf("gsap.to('#m', { volume: 0.02 })", { type }) || "", /may change the mix/, "script type " + type);
+    assert.match(scriptOf("a.volume = 0", { type: "" }) || "", /may change the mix/, "an empty type is JavaScript");
+    assert.match(scriptOf("a.volume = 0", { language: "JScript" }) || "", /may change the mix/, "a language attribute with no type is text/<language>");
+    assert.match(scriptOf("a.volume = 0", { language: "javascript" }) || "", /may change the mix/, "language=javascript");
+    assert.match(scriptOf("a.volume = 0", { type: "", language: "vbscript" }) || "", /may change the mix/, "an empty type wins over language");
+    for (const attrs of [{ type: "application/json" }, { type: "application/ld+json" }, { type: "text/template" }, { type: "text/x-handlebars" }, { type: "speculationrules" }, { type: "text/plain" }, { type: "application/json; charset=utf-8" }, { language: "vbscript" }, { type: "text/vbscript" }]) assert.equal(scriptOf('{"volume": 1}', attrs), null, "a data block: " + JSON.stringify(attrs));
+    // inline event-handler attributes and javascript: URLs on any element are script text too
+    {
+      const hs = (...h) => q.scriptProblem([], ".", none, { handlers: h.map(([tag, attr, text]) => ({ tag, attr, text })) });
+      for (const [tag, attr, text] of [["body", "onload", "document.getElementById('music-a').volume=0.02"], ["img", "onerror", "a.muted = true"], ["svg", "onload", "a.playbackRate = 2"], ["div", "onclick", "node.gain.value = 0"], ["iframe", "src", "parent.vol.fx()"]]) assert.match(hs([tag, attr, text]) || "", /may change the mix/, `${tag} ${attr}`);
+      assert.match(hs(["body", "onload", "import('./x.js')"]) || "", /page loads scripts the check does not resolve/, "a dynamic import in a handler");
+      assert.equal(hs(["body", "onload", "document.body.classList.add('ready')"], ["img", "onerror", "this.hidden = true"]), null, "a handler without a mix token");
+      assert.equal(hs(), null, "no handler");
+      const page = q.scanHtml('<body onload="document.getElementById(&quot;m&quot;).volu&#109;e=0.02" class="x"><img src=a.png onError=\'a.muted=1\'><svg ONLOAD="g.gain=0"></svg><a href=" JavaScript:v.volume=0">x</a><div data-onload="volume" id="v" ononce="1"></div><p title="volume">t</p>');
+      assert.deepEqual(page.handlers.map((h) => `${h.tag}.${h.attr}:${h.text}`), ['body.onload:document.getElementById("m").volume=0.02', "img.onerror:a.muted=1", "svg.onload:g.gain=0", "a.href:v.volume=0", "div.ononce:1"], "handlers and javascript: URLs, entities decoded");
+      assert.deepEqual(q.scanHtml('<script onerror="a.volume=0"></script><audio id="m" src="m.wav" onended="x()"></audio><!-- <p onclick="volume"> -->').handlers.map((h) => `${h.tag}.${h.attr}`), ["script.onerror", "audio.onended"], "handlers on a script or media tag too; a comment holds none");
+      assert.deepEqual(q.scanHtml('<style>a{}</style><p class="onload" title="javascript is fun">x</p><a href="https://x.test/javascript:">y</a>').handlers, [], "words that only look like a handler or a javascript: URL");
+    }
     // The bounded script-load contract: only a plain relative <script src> and a static quoted relative or root import
     // specifier are followed (against the folder of index.html); a <base href>, an import map or a dynamic import( of any form
     // is a page that loads scripts the check does not resolve = NOT CHECKED. Bare names and remote http(s) libraries are vendor.
@@ -811,6 +830,12 @@ try {
         ["c-shorthand", `${music()}<script>const { volume } = cfg; duck(volume);</script>`, {}, "a script that passes volume on as a shorthand"],
         ["c-muted", `${music()}<script>document.getElementById("music-a").muted = true;</script>`, {}, "a script that mutes the bed"],
         ["c-script-missing", `${music()}<script src="js/gone.js"></script>`, {}, "a local script that cannot be read"],
+        ...["application/x-javascript", "text/x-javascript", "text/jscript", "text/javascript1.5", "text/livescript", "application/x-ecmascript", "text/x-ecmascript"].map((t, i) => [`c-legacy-type-${i}`, `${music()}<script type="${t}">gsap.to('#music-a', { volume: 0.02 });</script>`, {}, `a ${t} script that changes the bed`]),
+        ["c-language-attr", `${music()}<script language="jscript">gsap.to('#music-a', { volume: 0.02 });</script>`, {}, "a script with only a language attribute"],
+        ["c-body-onload", `<body onload="document.getElementById('music-a').volume=0.02">${music()}</body>`, {}, "a body onload handler that changes the bed"],
+        ["c-img-onerror", `${music()}<img src="missing.png" onerror="document.getElementById('music-a').muted=true">`, {}, "an img onerror handler that mutes the bed"],
+        ["c-svg-onload", `${music()}<svg onload="document.getElementById('music-a').volume=0.02"></svg>`, {}, "an svg onload handler"],
+        ["c-js-url", `${music()}<iframe src="javascript:parent.document.getElementById('music-a').volume=0.02"></iframe>`, {}, "a javascript: URL"],
       ]) notChecked(run(make(name, tags, files)), what);
       for (const [name, tags] of [["p-base", `<base href="js/">${music()}`], ["p-importmap", `${music()}<script type="importmap">{"imports":{}}</script>`], ["p-dynamic", `${music()}<script type="module">import(\`./x.js\`);</script>`]]) {
         assert.match(run(make(name, tags)).stdout, /page loads scripts the check does not resolve; check the bed by ear on the draft/, name + ": the advice names the limit");
@@ -822,6 +847,7 @@ try {
       ok(run(make("k-inert", music('class="a" data-hf-id="h1" data-track-index="2" data-layer="1" preload="auto"'))), "inert attributes");
       ok(run(make("k-bus-inert", `<hf-audio-group id="mb" data-volume="1" data-label="Music"></hf-audio-group>${music('data-audio-group="mb"')}`)), "a bus with a label");
       ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
+      ok(run(make("k-handler", `<body onload="document.body.classList.add('ready')">${music()}<img src="a.png" onerror="this.hidden=true"><script type="text/x-handlebars">{{volume}}</script><script type="application/ld+json">{"volume": 1}</script></body>`)), "a handler without a mix token, a data block of a non-JavaScript type");
       ok(run(make("k-plain", `${music()}<script>tl.to("#title", { opacity: 1 }, 0);</script><script src="js/plain.js"></script>`, { "js/plain.js": "gsap.to('#title', { y: 10 });\n" })), "a plain page, relative scripts without a mix token, a bed 15 dB under the voice");
       ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
       // the DALANG engine copy (listed by the .engine.json beside it) is a vendored library, like a remote script: not read; a file it does not list is read
