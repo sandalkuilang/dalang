@@ -103,14 +103,17 @@ async function isles(o = {}) {
   const [push, a, b] = meshes.slice(0, 3).map((m) => s.roundBox(m, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }));
   const arm = o.kin ? s.kinematicHull(meshes[3], (t) => ({ p: { x: 0, y: 0.3, z: -1.5 + 0.1 * t } })) : null;
   let shoved = false;
-  const step = (t) => { if (!shoved && t >= 0.3) { shoved = true; push.body.setLinvel({ x: 0, y: 0, z: 0.5 }, true); } }; // the main island's scripted push
+  const step = (t) => { if (!shoved && t >= 0.3) { shoved = true; push.body.setLinvel({ x: 0, y: 0, z: 2 }, true); } }; // the main island's scripted push
   const mem = o.store || new Map();
   return { s, a, b, push, arm, step, opts: { track: { pz: () => push.body.translation().z }, keep: () => ({ shoved }), load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v), ...(o.workers === false ? { workers: false } : {}) } };
 }
 const withIslands = (I, opts = {}) => ({ ...I.opts, islands: [[I.a], [I.b]], ...opts });
 const ipose = (r, t) => [0, 1, 2].map((i) => poseAt(r, i, t));
 const one = await isles(), single = await one.s.bakeCached(1.5, one.step, 0.2, one.opts);
+const warned = [], warn = console.warn; console.warn = (...m) => warned.push(m.join(" "));
 const istore = new Map(), I1 = await isles({ store: istore }), par = await I1.s.bakeCached(1.5, I1.step, 0.2, withIslands(I1));
+console.warn = warn;
+assert.deepEqual(warned, [], "the islands really ran in workers (no fallback to this thread)");
 const I2 = await isles({ store: new Map(), workers: false }), seq = await I2.s.bakeCached(1.5, I2.step, 0.2, withIslands(I2));
 for (const t of times) assert.deepEqual(ipose(par, t), ipose(seq, t), `worker and in-thread island bakes agree at ${t} s`);
 assert.deepEqual([par.report, par.impacts, par.kept], [seq.report, seq.impacts, seq.kept], "worker and in-thread island reports agree");
