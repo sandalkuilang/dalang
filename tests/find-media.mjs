@@ -217,6 +217,70 @@ await test("10. usage errors exit 2", async () => {
   assert.equal((await run(["--query", "x", "--out", dir("u")])).code, 2);
 });
 
+await test("11. an empty Commons answer ({\"batchcomplete\":\"\"}) is an answer: exit 1 'nothing matched', no WARN; garbage is still a WARN", async () => {
+  for (const [name, body] of [["old", '{"batchcomplete":""}'], ["v2", '{"batchcomplete":true}']]) {
+    await withMock((u) => (u.pathname === "/w/api.php" ? [200, body] : [200, { result_count: 0, results: [] }]), async (m) => {
+      const r = await run(["--type", "image", "--query", "zzqxqvwvkqzz", "--source", "commons", "--out", dir("cempty-" + name)], env(m));
+      assert.equal(r.code, 1, `${name}: ${r.out}`);
+      assert.match(r.out, /nothing matched/); assert.doesNotMatch(r.out, /WARN|did not answer/);
+      const both = await run(["--type", "image", "--query", "zzqxqvwvkqzz", "--out", dir("cempty2-" + name)], env(m));
+      assert.equal(both.code, 1, `${name} both: ${both.out}`); assert.doesNotMatch(both.out, /WARN/);
+    });
+  }
+  // the other side: an answer that is not a MediaWiki reply is still an outage, never "no results"
+  for (const [name, body] of [["error", '{"error":{"code":"internal_api_error","info":"x"}}'], ["empty-object", "{}"], ["array", "[]"], ["null", "null"]]) {
+    await withMock((u) => (u.pathname === "/w/api.php" ? [200, body] : [200, { result_count: 0, results: [] }]), async (m) => {
+      const r = await run(["--type", "image", "--query", "bridge", "--source", "commons", "--out", dir("cbad-" + name)], env(m));
+      assert.equal(r.code, 3, `${name}: ${r.out}`); assert.match(r.out, /WARN.*rerun/); assert.doesNotMatch(r.out, /nothing matched/);
+    });
+  }
+});
+
+await test("12. --bundled applies the search path's filters: NC/ND dropped, CC BY (no creator named) dropped, outside --licence dropped; a custom licence and a matching CC0 still list", async () => {
+  const lib = (lic) => bundle(`All sound effects are used under the [${lic}](https://example.org/l).\n`);
+  for (const lic of ["CC BY-NC-ND 4.0", "CC BY-NC 4.0", "CC BY-ND 4.0", "CC BY-NC-SA 4.0", "Non-Commercial Use Only", "CC BY 4.0", "CC BY-SA 4.0", "Creative Commons Attribution 4.0"]) {
+    const out = dir("bnc");
+    const r = await run(["--type", "sfx", "--bundled", "--media-use", lib(lic), "--out", out]);
+    assert.equal(r.code, 1, `${lic}: ${r.out}`);
+    assert.doesNotMatch(r.out, /whoosh/, lic); assert.ok(r.out.includes(lic), `the refusal names the licence "${lic}": ${r.out}`);
+    assert.ok(!fs.existsSync(path.join(out, "whoosh.mp3")), `${lic}: a refused file must not be copied`);
+    assert.ok(!fs.existsSync(path.join(out, "results.json")), lic);
+  }
+  // CC BY-SA asked for by name still needs a creator the library does not name: refused
+  assert.equal((await run(["--type", "sfx", "--bundled", "--media-use", lib("CC BY-SA 4.0"), "--licence", "by-sa", "--out", dir("bsa")])).code, 1);
+  // legitimate: CC0 and public domain list, a custom licence (no CC family) lists, CC0 is out when --licence asks for by-sa only
+  for (const lic of ["CC0 1.0", "Public Domain", "Pixabay Content License"]) {
+    const r = await run(["--type", "sfx", "--bundled", "--media-use", lib(lic), "--out", dir("bok")]);
+    assert.equal(r.code, 0, `${lic}: ${r.out}`); assert.match(r.out, /whoosh/);
+  }
+  const r = await run(["--type", "sfx", "--bundled", "--media-use", lib("CC0 1.0"), "--licence", "by-sa", "--out", dir("bout")]);
+  assert.equal(r.code, 1, r.out);
+});
+
+await test("13. the documented music flow passes the licence gate: take, fit over the taken path, check_assets exit 0; a fitted file under another name has no row", async () => withMock(audioRoutes, async (m) => {
+  const out = dir("flow"), proj = dir("proj");
+  fs.writeFileSync(path.join(proj, "ASSETS.json"), "[]");
+  await run(["--type", "music", "--query", "calm", "--out", out], env(m));
+  const good = JSON.parse(fs.readFileSync(path.join(out, "results.json"), "utf8")).find((x) => x.title === "Calm Morning");
+  assert.equal((await run(["--take", path.join(out, good.file), "--as", "assets/music.mp3", "--project", proj])).code, 0);
+  // the old flow: the fit is a second file named music.m4a, the row lists music.mp3 only
+  fs.writeFileSync(path.join(proj, "assets/music.m4a"), "FIT");
+  const bad = await runCheck(proj);
+  assert.equal(bad.code, 3, bad.out); assert.match(bad.out, /music\.m4a: not in ASSETS\.json/);
+  fs.rmSync(path.join(proj, "assets/music.m4a"));
+  // §7 as written: pull the take's --as and the ffmpeg destination from look-build.md and follow them
+  const doc = fs.readFileSync(fileURLToPath(new URL("../references/look-build.md", import.meta.url)), "utf8").split("\n").find((l) => l.includes("--type music"));
+  const as = doc.match(/--take review\/music\/<file> --as (assets\/[\w.\-]+)/)?.[1];
+  assert.ok(as, "§7 names the take's --as");
+  assert.doesNotMatch(doc, /assets\/music\.m4a/, "the fit must not write a file the row does not list");
+  const mv = doc.match(/&& mv (assets\/[\w.\-]+) (assets\/[\w.\-]+)/);
+  assert.ok(mv, "§7 moves the fitted file over the taken path"); assert.equal(mv[2], as);
+  assert.ok(doc.includes(`-i ${as}`) && doc.includes(` ${mv[1]} &&`), "the fit reads the taken file and writes the temp name");
+  fs.writeFileSync(path.join(proj, mv[1]), "FIT"); fs.renameSync(path.join(proj, mv[1]), path.join(proj, mv[2]));
+  assert.equal((await runCheck(proj)).code, 0);
+  assert.deepEqual(fs.readdirSync(path.join(proj, "assets")), ["music.mp3"], "nothing else is left in assets/");
+}));
+
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
 console.log(`find_media ok: ${count} cases`);
