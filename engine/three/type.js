@@ -246,4 +246,13 @@ export function repeats(caps, labels) {
   return out;
 }
 
-export function readTime() { throw new Error("todo"); }
+// The least time a label or overlay needs on screen: half a second to notice it, about three words a second, 0.15 s
+// per CJK character, never under `floor` (1 s: a shorter clip reads as a flicker). Seconds, rounded to a millisecond.
+export function readTime(text, { floor = 1 } = {}) {
+  const s = String(text ?? "");
+  let cjk = 0, rest = "";
+  for (const ch of s) { if (CJK.test(ch)) { cjk++; rest += " "; } else rest += ch; }
+  const words = rest.split(/\s+/).filter((w) => ALNUM.test(w)).length;
+  if (!words && !cjk) return floor;
+  return Math.max(floor, ms(0.5 + 0.3 * words + 0.15 * cjk));
+}
