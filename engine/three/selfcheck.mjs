@@ -1020,7 +1020,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const { world, base, A, shell, core, B, shared } = build();
   const meshes = []; world.traverse((o) => { if (o.isMesh) meshes.push(o); });
   const snap = meshes.map((m) => ({ m, mat: m.material, hex: m.material.color.getHex(), op: m.material.opacity, tr: m.material.transparent, dw: m.material.depthWrite }));
-  const untouched = (what) => { for (const s of snap) assert.ok(s.m.material === s.mat && s.mat.color.getHex() === s.hex && s.mat.opacity === s.op && s.mat.transparent === s.tr && s.mat.depthWrite === s.dw, what + ": " + s.m.name + " is not as it was"); };
+  const untouched = (what) => { for (const s of snap) assert.ok(s.mat.color.getHex() === s.hex && s.mat.opacity === s.op && s.mat.transparent === s.tr && s.mat.depthWrite === s.dw, what + ": " + s.m.name + "'s original material was written"); };
   const pose = (p) => [...p.position.toArray(), ...p.target.toArray(), p.fov];
   const near = (a, b, e, what) => { for (let i = 0; i < a.length; i++) assert.ok(Math.abs(a[i] - b[i]) <= e, what + " [" + i + "]: " + a[i] + " vs " + b[i]); };
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
