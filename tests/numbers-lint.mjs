@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // node tests/numbers-lint.mjs — scripts/numbers_lint.mjs against fixture projects. A project's model.mjs writes
 // numbers.json (every [calc] result by name, its value and its spoken words); the lint checks that each narration beat
-// named after a model number says that number (in words: the model's `say`; in digits: the value after the spoken
-// rounding), that each [calc: name] in script.md is in numbers.json, and that numbers.json is not older than model.mjs.
+// named after a model number holds a mention of it in a declared form (the model's `say`, or a figure that rounds to
+// the value, alone or in the say's place), that each [calc: name] in script.md is in numbers.json, and that
+// numbers.json is not older than model.mjs.
 // An unreadable numbers.json is WARN (rerun), never "not found".
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -301,11 +302,13 @@ try {
   // and nothing in a beat of another name, or of none, is ever flagged. Every model shape: a say with a hedge and a
   // unit, a say with no unit, a decimal say, a say in an unspaced script, no say.
   const cls = path.join(tmp, "class");
-  put(cls, "script.md", ["Cost [calc: cost], parts [calc: parts], share [calc: share], kwh [calc: kwh], yen [calc: yen]."]);
+  put(cls, "script.md", ["Cost [calc: cost], parts [calc: parts], share [calc: share], kwh [calc: kwh], yen [calc: yen], rent [calc: rent]."]);
   put(cls, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" }, parts: { value: 21, say: "twenty-one" },
-    share: { value: 12.5, say: "twelve and a half percent" }, kwh: { value: 141 }, yen: { value: 40, say: "四十円" } })]);
+    share: { value: 12.5, say: "twelve and a half percent" }, kwh: { value: 141 }, yen: { value: 40, say: "四十円" },
+    rent: { value: 40, say: "about forty dollars a month" } })]);
   const forms = { // [form, may it stand among other words]
     cost: [["about forty dollars", 1], ["About Forty-Dollars", 1], ["about 40 dollars", 1], ["40 dollars", 1], ["about 40", 1], ["$40", 0], ["40", 0]],
+    rent: [["about forty dollars a month", 1], ["about 40 dollars a month", 1], ["40 dollars a month", 1], ["about 40 dollars", 1], ["40 dollars", 1], ["40 a month", 1]],
     parts: [["twenty-one", 1], ["Twenty one", 1], ["21", 0]],
     share: [["twelve and a half percent", 1], ["12.5 percent", 1], ["12.5", 0]],
     kwh: [["141", 1], ["140", 1], ["about 140 kilowatt hours", 1], ["100", 1]],
