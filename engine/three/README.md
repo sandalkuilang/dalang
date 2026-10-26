@@ -97,7 +97,7 @@ here with a line in this table. Air is one shared field: every source adds into 
    empty place, so they refuse; read a main-island body through its own methods), a kinematic body, one impact name on bodies of two islands or a joint across
    islands is refused, and a body of one island coming within 5 mm of another's (judged on what can touch: every
    collider of the body, with its offset and contact skin, and the drawn geometry, so a collider built wider than its
-   mesh counts; on the path between two steps too, so a fast body cannot pass a declared one unseen; in the pre-roll as well as the shot: a piece that settles onto a declared body there would fall through
+   mesh counts; on the path between two steps too, so a fast body cannot pass a declared one unseen: a straight line, since Rapier's CCD ends a step at the first contact, widened by the chord of a body's turn about its centre of mass, and judged from where a script put a body, never along its teleport; in the pre-roll as well as the shot: a piece that settles onto a declared body there would fall through
    it in its own world) throws with the pair and the time, so merge those islands. While the islands bake, a script may
    change a main-island collider's friction, restitution, mass or filters, never where it can touch (shape, size, offset,
    contact skin: those calls throw, and a collider that reaches further after the bake is caught). What every island world shares with the main one
