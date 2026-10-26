@@ -28,7 +28,7 @@ const MODEL = [
   "const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];",
   "const words = (n) => (n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : ''));",
   "const i = inputs, kwh = (standby) => i.showersPerMonth * i.kwhPerShower + standby * i.days;",
-  "const dollars = (v) => ({ value: Math.round(v * 10) / 10, say: `about ${words(Math.round(v))} dollars` });",
+  "const dollars = (v) => ({ value: v, say: `about ${words(Math.round(v))} dollars` }); // value unrounded: the narration rounds",
   "export const numbers = {",
   "  cost_small: dollars(kwh(i.standbySmall) * i.pricePerKwh),",
   "  cost_large: dollars(kwh(i.standbyLarge) * i.pricePerKwh),",
@@ -69,7 +69,7 @@ try {
   assert.equal(bad.code, 1, bad.out + bad.err);
   assert.deepEqual(found(bad.out), ["narration.txt:3"]);
   const line = msg(bad.out, "narration.txt:3");
-  assert.ok(line.includes("about twelve dollars") && line.includes("16") && line.includes("about sixteen dollars"), line);
+  assert.ok(line.includes("about twelve dollars") && line.includes("model 15.99 ") && line.includes("about sixteen dollars"), line);
   put(p, "narration.txt", NARRATION("{about sixteen dollars|cost_small}"));
   const good = run(p);
   assert.equal(good.code, 0, good.out + good.err);
