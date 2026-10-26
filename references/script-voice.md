@@ -34,6 +34,8 @@ node <skill-dir>/scripts/tts_timestamps.mjs --input narration.txt --out audio --
 
 The engine defaults to VoiceStudio (free); add `--engine elevenlabs` only when `BRIEF.md` says so (it bills).
 
+- **One model, stated.** The script prints `Model : <name> — <licence>`. It speaks with VoiceStudio's active TTS model unless `--model <name>` is passed; when `BRIEF.md` names a model, pass it. A non-commercial model (OmniVoice, the ElevenLabs free tier) is said with the narration at Gate 2, whatever the user said about questions. Anything that forces a different model (a feature one model lacks) is printed in one line with the model and its licence, and recorded.
+
 - **Ask before auditioning:** a voice named in the Brief is sampled directly, no question. Otherwise show the saved profiles from `--list-voices` (the user's own clones first) and ask which to try; audition designed voices only when none fits.
 - Audition 2–3 voices that suit the narration language with `--sample` (each sample gets its own file name; the script prints the pace). More than 10 % off the target → adjust the script; less → `--speed`.
 - **VoiceStudio with no saved profile** for this language: audition designed voices with `--voice default --instructions "…"`. The fixed `--seed` (default 42) keeps the approved timbre in the full take — pass the same instructions and seed. For a voice reused across videos, save it: `--save-profile "<name>" --ref audio/<approved sample>.wav --language <lang>` (`voice.md` "Clone").
