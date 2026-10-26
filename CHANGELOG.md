@@ -39,12 +39,13 @@ that reads as:
   `state(t)` (counters, on/off states, levels); `node model.mjs` prints the calculation card's lines and writes
   `numbers.json`. `script.md` tags a model number `[calc: name]`, the narration stays words and speaks it in a beat of
   that name (a further mention in `<name>__<suffix>`), and the build reads `numbers` / `state(t)` (no number typed into the composition).
-  `scripts/numbers_lint.mjs [project]` fails (exit 1, `file:line`, spoken value, model value) on a beat that says
-  another number (words first: its `say`, whole words, case, punctuation and hyphens ignored, a figure beside them is
-  another figure; else digits after the spoken rounding, decimals, significant figures, thousands separators), a beat
-  name used twice, a `[calc: name]` missing from `numbers.json`, or a `numbers.json` older than `model.mjs`;
-  an unreadable `numbers.json`, a beat in words with no `say`, or a beat of another name that holds a model number's
-  `say` with one word changed is a WARN (exit 2), never "not found" and never OK; hand
+  `scripts/numbers_lint.mjs [project]` fails (exit 1, `file:line`, spoken value, model value) on a beat named after a
+  model number that holds no mention of it in a declared form (its `say`, whole words, case, punctuation and hyphens
+  ignored; or a figure equal to the value after the spoken rounding, decimals, significant figures, thousands
+  separators, alone in the beat or in the place of the say's number; anything else in the beat is not read), a beat
+  name used twice, a `[calc: name]` missing from `numbers.json`, or a `numbers.json` older than `model.mjs`; a beat of
+  another name, or of none, is never flagged; an unreadable `numbers.json` or a beat in words with no `say` is a WARN
+  (exit 2), never "not found" and never OK; hand
   arithmetic `[calc: a × b = c]` is listed, not checked. Docs: `script-voice.md` "Numbers model",
   `visual-direction.md` §12, `look-build.md` Step 6. Test: `tests/numbers-lint.mjs`, in the merge gate. `state.mjs`: Gate 1's approval also hashes
   `model.mjs` and `numbers.json` when they exist, so a changed input or a rerun that moves a number makes it stale.
