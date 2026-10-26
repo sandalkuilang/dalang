@@ -35,12 +35,14 @@ that reads as:
 
 - **`state.mjs next` prints a step's reading list** (`node scripts/state.mjs next [dir] [--step 0-8]`): it works out
   where the video stands from its files and prints that step's sections as ready `sed` commands with absolute paths,
-  from one table that mirrors `SKILL.md`'s step table, plus the headlines of the step's lessons, one command per section
-  the step's text points to, and what a subagent reads. `state.mjs reading` checks the table (every heading exists,
-  every section is at most 8 KB, Steps 0–8 together at most 60 KB); `scripts/gate.sh --fast` runs it and
-  `tests/reading.mjs`, which proves it fails on an oversized section, a missing heading, a bad lesson tag, an unreadable lesson
-  bullet and an over-budget total. A lesson with no tag is printed at every step, as `lessons.md` says; none is
-  dropped silently.
+  from one table that mirrors `SKILL.md`'s step table, plus the headlines of the step's lessons, a "look up when needed"
+  index (one heading and exact command per section the step's text points to, no body printed) and what a subagent
+  reads. `state.mjs reading` checks the table (every heading exists, every section, indexed ones included, is at most
+  8 KB; what is printed to read, sections and lesson headlines, is at most 60 KB for Steps 0–8; the index and the
+  subagent list are outside that total); `scripts/gate.sh --fast` runs it and `tests/reading.mjs`, which proves it
+  fails on an oversized section, a missing heading, a bad lesson tag, an untagged lesson line and an over-budget
+  total. Every line in `lessons.md` carries a step tag; a line without one fails the gate instead of being dropped
+  or guessed to hold everywhere.
 - **Camera stations and attention** (`engine/three/camera.js`): `stations`, `frame`, `travel` (an arc over the set, eased,
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by
