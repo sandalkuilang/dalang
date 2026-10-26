@@ -111,6 +111,19 @@ export const surfaces = {
     const clod = fbm(u, v, 20, 35, 4), crumb = fbm(u, v, 120, 36, 2), pebble = fbm(u, v, 30, 37, 2) > 0.78 ? 1 : 0;
     return [...g(0.8 + 0.3 * clod + 0.15 * pebble), 0, 0.6 * clod + 0.2 * crumb + 0.3 * pebble, 0.5 * (1.15 - 0.2 * pebble)];
   }) }),
+  // Packed grains (16 grains across a tile; size: one grain's width, m; long: its length / width): plump ellipses
+  // on a jittered grid, each its own shade, dark gaps between them. The body under a grains() fill wears it.
+  grains: ({ size = 0.005, long = 1 } = {}) => ({ size: (16 * size) / M, ...bake(512, 6, (u, v) => {
+    const n = 16, fu = u * n, fv = v * n, i = Math.floor(fu), j = Math.floor(fv), w = (x) => ((x % n) + n) % n;
+    let h = 0, tone = 0.5;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ci = w(i + di), cj = w(j + dj), a = hash(ci, cj, 40) * 3.1416, ca = Math.cos(a), sa = Math.sin(a);
+      const dx = fu - (i + di + 0.5 + 0.4 * (hash(ci, cj, 41) - 0.5)), dy = fv - (j + dj + 0.5 + 0.4 * (hash(ci, cj, 42) - 0.5));
+      const ax = (dx * ca + dy * sa) / (0.55 * Math.sqrt(long)), ay = (-dx * sa + dy * ca) / (0.55 / Math.sqrt(long)), d = Math.hypot(ax, ay);
+      const dome = Math.sqrt(Math.max(0, 1 - d * d)); if (dome > h) { h = dome; tone = hash(ci, cj, 43); }
+    }
+    return [...g((0.55 + 0.45 * Math.min(1, h * 3)) * (0.88 + 0.24 * tone)), 0, h, 0.5 * (1.1 - 0.2 * h)];
+  }) }),
   // Everything else (painted metal, plastic, ceramic, paper): no surface is perfectly even; faint smudges in the
   // gloss and a hint of orange peel (30 cm tile).
   micro: () => ({ size: 0.3 / M, ...bake(512, 1.5, (u, v) => {
