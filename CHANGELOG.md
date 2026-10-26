@@ -175,7 +175,9 @@ that reads as:
 - **Information layers for explainers** (`visual-direction.md` §12): a claim headline (kicker, headline, status
   tag), data cards anchored beside their subject, world labels and captions, each with one job, plus evidence,
   calculation, running-tally, impact-numeral and recap-checklist cards; sizes and positions per 9:16, 4:5 and
-  16:9, at most 3 cards besides the caption, sides and hues fixed, one fact in one layer. The storyboard's shot
+  16:9, at most 3 cards besides the caption, sides and hues fixed, one fact in one layer, and an accent budget
+  that keeps §5's one accent per shot (headline key term in ink; the impact numeral takes the accent, and the
+  caption's active word stays in ink while it shows). The storyboard's shot
   table has an Overlay column that Step 6 builds text from; the review rubric adds Sound off and No repeat.
 
 ### Changed

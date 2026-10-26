@@ -108,7 +108,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 ## 9. Type, light, colour
 
 - One display face with character and one body face. From the bundled set: Archivo Black, Outfit 700–800, Montserrat 800, or Oswald for condensed numerals. Inter, Poppins, Space Grotesk, Geist and Instrument Serif are generated-look defaults; use them only if the brand does. Check the face covers every glyph of the narration language (`craft-rules.md` §6).
-- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140 px, labels at least 36 px, captions 54–64 px. `drawCaption` and `pinLabel` in the engine's `type.js` enforce these, pick light or dark ink from the ground under the text and keep labels in the safe area above the caption (a long label wraps; a caption phrase too long for two lines at 54 px shrinks and reports `shrunk`, so cut it shorter). The accent colour of the active word counts as the one accent element of the shot.
+- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140 px, labels at least 36 px, captions 54–64 px. `drawCaption` and `pinLabel` in the engine's `type.js` enforce these, pick light or dark ink from the ground under the text and keep labels in the safe area above the caption (a long label wraps; a caption phrase too long for two lines at 54 px shrinks and reports `shrunk`, so cut it shorter). The accent colour of the active word counts as the one accent element of the shot (unless an impact numeral holds it, §12 accent budget).
 - Titles enter in one of the varied ways in `/hyperframes` `motion.md`; once landed, text is dead still until it leaves.
 - The ground is a **set**, never a flat void: a radial light falloff (linear gradients band under H.264), a photo plate, a desk or paper plane, or a 3D sweep (look C's seamless sweep with a soft ground shadow is one).
 - Every object that sits on something has a contact shadow (an ellipse with ~30 px blur at 0.4 opacity) plus one soft drop shadow (y 24 px, 48 px blur, 0.18 opacity), in the scene's light direction.
@@ -147,7 +147,7 @@ With the sound off, on-screen text is how the viewer follows the argument. Up to
 
 | Layer | Job | Size | Where and when |
 |---|---|---|---|
-| Claim headline | the current claim as a takeaway, its key term styled (italic + accent underline); over it a kicker (section or source, monospace caps, tracked +8–12 %); under it an optional status tag (the `[illus]` illustration tag, `script-voice.md` §3) | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes on each claim beat (about one every 3–5 s); read alone, the headlines tell the argument |
+| Claim headline | the current claim as a takeaway, its key term styled (italic + underline, in ink); over it a kicker (section or source, monospace caps, tracked +8–12 %); under it an optional status tag (the `[illus]` illustration tag, `script-voice.md` §3) | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes on each claim beat (about one every 3–5 s); read alone, the headlines tell the argument |
 | Data card | one option's value, counting in sync with what happens in the world (a reading on the object, a gauge filling segment by segment) | ≤ 30 % of the frame width; value 72–110 px tabular figures, label 36 px | beside its subject: option A left, option B right, one hue per option for the whole film (§6 screen direction) |
 | World label | names a part ("PART · size") with a leader line | ≥ 36 px (`pinLabel`) | on its part, above the caption |
 | Caption | the spoken words | 54–64 px (`drawCaption`) | its target position (`craft-rules.md` §6) |
@@ -156,7 +156,7 @@ Card types that carry the argument (each counts as one of the 3 cards):
 - **Evidence card** (`[src]`): a short quote (about 12 words or less, 44–52 px), then the source and "translation ours" when translated, in 36 px monospace.
 - **Calculation card** (`[calc]`): the kicker "our calculation", the arithmetic one line per step, at most 4 lines at 44–56 px, `[assume]` inputs on a line labelled "assumption".
 - **Running tally**: a card that persists across sections and accumulates rows and bars (row 1 fills; later row 2 joins and outgrows it), at most 4 rows, labels 36–44 px, in the same place all film: the argument's state and a callback device, next to (never instead of) the physical comparison of §8.
-- **Impact numeral**: a large accent number ("≈ 4×", "+2 h"), 220–320 px (§7), that lands on its beat word next to its subject; it is the shot's one accent.
+- **Impact numeral**: a large accent number ("≈ 4×", "+2 h"), 220–320 px (§7), that lands on its beat word next to its subject; while it is on screen it holds the shot's accent (see the accent budget below).
 - **Recap checklist**: in the conclusion, one icon row added per spoken item, at most 5 rows at 44–56 px.
 
 Positions inside the format's text band (`craft-rules.md` §6, `safeArea` in `type.js`), as fractions of the height:
@@ -168,6 +168,7 @@ Positions inside the format's text band (`craft-rules.md` §6, `safeArea` in `ty
 | 4:5 feed | 8–22 % | 25–72 %, inside the 8 % margins | 76–92 % |
 | 16:9 landscape | 5–20 %, left-aligned, ≤ 50 % of the width | 22–80 %, beside the subject | 85–95 % |
 
+- **Accent budget** (§5: one accent element per shot): the layers above use ink, never the accent colour. The shot's single accent goes to the impact numeral when one is on screen; the caption's active word then stays in ink (no box) until the numeral leaves. In a shot without a numeral the accent stays with the caption's active word, as in §9. The A/B hues of the data cards are the options' own identity colours (§9 "the subject's own colours"), not the accent.
 - At most **3 cards** on screen besides the caption (the headline and labels are not cards), never three in a row (§5 Banned); the hero still meets §7's size.
 - A/B sides and hues are fixed for the film; a card stays beside its own subject.
 - A layer **enters on its beat word** (`BEATS`/`WORDS`), is **dead still while read** (§9), and **transforms, not vanishes**, when the claim changes: the headline's words change in place, a card's value counts to the new value, the tally gains a row. A layer leaves only when its subject or section does.
