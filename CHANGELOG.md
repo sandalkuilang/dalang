@@ -39,7 +39,9 @@ that reads as:
   with source, licence and author from the API, so `check_assets.mjs` passes without hand-written rows. NC and ND
   results and a CC BY with no creator are dropped; a 429/503 is retried after `Retry-After` (else exponential), never
   with fixed sleeps; a source that fails is a WARN to rerun, never "nothing found"; the bundled library's licence is read
-  from its own `CREDITS.md`. `look-build.md` §5 and §7, `lessons.md`, `visual-direction.md` and `looks.md` use it.
+  from its own `CREDITS.md` and gets the same filters (NC/ND, `--licence`, CC BY without a creator); an empty
+  Commons answer (`{"batchcomplete":""}`) is "nothing matched", not an outage; the music fit in `look-build.md` §7
+  writes over the taken path so the row stays true. `look-build.md` §5 and §7, `lessons.md`, `visual-direction.md` and `looks.md` use it.
   `tests/find-media.mjs` (against a mock API) and `tests/assets.mjs` (unknown file, wrong licences, the engine
   manifest) are in the merge gate.
 - **Review strips**: `scripts/strips.mjs` reads the storyboard's shot table (or `beats.json`), captures N stills per
