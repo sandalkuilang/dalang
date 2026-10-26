@@ -155,6 +155,13 @@ that reads as:
   frame; a label at the frame edge staying inside the safe area at every t; a long phrase, a long label and one long
   word drawn inside their zones (the drawn glyphs, not the returned box); breaks at speech pauses and at line ends; and
   the repeat rules.
+- **Scene lint** (`scripts/lint_scene.mjs [project]`): flags a `//` comment written mid-line that silently swallows
+  the code after it (a member assignment or call, `const`/`let`/`var`, `x = …;`, `fn(…);`) and a `]`, `}` or `)`
+  whose comma sits inside the comment, with `file:line` and the swallowed text, exit 1. It reads the film's own code
+  (`assets/`, `src/`, `style-frames/src/`; `.html` only inside `<script>`), never an engine copy (`.engine.json`),
+  and ignores end-of-line comments, whole-line comments and `//` inside strings; exit 2 when nothing could be linted.
+  Run after every patch and before every snapshot or draft render (`look-build.md` §6.8) and in the Step 7 QC block
+  (`qc.md`); `lessons.md` says why; `tests/lint-scene.mjs` joins the merge gate.
 
 ### Changed
 
