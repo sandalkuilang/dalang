@@ -1391,6 +1391,37 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.equal(zFight(tiles(tile("tileB", 100)), { cameras: cam1 }).pairs.length, 0, "tiles that only share an edge do not overlap");
     assert.equal(zFight(tiles(tile("tileB", 100, 100)), { cameras: cam1 }).pairs.length, 0, "tiles that only share a corner do not overlap");
     assert.equal(zFight(tiles(tile("tileB", 90)), { cameras: cam1 }).pairs.length, 1, "tiles that overlap by 10 cm fight");
+
+    // review round 2: an offset counts by the depth it shifts at the camera (factor x the face's window-depth slope + units
+    // x one step), never by its settings. A face square to the view has slope 0, so a factor alone shifts nothing there.
+    const wall = (m) => quad("floor", 0, m), oblique = (() => { const c = new THREE.PerspectiveCamera(40, 1, 10, 10000); c.position.set(150, 0, 100); c.lookAt(0, 0, 0); c.updateMatrixWorld(true); return c; })();
+    r = zFight(set2(wall(), quad("decal", 0, offMat(-4, 0))), { cameras: near });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "a factor-only offset on a face seen head-on shifts nothing: " + JSON.stringify(r));
+    r = zFight(set2(wall(), quad("decal", 0, offMat(-4, 0))), { cameras: oblique });
+    assert.ok(r.pairs.length === 0 && r.mitigated === 1, "the same factor-only offset seen at an angle separates the faces: " + JSON.stringify(r));
+    const head30 = cam(30, 1, 10000);
+    r = zFight(set2(wall(offMat(-1, -1)), quad("decal", 0, offMat(-2, -1))), { cameras: head30 });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "offsets that differ only in factor cancel head-on: " + JSON.stringify(r));
+    r = zFight(set2(wall(offMat(-1, -1)), quad("decal", 0, offMat(-2, -1))), { cameras: oblique });
+    assert.ok(r.pairs.length === 0 && r.mitigated === 1, "offsets that differ only in factor separate at an angle: " + JSON.stringify(r));
+    r = zFight(set2(wall(), quad("decal", 0, offMat(-4, 0))), { cameras: [oblique, near] });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "mitigated only when the offset holds at every camera: " + JSON.stringify(r));
+    const halves = (m0, m1) => { const g = new THREE.PlaneGeometry(100, 100, 2, 1); g.clearGroups(); g.addGroup(0, 6, 0); g.addGroup(6, 6, 1); const q = new THREE.Mesh(g, [m0, m1]); q.name = "decal"; return q; };
+    r = zFight(set2(wall(offMat(-1, -1)), halves(offMat(-1, -1), new THREE.MeshStandardMaterial())), { cameras: near });
+    assert.ok(r.pairs.length === 1 && r.mitigated === 0, "a face drawn with several materials: the half whose offset equals the other face's still fights: " + JSON.stringify(r));
+    r = zFight(set2(wall(), halves(offMat(-2, -2), offMat(-3, -3))), { cameras: near });
+    assert.ok(r.pairs.length === 0 && r.mitigated === 1, "a face whose every material shifts it apart from the other face is mitigated: " + JSON.stringify(r));
+    // the class: across factor x units settings, head-on (slope 0) a pair is mitigated exactly when the units differ; at an
+    // angle, exactly when the settings differ
+    const vals = [[0, 0], [-1, 0], [-4, 0], [0, -1], [-1, -1], [-4, -1]];
+    for (const [fa, ua] of vals) for (const [fb, ub] of vals) {
+      const h = zFight(set2(wall(offMat(fa, ua)), quad("decal", 0, offMat(fb, ub))), { cameras: near });
+      assert.equal(h.mitigated, ua !== ub ? 1 : 0, `head-on, A (${fa}, ${ua}) vs B (${fb}, ${ub}): mitigated ${h.mitigated}`);
+      assert.equal(h.pairs.length, 1 - h.mitigated, "head-on: every pair is either reported or mitigated");
+      const o = zFight(set2(wall(offMat(fa, ua)), quad("decal", 0, offMat(fb, ub))), { cameras: oblique });
+      assert.equal(o.mitigated, fa !== fb || ua !== ub ? 1 : 0, `at an angle, A (${fa}, ${ua}) vs B (${fb}, ${ub}): mitigated ${o.mitigated}`);
+    }
+    assert.throws(() => zFight(set2(quad("decal")), { cameras: near, heightPx: 0 }), /heightPx/);
   }
   assert.throws(() => zFight(set(quad("d")), {}), /cameras/);
   assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
