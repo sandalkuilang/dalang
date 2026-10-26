@@ -139,7 +139,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 | **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier), cloth, one air field, plants, particles, granular fills, water, fur, section views — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
-| **Sound** | music is a licensed free track (your own, then Openverse CC0 / CC BY, credited), never generated; sound effects (bundled library, Openverse CC0) sit on the actions they belong to, timed from the physics where things collide |
+| **Sound** | music is a licensed free track (your own, then Openverse CC0 / CC BY, credited), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide |
 
 <br/>
 
@@ -171,7 +171,8 @@ scripts/
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
   strips.mjs           review strips: stills per shot on numbered sheets + index
-  check_assets.mjs     licence gate for every asset → CREDITS.md
+  find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
+  check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
   gate.sh              the repo's gate (--fast static; full adds the engine self-check and tests/)

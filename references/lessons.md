@@ -51,10 +51,11 @@ Each line is a failure that already happened. Read this file when something goes
 - **Lint flagged 45 "duplicate audio tracks":** SFX `<audio>` without `data-duration` count as playing to the end of the film.
 - **`hyperframes preview` opened the user's own Chrome**: its `--open` defaults to true. Always `--no-open`, on every re-run with other flags too, and in the `dev` script `hyperframes init` writes to `package.json` (it has none); then the URL in Claude's isolated built-in browser (`qc.md` §7). HyperFrames' headless render Chrome is its own bundled copy and is fine.
 - **`snapshot` sends frames to Gemini** whenever `GEMINI_API_KEY` is set. Pass `--describe false`.
-- **No music source** left Step 6 undefined. Music is now a licensed free track (Openverse CC0 / CC BY, no key; `look-build.md` §7); nothing fits → narration + SFX, and say so.
+- **No music source** left Step 6 undefined. Music is now a licensed free track (Openverse CC0 / CC BY, no key; `scripts/find_media.mjs --type music`, `look-build.md` §7); nothing fits → narration + SFX, and say so.
 - **YouTube auto-captions had gaps**, including in the key sentence. Transcribe a reference again and read it to the end.
 - **The assistant studying a video cannot hear.** Sound effects read from images are guesses; mark them.
-- **`media-use resolve --type sfx` found no provider**; the free sources are the bundled `/media-use` library and Openverse CC0 (`look-build.md` §6.7).
+- **`media-use resolve --type sfx` found no provider**; the free sources are the bundled `/media-use` library and Openverse CC0, both through `scripts/find_media.mjs --type sfx` (`look-build.md` §6.7).
+- **Throwaway search scripts, and a hand-built manifest.** Each film re-wrote an Openverse and a Commons search (fixed `sleep`s between queries, ~11 min for one music track), and listed the engine's ~25 copied files in `ASSETS.json` as "generated, MIT", which is false for vendored code. `scripts/find_media.mjs` searches and `--take`s with the row filled from the API (backing off on 429); `build.mjs` lists the engine's files itself in `assets/.engine.json`. Never write either by hand; a licence guessed from memory (a bundled SFX pack taken for CC0) is read from its own credits file instead.
 
 ## Working speed
 - **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.

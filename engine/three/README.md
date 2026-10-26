@@ -12,6 +12,8 @@ are in `references/looks.md` (true shapes and surfaces) and `references/camera-m
 node <skill-dir>/engine/three/build.mjs <project>/assets
 ```
 
+The build also writes `<project>/assets/.engine.json`: every file it copied, with its real origin and licence (the repo's MIT for the engine and examples; each vendored npm package, with version and licence, for the bundles). `scripts/check_assets.mjs` reads it, so these files are never listed in `ASSETS.json` by hand.
+
 ```bash
 node <skill-dir>/engine/three/selfcheck.mjs <project>/assets
 ```

@@ -33,6 +33,15 @@ that reads as:
 
 ### Added
 
+- **Free media search**: `scripts/find_media.mjs` (Node `fetch`, no dependency) searches Openverse (music, SFX,
+  images), Wikimedia Commons (images) and the bundled `/media-use` SFX library, downloads previews and prints one line
+  per result; `--take <file> --as assets/<path>` copies the pick into the project and appends its `ASSETS.json` row
+  with source, licence and author from the API, so `check_assets.mjs` passes without hand-written rows. NC and ND
+  results and a CC BY with no creator are dropped; a 429/503 is retried after `Retry-After` (else exponential), never
+  with fixed sleeps; a source that fails is a WARN to rerun, never "nothing found"; the bundled library's licence is read
+  from its own `CREDITS.md`. `look-build.md` §5 and §7, `lessons.md`, `visual-direction.md` and `looks.md` use it.
+  `tests/find-media.mjs` (against a mock API) and `tests/assets.mjs` (unknown file, wrong licences, the engine
+  manifest) are in the merge gate.
 - **Review strips**: `scripts/strips.mjs` reads the storyboard's shot table (or `beats.json`), captures N stills per
   shot in one snapshot call and writes numbered sheets (one row per shot) and an index of frame → time → shot.
   `qc.md` and the fresh-eyes review use it instead of hand-tiled contact sheets; `tests/strips.mjs` checks it in
@@ -75,7 +84,11 @@ that reads as:
 
 - Steam and smoke presets shade their side away from the light by default (`shade` 0.4 and 0.45; `shade: 0` keeps
   the old flat look).
-
+- **The engine's files are listed by the build, not by hand**: `engine/three/build.mjs` writes `.engine.json` next to
+  them with each file's real origin and licence (the repo's MIT for engine and examples; each vendored package, with
+  version and licence, for the bundles). `check_assets.mjs` reads every `.engine.json` under `assets/` (an unreadable one
+  or a row outside its folder is a problem, fail closed), checks a licence `A AND B` part by part, and allows Zlib, ISC
+  and BSD-2/3-Clause.
 - **Unattended runs: Realism, Reality and Clarity P1s block the final** like a P0 until a round fixed them or two
   rounds failed; a Realism or Reality fail stays a P0 that never ships; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
   `review.md`). `lessons.md` gains the `font:` shorthand and scene-id lessons.
