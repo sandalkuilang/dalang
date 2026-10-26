@@ -101,7 +101,7 @@ async function isles(o = {}) {
   });
   sc.updateMatrixWorld(true);
   const s = await makeSim(THREE); s.staticScene(sc, meshes);
-  const [push, a, b] = meshes.slice(0, 3).map((m) => s.roundBox(m, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }));
+  const [push, a, b] = meshes.slice(0, 3).map((m, i) => (i === 0 && o.build ? o.build(s, m) : s.roundBox(m, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }))); // o.build: "push" made another way
   const arm = o.kin ? s.kinematicHull(meshes[3], (t) => ({ p: { x: 0, y: 0.3, z: -1.5 + 0.1 * t } })) : null;
   if (o.pv) push.body.setLinvel(o.pv, true); // the main island's piece already moving when the pre-roll starts
   if (o.holdA) s.hold(a, o.holdA);
@@ -272,6 +272,44 @@ for (const [what, make] of Object.entries(shared)) {
   const U = await isles(); U.s.world.createCollider(RAPIER.ColliderDesc.ball(0.1), U.s.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.8, 0.2, 0)));
   await refused(U, U.s.bakeCached(0.3, null, 0.1, withIslands(U)), /opts\.islands.*roundBox/, "a dynamic body made by hand would never meet the island bodies");
   const V = await withFixed(); await assert.doesNotReject(V.s.bakeCached(0.3, null, 0.1, withIslands(V)), "a hand-made fixed body is shared by every island world");
+}
+
+// Contacts come from the colliders, not from what is drawn. One rule closes every way a collider reaches past its drawn
+// mesh to a declared body the drawn geometry never comes near: the proof judges each body's reach (every collider it
+// has, with its offset and contact skin, and the drawn geometry), and while the islands bake no script can change a
+// collider's reach (a change by a call the lock does not know is caught after the bake). "a" rests 225 mm from the
+// drawn "push" and 5 mm or more from its collider in every case below, so the drawn geometry alone would pass them all.
+{
+  const dens = { density: 600 * M ** 3 }, wide = (w) => (s, m) => s.roundBox(m, w, 0.15, 0.15, 0.001, dens);
+  const late = (go) => (I) => (t) => { if (t >= 0.5) go(I.push.body.collider(0)); };
+  const grow = (c) => c.setHalfExtents({ x: 0.74, y: 0.074, z: 0.074 });
+  const reach = {
+    "a roundBox wider than its mesh": { build: wide(1.5) },
+    "an extra collider beside the hull": { build: (s, m) => s.dynamicHull(m, { ...dens, extra: [{ desc: RAPIER.ColliderDesc.ball(0.05).setTranslation(0.7, 0, 0), ...dens }] }) },
+    "a collider grown while the islands bake": { step: late(grow), vias: true },
+    "a collider moved off its body while the islands bake": { step: late((c) => c.setTranslationWrtParent({ x: 0.7, y: 0, z: 0 })) },
+    "a collider's round radius grown while the islands bake": { step: late((c) => c.setRoundRadius(0.7)) },
+    "a contact skin while the islands bake": { step: late((c) => c.setContactSkin(0.7)) },
+    "a collider grown by a call the lock does not know": { step: late((c) => Object.getPrototypeOf(c).setHalfExtents.call(c, { x: 0.74, y: 0.074, z: 0.074 })) },
+  };
+  for (const [what, v] of Object.entries(reach)) for (const via of v.vias ? ["onStep", "track", "keep"] : ["onStep"]) {
+    const R = await isles({ ay: 0.075, still: true, build: v.build, store: new Map() }), go = v.step ? v.step(R) : R.step;
+    const run = via === "onStep" ? { step: go, opts: {} } : { step: R.step, opts: { [via]: via === "track" ? { x: () => (go(0.6), 0) } : () => (go(0.6), {}) } };
+    await refused(R, R.s.bakeCached(1, run.step, 0.2, withIslands(R, run.opts)), /opts\.islands|main island and island 1 meet/, `${what} (${via}): a cross-island contact through a collider fails loudly`);
+  }
+  // Legitimate: a collider wider than its mesh but far from every other island bakes and matches the single world; a
+  // main collider's friction and restitution may change while the islands bake; the lock is lifted after the bake; with
+  // no islands a collider may grow, as part of the single world.
+  const far = async (isl, step) => { const R = await isles({ build: wide(1.0) }); return R.s.bakeCached(1.5, step ? step(R) : R.step, 0.2, isl ? withIslands(R) : R.opts); };
+  const [fi, fs] = [await far(true), await far(false)];
+  for (const t of times) assert.deepEqual(ipose(fi, t), ipose(fs, t), `a wide collider far from the other islands matches the single world at ${t} s`);
+  const mat = (I) => (t) => { I.step(t); if (t >= 0.5) { const c = I.push.body.collider(0); c.setFriction(0.2); c.setRestitution(0.3); } };
+  const [mi, ms] = [await far(true, mat), await far(false, mat)];
+  for (const t of times) assert.deepEqual(ipose(mi, t), ipose(ms, t), `a main collider's friction changed while the islands bake matches the single world at ${t} s`);
+  const L = await isles(); await L.s.bakeCached(0.3, null, 0.1, withIslands(L));
+  assert.doesNotThrow(() => grow(L.push.body.collider(0)), "the collider lock is lifted once the island bake is over");
+  const N = await isles({ ay: 0.075, still: true });
+  await assert.doesNotReject(N.s.bakeCached(1, late(grow)(N), 0.2, N.opts), "with no islands a collider may grow: it is part of the single world");
 }
 
 // The cache key is a pure function of the scene: the lazily loaded bake worker is in the page's resource timeline once
