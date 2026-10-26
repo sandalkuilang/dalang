@@ -41,12 +41,18 @@ These are the numbers that make code-made animation feel alive. They come from m
 - Captions stay in a fixed position on screen; they do not move with the camera.
 - On-screen text is in the narration language from `BRIEF.md`. Check that the chosen font has every glyph that language needs (accents, CJK, Arabic, Devanagari, ...); right-to-left languages need `dir="rtl"`.
 - The format comes from `BRIEF.md`. Safe zones per format (keep important text out of these areas):
-  - **9:16 Shorts/TikTok:** text only in the 168–1330 px band (`/hyperframes` `references/types/vertical.md`); below 1330 only decoration; nothing readable under the right-hand rail (x > 950).
-  - **9:16 Reels:** bottom 25% (caption + audio sit higher), top 12%, right 12%.
+  - **9:16 Shorts:** text only in the 168–1330 px band (`/hyperframes` `references/types/vertical.md`); below 1330 only decoration; nothing readable under the right-hand rail (x > 950).
+  - **9:16 Reels and TikTok:** bottom 25% (the platform's caption + handle overlay; the caption is the one deliberate exception, see below), top 12%, right 12%.
   - **4:5 feed:** 8% on every side. Text must read without sound.
   - **16:9 landscape:** 5% on every side. Reserve the bottom 15% for captions/subtitles.
+- **Caption position (a target, not only a keep-out).** The caption block (its one or two lines, centred, the hero composed above it) sits in the lower third, as fractions of the frame height:
+  - **9:16 Reels and TikTok:** block top 72–76 %, block bottom at most about 82 %.
+  - **9:16 Shorts:** block bottom at the end of the band (1330 px, 69 %): as low as the band allows, never higher.
+  - **4:5 feed:** block bottom at the safe edge (92 %), top about 76–80 %.
+  - **16:9 landscape:** block inside the bottom 15 % (85–95 %).
+  - The lowest lines may brush the platform's caption/handle overlay. Check it on the phone sheet (`npx hyperframes snapshot --review`) instead of lifting the captions toward the middle: captions near the middle compete with the hero, which the subject framing already puts in the upper middle. A 9:16 caption above ~70 % of the height is a P1 in review.
 - At most about 7 words per caption line (about 16 characters for CJK). Break long sentences at the speech pauses in `words.json`. The engine's `type.js` does this (`phrases()`: a narration line end, a sentence end, `,` `:` after 3 words, a run over 7 words at its longest pause of at least 0.3 s with 2 words on each side and, with no pause, in near-equal parts, a phrase held through the pause that follows; `drawCaption` never draws outside the caption zone: a phrase that does not fit in two lines at 54 px is shrunk, so keep phrases short; `node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`).
-- The same module holds the zones above (`safeArea`) and the drawing (`drawCaption`, `pinLabel`): use it, never per-film caption code. The caption sits at the bottom of the text band, under the subject; world labels stay above it.
+- The same module holds the zones above (`safeArea`) and the drawing (`drawCaption`, `pinLabel`): use it, never per-film caption code. The caption sits at the target position above, under the subject; world labels stay above it.
 
 ## 7. Sound
 

@@ -25,8 +25,9 @@ const SPEAKER = /^([\p{L}][\p{L}\p{N} _.'-]{0,30}):\s+(.+)$/u, PAUSE = /^\(\s*(\
 const ms = (x) => Math.round(x * 1000) / 1000;
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-// The zones, in px: `text` (nothing readable outside it), `caption` (the bottom of the text band, under the subject)
-// and `labels` (the text band above the caption). format: "shorts" (9:16 Shorts/TikTok), "reels", "feed" (4:5), "landscape".
+// The zones, in px: `text` (nothing readable outside it), `caption` (the caption's target band: the bottom of
+// the text band, under the subject; for reels, ending at 82 % of the height) and `labels` (the text band above the caption).
+// format: "shorts" (9:16 Shorts), "reels" (9:16 Reels and TikTok), "feed" (4:5), "landscape".
 export function safeArea(format, W, H) {
   const s = S(W, H), R = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 });
   let text;
@@ -35,8 +36,10 @@ export function safeArea(format, W, H) {
   else if (format === "feed") text = R(0.08 * W, 0.08 * H, 0.92 * W, 0.92 * H);
   else if (format === "landscape") text = R(0.05 * W, 0.05 * H, 0.95 * W, 0.85 * H);
   else throw new Error('safeArea: format is "shorts", "reels", "feed" or "landscape"');
-  const caption = format === "landscape" ? R(text.x0, 0.85 * H, text.x1, 0.95 * H) : R(text.x0, text.y1 - 180 * s, text.x1, text.y1);
-  const labels = format === "landscape" ? text : R(text.x0, text.y0, text.x1, caption.y0 - 0.02 * H);
+  const band = format === "landscape" ? R(text.x0, 0.85 * H, text.x1, 0.95 * H) : R(text.x0, text.y1 - 180 * s, text.x1, text.y1);
+  // Reels/TikTok: the caption is the one thing allowed into the platform's bottom 25 %: its block ends at 82 % of the height.
+  const caption = format === "reels" ? R(text.x0, 0.82 * H - 180 * s, text.x1, 0.82 * H) : band;
+  const labels = format === "landscape" ? text : R(text.x0, text.y0, text.x1, band.y0 - 0.02 * H);
   return { text, caption, labels };
 }
 
