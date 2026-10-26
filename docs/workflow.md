@@ -42,7 +42,10 @@ flowchart TD
 | 8 Hand-off | final file + honest numbers from `PRODUCTION.md` | — |
 
 Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's
-files and prints only that step's reading list (sections as `sed` commands, the step's lesson headlines). Images
+files and prints only that step's reading list (sections as `sed` commands, the step's lesson headlines), then a
+"look up when needed" index (one heading and `sed` command per section the step points to, no body). The gate counts
+what is printed to read (sections and lesson headlines) against 60 KB for Steps 0–8; every indexed section still has
+to exist and fit 8 KB. Images
 (stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context.
 
 ## Why timing drives everything

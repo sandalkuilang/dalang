@@ -51,9 +51,11 @@ const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
 const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'waiting for approval' : 'not started') : a.hash === hashOf(g) ? `approved ${a.at} by ${a.by}` : `STALE — files changed after approval (${a.at})`; };
 // The reading list: one table that mirrors SKILL.md's step table (edit both together; `state.mjs reading`, run by
 // scripts/gate.sh, checks it). An entry is [file in references/, heading line], the heading EXACTLY as the file has
-// it (null = the whole file). Tiers: `read` is what the main context reads at the step (counted in the 60 KB budget);
-// `refs` are the sections the step's text points to (printed as commands, each within the section budget, not
-// counted); `sub` is what a subagent reads (printed for its prompt, same budget, not counted).
+// it (null = the whole file). Tiers: `read` is what the main context reads at the step (counted, with the lesson
+// headlines, in the 60 KB budget); `refs` is a look-up index of the sections the step's text points to (one line each:
+// the heading and its exact sed command, no body printed; each section still within the section budget and its
+// heading checked, outside the 60 KB); `sub` is what a subagent reads (printed for its prompt, same section checks,
+// outside the 60 KB: it is not the main context).
 // A section is the heading line through the line before the next heading of ANY level, ignoring lines inside ```
 // fences, trailing blank lines dropped; a heading must match exactly one line outside fences.
 const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB;
@@ -120,11 +122,11 @@ const locate = (skill, [file, heading]) => {
   return { file, heading, path: p, lines, from, to, bytes: Buffer.byteLength(lines.slice(from - 1, to).join('\n') + '\n') };
 };
 // Consecutive entries of one file with only blank lines between them are one sed range.
-const commandsOf = found => {
+const commandsOf = (found, merge = true) => {
   const groups = [];
   for (const e of found) {
     const g = groups.at(-1);
-    if (g && g.path === e.path && e.from > g.to && g.lines.slice(g.to, e.from - 1).every(l => !l.trim())) { g.to = e.to; g.bytes += e.bytes; g.more++; }
+    if (merge && g && g.path === e.path && e.from > g.to && g.lines.slice(g.to, e.from - 1).every(l => !l.trim())) { g.to = e.to; g.bytes += e.bytes; g.more++; }
     else groups.push({ path: e.path, lines: e.lines, file: e.file, heading: e.heading, from: e.from, to: e.to, bytes: e.bytes, more: 0 });
   }
   return groups.map(g => `sed -n ${shq(`${g.from},${g.to}p`)} ${shq(g.path)}   # ${g.file} ${label(g.heading)}${g.more ? ` (+${g.more} more sections)` : ''} (${kb(g.bytes)} KB)`);
@@ -137,10 +139,11 @@ const buildReading = skill => {
   if (!existsSync(lp)) errors.push(`FAILED: references/lessons.md not found in ${skill}`);
   else readFileSync(lp, 'utf8').split('\n').forEach((l, i) => {
     if (!/^\s*[-*+] /.test(l)) return; // prose, headings and blank lines are not lessons
-    // "- [5,6] **headline** …" holds at those steps; "- **headline** …" (no tag) holds at every step.
-    const m = l.match(/^- (?:\[([^\]]*)\] )?(\*\*.+?\*\*)/);
-    const tags = m?.[1] === undefined ? Object.keys(lessons) : m[1].split(',');
-    if (!m || !tags.every(t => /^[0-8]$/.test(t))) return errors.push(`FAILED: lessons.md:${i + 1} is not a readable lesson (use "- [5,6] **headline** …" with steps 0–8, or "- **headline** …" for every step)`);
+    // "- [5,6] **headline** …" holds at those steps. A line with no step tag (or an odd one) is an error: it would
+    // otherwise be printed nowhere, or guessed to hold everywhere.
+    const m = l.match(/^- \[([^\]]*)\] (\*\*.+?\*\*)/);
+    const tags = m ? m[1].split(',') : [];
+    if (!m || !tags.every(t => /^[0-8]$/.test(t))) return errors.push(`FAILED: lessons.md:${i + 1} is not a readable lesson: it needs a step tag, "- [5,6] **headline** …", with steps 0–8`);
     new Set(tags).forEach(t => lessons[t].push(m[2]));
   });
   let total = 0;
@@ -156,7 +159,7 @@ const buildReading = skill => {
         s[tier].push({ file: e.file, heading: e.heading, from: e.from, to: e.to, bytes: e.bytes });
         if (e.bytes > SECTION_MAX) errors.push(`FAILED: ${e.file} "${label(e.heading)}" is ${kb(e.bytes)} KB, over the 8 KB section budget: split it with a ### heading or trim it`);
       }
-      s.commands[tier] = commandsOf(found[tier]);
+      s.commands[tier] = commandsOf(found[tier], tier !== 'refs'); // an index line is one section, never a range of several
     }
     if (s.lessonsBytes > SECTION_MAX) errors.push(`FAILED: Step ${n} lessons are ${kb(s.lessonsBytes)} KB, over the 8 KB budget: move a tag or trim a headline`);
     total += s.read.reduce((a, e) => a + e.bytes, 0) + s.lessonsBytes;
@@ -233,7 +236,7 @@ if (cmd === 'approve') {
     console.log(`\nLessons for Step ${now} (one in full: grep -n -i '<word>' ${shq(path.join(SKILL, 'references', 'lessons.md'))}):`);
     s.lessons.forEach(h => console.log(`  ${h}`));
   }
-  if (s.commands.refs.length) { console.log("\nWhen the step's text points to one, read it by its own command, never the whole file:"); s.commands.refs.forEach(c => console.log(c)); }
+  if (s.commands.refs.length) { console.log("\nLook up when needed (nothing here is read now; when the step's text points to one, run only that line, never the whole file):"); s.commands.refs.forEach(c => console.log(c)); }
   if (s.commands.sub.length) { console.log('\nFor the subagent (put these commands in its prompt; do not run them here):'); s.commands.sub.forEach(c => console.log(c)); }
 } else {
   for (const g of [1, 2, 3, 4]) console.log(`Gate ${g} ${GATES[g].name.padEnd(7)} ${status(g)}`);
