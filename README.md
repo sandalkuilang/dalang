@@ -149,7 +149,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
 references/       one § at a time: `state.mjs next` prints each step's § commands; the gate keeps each ≤ 8 KB
   brief.md             steps 0–2: setup, the brief questions, a reference
-  script-voice.md      steps 3–4: writing for the ear, number provenance, voice audition
+  script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
   visual-direction.md  realism ladder, restraint, composition, review rubric, information layers

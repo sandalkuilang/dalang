@@ -85,7 +85,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 - **Rack focus** is a transition: the blur moves from one layer to the other in 0.4–0.6 s.
 - **Screen direction:** what is on the left stays on the left; progress moves left → right (right → left for right-to-left languages). Keep a comparison's sides fixed for the whole film.
 - **Motivated light:** every highlight has a source you could point at. One key direction per scene.
-- **Colour script:** each section gets a colour mood that shifts with the story (for example cool and neutral for the problem, warm for the answer), written per section in `storyboard.md`.
+- **Colour script:** each section gets a colour mood that shifts with the story (for example cool and neutral for the problem, warm for the answer; a story wrapped around an explanation may grade the story as night and the explanation bright, `camera-motion.md` §11.1), written per section in `storyboard.md`.
 
 ## 7. Composition (read the format from `BRIEF.md`)
 
