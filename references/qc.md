@@ -52,8 +52,23 @@ A clean final encode can measure stiller than the draft; over target → add mot
 
 ## Step 8 — Hand-off
 
-Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track) and `CREDITS.md`. The upload caption you draft carries no credit or licence line (no music or asset credits) unless the user chose one; where a CC BY credit goes is the user's call (`look-build.md` Step 6, item 7). Report in plain language, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage and render time; revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**, honestly; the one improvement with the biggest impact.
+Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (`qc.md`, "Post description (POST.md)"; the report links it, an upload pastes it as is). Report in plain language, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage and render time; revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**, honestly; the one improvement with the biggest impact.
 
 **Open P1s:** list every P1 still open in `QC-REVIEW.md` with its rubric test and why it stays (cosmetic, or two rounds failed on it).
 
 **Skill feedback:** end `PRODUCTION.md` with a `## Skill feedback` section: each trap any video could hit (a build, render or tool trap, not a taste call), what it cost (minutes, a render, a round) and the rule you suggest, in generic words: no topic, names, assets or numbers that identify this video. Tell the user in one line that it is there to report upstream (an issue on the skill's repository). Never edit the installed skill; your own memory is not the place either: another user or project never sees it.
+
+### Post description (POST.md)
+
+A companion to the film, written at the hand-off from `script.md` (plus `numbers.json` / `model.mjs` when there is one), in the narration language: not a second script, no new fact. At most about 1,800 characters (Reels and TikTok allow 2,200, Shorts 5,000; the platform is in `BRIEF.md`), no emoji walls. Six parts, in order:
+
+1. The hook as a question, with the short answer, in one line.
+2. The model in plain sentences: the example case and its spec, the rule of thumb, the adjustments. A number that changes over time is dated where it is stated ("as of <month year>": a tariff, a price, a standard's edition), and a computed result is labelled "our model, not a measurement".
+3. Both failure modes, one line each (too little and too much, or the two ways the thing goes wrong).
+4. A self-check the viewer can do with their own numbers: "<your measure> x <rule>, add for <conditions>, compare with the figure on the label, the bill or the gauge".
+5. One save or share call to action ("save this for later, or send it to a friend who is deciding"), then one comment question that asks for the next topic.
+6. One sources line (publishers only, no wall of URLs), then 4-5 hashtags.
+
+A film with no model, no failure modes or no number the viewer can check drops the parts it lacks and keeps the rest: never invent a formula to fill part 4. Every number is the film's (`script.md` tags, `numbers.json`); the part 4 formula, run on the film's example inputs, gives the film's number.
+
+Credits: a CC0 or public-domain asset needs no line. A CC BY asset gets one plain credit line only if the user chose CC BY at Gate 2 and chose the description as its place (`look-build.md` Step 6, item 7). No meta lines about tools, models or AI unless the user asks; the platform's own AI label is an upload toggle, asked at upload. User away (autonomous mode): write it anyway and link it in the report.

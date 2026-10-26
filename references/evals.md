@@ -20,7 +20,7 @@ Each brief stresses a different part. Pick fresh topics each time (never reuse a
 
 From `score_run.mjs`: `still_pct` (≤ 10), `lufs` (≈ −14 ± 1), `true_peak` (≤ −1), `qc_problems` (0), `timing_problems` (0), `est_words` (0 is best), `assets_ok` (true), `gates_approved` (4 at a finished draft), `review_p0` (0 open), `logged_minutes`, `logged_problems`, `quiz_score` / `quiz_pct` (Clarity: correct = 1, partly correct = 0.5; compare per skill version, a drop without a reason is a regression).
 
-Not measurable by script, judged on the review sheets: Realism and Reality (`visual-direction.md` §11), the people test, whether the voice sounds human (a human listens). Record these by hand next to the scorecard.
+Not measurable by script, judged on the review sheets: Realism and Reality (`visual-direction.md` §11), the people test, whether the voice sounds human (a human listens). Record these by hand next to the scorecard. `POST.md` (`qc.md`, "Post description"): its part 4 formula, run on the film's example inputs, reproduces the film's number (check it by hand when the film has a `numbers.json`), it is at most about 1,800 characters, and it carries no credit line the user did not choose.
 
 Also compare the cost of the run: tool calls and tokens per step (from the session's usage), and whether any reference file was read in full when only a section was needed.
 

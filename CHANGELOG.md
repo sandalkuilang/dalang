@@ -33,6 +33,12 @@ that reads as:
 
 ### Added
 
+- **`POST.md`, the post description** (`qc.md` Step 8, "Post description (POST.md)"): the hand-off writes a companion
+  post text from the script and model: the hook as a question with the short answer, the model in plain sentences
+  (numbers dated, a result labelled "our model, not a measurement"), both failure modes, a self-check the viewer can
+  do, one save/share call to action and a next-topic question, one sources line and 4-5 hashtags, in the narration
+  language, at most about 1,800 characters. A CC BY credit line only if the user chose it; no meta lines about tools
+  or AI. `evals.md` checks that its formula reproduces the film's number.
 - **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
   reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
   "Camera" cell, 3 or more rows in a row with the same size and angle, the share of rows whose focal point is text only
@@ -252,6 +258,9 @@ that reads as:
 
 ### Changed
 
+- **Hand-off deliverables** (`qc.md` Step 8): `final.mp4`, `narration.srt`, `CREDITS.md` and `POST.md`. The credit
+  rule for the upload text moved into the Post description section (rule unchanged: no credit line unless the user
+  chose one).
 - **Sound from the bake** (`camera-motion.md` §5.3, `look-build.md` §7, `craft-rules.md` §7): the merge window of near-simultaneous
   contacts is 40 ms (was ~30), the pitched-up variant for lighter contacts is gone (a lighter contact takes the lighter weight
   tag), and "sparingly, key beats only" now scopes to non-physical sounds (pop, whoosh); a sound with a physical cause is placed
