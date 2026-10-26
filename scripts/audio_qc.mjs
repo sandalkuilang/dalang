@@ -2,7 +2,9 @@
 // Audio QC of a project's mix: what stills and integrated loudness cannot see. Node + ffmpeg only.
 //   1. Bed level: every music <audio> (anchored names: music, bgm, bed, soundtrack, with an index or a cue word; the src
 //      may sit on a <source> child) at the gain index.html gives it (data-volume x the data-automation volume lane,
-//      clip-local times, placed at data-start, entered at data-media-start, cut at data-duration), summed, against the narration, RMS in 50 ms frames, the median over the speech
+//      clip-local times, placed at data-start, entered at data-media-start, cut at data-end or data-duration, times the
+//      <hf-audio-group> bus data-volume and the linear data-fade-in / data-fade-out), summed, against the narration (same
+//      model), RMS in 50 ms frames, the median over the speech
 //      frames (word spans of audio/words.json). Flag: the bed more than 25 dB under the narration (inaudible on a phone
 //      speaker) or less than 8 dB under it (masks words). Unweighted RMS in dB, not K-weighted LU.
 //   2. Clicks: a sample-to-sample jump above 8x the local RMS of the jumps (±5 ms, the sample itself left out) and
@@ -16,9 +18,13 @@
 // The starting values come from real films; tune them here only (THRESHOLDS). Every flag is a P1 (references/qc.md,
 // Step 7); the results go into PRODUCTION.md. A bed whose level the script cannot compute (index.html unreadable or
 // absent without --music, no src in the HTML, a data-volume or lane that does not parse, a data-playback-rate other than
-// 1, an <audio> not named as music that plays longer than an SFX, loops without a short data-duration or cannot be read, until --music names every bed) is NOT
-// CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. The Result is made in one
-// place (verdict): OK only when the bed, clicks and voice each have an outcome. Known limits: lane
+// 1, an <audio> not named as music that plays longer than an SFX, loops without a short data-duration or cannot be read, an
+// audible <video data-has-audio="true"> (its sound is mixed), until --music names every bed; a data-fx-chain on a bed, the
+// narration, a bus or the composition root, a bus lane, a fade-out without a clip end, a data-composition-src sub-composition)
+// is NOT CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. The Result is made in one
+// place (verdict): OK only when the bed, clicks and voice each have an outcome. The render inputs are those of HyperFrames'
+// parseAudioElements (0.8.206); a tag it leaves out (data-hidden on the tag or its bus, a data-duration of 0, a data-end
+// at or before the start) is not a bed; the hidden state of an ancestor element is not seen without a DOM. Known limits: lane
 // curves are read as straight lines between points; a `loop` bed is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
 // show a false dropout.
 //
@@ -94,14 +100,21 @@ export function laneOf(automation) {
 }
 // The clip placed at `start` seconds with its gain, as `total` samples of the composition's timeline. opts.mediaStart:
 // seconds skipped at the head of the file (data-media-start); opts.dur: the clip's length on the timeline (data-duration);
-// opts.loop: the clip repeats until opts.dur, else until the end of the film.
+// opts.loop: the clip repeats until opts.dur, else until the end of the film. opts.fadeIn / opts.fadeOut: linear fades of
+// the clip's first / last seconds (afade as HyperFrames applies it; the pair is scaled down when longer than opts.dur; a
+// fade-out needs opts.dur).
 export function applyGain(x, rate, start, volume, lane, total, opts = {}) {
   const out = new Float32Array(total), off = Math.round(start * rate), ms = Math.max(0, Math.round((opts.mediaStart || 0) * rate));
   const avail = Math.max(0, x.length - ms), durN = opts.dur > 0 ? Math.round(opts.dur * rate) : null;
   const n = opts.loop && avail > 0 ? (durN ?? Math.max(0, total - off)) : Math.min(avail, durN ?? avail);
+  const L = opts.dur > 0 ? opts.dur : null;
+  let fi = opts.fadeIn > 0 ? opts.fadeIn : 0, fo = opts.fadeOut > 0 && L ? opts.fadeOut : 0;
+  if (L && fi + fo > L) { const s = L / (fi + fo); fi *= s; fo *= s; }
   for (let k = 0; k < n; k++) {
     const i = off + k;
-    if (i >= 0 && i < total) out[i] = x[ms + (opts.loop ? k % avail : k)] * gainAt(volume, lane, k / rate);
+    if (i < 0 || i >= total) continue;
+    const t = k / rate, fade = (fi > 0 && t < fi ? t / fi : 1) * (fo > 0 && t > L - fo ? Math.max(0, (L - t) / fo) : 1);
+    out[i] = x[ms + (opts.loop ? k % avail : k)] * gainAt(volume, lane, t) * fade;
   }
   return out;
 }
@@ -255,16 +268,27 @@ export function phrasesFrom(words, gap = 0.3) {
   return out.map(({ words: t, ...p }) => ({ ...p, text: t.join(' ') }));
 }
 
-// Every <audio ...> tag: { id, src, start, volume, duration, mediaStart, rate, automation, bad, loop } (bad: an attribute that is
-// not a number; loop: the bare attribute is present). A tag without src takes the src of its first <source> child.
+// The attributes of a tag's text: name="v", name='v', name=v and a bare name (loop): a bare attribute is present with ''.
+const attrsOf = (text) => {
+  const attrs = {};
+  for (const a of text.matchAll(/([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
+    attrs[a[1].toLowerCase()] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
+  }
+  return attrs;
+};
+// A fade length as HyperFrames reads it: parseFloat, and only a finite value above 0 is a fade.
+const fadeOf = (v) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+// Every <audio ...> tag and every <video id data-has-audio="true"> tag without `muted` (HyperFrames mixes that video's sound):
+// { kind, id, src, start, end, volume, duration, mediaStart, rate, automation, bad, loop, group, fx, fadeIn, fadeOut, hidden }
+// (bad: an attribute that is not a number; loop / hidden: the bare attribute is present; group: data-audio-group; fx:
+// data-fx-chain; end: data-end). A tag without src takes the src of its first <source> child.
 export function audioTags(html) {
   const out = [];
-  for (const m of html.matchAll(/<audio\b([^>]*?)(\/?)>/gi)) {
-    const attrs = {};
-    // name="v", name='v', name=v and a bare name (loop): a bare attribute is present with the value ''.
-    for (const a of m[1].matchAll(/([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-      attrs[a[1].toLowerCase()] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
-    }
+  for (const m of html.matchAll(/<(audio|video)(?=[\s/>])([^>]*?)(\/?)>/gi)) {
+    const kind = m[1].toLowerCase();
+    const attrs = attrsOf(m[2]);
+    if (kind === 'video' && (attrs['data-has-audio'] !== 'true' || Object.hasOwn(attrs, 'muted') || !attrs.id)) continue;
     const bad = [];
     const num = (k, dflt) => {
       if (attrs[k] == null || attrs[k] === '') return dflt;
@@ -273,19 +297,66 @@ export function audioTags(html) {
       bad.push(k); return dflt;
     };
     let src = attrs.src || '';
-    if (!src && !m[2]) {
-      const rest = html.slice(m.index + m[0].length), end = rest.search(/<\/audio\s*>|<audio\b/i);
+    if (!src && !m[3]) {
+      const rest = html.slice(m.index + m[0].length), end = rest.search(new RegExp(`</${kind}\\s*>|<${kind}(?=[\\s/>])`, 'i'));
       const sm = (end < 0 ? rest : rest.slice(0, end)).match(/<source\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
       if (sm) src = (sm[1] ?? sm[2]).replace(/&amp;/g, '&');
     }
     out.push({
-      id: attrs.id || '', src, start: num('data-start', 0), volume: num('data-volume', 1), duration: num('data-duration', null),
-      mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1), automation: attrs['data-automation'] || null, bad,
-      loop: Object.hasOwn(attrs, 'loop'),
+      kind, id: attrs.id || '', src, start: num('data-start', 0), end: num('data-end', null), volume: num('data-volume', 1),
+      duration: num('data-duration', null), mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1),
+      automation: attrs['data-automation'] || null, bad, loop: Object.hasOwn(attrs, 'loop'),
+      group: attrs['data-audio-group'] || null, fx: attrs['data-fx-chain'] || null,
+      fadeIn: fadeOf(attrs['data-fade-in']), fadeOut: fadeOf(attrs['data-fade-out']), hidden: Object.hasOwn(attrs, 'data-hidden'),
     });
   }
   return out;
 }
+
+// The <hf-audio-group> buses by id: { volume (data-volume, 1 when absent or not a number), fx, automation, hidden }. A member
+// is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
+export function groupsOf(html) {
+  const out = new Map();
+  for (const m of html.matchAll(/<hf-audio-group(?=[\s/>])([^>]*?)\/?>/gi)) {
+    const a = attrsOf(m[1]), id = a['data-hf-render-id'] ?? a.id, v = parseFloat(a['data-volume']);
+    if (id) out.set(id, { volume: Number.isFinite(v) ? v : 1, fx: a['data-fx-chain'] || null, automation: a['data-automation'] || null, hidden: Object.hasOwn(a, 'data-hidden') });
+  }
+  return out;
+}
+// The data-fx-chain of the composition's root element (the first one with a data-composition-id): the master bus, or null.
+export function masterFxChain(html) {
+  const m = html.match(/<[a-z][\w-]*(?=[\s/>])([^>]*\bdata-composition-id\b[^>]*)>/i);
+  return m ? attrsOf(m[1])['data-fx-chain'] || null : null;
+}
+// The clip's length on the timeline: data-end (absolute, wins) minus data-start, else data-duration, else null (to the end of the film).
+export const clipLength = (t) => (t.end != null ? t.end - t.start : t.duration ?? null);
+// Why HyperFrames leaves the tag out of the mix (data-hidden on it or its group, a data-duration of 0 or less, a data-end
+// at or before the start), or null. The hidden state of an ancestor element is not visible without a DOM: a known limit.
+export function notRendered(t, groups = new Map()) {
+  if (t.hidden) return 'data-hidden';
+  if (t.group && groups.get(t.group)?.hidden) return `its audio group "${t.group}" is data-hidden`;
+  if (!t.bad.includes('data-duration') && t.duration != null && t.duration <= 0) return 'data-duration is 0 or less';
+  if (!t.bad.some((k) => k === 'data-end' || k === 'data-start') && t.end != null && t.end <= t.start) return 'data-end is not after data-start';
+  return null;
+}
+// What the gain model leaves out for this tag, or null: an fx chain (data-fx-chain, such as a gain or a carve), a bus lane
+// or fx chain, a playback rate, a fade-out that needs a clip end it does not have; for the narration also a media start or a loop
+// (its words are timed on the file). Each makes the bed NOT CHECKED, because the mix then differs from what is measured.
+export function renderProblem(t, groups = new Map(), { narration = false } = {}) {
+  const g = t.group ? groups.get(t.group) : null;
+  if (t.fx) return 'has a data-fx-chain (an effect chain such as a gain or a carve), which this check does not model';
+  if (g && g.fx) return `is on the audio group "${t.group}", which has a data-fx-chain this check does not model`;
+  if (g && g.automation) return `is on the audio group "${t.group}", which has a data-automation lane this check does not model`;
+  if (t.rate != null && t.rate !== 1) return `has data-playback-rate ${t.rate}, which this check does not model`;
+  if (t.fadeOut > 0 && clipLength(t) == null) return 'has a data-fade-out but no data-end or data-duration, so the time the fade lands is unknown: give the clip an end';
+  if (narration && t.mediaStart) return 'has a data-media-start, so its words are not at the times of words.json';
+  if (narration && t.loop) return 'has loop, so its words repeat';
+  return null;
+}
+// The linear gain of the tag's audio group bus (data-volume of its <hf-audio-group>), 1 without one.
+export const busGain = (t, groups = new Map()) => (t.group && groups.get(t.group) ? groups.get(t.group).volume : 1);
+// The timeline options of applyGain for a tag.
+export const clipOpts = (t) => ({ mediaStart: t.mediaStart, dur: clipLength(t), loop: t.loop, fadeIn: t.fadeIn, fadeOut: t.fadeOut });
 
 // The music cues among the tags: a name (the id, else the file name without extension) that is the word music, bgm, bed or
 // soundtrack, optionally "background-" before and an index or cue word after (music-a, bgm_2, background-music-loop).
@@ -296,26 +367,31 @@ export function musicTags(tags) {
   return tags.filter((t) => BED_NAME.test(t.id) || BED_NAME.test(base(t.src)));
 }
 
-// Every <audio> tag gets exactly one role; "no bed in the film" is concluded only when none is 'unknown'.
-// narration: the narration tag. bed: a music cue by name (musicTags) or one that a --music value names by id or src.
-// sfx: plays at most THRESHOLDS.sfxMaxS (its data-duration, else lengthOf(tag): the file's length in seconds, or { why }
-// when it cannot be read, after data-media-start and at its playback rate); a `loop` tag is one only with a data-duration
-// that short. unknown: anything else (a longer clip, a looped one, a file that cannot be read, a timing attribute that
-// does not parse); it may be the bed, so the bed is NOT CHECKED until --music names it.
-export function tagRoles(tags, narrTag, lengthOf, music = []) {
+// Every <audio> and audible <video> tag gets exactly one role; "no bed in the film" is concluded only when none is 'unknown'.
+// narration: the narration tag. bed: a music cue by name (musicTags; <audio> only) or one that a --music value names by id or
+// src. skipped: HyperFrames leaves it out of the mix (notRendered). sfx: plays at most THRESHOLDS.sfxMaxS (its clip length,
+// data-end or data-duration, else lengthOf(tag): the file's length in seconds, or { why } when it cannot be read, after
+// data-media-start and at its playback rate); a `loop` tag is one only with a clip length that short. unknown: anything else
+// (a longer clip, a looped one, a file that cannot be read, a timing attribute that does not parse, any <video> with sound);
+// it may be the bed, so the bed is NOT CHECKED until --music names it.
+export function tagRoles(tags, narrTag, lengthOf, music = [], groups = new Map()) {
   const others = tags.filter((t) => t !== narrTag);
-  const beds = new Set([...musicTags(others), ...others.filter((t) => music.some((m) => t.id === m || t.src === m))]);
+  const beds = new Set([...musicTags(others.filter((t) => t.kind !== 'video')), ...others.filter((t) => music.some((m) => t.id === m || t.src === m))]);
   return tags.map((t) => {
     if (t === narrTag) return { tag: t, role: 'narration' };
+    const gone = notRendered(t, groups);
+    if (gone) return { tag: t, role: 'skipped', why: gone };
     if (beds.has(t)) return { tag: t, role: 'bed' };
+    if (t.kind === 'video') return { tag: t, role: 'unknown', why: 'a <video data-has-audio="true"> mixes its own sound' };
     const badTime = t.bad.filter((k) => k !== 'data-volume' && k !== 'data-start');
     if (badTime.length) return { tag: t, role: 'unknown', why: `${badTime.join(', ')} is not a number` };
     if (!(t.rate > 0)) return { tag: t, role: 'unknown', why: `data-playback-rate ${t.rate}` };
-    if (t.duration != null && t.duration >= 0 && t.duration <= T.sfxMaxS) return { tag: t, role: 'sfx' };
-    if (t.loop) return { tag: t, role: 'unknown', why: `loop without a data-duration of at most ${T.sfxMaxS} s` };
+    const clip = clipLength(t);
+    if (clip != null && clip >= 0 && clip <= T.sfxMaxS) return { tag: t, role: 'sfx' };
+    if (t.loop) return { tag: t, role: 'unknown', why: `loop without a clip length (data-end or data-duration) of at most ${T.sfxMaxS} s` };
     const len = lengthOf(t);
     if (typeof len !== 'number' || !Number.isFinite(len)) return { tag: t, role: 'unknown', why: (len && len.why) || 'its length could not be read' };
-    const plays = Math.min(t.duration ?? Infinity, Math.max(0, len - t.mediaStart) / t.rate);
+    const plays = Math.min(clip ?? Infinity, Math.max(0, len - t.mediaStart) / t.rate);
     return plays <= T.sfxMaxS ? { tag: t, role: 'sfx' } : { tag: t, role: 'unknown', why: `plays ${plays.toFixed(1)} s` };
   });
 }
@@ -385,7 +461,8 @@ function main(argv) {
   if (html.err) warn(html.err);
   else if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
   for (const t of tags) if (t.bad.length) warn(`<audio${t.id ? ' id="' + t.id + '"' : ''}> ${t.bad.join(', ')} is not a number (a template expression?): read as the default`);
-  const narrTag = tags.find((t) => /narration/i.test(t.id + ' ' + t.src));
+  const groups = html.text ? groupsOf(html.text) : new Map(), master = html.text ? masterFxChain(html.text) : null;
+  const narrTag = tags.find((t) => t.kind !== 'video' && /narration/i.test(t.id + ' ' + t.src));
   const narrFile = narrTag && narrTag.src && !/^[a-z]+:/i.test(narrTag.src) && !missing(at(narrTag.src), '') ? at(narrTag.src) : at('audio/narration.wav');
   const narrStart = narrTag ? narrTag.start : 0, narrVol = narrTag ? narrTag.volume : 1;
   let narrLane = null, narrLaneErr = null;
@@ -417,26 +494,34 @@ function main(argv) {
   // Classification always runs: each --music value turns the tag it names into a bed, the rest keeps its role, so an
   // unknown tag that nothing names stays unknown. A --music value that no tag has is a file, a cue of its own.
   const music = a.music || [];
-  const roles = html.text == null ? [] : tagRoles(tags, narrTag, lengthOf, music);
+  const roles = html.text == null ? [] : tagRoles(tags, narrTag, lengthOf, music, groups);
   const unknown = roles.filter((r) => r.role === 'unknown');
   const musicCues = roles.filter((r) => r.role === 'bed').map((r) => r.tag);
-  for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ id: '', src: m, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false });
+  for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ kind: 'audio', id: '', src: m, start: 0, end: null, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, group: null, fx: null, fadeIn: 0, fadeOut: 0 });
   let bedLine = null;
   const bedProblem = () => {
     if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
     if (narrLaneErr) return `the narration's data-automation is not JSON (${narrLaneErr}), so its level is unknown`;
+    if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
+    if (narrTag) {
+      const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
+      if (p) return `the narration <audio> ${p}, so the mix differs from what is measured`;
+    }
     for (const c of musicCues) {
-      const who = c.id ? `<audio id="${c.id}">` : c.src;
+      const who = c.id ? `<${c.kind || 'audio'} id="${c.id}">` : c.src;
       if (!c.src) return `${who} has no src in index.html (set by a script?): pass the file with --music <file>`;
       if (/^[a-z][a-z0-9+.-]*:/i.test(c.src)) return `${c.src} is a remote file: download it into the project and rerun`;
       if (c.bad.length) return `${who} ${c.bad.join(', ')} is not a number (a template expression?), so its gain is unknown`;
-      if (c.rate !== 1) return `${who} has data-playback-rate ${c.rate}, which this check does not model`;
+      const p = renderProblem(c, groups);
+      if (p) return `${who} ${p}`;
       try { laneOf(c.automation); } catch (e) { return `${who} data-automation is not JSON (${e.message}), so its gain is unknown`; }
     }
     return null;
   };
-  if (unknown.length) {
+  if (html.text && /\bdata-composition-src\s*=/i.test(html.text)) {
+    skip('bed', 'index.html loads a sub-composition (data-composition-src), whose own <audio> tags this check does not read, so which music plays is unknown: put the music and narration <audio> tags in index.html itself and rerun');
+  } else if (unknown.length) {
     const names = unknown.slice(0, 6).map((r) => `${r.tag.id ? `<audio id="${r.tag.id}">` : r.tag.src || '<audio>'} (${r.why})`).join(', ');
     skip('bed', `${names} is neither a music cue by name (music, bgm, bed, soundtrack, e.g. music-a) nor an SFX (at most ${T.sfxMaxS} s): if it is the bed (or one of them) name every bed with --music <id> (repeatable), then rerun`);
   } else if (!musicCues.length) {
@@ -445,7 +530,8 @@ function main(argv) {
     else {
       absent.push('bed');
       const sfx = roles.filter((r) => r.role === 'sfx').map((r) => r.tag.id || r.tag.src);
-      info(`bed: no music <audio> in index.html (id or file name music/bgm/bed/soundtrack, e.g. music-a)${sfx.length ? `; SFX (at most ${T.sfxMaxS} s): ${sfx.slice(0, 6).join(', ')}` : ''}; --music <id> names a bed`);
+      const off = roles.filter((r) => r.role === 'skipped').map((r) => `${r.tag.id || r.tag.src} (${r.why})`);
+      info(`bed: no music <audio> in index.html (id or file name music/bgm/bed/soundtrack, e.g. music-a)${sfx.length ? `; SFX (at most ${T.sfxMaxS} s): ${sfx.slice(0, 6).join(', ')}` : ''}${off.length ? `; not rendered: ${off.slice(0, 6).join(', ')}` : ''}; --music <id> names a bed`);
     }
   } else {
     const why = bedProblem();
@@ -457,11 +543,12 @@ function main(argv) {
           const mf = at(c.src), mm = missing(mf, 'the music file');
           if (mm) throw new Error(mm);
           const lane = laneOf(c.automation);
-          const clip = applyGain(decode(mf, rate16), rate16, c.start, c.volume, lane, total, { mediaStart: c.mediaStart, dur: c.duration, loop: c.loop });
+          const gain = c.volume * busGain(c, groups);
+          const clip = applyGain(decode(mf, rate16), rate16, c.start, gain, lane, total, clipOpts(c));
           for (let i = 0; i < total; i++) bed[i] += clip[i];
-          shown.push(`${rel(mf)} x ${+c.volume.toFixed(3)}${lane ? ' (volume lane)' : ''}`);
+          shown.push(`${rel(mf)} x ${+gain.toFixed(4)}${lane ? ' (volume lane)' : ''}${c.fadeIn || c.fadeOut ? ' (fades)' : ''}`);
         }
-        const nt = applyGain(narr16, rate16, narrStart, narrVol, narrLane, total);
+        const nt = applyGain(narr16, rate16, narrStart, narrVol * (narrTag ? busGain(narrTag, groups) : 1), narrLane, total, narrTag ? clipOpts(narrTag) : {});
         const g = bedGap({ narr: nt, bed, rate: rate16, speech: spans.map(([s, e]) => [s + narrStart, e + narrStart]) });
         if (!Number.isFinite(g.gapDb)) skip('bed', 'no speech frames to compare against (words.json empty and the narration silent)');
         else {
