@@ -44,8 +44,9 @@ that reads as:
   one adjustment per condition, both failure modes by physical cause, a payoff that answers the hook, the decision as
   conditions, a reframe that returns to the first frame). Step 3 gains the spoken-number habits (round in speech and
   exact on screen, one number per clause, every number with its comparison, the viewer's case before the general
-  rule) and a Gate 1 check for any arc: the hook's question is answered by a named beat, the last line restates the
-  core reframe, each number has its comparison. Brief Step 1 gains an optional series sign-off (`signoff` in
+  rule) and a Gate 1 check for any arc: each number has its comparison (the checks that the hook is answered and the
+  reframe restated stay in the choice explainer's own Gate 1 line, so "hook + open end" and the failure explainer
+  are not forced to close a loop or add a reframe). Brief Step 1 gains an optional series sign-off (`signoff` in
   `BRIEF.md`: from the request, never invented), said once after the hook. `evals.md` gains a golden brief for it.
 - **Failure-explainer arc** (`script-voice.md` "Arc templates"): the seven beats of a "why does X break" film (cold
   open with a quoted verdict, follow the path, a thesis with N enemies, N enemies each built as name → mechanism →
