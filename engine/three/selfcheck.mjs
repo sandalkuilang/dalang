@@ -28,6 +28,7 @@ const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
 const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor, readTime } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, place: placeCamera, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
+const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
 
 const scene = new THREE.Scene();
@@ -1306,4 +1307,53 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), any scale and gravity");
+{ // scale audit and z-fight probe (K.M is 0.01 here: 1 unit = 1 cm)
+  const s = new THREE.Scene(), mat = new THREE.MeshStandardMaterial();
+  const mug = (name, h) => { const m = new THREE.Mesh(new THREE.BoxGeometry(h * 0.8 / K.M, h / K.M, h * 0.8 / K.M), mat); m.name = name; m.userData.real = { h: 0.1 }; s.add(m); return m; };
+  mug("right", 0.1); mug("typo", 1.0); mug("edge", 0.114); mug("over", 0.116);
+  const bare = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat); bare.name = "bare"; s.add(bare);
+  const a = scaleAudit(s);
+  assert.deepEqual(a.off.map((p) => p.name).sort(), ["over", "typo"], "scale audit names the 10x prop and the one 16% off: " + JSON.stringify(a.off));
+  assert.ok(!a.ok && a.problems.length === 2 && a.checked === 4, "scale audit reports, counts what it checked: " + JSON.stringify(a));
+  assert.deepEqual(a.unchecked, ["bare"], "a prop with no declared size is unchecked, never passed");
+  assert.deepEqual(scaleAudit(s, { tol: 0.2 }).off.map((p) => p.name), ["typo"], "tol option");
+  assert.ok(scaleAudit(s, { mpu: 1 }).off.some((p) => p.name === "right"), "mpu option: units read as metres flag a correct prop");
+  const good = new THREE.Scene(); const g1 = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 8), mat); g1.userData.real = { h: 0.1, w: 0.08, d: 0.08 }; g1.name = "ok"; good.add(g1);
+  assert.ok(scaleAudit(good).ok && scaleAudit(good).checked === 3 && scaleAudit(good).unchecked.length === 0, "a correct prop passes");
+  g1.rotation.y = Math.PI / 2; g1.userData.real = { h: 0.1 };
+  assert.ok(scaleAudit(good).ok, "a prop turned about Y still measures its height");
+  for (const real of [{ h: -1 }, { h: "tall" }, {}, { x: 1 }, null]) {
+    const t = new THREE.Scene(), m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat); m.userData.real = real; t.add(m);
+    assert.ok(!scaleAudit(t).ok && scaleAudit(t).bad.length === 1, "bad declaration reported: " + JSON.stringify(real));
+  }
+  { const t = new THREE.Scene(), e = new THREE.Group(); e.userData.real = { h: 0.1 }; t.add(e); assert.equal(scaleAudit(t).bad.length, 1, "a size declared on an empty group is bad"); }
+  assert.throws(() => scaleAudit(s, { tol: 0 }), /tol/);
+
+  const quad = (name, z = 0, material = new THREE.MeshStandardMaterial()) => { const q = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), material); q.name = name; q.position.z = z; return q; };
+  const cam = (z, near, far, ry = 0) => { const c = new THREE.PerspectiveCamera(40, 1, near, far); c.position.z = z; c.rotation.y = ry; c.updateMatrixWorld(true); return c; };
+  const near = cam(200, 10, 10000), far = cam(3000, 1, 100000);
+  const set = (decal) => { const w = new THREE.Scene(); w.add(quad("floor"), decal); return w; };
+  let r = zFight(set(quad("decal")), { cameras: near });
+  assert.ok(r.pairs.length === 1 && r.pairs[0].gap_mm === 0 && /polygonOffset/.test(r.pairs[0].suggest) && [r.pairs[0].a, r.pairs[0].b].sort().join() === "decal,floor", "coplanar quads are flagged: " + JSON.stringify(r));
+  assert.equal(zFight(set(quad("decal", 0.1)), { cameras: near }).pairs.length, 0, "a 1 mm offset passes at the near station");
+  assert.equal(zFight(set(quad("decal", 0.1)), { cameras: far }).pairs.length, 1, "the same 1 mm offset fights from 30 m");
+  assert.equal(zFight(set(quad("decal", 0.1)), { cameras: [near, far] }).pairs.length, 1, "several cameras take the worst");
+  const off = new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  r = zFight(set(quad("decal", 0, off)), { cameras: near });
+  assert.ok(r.pairs.length === 0 && r.mitigated === 1, "an offset material is mitigated, not reported");
+  const turned = quad("decal"); turned.rotation.y = Math.PI / 2;
+  assert.equal(zFight(set(turned), { cameras: near }).pairs.length, 0, "a perpendicular quad is not flagged");
+  const back = quad("decal"); back.rotation.y = Math.PI;
+  assert.equal(zFight(set(back), { cameras: near }).pairs.length, 0, "back to back single-sided faces never fight");
+  const both = quad("decal", 0, new THREE.MeshStandardMaterial({ side: THREE.DoubleSide })); both.rotation.y = Math.PI;
+  assert.equal(zFight(set(both), { cameras: near }).pairs.length, 1, "a double-sided back face fights");
+  r = zFight(set(quad("decal")), { cameras: cam(200, 10, 10000, Math.PI) });
+  assert.ok(r.pairs.length === 0 && r.unseen === 1, "a camera looking away: unseen is reported, not passed");
+  const hid = quad("decal"); hid.visible = false;
+  assert.equal(zFight(set(hid), { cameras: near }).pairs.length, 0, "a hidden mesh is ignored");
+  const mir = quad("decal"); mir.scale.x = -1;
+  assert.equal(zFight(set(mir), { cameras: near }).pairs.length, 1, "a mirrored coplanar quad is still flagged");
+  assert.throws(() => zFight(set(quad("d")), {}), /cameras/);
+  assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
+}
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, any scale and gravity");
