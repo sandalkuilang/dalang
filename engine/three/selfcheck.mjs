@@ -505,6 +505,42 @@ assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatch
   screen.map = null; sc.at(3);
   assert.ok(sm.material.map === null, "a map removed on the original is removed on the clone");
 }
+// A custom key on the set's material (a preset colour an onBeforeCompile hook reads) is not one three's clone copies:
+// the clone gets its own copy from the start, and a preset swapped in later is never written into when it is swapped
+// out again; an in-place edit of the current preset still reaches the part.
+{
+  const presetA = new THREE.Color(0xff0000), presetB = new THREE.Color(0x0000ff), presetC = new THREE.Color(0x00ff00);
+  const glow = new THREE.MeshStandardMaterial(); glow.glowTint = presetA; glow.glowAt = new THREE.Vector2(1, 2);
+  const gr = new THREE.Group(), gm = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), glow); gr.add(gm);
+  const gc = cutaway(gr); gr.updateMatrixWorld(true); gc.at(0);
+  assert.ok(gm.material.glowTint?.getHex() === 0xff0000 && gm.material.glowTint !== presetA && gm.material.glowAt?.x === 1 && gm.material.glowAt !== glow.glowAt, "a custom key set before the cut is on the clone, as its own copy");
+  glow.glowTint = presetB; gc.at(1);
+  assert.ok(gm.material.glowTint.getHex() === 0x0000ff && gm.material.glowTint !== presetB && presetA.getHex() === 0xff0000, "a preset swapped in reaches the part as the clone's own copy");
+  glow.glowTint = presetC; gc.at(2);
+  assert.ok(presetB.getHex() === 0x0000ff && presetA.getHex() === 0xff0000 && gm.material.glowTint.getHex() === 0x00ff00, "a preset swapped out is never written into");
+  presetC.setHex(0x123456); gc.at(3);
+  assert.equal(gm.material.glowTint.getHex(), 0x123456, "an in-place edit of the current preset reaches the part");
+}
+// The class rule: sync never writes into an object the clone holds, it only points the clone's key at a value (a value
+// object as its own fresh copy, anything else by reference). Shared colours, vectors and textures are swapped between
+// keys and materials over many frames; none of them ever changes, and the part always shows the original's values.
+{
+  const pool = [new THREE.Color(0x101010), new THREE.Color(0x808080), new THREE.Color(0xf0f0f0)], vecs = [new THREE.Vector2(1, 1), new THREE.Vector2(2, 3)], texs = [0, 90, 200].map((v) => new THREE.DataTexture(new Uint8Array([v, v, v, 255]), 1, 1));
+  const state = () => [...pool.map((c) => c.getHex()), ...vecs.map((v) => v.toArray().join()), ...texs.map((t) => t.image.data[0])].join("|"), before = state();
+  const a = new THREE.MeshStandardMaterial(), b = new THREE.MeshStandardMaterial();
+  a.tint = pool[0]; b.tint = pool[1]; a.at2 = vecs[0];
+  const cr = new THREE.Group(), ma = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), a), mb = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), b); cr.add(ma, mb);
+  const cc = cutaway(cr); cr.updateMatrixWorld(true); cc.at(0);
+  for (let f = 1; f <= 12; f++) {
+    const m = f % 2 ? a : b, c = pool[f % 3], v = vecs[f % 2], t = texs[f % 3];
+    m.tint = c; m.at2 = v; m.map = t; m.emissiveMap = texs[(f + 1) % 3];
+    cc.at(f);
+    assert.equal(state(), before, `frame ${f}: no shared colour, vector or texture is written into`);
+    const live = (m === a ? ma : mb).material;
+    assert.ok(live.tint.getHex() === c.getHex() && live.at2.equals(v) && live.map === t && live.emissiveMap === m.emissiveMap, `frame ${f}: the part shows the original's values`);
+    for (const k of ["tint", "at2", "color", "emissive", "normalScale"]) assert.ok(!(pool.includes(live[k]) || vecs.includes(live[k]) || live[k] === m[k]), `frame ${f}: the clone's ${k} is its own object`);
+  }
+}
 // The cap group is never under the root, also when at() runs before the root is in the scene (a pose or preview):
 // it joins the scene once the root has one, follows the root to another scene, and the assembly's size stays its own.
 {
