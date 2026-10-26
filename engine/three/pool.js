@@ -14,10 +14,10 @@ async function spawn() {
 }
 
 // One job in one worker; posted() is called once the job has left (the caller can then block this thread).
-async function viaWorker(job, posted) {
+async function viaWorker(job, posted, make) {
   let w;
   try {
-    w = await spawn();
+    w = await make();
     const reply = new Promise((resolve, reject) => {
       const got = (m) => (m.error ? reject(new Error(m.error)) : resolve(m.r));
       if (node) { w.on("message", got); w.on("error", reject); w.on("exit", (c) => reject(new Error(`worker exited (${c})`))); }
@@ -29,15 +29,17 @@ async function viaWorker(job, posted) {
 }
 
 // jobs: see islandBake. Resolves once every worker has its job, with finish(): a promise of the results in job order.
-// workers === false bakes in this thread, one island after another, when finish() is called.
+// workers === false bakes in this thread, one island after another, when finish() is called. A function replaces
+// the worker spawner.
 export async function startPool(RAPIER, jobs, workers = true) {
   if (workers === false || !jobs.length) return async () => jobs.map((j) => islandBake(RAPIER, j));
   let warned = false;
+  const make = typeof workers === "function" ? workers : spawn; // workers: true, false, or a function giving a worker (a test makes every worker fail with it)
   const out = new Array(jobs.length), todo = jobs.map((job, i) => ({ job, i }));
   const lane = async (ping) => { // one worker at a time takes the next island
     for (let first = true; todo.length; first = false) {
       const { job, i } = todo.shift(), posted = first ? ping : () => {};
-      try { out[i] = await viaWorker(job, posted); } catch (e) {
+      try { out[i] = await viaWorker(job, posted, make); } catch (e) {
         if (!warned) { warned = true; console.warn(`[physics] island workers unavailable (${e.message}): baking in this thread`); }
         posted(); out[i] = islandBake(RAPIER, job);
       }

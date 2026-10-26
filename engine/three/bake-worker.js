@@ -9,7 +9,7 @@ const run = async (job) => {
   try {
     await (ready ??= RAPIER.init());
     const r = islandBake(RAPIER, job);
-    port.postMessage({ r }, r.poses.flatMap((x) => [x.s.buffer, x.p.buffer]));
+    port.postMessage({ r }, [...r.poses.flatMap((x) => [x.s.buffer, x.p.buffer]), ...r.pre.map((x) => x.buffer)]);
   } catch (e) { port.postMessage({ error: String(e?.message || e) }); }
 };
 if (node) port.on("message", run); else port.onmessage = (e) => run(e.data);

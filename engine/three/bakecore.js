@@ -4,10 +4,14 @@
 
 // world: a Rapier world. items: the bodies this bake records, in tracked order: { body, name, impacts, soft, until }
 // (until: the time a held body is released, else -Infinity). o: { duration, preroll, mpu, onStep, kin: [{ body, pose }],
-// track: [[name, fn]], keep, names } where names maps a collider handle to the name of the object it was built from.
-// Returns the data baked() reads, plus ord (for each report list, the item index of each entry: islands merge by it).
+// track: [[name, fn]], keep, names, script, trace } where names maps a collider handle to the name of the object it was
+// built from; script(fn) runs each of the set's own callbacks (onStep, a kinematic pose, a track sampler, keep) so the
+// caller can fence what they may reach; trace keeps every body's pose before each pre-roll step (an island bake proves
+// the islands apart on it). Returns the data baked() reads, plus ord (for each report list, the item index of each
+// entry: islands merge by it) and pre (the trace: per item, 7 floats per pre-roll step, or null).
 export function runBake(world, items, o) {
-  const { duration, preroll, mpu, onStep, kin, track, keep, names } = o;
+  const { duration, preroll, mpu, onStep, kin, track, keep, names, trace } = o;
+  const call = o.script ? (fn, ...a) => o.script(() => fn(...a)) : (fn, ...a) => fn(...a);
   const dt = world.timestep, n = Math.ceil(duration / dt) + 1, impacts = [], from = [], hist = [], win = Math.round(0.0125 / dt);
   const every = Math.max(1, Math.round(0.01 / dt)); // a resting body's contacts are audited every 10 ms, a moving one's every step
   const series = Object.fromEntries(track.map(([k]) => [k, new Float32Array(n)]));
@@ -29,13 +33,15 @@ export function runBake(world, items, o) {
     }
     prev[i] = cur;
   });
-  const sample = (s) => track.forEach(([k, fn]) => { series[k][s] = fn(); });
-  const aim = (t) => kin.forEach((k) => { const { p, q } = k.pose(t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
+  const sample = (s) => track.forEach(([k, fn]) => { series[k][s] = call(fn); });
+  const aim = (t) => kin.forEach((k) => { const { p, q } = call(k.pose, t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
   items.forEach((b) => { b.com0 = { ...b.body.worldCom() }; b.q0 = { ...b.body.rotation() }; }); // pre-roll drift is measured at the centre of mass
-  for (let s = Math.round(preroll / dt); s > 0; s--) {
+  const P = Math.round(preroll / dt), pre = trace ? items.map(() => new Float32Array(P * 7)) : null;
+  for (let s = P; s > 0; s--) {
     const t = -s * dt;
     gate(t);
-    if (onStep) onStep(t);
+    if (pre) items.forEach((b, i) => { const p = b.body.translation(), q = b.body.rotation(); pre[i].set([p.x, p.y, p.z, q.x, q.y, q.z, q.w], (P - s) * 7); });
+    if (onStep) call(onStep, t);
     aim(t);
     world.step();
   }
@@ -52,7 +58,7 @@ export function runBake(world, items, o) {
   for (let s = 1; s < n; s++) {
     const t = s * dt;
     gate(t);
-    if (onStep) onStep(t);
+    if (onStep) call(onStep, t);
     aim(t);
     world.step();
     record(s); sample(s);
@@ -98,14 +104,15 @@ export function runBake(world, items, o) {
   return {
     n, dt, series, impacts,
     poses: S.map((st) => ({ s: Uint32Array.from(st.s), p: Float32Array.from(st.p) })),
-    kept: keep ? JSON.parse(JSON.stringify(keep())) : undefined, // what onStep built that the set reads later (a stop time)
+    kept: keep ? JSON.parse(JSON.stringify(call(keep))) : undefined, // what onStep built that the set reads later (a stop time)
     report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating, moving, settled }, // settled: how far a body moved in the pre-roll (a big number = it was placed wrong)
-    ord,
+    ord, pre,
   };
 }
 
 // One declared island on a restored copy of the whole world: every dynamic or kinematic body that is not the island's
-// is switched off before the first step, so only the island is stepped, recorded and audited. job: { snap,
+// is switched off before the first step, so only the island is stepped, recorded and audited (the pre-roll too: its
+// poses come back in pre, and physics.js proves from them that no other island's body came near). job: { snap,
 // handles, items: [{ h, name, impacts, soft, until }], duration, preroll, mpu, names }. Same function in a worker and in
 // the main thread (the fallback), so both give the same numbers.
 export function islandBake(RAPIER, job) {
@@ -113,6 +120,6 @@ export function islandBake(RAPIER, job) {
   const mine = new Set(job.handles);
   w.forEachRigidBody((b) => { if (!mine.has(b.handle) && !b.isFixed()) b.setEnabled(false); });
   const items = job.items.map((it) => ({ ...it, body: w.getRigidBody(it.h) }));
-  try { return runBake(w, items, { duration: job.duration, preroll: job.preroll, mpu: job.mpu, onStep: null, kin: [], track: [], keep: null, names: job.names }); }
+  try { return runBake(w, items, { duration: job.duration, preroll: job.preroll, mpu: job.mpu, onStep: null, kin: [], track: [], keep: null, names: job.names, trace: true }); }
   finally { w.free(); }
 }
