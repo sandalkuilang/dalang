@@ -163,6 +163,62 @@ await test("K. ElevenLabs plan unreadable (401): tier null, the line says the li
   assert.match(modelLine(r.out), /eleven_v4 — .*licence unknown/);
 });
 
+// --from-audio: the script cannot tell a human recording from a TTS take. Only --own-recording states the first;
+// otherwise the take keeps the voice that spoke before (the source file's own take, or the take it replaces), so a
+// non-commercial take cut and retimed stays non-commercial. A fake ffmpeg (copies the file) keeps this free of codecs.
+const shim = path.join(tmp, "bin");
+fs.mkdirSync(shim);
+fs.writeFileSync(path.join(shim, "ffmpeg"), "#!/usr/bin/env node\nconst a = process.argv.slice(2); const i = a.indexOf('-i'); const o = a[a.length - 1];\nif (i >= 0 && o !== '-') require('fs').copyFileSync(a[i + 1], o);\n", { mode: 0o755 });
+const transcriber = () => {
+  const words = "Hello there. This is a short test.".split(" ").map((w, i) => ({ word: w, start: i * 0.4, end: i * 0.4 + 0.3 }));
+  const srv = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      const ok = req.url === "/v1/audio/transcriptions";
+      res.writeHead(ok ? 200 : 404, { "content-type": "application/json" });
+      res.end(JSON.stringify(ok ? { text: "Hello there. This is a short test.", words } : {}));
+    });
+  });
+  return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv)));
+};
+const retime = async ({ prior, sourceTake, extra = [] } = {}) => {
+  const out = path.join(tmp, `fa-${count}`);
+  fs.mkdirSync(out, { recursive: true });
+  if (prior) fs.writeFileSync(path.join(out, "narration.response.json"), JSON.stringify({ _meta: prior }));
+  const src = path.join(out, "narration-cut.wav");
+  fs.writeFileSync(src, "RIFF0000WAVE");
+  if (sourceTake) fs.writeFileSync(path.join(out, "narration-cut.response.json"), JSON.stringify({ _meta: sourceTake }));
+  const srv = await transcriber();
+  const r = await run(tts, ["--input", narration, "--out", out, "--from-audio", src, "--align", "off", "--vs-url", `http://127.0.0.1:${srv.address().port}`, ...extra], { PATH: `${shim}${path.delimiter}${process.env.PATH}` });
+  srv.close(); srv.closeAllConnections();
+  const file = path.join(out, "narration.response.json");
+  return { ...r, meta: fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8"))._meta : null };
+};
+const voiceLine = (out) => out.split("\n").find((l) => /^Voice /.test(l)) || "";
+await test("R. --from-audio over an OmniVoice take: the take keeps OmniVoice as its source, origin not stated", async () => {
+  const r = await retime({ prior: { engine: "voicestudio", model: "omnivoice", text: "x" } });
+  assert.equal(r.meta?.engine, "user-audio", r.out);
+  assert.equal(r.meta.from?.model, "omnivoice", JSON.stringify(r.meta));
+  assert.ok(r.meta.origin !== "own-recording", "origin claimed without --own-recording");
+  assert.match(voiceLine(r.out), /OmniVoice.*non-commercial/, r.out);
+});
+await test("R. --from-audio of a take with its own response file: that take is the source", async () => {
+  const r = await retime({ prior: { engine: "voicestudio", model: "voxcpm2" }, sourceTake: { engine: "voicestudio", model: "omnivoice" } });
+  assert.equal(r.meta?.from?.model, "omnivoice", r.out);
+});
+await test("R. --from-audio of an unknown file: no source, the line says the origin is unknown and names --own-recording", async () => {
+  const r = await retime();
+  assert.equal(r.meta?.engine, "user-audio", r.out);
+  assert.ok(!r.meta.from && r.meta.origin !== "own-recording", JSON.stringify(r.meta));
+  assert.match(voiceLine(r.out), /unknown.*--own-recording/, r.out);
+});
+await test("R. --from-audio --own-recording: the origin is stated, no earlier take carried", async () => {
+  const r = await retime({ prior: { engine: "voicestudio", model: "omnivoice" }, extra: ["--own-recording"] });
+  assert.equal(r.meta?.origin, "own-recording", r.out);
+  assert.equal(r.meta.from, undefined, JSON.stringify(r.meta));
+  assert.ok(voiceLine(r.out) && !/non-commercial|unknown/.test(voiceLine(r.out)), r.out);
+});
+
 // ── Part 2: check_assets.mjs ────────────────────────────────────────────────
 // A project with assets/narration.m4a listed under `licence`, and (when meta is given) the take's response file.
 let n = 0;
@@ -213,7 +269,7 @@ await warnOnly("L. ElevenLabs take on a plan name not in the table: WARN", proje
 await warnOnly("L. VoiceStudio model not in the table: WARN", project("Apache-2.0", { engine: "voicestudio", model: "some-new-tts" }));
 await warnOnly("L. a response file without _meta.model or engine: WARN", project("Apache-2.0", {}));
 await test("M. identified voices raise no WARN (OmniVoice NC, VoxCPM2, ElevenLabs paid, the user's own recording)", async () => {
-  const cases = [["CC-BY-NC-4.0", omni, []], ["Apache-2.0", { engine: "voicestudio", model: "voxcpm2" }, ["--commercial"]], ["Apache-2.0", { ...eleven4, tier: "creator" }, ["--commercial"]], ["user", { engine: "user-audio", source: "me.wav" }, ["--commercial"]]];
+  const cases = [["CC-BY-NC-4.0", omni, []], ["Apache-2.0", { engine: "voicestudio", model: "voxcpm2" }, ["--commercial"]], ["Apache-2.0", { ...eleven4, tier: "creator" }, ["--commercial"]], ["user", { engine: "user-audio", source: "me.wav", origin: "own-recording" }, ["--commercial"]]];
   for (const [licence, meta, flags] of cases) {
     const r = await run(check, [project(licence, meta), ...flags]);
     assert.ok(!/WARN/.test(r.out), `${JSON.stringify(meta)}: ${r.out}`);
@@ -229,6 +285,39 @@ await test("N. a non-commercial take with no ASSETS.json row of its name: WARN, 
 await test("N. ...a commercial take with no row of its name: no WARN", async () => {
   const r = await run(check, [project("Apache-2.0", { engine: "voicestudio", model: "voxcpm2" }, { take: "voiceover.response.json" })]);
   assert.ok(!/WARN/.test(r.out), r.out);
+});
+
+// A --from-audio take is not commercial-OK by itself: its origin is stated (--own-recording) or carried from the take it
+// was cut from; a non-commercial source stays non-commercial, anything else is unknown.
+const fromAudio = { engine: "user-audio", source: "narration-cut.wav" };
+await warnOnly("Q. --from-audio take, origin not stated, listed Apache-2.0 under --commercial: WARN", project("Apache-2.0", fromAudio), ["--commercial"]);
+await assets("Q. ...the WARN names --own-recording", project("Apache-2.0", fromAudio), ["--commercial"], 0, /WARN.*--own-recording/);
+await warnOnly("Q. --from-audio take cut from a VoxCPM2 take: WARN (a commercial source does not vouch for the cut file)", project("Apache-2.0", { ...fromAudio, from: { engine: "voicestudio", model: "voxcpm2" } }), ["--commercial"]);
+await assets("Q. --from-audio take cut from an OmniVoice take, listed Apache-2.0: PROBLEM", project("Apache-2.0", { ...fromAudio, from: omni }), [], 3, /PROBLEM.*OmniVoice/);
+await assets("Q. ...listed CC-BY-NC-4.0: passes", project("CC-BY-NC-4.0", { ...fromAudio, from: omni }), [], 0, /Result +: OK/);
+await test("Q. --own-recording take listed as the user's under --commercial: passes, no WARN", async () => {
+  const r = await run(check, [project("user", { ...fromAudio, origin: "own-recording" }), "--commercial"]);
+  assert.equal(r.code, 0, r.out);
+  assert.ok(!/WARN|PROBLEM/.test(r.out), r.out);
+});
+
+// The class, structurally: a commercial row must name who spoke (a model, a plan tier, a stated origin), never the
+// engine alone, and a field a take did not record never matches. So a take that records only its engine is never
+// commercial-OK, whatever the engine.
+const lic = await import(new URL("../scripts/voice_licences.mjs", import.meta.url));
+await test("P. a commercial row on the engine alone is refused; a row that names who spoke is accepted", async () => {
+  assert.equal(typeof lic.checkRows, "function", "voice_licences.mjs exports no checkRows");
+  assert.throws(() => lic.checkRows([{ name: "any file", licence: "user", nc: false, match: { engine: "user-audio" } }]), /who spoke/);
+  assert.doesNotThrow(() => lic.checkRows([{ name: "own", licence: "user", nc: false, match: { engine: "user-audio", origin: "own-recording" } }]));
+  assert.doesNotThrow(() => lic.checkRows([{ name: "nc", licence: "CC-BY-NC-4.0", nc: true, match: { engine: "x" } }]));
+});
+await test("P. for every engine the table names, a take that records only its engine is never commercial-OK", async () => {
+  const engines = new Set(["voicestudio", "elevenlabs", "user-audio", undefined]);
+  for (const r of lic.VOICE_MODELS) if (typeof r.match?.engine === "string") engines.add(r.match.engine);
+  for (const engine of engines) for (const extra of [{}, { model: null, tier: null, origin: null }, { model: "", tier: "" }]) {
+    const v = lic.voiceModel({ engine, ...extra });
+    assert.ok(!v || v.nc, `${engine} ${JSON.stringify(extra)} read as ${v?.name}`);
+  }
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });
