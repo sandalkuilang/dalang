@@ -46,7 +46,7 @@ that reads as:
   or `changed (not targeted)` (a possible regression, also a `FLAG:` line). Heuristic: both stills as 64x36 gray via
   ffmpeg, changed from a score of 1 % (mean difference, or a quarter of the worst 8x9 block's, so a small local change
   counts); an unreadable or earlier-less still is never `unchanged`. A regression does not change the exit code; a
-  still that cannot be compared exits 3. `review.md` §How step 4 and `qc.md` Step 7 use it. Test: `tests/strips.mjs`.
+  still that cannot be compared exits 3. Each kept round gets its own number (`mv review/strips review/strips-<n>`); a `--against` folder that holds an older round with the last one nested inside (a repeated `mv` onto an existing name) is refused. `review.md` §How step 4 and `qc.md` Step 7 use it. Test: `tests/strips.mjs`.
 - **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
   reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
   "Camera" cell, 3 or more rows in a row with the same size and angle, the share of rows whose focal point is text only
