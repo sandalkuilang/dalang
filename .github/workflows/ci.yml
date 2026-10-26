@@ -5,16 +5,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Syntax-check scripts
-        run: |
-          for f in scripts/*.mjs; do node --check "$f"; done
-          bash -n scripts/measure_reference.sh
-      - name: SKILL.md front-matter
-        run: |
-          head -1 SKILL.md | grep -qx -- '---'
-          grep -q '^name: dalang$' SKILL.md
-          grep -q '^description: ' SKILL.md
-
-      # The light diagrams are derived from the dark ones; they must not drift.
-      - name: README diagrams
-        run: python3 docs/assets/build.py --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The merge gate: syntax, SKILL.md front-matter, README diagrams, the engine's self-check and preflight
+      # against a mock VoiceStudio. The same script runs locally (scripts/gate.sh, --fast for the static part).
+      - name: Gate
+        run: scripts/gate.sh
