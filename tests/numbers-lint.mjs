@@ -185,23 +185,28 @@ try {
   }
   console.log("ok  a hyphen and a space are the same words, either way round; 'one' is still not inside 'twenty-one'");
 
-  // 11. A beat with a figure in it is checked in words first: the `say` decides, an unrelated figure does not
-  // matter; words that are not the `say` do not pass because a stray figure happens to equal the value.
+  // 11. A model beat passes when it holds a mention of its number in a declared form, whatever else it holds: the
+  // `say`, or a figure that rounds to the value standing on its own in the beat or beside the say's words in their
+  // place ("40 dollars", "about 40"). A figure among words that are not the say is not a mention: wrong words are not
+  // rescued by a stray figure, however many of their words differ from the say.
   const mix = path.join(tmp, "mix");
   put(mix, "script.md", ["Cost [calc: cost]."]);
   put(mix, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" } })]);
   const mixed = { "about forty dollars for 8 hours": 0, "about forty dollars, 12 of them": 0, "40 dollars": 0, "40 dollars for 8 hours": 0,
-    "about twelve dollars for 8 hours": 1, "about twelve dollars, 40": 1, "about twelve dollars, 41": 1, "8 hours": 1 };
+    "about 40 dollars": 0, "about 40": 0, "$40": 0, "40": 0, "40 dollars for about forty minutes": 0,
+    "about twelve dollars for 8 hours": 1, "about twelve dollars, 40": 1, "about twelve dollars, 41": 1, "8 hours": 1,
+    "twelve dollars, 40": 1, "roughly twelve dollars, 40": 1, "about twelve bucks, 40": 1, "40 minutes": 1, "about forty minutes": 1 };
   for (const [beat, want] of Object.entries(mixed)) {
     put(mix, "narration.txt", [`It costs {${beat}|cost}.`]);
     const r = run(mix);
     assert.equal(r.code, want, `${beat}: ${r.out}${r.err}`);
     if (want) assert.deepEqual(found(r.out), ["narration.txt:1"], r.out);
+    if (want) assert.ok(msg(r.out, "narration.txt:1").includes(`"${beat}"`) && msg(r.out, "narration.txt:1").includes("about forty dollars"), r.out);
   }
-  console.log("ok  a beat with words and a figure: the say decides; wrong words are not rescued by a stray figure");
+  console.log("ok  a model beat passes on a mention in a declared form (say, or a figure alone or in the say's place); wrong words are not rescued by a stray figure");
 
   // 12. A model number spoken more than once: the second mention is a beat named <name>__<suffix> and is checked the
-  // same way; two beats with one name, or another name that says a near miss of a model number, never pass silently.
+  // same way; two beats with one name never pass. A beat of another name, or of none, claims no model number: never judged.
   const rep = path.join(tmp, "rep");
   put(rep, "script.md", ["Cost [calc: cost], small [calc: cost_small], big [calc: cost_large]."]);
   put(rep, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" }, cost_small: { value: 16, say: "about sixteen dollars" }, cost_large: { value: 18, say: "about eighteen dollars" } })]);
@@ -210,7 +215,7 @@ try {
     [two("about forty dollars", "cost__recap"), 0, null], [two("about ninety dollars", "cost__recap"), 1, "narration.txt:2"],
     [two("40 dollars", "cost__recap"), 0, null], [two("41 dollars", "cost__recap"), 1, "narration.txt:2"],
     [two("about forty dollars", "cost"), 1, "narration.txt:2"], // one name twice: the voice step renames the later timing
-    [two("about ninety dollars", "cost_recap"), 2, "narration.txt:2"], // not a model name: a near miss is WARN, never OK
+    [two("about ninety dollars", "cost_recap"), 0, null], // not a model name: not a mention of cost, never judged
     [two("about forty dollars", "cost_recap"), 0, null], [two("a quiet house", "house"), 0, null],
     [two("about eighteen dollars", "cost_small_intro"), 0, null], // another model number's exact words
     [two("about eighteen dollars", "cost_small__again"), 1, "narration.txt:2"], // named for cost_small: eighteen is not sixteen
@@ -230,8 +235,7 @@ try {
   assert.deepEqual(found(run(rep).out), ["narration.txt:2"]);
   put(rep, "narration.txt", ["{about forty dollars|cost}.", "Recap: it costs {about ninety dollars}."]);
   const unnamed = run(rep);
-  assert.equal(unnamed.code, 2, unnamed.out);
-  assert.match(msg(unnamed.out, "narration.txt:2"), /WARN.*about ninety dollars.*cost__/);
+  assert.equal(unnamed.code, 0, unnamed.out); // a beat with no name claims no model number
   put(rep, "narration.txt", ["{about forty dollars|cost}.", "Recap: it costs {about forty dollars}."]);
   assert.equal(run(rep).code, 0);
   // object property names are not model numbers
@@ -239,7 +243,7 @@ try {
   assert.equal(run(rep).code, 0);
   put(rep, "script.md", ["Cost [calc: cost], odd [calc: toString]."]);
   assert.deepEqual(found(run(rep).out), ["script.md:1"]);
-  console.log("ok  a repeated model number is a beat <name>__<suffix> and is checked; a repeated name or a near miss in another beat is not silent");
+  console.log("ok  a repeated model number is a beat <name>__<suffix> and is checked; a repeated name fails; another name is not judged");
 
   // 13. Gate 1 approves the model too: an input changed in model.mjs, or a new numbers.json, makes the approval stale,
   // even when the rounded words stay the same; a project with no model keeps its old hash.
@@ -271,6 +275,61 @@ try {
   const oldHash = createHash("sha1").update(fs.readFileSync(path.join(nomodel, "script.md"))).update(fs.readFileSync(path.join(nomodel, "narration.txt"))).digest("hex").slice(0, 12);
   assert.equal(sj.approvals[1].hash, oldHash, "no model: the hash is what it was before");
   console.log("ok  Gate 1 goes stale when model.mjs or numbers.json changes; a project with no model is unchanged");
+
+  // 14. A true number in a beat of another name is never flagged, even when its words share all but one with a
+  // model number's `say` (the unit, or the number): only a beat named after a model number is judged, and that beat
+  // still fails when it says another unit or another number.
+  const other = path.join(tmp, "other");
+  put(other, "script.md", ["Cost [calc: cost]."]);
+  for (const [say, nar, want] of [
+    ["about forty dollars", ["It costs {about forty dollars|cost}.", "The drive takes {about forty minutes|drive}."], 0],
+    ["forty dollars", ["It costs {forty dollars|cost}.", "Less than {forty percent|share} of homes."], 0],
+    ["forty dollars", ["It costs {forty dollars|cost}.", "Less than {forty percent} of homes."], 0],
+    ["about forty dollars", ["It costs {about forty dollars|cost}.", "The drive takes {about forty minutes|cost__drive}."], 1],
+    ["forty dollars", ["It costs {forty dollars|cost}.", "Less than {forty percent|cost__share} of homes."], 1],
+  ]) {
+    put(other, "numbers.json", [JSON.stringify({ cost: { value: 40, say } })]);
+    put(other, "narration.txt", nar);
+    const r = run(other);
+    assert.equal(r.code, want, `${nar[1]}: ${r.out}${r.err}`);
+    if (want) assert.deepEqual(found(r.out), ["narration.txt:2"], r.out);
+    else assert.match(r.out, /Result\s+: OK/);
+  }
+  console.log("ok  a true number in a beat of another name is never flagged; named after the model number, another unit fails");
+
+  // 15. The class: a model number spoken in any declared form is never flagged, whatever surrounds it in its beat,
+  // and nothing in a beat of another name, or of none, is ever flagged. Every model shape: a say with a hedge and a
+  // unit, a say with no unit, a decimal say, a say in an unspaced script, no say.
+  const cls = path.join(tmp, "class");
+  put(cls, "script.md", ["Cost [calc: cost], parts [calc: parts], share [calc: share], kwh [calc: kwh], yen [calc: yen]."]);
+  put(cls, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" }, parts: { value: 21, say: "twenty-one" },
+    share: { value: 12.5, say: "twelve and a half percent" }, kwh: { value: 141 }, yen: { value: 40, say: "四十円" } })]);
+  const forms = { // [form, may it stand among other words]
+    cost: [["about forty dollars", 1], ["About Forty-Dollars", 1], ["about 40 dollars", 1], ["40 dollars", 1], ["about 40", 1], ["$40", 0], ["40", 0]],
+    parts: [["twenty-one", 1], ["Twenty one", 1], ["21", 0]],
+    share: [["twelve and a half percent", 1], ["12.5 percent", 1], ["12.5", 0]],
+    kwh: [["141", 1], ["140", 1], ["about 140 kilowatt hours", 1], ["100", 1]],
+    yen: [["四十円", 1], ["約四十円", 1], ["40", 0]],
+  };
+  const noise = ["for 8 hours", "about forty minutes", "less than forty percent", "about twelve dollars", "or 12 of them", "twenty-two parts", "十二時間"];
+  const beats = []; // one beat a line, each model beat a further mention of its own (<name>__k<i>), so one run checks all
+  let k = 0;
+  for (const [name, list] of Object.entries(forms)) for (const [f, among] of list) {
+    beats.push(`{${f}|${name}__k${k++}}`);
+    if (among) for (const z of noise) beats.push(`{${z}, ${f}|${name}__k${k++}}`, `{${f}, ${z}|${name}__k${k++}}`, `{${z} ${f} ${z}|${name}__k${k++}}`);
+  }
+  for (const z of noise) for (const name of ["drive", "share_note", "cost_recap", ""]) beats.push(name ? `{${z}|${name}}` : `{${z}}`);
+  put(cls, "narration.txt", beats.map((b) => `It is ${b}.`));
+  const all = run(cls);
+  const flagged = all.out.split("\n").filter((l) => /PROBLEM|WARN/.test(l));
+  assert.deepEqual(flagged, [], `${flagged.length} of ${beats.length} correct beats flagged:\n${flagged.join("\n")}`);
+  assert.equal(all.code, 0, all.out);
+  assert.match(all.out, new RegExp(`${k} spoken beats`), all.out);
+  for (const [name, list] of Object.entries(forms)) for (const [f] of list) { // and each form as the first mention
+    put(cls, "narration.txt", [`It is {${f}|${name}}.`]);
+    assert.equal(run(cls).code, 0, `{${f}|${name}}`);
+  }
+  console.log(`ok  the class: ${beats.length} correct beats (every declared form, among other words, other names) are never flagged`);
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
