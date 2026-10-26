@@ -63,6 +63,11 @@ that reads as:
   takes a `light` direction and a `shade` (a dense puff's side away from the light greys) and has
   `contrast(kind, ground)` against `READABLE`; the rule in `looks.md` and `camera-motion.md` §5 (a darker ground or a
   side or back light, and moving air); the self-check asserts it.
+- **Granular fills**: `engine/three/grains.js` `grains()` fills a container's top with instanced grains at real size
+  in jittered layers and, cut, shows whole grains at the cut face, over a body wearing the new `grains` surface;
+  presets for lentils, coffee, rice, oats, sugar, sand and gravel; `examples/canister.js`; the rule in `looks.md` (a
+  bulk of small things shows its grains; a smooth slab reads as foam or gravel); the self-check asserts counts, real
+  size, the kept side and separate grains.
 
 ### Changed
 
