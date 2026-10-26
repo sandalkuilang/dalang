@@ -41,7 +41,8 @@ that reads as:
   a part flagged `userData.cut = { shell: metres }` shows its wall ring instead of a disc, and `userData.cut = false`
   keeps a part whole. `on(t)`, `off(t)` and `set(offset, t)` switch or slide the cut by time without swapping planes
   (no shader recompile). A set's later edits to its own material (glow, fade, colour, map, shader uniforms) reach the
-  cut part (a map swap points the clone at the new texture and never writes into the shared old one), and the cap
+  cut part, custom keys included (a swap points the clone at the new texture or its own copy of the new colour and
+  never writes into the shared old one), and the cap
   group is never put under the root (not while the root has no parent). It needs a renderer with
   a stencil buffer. `examples/flask.js` is the ready piece, and the
   self-check asserts the plane on every part (a late one too), the caps' settings and the shell's ring.
