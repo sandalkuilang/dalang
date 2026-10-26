@@ -26,10 +26,12 @@ const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
-const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor, readTime } = await use("type.js");
+const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, place: placeCamera, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
+const { flowArrow, tileFill } = await use("quantity.js");
+const { twinSets } = await use("examples/twin.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1005,6 +1007,21 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.deepEqual(pinLabel(mockCtx(W, H, gray), { at: o3, camera: cam, text: "valve" }), pinLabel(mockCtx(W, H, gray), { at: world(0.3, 0.2), camera: cam, text: "valve" }), "an object pins like its world point");
   assert.equal(pinLabel(mockCtx(W, H, () => [0, 0, 0]), { at: world(0, 0), camera: cam, text: "valve" }).ink, "light", "a label over a dark ground gets light ink");
   assert.equal(pinLabel(mockCtx(W, H, () => [255, 255, 255]), { at: world(0, 0), camera: cam, text: "valve" }).ink, "dark", "a label over a light ground gets dark ink");
+  // A range card fills to value / max, ticks each option's capacity, highlights the first that fits, stays in the zone.
+  const RB = { max: 10, ticks: [{ at: 2.5, label: "S" }, { at: 5, label: "M" }, { at: 7, label: "L" }, { at: 10, label: "XL" }], label: "need" };
+  const rb = (value, o) => rangeBar(mockCtx(W, H, gray), { ...RB, value }, o);
+  const r6 = rb(6);
+  assert.ok(r6.fits === 2 && Math.abs(r6.fill - 0.6 * r6.w) < 1e-9 && r6.size >= 36 && inside(r6, lab), "range card at 6 of 10: " + JSON.stringify(r6));
+  assert.ok(Math.abs(r6.ticks[2].x - (r6.x + 0.7 * r6.w)) < 1e-9 && r6.ticks[2].fits, "a tick sits at its capacity");
+  const r11 = rb(11), rneg = rb(-2);
+  assert.ok(r11.fill === r11.w && r11.fits === -1, "over the max: full bar, no option fits");
+  assert.ok(rneg.fill === 0 && rneg.fits === 0, "under zero: empty bar, the smallest fits");
+  assert.ok(inside(rb(6, { x: W, y: H }), lab), "a card asked off the zone is kept inside it");
+  assert.equal(rb(6, { highlight: 3 }).fits, 3, "an explicit highlight wins");
+  const rc = mockCtx(W, H, gray), rr = rangeBar(rc, { ...RB, value: 6 });
+  assert.ok(rc.log.some((l) => l.rect && Math.abs(l.rect[2] - rr.fill) < 1e-9), "the fill is drawn at its width");
+  for (const bad of [0, -1, NaN, "10"]) assert.throws(() => rangeBar(mockCtx(W, H, gray), { ...RB, max: bad, value: 1 }), /max/);
+  assert.throws(() => rangeBar(mockCtx(W, H, gray), { ...RB, value: NaN }), /value/);
   // A caption that says what a label says is a warning; a word of it, or a label shown at another time, is not.
   assert.equal(repeats(caps, [{ text: "The air is thinner" }]).length, 1, "an equal label repeats");
   assert.match(repeats(caps, [{ text: "The air is thinner" }])[0], /repeats the label/, "the warning says so");
@@ -1435,4 +1452,48 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.throws(() => zFight(set(quad("d")), {}), /cameras/);
   assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
 }
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, any scale and gravity");
+{ // Showing a quantity (visual-direction.md §13): an arrow's width is its value on the film's one scale, whatever its
+  // direction or reveal; a tile fill counts and sums what it covers; twin sets sit `gap` apart. At any scale (K.M).
+  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const xs = (a) => { const p = a.mesh.geometry.attributes.position; return Array.from({ length: p.count }, (_, i) => [p.getX(i), p.getY(i)]); };
+  const tail = (a) => { const ys = xs(a).filter(([x]) => Math.abs(x) < 1e-9).map(([, y]) => y); return Math.max(...ys) - Math.min(...ys); };
+  const a1 = flowArrow({ from: V(0, 0, 0), to: V(1, 0, 0), value: 1, scale: 0.02 });
+  const a3 = flowArrow({ from: V(0, 1, 0), to: V(0.4, 1.3, 0), value: 3, scale: 0.02 });
+  assert.ok(Math.abs(tail(a3) / tail(a1) - 3) < 1e-9, "arrow width ratio equals value ratio: " + tail(a3) / tail(a1));
+  assert.ok(Math.abs(tail(a1) * Mq - 0.02) < 1e-9 && a1.width === 0.02, "width = value x scale, in metres");
+  a3.group.updateMatrixWorld(true);
+  assert.ok(a3.mesh.localToWorld(V(a3.length, 0, 0)).distanceTo(V(0.4, 1.3, 0)) < 1e-9, "the tip is on `to`");
+  assert.ok(Math.abs(a3.reveal(0.5) - 0.5 * a3.length) < 1e-9 && Math.abs(Math.max(...xs(a3).map(([x]) => x)) - 0.5 * a3.length) < 1e-9, "reveal(0.5) draws half");
+  assert.ok(Math.abs(tail(a3) / tail(a1) - 3) < 1e-9, "a growing arrow keeps its width");
+  assert.ok(a3.reveal(0) === 0 && a3.mesh.visible === false, "reveal(0) draws nothing");
+  for (const bad of [0, -1, NaN, Infinity, "1", undefined]) assert.throws(() => flowArrow({ from: V(0, 0, 0), to: V(1, 0, 0), value: bad, scale: 0.02 }), /value/, "value " + bad + " is refused");
+  for (const bad of [0, -0.1, NaN, "0.02"]) assert.throws(() => flowArrow({ from: V(0, 0, 0), to: V(1, 0, 0), value: 1, scale: bad }), /scale/);
+  assert.throws(() => flowArrow({ from: V(0, 0, 0), to: V(0, 0, 0), value: 1, scale: 0.02 }), /same point/);
+  assert.throws(() => flowArrow({ from: V(0, 0, 0), to: V(0, 0, 1), value: 1, scale: 0.02 }), /parallel/);
+
+  const tf = tileFill({ w: 3, d: 4, cell: 0.5 });
+  assert.deepEqual([tf.cols, tf.rows, tf.count], [6, 8, 48], "3 x 4 m in 0.5 m cells");
+  assert.ok(Math.abs(tf.area(tf.count) - 12) < 1e-9, "the full fill is the area");
+  assert.ok(tf.show(10) === 10 && tf.mesh.count === 10 && Math.abs(tf.area() - 2.5) < 1e-9, "show(n) draws n cells, area() is theirs");
+  assert.deepEqual([tf.show(-3), tf.show(999), tf.show(NaN)], [0, 48, 0], "show is clamped");
+  const odd = tileFill({ w: 3, d: 4, cell: 0.7 });
+  assert.ok(odd.count === 30 && Math.abs(odd.area(30) - 12) < 1e-9, "cut cells at the edges still sum to the area");
+  assert.equal(tileFill({ w: 3, d: 3, cell: 0.1 }).cols, 30, "no sliver column from float error");
+  const m0 = new THREE.Matrix4(); tf.mesh.getMatrixAt(0, m0);
+  assert.ok(new THREE.Vector3().setFromMatrixPosition(m0).y >= 0.001 && tf.mesh.material.polygonOffset, "cells lift off the floor");
+  assert.ok(tf.edges.w.position.x === 1.5 && tf.edges.d.position.z === 2, "dimension tag anchors at the edge middles");
+  for (const bad of [{ w: 0, d: 1, cell: 1 }, { w: 1, d: 1, cell: -1 }, { w: 1, d: NaN, cell: 1 }]) assert.throws(() => tileFill(bad), /tileFill/);
+
+  const tw = twinSets({ scene: new THREE.Scene() }, (g, v) => {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.4 / Mq, 0.3 / Mq, 0.3 / Mq), new THREE.MeshStandardMaterial());
+    box.position.y = 0.15 / Mq;
+    const a = flowArrow({ from: V(-0.15 / Mq, 0.5 / Mq, 0), to: V(0.15 / Mq, 0.5 / Mq, 0), value: v, scale: 0.01 });
+    g.userData.arrow = a; g.add(box, a.group);
+  }, { values: [1, 3], gap: 0.3 });
+  tw.a.updateMatrixWorld(true); tw.b.updateMatrixWorld(true);
+  const ba = new THREE.Box3().setFromObject(tw.a), bb = new THREE.Box3().setFromObject(tw.b);
+  assert.ok(Math.abs((bb.min.x - ba.max.x) * Mq - 0.3) < 1e-9 && Math.abs(ba.min.x + bb.max.x) < 1e-9, "twin sets 0.3 m apart, centred");
+  assert.ok(Math.abs(tail(tw.b.userData.arrow) / tail(tw.a.userData.arrow) - 3) < 1e-9, "the twins differ only in the value, arrows in ratio");
+  assert.throws(() => twinSets({ scene: new THREE.Scene() }, () => {}, { values: [1] }), /values/);
+}
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), any scale and gravity");
