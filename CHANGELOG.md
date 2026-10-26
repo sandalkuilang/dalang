@@ -39,6 +39,14 @@ that reads as:
   do, one save/share call to action and a next-topic question, one sources line and 4-5 hashtags, in the narration
   language, at most about 1,800 characters. A CC BY credit line only if the user chose it; no meta lines about tools
   or AI. `evals.md` checks that its formula reproduces the film's number.
+- **Review strips diff between rounds** (Step 7): `scripts/strips.mjs --against <previous round dir> --targets
+  <shots|beats> [--threshold <pct>]` compares each still with the one at the same time in the previous round and
+  labels it in `index.md` (`Change` and `Diff` columns, plus a block listing possible regressions and targeted shots
+  with no change): `unchanged` (the earlier verdict stands, the reviewer skips it), `changed (targeted)` (re-review)
+  or `changed (not targeted)` (a possible regression, also a `FLAG:` line). Heuristic: both stills as 64x36 gray via
+  ffmpeg, changed from a score of 1 % (mean difference, or a quarter of the worst 8x9 block's, so a small local change
+  counts); an unreadable or earlier-less still is never `unchanged`. A regression does not change the exit code; a
+  still that cannot be compared exits 3. `review.md` §How step 4 and `qc.md` Step 7 use it. Test: `tests/strips.mjs`.
 - **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
   reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
   "Camera" cell, 3 or more rows in a row with the same size and angle, the share of rows whose focal point is text only
