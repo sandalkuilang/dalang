@@ -174,6 +174,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Practicals:** a lamp, screen or window inside the frame motivates the key and makes the set read as real.
 - **Edge light and negative fill:** a rim separates a dark subject from a dark ground; one shadow side kept dark. Flat front light is the generated look.
 - **Light as the event:** a shadow sweeps across, a door throws light in, a lamp switches on at the reveal, the sun moves (timelapse). It is real action without moving the camera **[F][3D][G]**.
+- **Story vs explanation grading** (option for a film that wraps an explanation in a small story, e.g. a failure explainer's cold open and bookend): grade the story sections as night, blue-grey, low-key (8:1 and up), dim practical light only; grade the explanation in bright neutral light, 2:1. The change of grade at the pivot is the film's one rule break (§12 *rule breaks*, logged under the CAMERA line); the bookend returns to the night grade, the same set and framing as the opening, now working. Write both moods per section in the storyboard's colour-script line.
 - **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
 
 ### 11.2 Lens — how the world feels

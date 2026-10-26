@@ -13,6 +13,7 @@ Each brief stresses a different part. Pick fresh topics each time (never reuse a
 | 3 | "A 45 s dialogue scene between two people about <an everyday situation>, autonomous." | people (hyperreal, no puppets), multi-voice, `LINES` |
 | 4 | "Turn this recording into a 60 s video: <user audio file>, autonomous." | `--from-audio`, timing from a real voice |
 | 5 | "A 60 s stylized explainer of <a process too small, too large or too slow to film>, autonomous." | a subject outside `engine/three`: its own law, scale changes shown, a self-check, nothing borrowed from earlier sets |
+| 6 | "A 60 s Short on why <a common thing that fails: a part, a plant, a battery, a tool> breaks, autonomous." | the failure-explainer arc (`script-voice.md` "Arc templates"): the script's beats map to it (cold open with a quoted verdict, path, thesis with N, N enemies each with name · mechanism · tagged number · visible cause, cost, checklist, bookend), none untagged at Gate 1, the bookend shows the opening setting working, night-graded story parts vs bright explanation |
 
 ## What to compare
 

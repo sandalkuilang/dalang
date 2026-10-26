@@ -33,6 +33,13 @@ that reads as:
 
 ### Added
 
+- **Failure-explainer arc** (`script-voice.md` "Arc templates"): the seven beats of a "why does X break" film (cold
+  open with a quoted verdict, follow the path, a thesis with N enemies, N enemies each built as name → mechanism →
+  one tagged number → visible cause, cost asymmetry, checklist, bookend), with its Gate 1 checks (every enemy has its
+  tagged number and visible cause, the bookend shows the opening setting working). "Two beliefs, tested" moves into
+  the same section, now a look-up in the step-3 index (the reading budget is full). `camera-motion.md` §11.1 gains
+  story-vs-explanation grading (night for the story parts, bright neutral for the explanation); `evals.md` gains a
+  golden brief for it.
 - **Numbers model and numbers lint** (Step 3, Gate 1): when the script computes, the project's `model.mjs` is the one
   source of every `[calc]` number. Plain JS with named `[src]`/`[assume]` inputs; it exports `numbers` (each result by
   name, `{ value, say }`, `say` computed from `value` in the narration language) and, for a process over time,
