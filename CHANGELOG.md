@@ -117,6 +117,8 @@ that reads as:
 
 ### Changed
 
+- Music source order is CC0 first, then CC BY with a plain visible-credit note at Gate 2; the upload caption the agent
+  drafts carries no credit or licence line unless the user chose one (`look-build.md` §7, `qc.md`, `lessons.md`, README).
 - Steam and smoke presets shade their side away from the light by default (`shade` 0.4 and 0.45; `shade: 0` keeps
   the old flat look).
 - **The engine's files are listed by the build, not by hand**: `engine/three/build.mjs` writes `.engine.json` next to
@@ -133,6 +135,10 @@ that reads as:
 
 ### Fixed
 
+- `find_media.mjs --type music --licence cc0` no longer always says "nothing matched": the `category=music` filter
+  dropped Openverse's CC0 music, which has no category. Music is now kept apart from SFX by `--min-duration` (default
+  20 s, also a flag for any type, unknown lengths kept), and a music search reads up to 3 result pages. A provider's
+  `mp32` filetype is saved as `.mp3`.
 - **The final render ran at 30 fps, not the brief's 24**: `hyperframes render` defaults to 30 fps and the Step 8 and
   style-frame sample commands passed no `--fps`. Every render command now passes the brief's fps (`qc.md`,
   `look-build.md`, `SKILL.md`, `lessons.md`).
