@@ -281,6 +281,63 @@ await test("13. the documented music flow passes the licence gate: take, fit ove
   assert.deepEqual(fs.readdirSync(path.join(proj, "assets")), ["music.mp3"], "nothing else is left in assets/");
 }));
 
+// A local file error (mkdir, copy, write) says nothing about whether media exist: it is a WARN + "rerun" (exit 3), or a
+// usage error (exit 2) when the destination cannot be a file. Never exit 1, which means "every source answered and nothing matched".
+const notEmpty = (r, label) => { assert.doesNotMatch(r.out, /nothing matched|refused:/, `${label}: ${r.out}`); assert.doesNotMatch(r.out, /\n\s+at /, `${label}: no stack trace: ${r.out}`); };
+await test("14. a local write failure is a WARN with rerun (exit 3), never exit 1 'nothing matched'", async () => withMock(audioRoutes, async (m) => {
+  const lib = bundle("All sound effects are used under the [CC0 1.0](https://example.org/l).\n");
+  const blocker = path.join(dir("blk"), "afile"); fs.writeFileSync(blocker, "x");
+  // --out is an existing regular file: bundled (a match exists), and the search (the sources answered)
+  const b = await run(["--type", "sfx", "--bundled", "--media-use", lib, "--out", blocker]);
+  assert.equal(b.code, 3, b.out); assert.match(b.out, /WARN.*rerun/); notEmpty(b, "bundled out=file");
+  const s = await run(["--type", "music", "--query", "calm", "--out", blocker], env(m));
+  assert.equal(s.code, 3, s.out); assert.match(s.out, /WARN.*rerun/); notEmpty(s, "search out=file");
+  // results.json cannot be written (it is a folder)
+  const rj = dir("rjdir"); fs.mkdirSync(path.join(rj, "results.json"));
+  const r1 = await run(["--type", "music", "--query", "calm", "--out", rj], env(m));
+  assert.equal(r1.code, 3, r1.out); assert.match(r1.out, /WARN.*rerun/); notEmpty(r1, "results.json is a folder");
+  const r2 = await run(["--type", "sfx", "--bundled", "--media-use", lib, "--out", rj]);
+  assert.equal(r2.code, 3, r2.out); assert.match(r2.out, /WARN.*rerun/); notEmpty(r2, "bundled results.json is a folder");
+  // a library file that cannot be copied (dangling link)
+  const lib2 = bundle("All sound effects are used under the [CC0 1.0](https://example.org/l).\n");
+  fs.rmSync(path.join(lib2, "whoosh.mp3")); fs.symlinkSync(path.join(lib2, "gone.mp3"), path.join(lib2, "whoosh.mp3"));
+  const r3 = await run(["--type", "sfx", "--bundled", "--media-use", lib2, "--query", "transition", "--out", dir("dang")]);
+  assert.equal(r3.code, 3, r3.out); assert.match(r3.out, /WARN.*rerun/); notEmpty(r3, "dangling library file");
+  // the other side: a fresh nested --out and an existing folder both still work
+  const ok1 = await run(["--type", "sfx", "--bundled", "--media-use", lib, "--out", path.join(dir("nest"), "a", "b")]);
+  assert.equal(ok1.code, 0, ok1.out);
+  const ok2 = await run(["--type", "music", "--query", "calm", "--out", dir("okdir")], env(m));
+  assert.equal(ok2.code, 0, ok2.out);
+}));
+await test("15. --take: a folder-like --as is a usage error (exit 2); a destination or manifest that cannot be written is a WARN with rerun (exit 3); a file path still works", async () => withMock(audioRoutes, async (m) => {
+  const out = dir("tk"), proj = dir("proj");
+  await run(["--type", "music", "--query", "calm", "--out", out], env(m));
+  const file = path.join(out, JSON.parse(fs.readFileSync(path.join(out, "results.json"), "utf8"))[0].file);
+  for (const as of ["assets/sfx/", "assets/", "assets/sfx//", "assets/."]) {
+    const r = await run(["--take", file, "--as", as, "--project", proj]);
+    assert.equal(r.code, 2, `${as}: ${r.out}`); notEmpty(r, as);
+  }
+  assert.ok(!fs.existsSync(path.join(proj, "ASSETS.json")), "a refused take must not write ASSETS.json");
+  // --as names an existing folder
+  fs.mkdirSync(path.join(proj, "assets/taken"), { recursive: true });
+  const d = await run(["--take", file, "--as", "assets/taken", "--project", proj]);
+  assert.equal(d.code, 3, d.out); assert.match(d.out, /WARN.*rerun/); notEmpty(d, "as=existing folder");
+  // a parent of the destination is a file
+  fs.writeFileSync(path.join(proj, "assets/blocker"), "x");
+  const p = await run(["--take", file, "--as", "assets/blocker/x.mp3", "--project", proj]);
+  assert.equal(p.code, 3, p.out); assert.match(p.out, /WARN.*rerun/); notEmpty(p, "parent is a file");
+  // the manifest cannot be written (read-only file; skipped as root, which ignores the mode)
+  if (process.getuid?.() !== 0) {
+    const proj2 = dir("proj2"); fs.writeFileSync(path.join(proj2, "ASSETS.json"), "[]"); fs.chmodSync(path.join(proj2, "ASSETS.json"), 0o444);
+    const w = await run(["--take", file, "--as", "assets/m.mp3", "--project", proj2]);
+    assert.equal(w.code, 3, w.out); assert.match(w.out, /WARN.*rerun/); notEmpty(w, "read-only ASSETS.json");
+  }
+  // the other side: a file path under assets/ (new subfolder) still works
+  const good = await run(["--take", file, "--as", "assets/sfx/new/m.mp3", "--project", proj]);
+  assert.equal(good.code, 0, good.out); assert.ok(fs.existsSync(path.join(proj, "assets/sfx/new/m.mp3")));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(proj, "ASSETS.json"), "utf8")).length, 1);
+}));
+
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
 console.log(`find_media ok: ${count} cases`);
