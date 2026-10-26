@@ -41,7 +41,9 @@ that reads as:
   with fixed sleeps; a source that fails is a WARN to rerun, never "nothing found"; the bundled library's licence is read
   from its own `CREDITS.md` and gets the same filters (NC/ND, `--licence`, CC BY without a creator); an empty
   Commons answer (`{"batchcomplete":""}`) is "nothing matched", not an outage; the music fit in `look-build.md` §7
-  writes over the taken path so the row stays true. `look-build.md` §5 and §7, `lessons.md`, `visual-direction.md` and `looks.md` use it.
+  writes over the taken path so the row stays true; a local file error (make, copy or write failing) is a WARN to
+  rerun with exit 3, never exit 1 ("nothing matched"), and a `--as` ending in `/` is a usage error (exit 2).
+  `look-build.md` §5 and §7, `lessons.md`, `visual-direction.md` and `looks.md` use it.
   `tests/find-media.mjs` (against a mock API) and `tests/assets.mjs` (unknown file, wrong licences, the engine
   manifest) are in the merge gate.
 - **Review strips**: `scripts/strips.mjs` reads the storyboard's shot table (or `beats.json`), captures N stills per

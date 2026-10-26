@@ -14,8 +14,10 @@
 //   always dropped, and so is a result that needs a credit but names no author. Share-alike is opt-in (by-sa).
 //   --bundled applies the same filters to the library's licence (from its CREDITS.md): an NC/ND or out-of-list CC licence, or a CC BY
 //   (the library names no creator), lists nothing and says why (exit 1); a custom, non-CC library licence is listed as it is.
-// Exit: 0 results; 1 every source answered and nothing matched; 2 usage; 3 a source failed and nothing was found (rerun).
-// A source that fails is a WARN with "rerun", never "nothing matched" (an unreadable answer is not an empty one).
+// Exit: 0 results; 1 every source answered and nothing matched; 2 usage; 3 a source failed and nothing was found, or a local file
+//   could not be made, copied or written (rerun).
+// A source that fails is a WARN with "rerun", never "nothing matched" (an unreadable answer is not an empty one); neither is a local
+// write error, which says nothing about whether media exist.
 // 429/503 are retried after Retry-After, else with exponential backoff (FIND_MEDIA_BACKOFF_MS, default 1000), never a fixed sleep.
 // Env (tests): OPENVERSE_API, COMMONS_API, MEDIA_USE_SFX.
 
@@ -45,6 +47,15 @@ function usage(msg) {
   console.error(`${msg}\nusage: find_media.mjs --type music|sfx|image --query "<q>" --out <dir> [--licence cc0,by] [--max-duration s] [--max 8] [--source openverse|commons]\n       find_media.mjs --type sfx --bundled [--query "<q>"] [--media-use <dir>] --out <dir>\n       find_media.mjs --take <file> --as assets/<path> [--project .]`);
   process.exit(2);
 }
+
+// A local file error (mkdir, copy, write) is not "nothing matched" (exit 1): WARN, rerun, exit 3. Anything else that throws
+// unexpectedly gets the same answer, never node's own exit 1.
+function localFail(what, e) {
+  console.log(`WARN: ${what} failed (${e?.code || e?.message || e}) — fix the path or its permissions, then rerun`);
+  process.exit(3);
+}
+const local = (what, fn) => { try { return fn(); } catch (e) { return localFail(what, e); } };
+process.on('uncaughtException', e => localFail('unexpected error', e));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // GET with backoff: 429/503 wait Retry-After (cap 30 s) else base * 2^try; anything else non-2xx, or a network error, throws.
@@ -104,7 +115,7 @@ const readJSON = p => JSON.parse(readFileSync(p, 'utf8'));
 if (args.take !== undefined) {
   if (!args.as) usage('--take needs --as assets/<path>');
   const as = path.posix.normalize(String(args.as).replace(/\\/g, '/'));
-  if (!as.startsWith('assets/') || as.split('/').includes('..') || as === 'assets/') { console.error(`--as "${args.as}" must be a file path under assets/ inside the project (no "..")`); process.exit(2); }
+  if (!as.startsWith('assets/') || as.split('/').includes('..') || as.endsWith('/')) { console.error(`--as "${args.as}" must be a file path under assets/ inside the project (no "..", no trailing "/")`); process.exit(2); }
   const proj = path.resolve(args.project ?? '.');
   const src = path.resolve(args.take);
   const resultsFile = path.join(path.dirname(src), 'results.json');
@@ -119,12 +130,11 @@ if (args.take !== undefined) {
     if (!Array.isArray(rows)) { console.error(`${manifest} is not a JSON list — fix it first`); process.exit(2); }
   }
   const dest = path.join(proj, as);
-  mkdirSync(path.dirname(dest), { recursive: true });
-  copyFileSync(src, dest);
+  local(`copying to ${dest}`, () => { mkdirSync(path.dirname(dest), { recursive: true }); copyFileSync(src, dest); });
   const row = { file: as, source: hit.landing || hit.url, licence: hit.licence, ...(hit.author ? { author: hit.author } : {}), title: hit.title };
   rows = rows.filter(r => path.normalize(r.file || '') !== path.normalize(as));
   rows.push(row);
-  writeFileSync(manifest, JSON.stringify(rows, null, 2) + '\n');
+  local(`writing ${manifest}`, () => writeFileSync(manifest, JSON.stringify(rows, null, 2) + '\n'));
   console.log(`taken: ${as}\n  ASSETS.json row: ${JSON.stringify(row)}\n  next: node <skill-dir>/scripts/check_assets.mjs ${args.project ?? '.'}`);
   process.exit(0);
 }
@@ -149,7 +159,7 @@ function finish(results, warns) {
     console.log(`nothing matched "${query}" — try other English words (1-2 words work best)${args.licence ? '' : ', or widen --licence'}`);
     process.exit(1);
   }
-  writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n');
+  local(`writing ${path.join(out, 'results.json')}`, () => writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n'));
   for (const r of results) console.log(`${r.file} · ${r.title} · ${r.licence} · ${r.author || '-'} · ${r.duration != null ? `${r.duration} s` : '-'} · ${r.landing || r.url}`);
   console.log(hint);
   process.exit(0);
@@ -186,9 +196,9 @@ function bundled() {
     const e = byFile.get(f) ?? {}, name = path.parse(f).name, hay = `${name} ${e.description ?? ''}`.toLowerCase();
     return { f, e, name, score: words.length ? words.filter(w => hay.includes(w)).length : 1 };
   }).filter(x => x.score > 0 && (maxDur === null || x.e.duration == null || x.e.duration <= maxDur)).sort((a, b) => b.score - a.score).slice(0, max);
-  mkdirSync(out, { recursive: true });
+  local(`making ${out}`, () => mkdirSync(out, { recursive: true }));
   finish(found.map(x => {
-    copyFileSync(path.join(lib, x.f), path.join(out, x.f));
+    local(`copying ${x.f} to ${out}`, () => copyFileSync(path.join(lib, x.f), path.join(out, x.f)));
     return { file: x.f, title: x.name, licence, author: '', duration: x.e.duration ?? null, landing: source, url: path.join(lib, x.f), provider: 'bundled /media-use', query };
   }), []);
 }
@@ -248,7 +258,7 @@ else {
       }
     } catch (e) { warns.push(`${s} did not answer (${e.message}) — rerun`); }
   }
-  mkdirSync(out, { recursive: true });
+  local(`making ${out}`, () => mkdirSync(out, { recursive: true }));
   const results = [];
   for (const c of cands.slice(0, max)) {
     const file = `${String(results.length + 1).padStart(2, '0')}-${slug(c.title)}.${c.ext}`;
