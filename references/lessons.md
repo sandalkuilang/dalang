@@ -57,6 +57,7 @@ Each line is a failure that already happened. Read this file when something goes
 - **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.
 - **A 30 fps draft render took 39 min** (the next took under 3): nobody stopped it. A render far slower than the last → stop and look for the cause.
 - **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
+- **The final came out at 30 fps, not the brief's 24:** `hyperframes render` defaults to 30 fps and the Step 8 command passed no `--fps`; `qc.mjs --fps` caught it, after a full re-render. The brief's fps is always passed to every render (`qc.md` §8).
 - **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
 - **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.
 - **VoxCPM2 timed out** (300 s compute limit) on its first call while OmniVoice and a benchmark held the memory; alone it worked at ~22× real time. Heavy model jobs run one at a time; VoxCPM2 gets ~120-character chunks.

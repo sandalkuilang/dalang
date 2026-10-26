@@ -23,7 +23,7 @@ flowchart TD
     S6 --> S7["Step 7 · Quality check<br/>check, stillness, loudness, rubric"]
     S7 --> G4{{"GATE 4<br/>approve draft preview"}}
     G4 -- changes --> S6
-    G4 -- ok --> R["Final render<br/>--quality high"]
+    G4 -- ok --> R["Final render<br/>--fps from brief, --quality high"]
     R --> S8["Step 8 · Hand-off report"]
 ```
 

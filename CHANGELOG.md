@@ -31,6 +31,12 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- **The final render ran at 30 fps, not the brief's 24**: `hyperframes render` defaults to 30 fps and the Step 8 and
+  style-frame sample commands passed no `--fps`. Every render command now passes the brief's fps (`qc.md`,
+  `look-build.md`, `SKILL.md`, `lessons.md`).
+
 ## [1.4.0] - 2026-10-26
 
 ### Added
