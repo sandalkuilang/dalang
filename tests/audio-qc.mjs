@@ -234,6 +234,41 @@ try {
     console.log("ok  tagRoles: a long or unreadable <audio> that is not named as music is unknown, never 'no bed'; short clips are SFX");
   }
 
+  // 8h. A bare boolean attribute reaches the tag: `loop` (no value, empty, or quoted), also next to unquoted values.
+  {
+    const tags = q.audioTags(`<audio id="a" src="a.wav" loop></audio><audio id="b" src="b.wav" data-start=2 loop="" data-duration=3></audio>
+      <audio id='c' src='c.wav' LOOP data-volume="0.5" /><audio id="d" src="d.wav"></audio>`);
+    assert.deepEqual(tags.map((x) => x.loop), [true, true, true, false], "loop is read as a bare boolean, in any case");
+    assert.deepEqual([tags[1].start, tags[1].duration], [2, 3], "unquoted values are read");
+    assert.equal(tags[2].volume, 0.5);
+    console.log("ok  audioTags: a bare loop attribute is read (bare, empty, upper case), unquoted values too");
+  }
+
+  // 8i. loop in tagRoles and applyGain: a loop tag without a short data-duration is never an SFX; a bed wraps across the film.
+  {
+    const t = (id, src, o = {}) => ({ id, src, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, ...o });
+    const lengthOf = () => 6;
+    const narr = t("narration", "audio/narration.wav");
+    const role = (tag) => q.tagRoles([narr, tag], narr, lengthOf)[1].role;
+    assert.equal(role(t("amb", "assets/amb.wav")), "sfx", "a 6 s clip that does not loop is an SFX");
+    assert.equal(role(t("amb", "assets/amb.wav", { loop: true })), "unknown", "the same clip with loop plays to the end of the film: unknown, never an SFX");
+    assert.equal(role(t("amb", "assets/amb.wav", { loop: true, duration: q.THRESHOLDS.sfxMaxS + 1 })), "unknown");
+    assert.equal(role(t("amb", "assets/amb.wav", { loop: true, duration: 2 })), "sfx", "loop cut by a short data-duration is an SFX");
+    assert.equal(role(t("music", "assets/amb.wav", { loop: true })), "bed", "a loop clip with a music name is the bed");
+    const one = new Float32Array([1, 2, 3, 4]);
+    assert.deepEqual(Array.from(q.applyGain(one, 1, 1, 1, null, 12, { loop: true })), [0, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3], "a looped clip repeats to the end of the film");
+    assert.deepEqual(Array.from(q.applyGain(one, 1, 1, 1, null, 12, { loop: true, dur: 6 })), [0, 1, 2, 3, 4, 1, 2, 0, 0, 0, 0, 0], "data-duration cuts the loop");
+    assert.deepEqual(Array.from(q.applyGain(one, 1, 1, 1, null, 8)), [0, 1, 2, 3, 4, 0, 0, 0], "without loop the clip plays once");
+    // --music values are bed cues, whatever the name; the rest is still classified
+    const lens = { "a.wav": 60, "b.wav": 60, "c.wav": 60 };
+    const L = (tag) => lens[tag.src];
+    const ts = [narr, t("lofi-a", "a.wav"), t("lofi-b", "b.wav"), t("lofi-c", "c.wav")];
+    const by = (music) => Object.fromEntries(q.tagRoles(ts, narr, L, music).map((r) => [r.tag.id, r.role]));
+    assert.deepEqual(by(["lofi-a"]), { narration: "narration", "lofi-a": "bed", "lofi-b": "unknown", "lofi-c": "unknown" }, "a bed not named stays unknown");
+    assert.deepEqual(by(["lofi-a", "b.wav", "lofi-c"]), { narration: "narration", "lofi-a": "bed", "lofi-b": "bed", "lofi-c": "bed" }, "every value counts, by id or src");
+    console.log("ok  tagRoles / applyGain: loop is never an SFX and a looped bed wraps; every --music value is a bed, the rest stays unknown");
+  }
+
   // 9. No interpreter anywhere in the script.
   {
     const src = fs.readFileSync(script, "utf8");
@@ -451,6 +486,61 @@ try {
       r = run(withFiles("bed15named", `<audio id="music-bed" src="assets/lofi-calm.wav"></audio>`, { "assets/lofi-calm.wav": bedTone(12, 15) }), ["--music", "music-bed"]);
       assert.equal(r.status, 0, r.stdout + r.stderr);
       console.log("ok  CLI: an unknown bed name (music-bed, bgm-chill) = exit 2 NOT CHECKED, measured once --music names it; SFX only = OK no bed");
+    }
+
+    // 13f. loop and a repeated --music: unknown is NOT CHECKED (exit 2), never OK, whatever the other tags say.
+    {
+      const html = (tags) => `<div id="root"><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${tags}</div>`;
+      const withFiles = (name, tags, files) => {
+        const dir = project(name, { narr: voice(steady), bedDb: null, html: html(tags) });
+        for (const [f, x] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), wav(x, RATE));
+        return dir;
+      };
+      const bedTone = (secs, under) => tone(880, secs, 0.3 * db(-under), RATE);
+      // a loop clip of 6 s, 40 dB under, unknown name: not an SFX, so the bed is NOT CHECKED
+      let r = run(withFiles("loop40", `<audio id="amb" src="assets/amb.wav" loop></audio>`, { "assets/amb.wav": bedTone(6, 40) }));
+      assert.equal(r.status, 2, "a loop clip with an unknown name is never OK: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      assert.doesNotMatch(r.stdout, /no bed in the film/);
+      r = run(withFiles("loopempty", `<audio id="amb" src="assets/amb.wav" loop=""></audio>`, { "assets/amb.wav": bedTone(6, 40) }));
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      // the legitimate side: the same clip without loop is an SFX (OK, no bed); loop cut by a short data-duration too
+      r = run(withFiles("noloop40", `<audio id="amb" src="assets/amb.wav"></audio>`, { "assets/amb.wav": bedTone(6, 40) }));
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      r = run(withFiles("loopdur", `<audio id="amb" src="assets/amb.wav" loop data-duration="2"></audio>`, { "assets/amb.wav": bedTone(1, 40) }));
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      // a whitelisted bed that loops is measured across the film: 1 s of file, 15 dB under, is not silence after its first pass
+      r = run(withFiles("loop15", `<audio id="music" src="assets/music.wav" loop></audio>`, { "assets/music.wav": bedTone(1, 15) }));
+      assert.equal(r.status, 0, "a looped 15 dB bed fills the film: " + r.stdout + r.stderr);
+      r = run(withFiles("loop40m", `<audio id="music" src="assets/music.wav" loop></audio>`, { "assets/music.wav": bedTone(1, 40) }));
+      assert.equal(r.status, 3, "a looped 40 dB bed is still flagged: " + r.stdout + r.stderr);
+      // two unknown beds with --music naming one: the other stays unknown
+      const two = `<audio id="lofi-a" src="assets/a.wav"></audio><audio id="lofi-b" src="assets/b.wav"></audio>`;
+      const files = (under) => ({ "assets/a.wav": bedTone(12, under), "assets/b.wav": bedTone(12, under) });
+      r = run(withFiles("two40", two, files(40)), ["--music", "lofi-a"]);
+      assert.equal(r.status, 2, "one bed named, one not: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      assert.match(r.stdout, /lofi-b/);
+      assert.match(r.stdout, /--music <id> \(repeatable\)/);
+      r = run(withFiles("two15", two, files(15)), ["--music", "lofi-a"]);
+      assert.equal(r.status, 2, "a bed at an audible level is not a reason to skip the other: " + r.stdout + r.stderr);
+      // --music is repeatable: every bed named is measured
+      r = run(withFiles("two40b", two, files(40)), ["--music", "lofi-a", "--music", "assets/b.wav"]);
+      assert.equal(r.status, 3, r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(withFiles("two15b", two, files(15)), ["--music", "lofi-a", "--music", "lofi-b"]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /a\.wav/); assert.match(r.stdout, /b\.wav/);
+      // a long tag neither named nor whitelisted next to a whitelisted bed and --music: still unknown
+      r = run(withFiles("namedplus", `<audio id="music" src="assets/music.wav"></audio><audio id="lofi-a" src="assets/a.wav"></audio><audio id="lofi-b" src="assets/b.wav"></audio>`,
+        { "assets/music.wav": bedTone(4.5, 15), "assets/a.wav": bedTone(12, 15), "assets/b.wav": bedTone(12, 15) }), ["--music", "lofi-a"]);
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      // a whitelisted bed is still measured next to a --music one
+      r = run(withFiles("namedboth", `<audio id="music" src="assets/music.wav"></audio><audio id="lofi-a" src="assets/a.wav"></audio>`,
+        { "assets/music.wav": bedTone(4.5, 15), "assets/a.wav": bedTone(12, 15) }), ["--music", "lofi-a"]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /music\.wav/); assert.match(r.stdout, /a\.wav/);
+      console.log("ok  CLI: an unknown loop clip = exit 2; a looped bed wraps across the film; --music repeats and an unnamed unknown bed stays NOT CHECKED");
     }
 
     // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
