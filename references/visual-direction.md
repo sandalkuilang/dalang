@@ -63,10 +63,10 @@ The classic principles of animation, translated into what a timeline can do:
 - **One hero move per shot.** Everything else holds still or moves as secondary action.
 - At most **two** things move at once, not counting the background or camera.
 - The accent colour appears on **one** element per shot.
-- One text block per frame besides the caption, at most 6 words; an evidence or calculation card (below) is the exception, sized by its own rule. The caption never repeats the on-screen label word for word.
+- One text block per frame besides the caption, at most 6 words; an evidence or calculation card (below) is the exception, sized by its own rule. The caption never repeats the on-screen label word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns when it does).
 - 3–5 kinds of transition in a film, each caused by something on screen (`/hyperframes` `references/motion.md`). Never the same entrance two beats in a row.
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`), a subtle lens imperfection on photoreal looks (chromatic aberration ≤ 1 px at the edges).
-- Banned: glow, bloom, particles as decoration, lens flares, glass cards, pill chips, neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, isometric 3D, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax (`camera-motion.md` §6.8), the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
+- Banned: glow, bloom, particles as decoration, lens flares, glass cards, pill chips (a caption's own per-line backing, `drawCaption` `pill`, is not a chip), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, isometric 3D, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax (`camera-motion.md` §6.8), the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
 - One "wow" moment per film; a second cancels the first.
 - Continuous motion comes first from the **subject acting** (§3 "Minimum motion"), supported by the **camera** (a real move, `camera-motion.md` §10–11) and the **light** (a sweep, a shadow passing). Never from breathing or pulsing text and UI.
 
@@ -106,7 +106,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 ## 9. Type, light, colour
 
 - One display face with character and one body face. From the bundled set: Archivo Black, Outfit 700–800, Montserrat 800, or Oswald for condensed numerals. Inter, Poppins, Space Grotesk, Geist and Instrument Serif are generated-look defaults; use them only if the brand does. Check the face covers every glyph of the narration language (`craft-rules.md` §6).
-- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140 px, labels at least 36 px, captions 54–64 px.
+- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140 px, labels at least 36 px, captions 54–64 px. `drawCaption` and `pinLabel` in the engine's `type.js` enforce these, pick light or dark ink from the ground under the text and keep labels in the safe area above the caption. The accent colour of the active word counts as the one accent element of the shot.
 - Titles enter in one of the varied ways in `/hyperframes` `motion.md`; once landed, text is dead still until it leaves.
 - The ground is a **set**, never a flat void: a radial light falloff (linear gradients band under H.264), a photo plate, a desk or paper plane, or a 3D sweep (look C's seamless sweep with a soft ground shadow is one).
 - Every object that sits on something has a contact shadow (an ellipse with ~30 px blur at 0.4 opacity) plus one soft drop shadow (y 24 px, 48 px blur, 0.18 opacity), in the scene's light direction.
