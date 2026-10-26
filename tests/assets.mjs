@@ -71,6 +71,65 @@ await test("C. a compound licence is checked part by part", async () => {
   }
 });
 
+await test("C2. every way of joining two licences is a part-by-part check; a plain licence with a version or a word after it passes", async () => {
+  for (const licence of ["MIT + GPL-3.0", "MIT / GPL-3.0", "MIT, GPL-3.0", "MIT; GPL-3.0", "MIT & GPL-3.0", "MIT | GPL-3.0", "MIT OR GPL-3.0", "MIT and GPL-3.0", "MIT WITH GPL-3.0", "MIT GPL-3.0", "MIT (GPL-3.0)", "MIT AND", "()", "CC0 + GPL-3.0"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)])]);
+    assert.equal(r.code, 3, `${licence}: ${r.out}`);
+    assert.match(r.out, /is not on the allowed list/, licence);
+  }
+  for (const licence of ["MIT + CC-BY-ND-4.0", "MIT / CC-BY-ND-4.0", "CC0, CC-BY-ND-4.0"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)])]);
+    assert.equal(r.code, 3, `${licence}: ${r.out}`);
+    assert.match(r.out, /forbids derivatives/, licence);
+  }
+  for (const licence of ["MIT + CC-BY-NC-4.0", "MIT, CC-BY-NC-4.0"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)]), "--commercial"]);
+    assert.equal(r.code, 3, `${licence}: ${r.out}`);
+    assert.match(r.out, /non-commercial/, licence);
+  }
+  for (const licence of ["MIT OR Apache-2.0", "(MIT OR Apache-2.0)", "Apache-2.0, MIT", "MIT + Zlib", "MIT License", "CC0 1.0 Universal", "Pexels License", "Pixabay Content License", "Public Domain", "public-domain", "CC-BY-SA-4.0", "ISC", "user", "own", "bundled"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)]), "--commercial"]);
+    assert.equal(r.code, 0, `${licence}: ${r.out}`);
+  }
+});
+
+await test("C3. a CC BY part needs an author and a credit line wherever it stands in the licence", async () => {
+  const noAuthor = (licence) => [{ file: "assets/a.png", source: "https://x", licence }];
+  for (const licence of ["MIT AND CC-BY-4.0", "CC0 AND CC-BY-4.0", "CC0 AND CC-BY-SA-4.0", "MIT + CC-BY-4.0", "Zlib, CC-BY-4.0", "CC-BY-4.0 AND MIT"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, noAuthor(licence))]);
+    assert.equal(r.code, 3, `${licence}: ${r.out}`);
+    assert.match(r.out, /CC BY needs an author/, licence);
+  }
+  for (const licence of ["MIT AND Zlib", "CC0 AND MIT", "CC0"]) {
+    const r = await run(check, [project({ "assets/a.png": "x" }, noAuthor(licence))]);
+    assert.equal(r.code, 0, `${licence}: ${r.out}`);
+    assert.ok(!r.out.includes("CC BY needs"), r.out);
+  }
+  for (const licence of ["MIT AND CC-BY-4.0", "CC0 AND CC-BY-SA-4.0"]) {
+    const dir = project({ "assets/a.png": "x" }, [row(licence, { author: "Ana" })]);
+    const r = await run(check, [dir]);
+    assert.equal(r.code, 0, `${licence}: ${r.out}`);
+    assert.ok(fs.readFileSync(path.join(dir, "CREDITS.md"), "utf8").includes(`a.png — Ana, ${licence}`), licence);
+  }
+  const eng = JSON.stringify([{ file: "x.js", source: "s", licence: "MIT AND CC-BY-4.0" }]);
+  const e = await run(check, [project({ "assets/engine/.engine.json": eng, "assets/engine/x.js": "1" }, [])]);
+  assert.equal(e.code, 3, e.out);
+  assert.match(e.out, /CC BY needs an author/);
+});
+
+await test("D2. an engine-manifest row outside its folder is a problem; a name that merely starts with two dots is not", async () => {
+  for (const file of ["../top.mp3", "sub/../../top.mp3", "/etc/hosts", "", 7, null, undefined]) {
+    const manifest = JSON.stringify([{ file: "x.js", source: "s", licence: "MIT" }, { file, source: "s", licence: "MIT" }]);
+    const dir = project({ "assets/engine/.engine.json": manifest, "assets/engine/x.js": "1", "assets/top.mp3": "t" }, [{ file: "assets/top.mp3", source: "s", licence: "MIT" }]);
+    const r = await run(check, [dir]);
+    assert.equal(r.code, 3, `${JSON.stringify(file)}: ${r.out}`);
+    assert.match(r.out, /a row's file is missing or outside its folder/, JSON.stringify(file));
+  }
+  const ok = JSON.stringify([{ file: "x.js", source: "s", licence: "MIT" }, { file: "..hidden.js", source: "s", licence: "MIT" }, { file: "sub/y.js", source: "s", licence: "MIT" }]);
+  const r = await run(check, [project({ "assets/engine/.engine.json": ok, "assets/engine/x.js": "1", "assets/engine/..hidden.js": "2", "assets/engine/sub/y.js": "3" }, [])]);
+  assert.equal(r.code, 0, r.out);
+});
+
 await test("D. an engine manifest lists the files beside it; nothing else rides along", async () => {
   const manifest = JSON.stringify([{ file: "x.js", source: "s", licence: "MIT" }]);
   const ok = await run(check, [project({ "assets/engine/.engine.json": manifest, "assets/engine/x.js": "1" }, [])]);
