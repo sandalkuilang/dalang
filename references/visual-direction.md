@@ -36,17 +36,19 @@ The nine looks, how they mix, and how to offer them in Step 1: `looks.md`. Step 
 
 ## 3. Energy (the Step 1 "Energy" option)
 
-| Energy | Average shot | Moves | Springs | Music | Fits |
-|---|---|---|---|---|---|
-| **Calm cinematic** | 3–5 s | slow dollies, rack focus, long holds | 1.0 (no bounce) | 70–95 BPM | documentary, premium, serious topics |
-| **Modern balanced** (default) | 1.8–3 s | motivated transitions, 0.3–0.6 s moves | 0.8 | 95–115 BPM | most explainers |
-| **Punchy social** | 0.8–1.8 s | whips, punch-ins, kinetic type on every line | 0.72 | 115–130 BPM | 9:16 hooks, lists, entertainment |
+| Energy | Average shot | Text-only rows | Moves | Springs | Music | Fits |
+|---|---|---|---|---|---|---|
+| **Calm cinematic** | 3–5 s | ≤ 10 % | slow dollies, rack focus, long holds | 1.0 (no bounce) | 70–95 BPM | documentary, premium, serious topics |
+| **Modern balanced** (default) | 1.8–3 s | ≤ 15 % | motivated transitions, 0.3–0.6 s moves | 0.8 | 95–115 BPM | most explainers |
+| **Punchy social** | 0.8–1.8 s | ≤ 25 % | whips, punch-ins, kinetic type on every line | 0.72 | 115–130 BPM | 9:16 hooks, lists, entertainment |
 
 Calm cinematic's 24 fps film-look variant (YouTube landscape only) is its own Step 1 option, `brief.md` Call 2 item 7.
 
 Energy changes rhythm, never restraint: §5 still holds at every energy. Even punchy films hold 0.3–0.75 s before the payoff.
 
 **Minimum motion (every energy): the subject acts, the camera alone doesn't count.** A still plate with a drift, a push or a light sweep is a slideshow, however well `stillness.mjs` scores it (pixels change, nothing happens; a whole film of drifting stills measured 0.8 % "still" and read as PowerPoint). Every shot shows something physically happening: liquid flowing, a part turning or sliding, an object entering, falling, filling or wearing out, a cutaway opening, a molecule moving. A camera-only plate is a breath: ≤ 1.5 s, ≤ 15 % of the runtime. Calm means slow action, not no action. Plan each shot's action and its source in the storyboard's "Subject action" column (`look-build.md` §5).
+
+`storyboard_lint.mjs` checks the table against this one: the longest average shot and the text-only share (focal point is type, no physical subject acting from a real source) per energy.
 
 ## 4. Animation principles, in code numbers
 
