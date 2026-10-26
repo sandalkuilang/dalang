@@ -63,7 +63,7 @@ The classic principles of animation, translated into what a timeline can do:
 - **One hero move per shot.** Everything else holds still or moves as secondary action.
 - At most **two** things move at once, not counting the background or camera.
 - The accent colour appears on **one** element per shot.
-- One text block per frame besides the caption, at most 6 words. The caption never repeats the on-screen label word for word.
+- One text block per frame besides the caption, at most 6 words; an evidence or calculation card (below) is the exception, sized by its own rule. The caption never repeats the on-screen label word for word.
 - 3–5 kinds of transition in a film, each caused by something on screen (`/hyperframes` `references/motion.md`). Never the same entrance two beats in a row.
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`), a subtle lens imperfection on photoreal looks (chromatic aberration ≤ 1 px at the edges).
 - Banned: glow, bloom, particles as decoration, lens flares, glass cards, pill chips, neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, isometric 3D, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax (`camera-motion.md` §6.8), the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
@@ -90,6 +90,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 - Text safe zones per format: `craft-rules.md` §6.
 - Comparisons on 9:16 are sequential, stacked, or one object in two states, never two side-by-side columns.
 - When a number is the point, it is the biggest thing on screen (220–320 px at 1080 wide), in tabular figures, counting up over 1.2–1.6 s and then holding.
+- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card, `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card is the frame's one text block: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
 
 ## 8. What the best educational videos do
 

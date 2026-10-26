@@ -149,7 +149,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. No scene eve
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
 references/       loaded one § at a time, only at the step that needs it
   brief.md             steps 0–2: setup, the brief questions, a reference
-  script-voice.md      steps 3–4: writing for the ear, voice audition
+  script-voice.md      steps 3–4: writing for the ear, number provenance, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
   visual-direction.md  realism ladder, restraint, composition, review rubric
@@ -195,7 +195,7 @@ Not in this repo — in **your** project, one folder per video:
 video/<slug>/
 ├── BRIEF.md          every Step 1 decision (format, language, look, energy)
 ├── PRODUCTION.md     work log, one line per step — the source of every number
-├── script.md         for humans: sections, visual notes, sources
+├── script.md         for humans: sections, visual notes, every number tagged with its source
 ├── narration.txt     only the spoken words + {beat|name} markers
 ├── audio/            narration, words.json, beats.json, beats.js
 ├── SPEC.md           the LOOK in numbers · OBJECTS · BANNED defaults
