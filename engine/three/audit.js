@@ -121,6 +121,7 @@ export function zFight(root, { cameras, bits = 24, mpu = M, reach = 0.05, maxFac
   if (!cams.length || !cams.every((c) => c && c.isPerspectiveCamera)) throw new Error("zFight(): cameras is a PerspectiveCamera or an array of them, each placed at a station the film uses");
   if (!(Number.isInteger(bits) && bits > 0)) throw new Error("zFight(): bits is a positive integer (got " + bits + ")");
   if (!(typeof heightPx === "number" && heightPx > 0 && Number.isFinite(heightPx))) throw new Error("zFight(): heightPx is the render height in pixels (got " + heightPx + ")");
+  for (const c of cams) if (!(typeof c.aspect === "number" && c.aspect > 0 && Number.isFinite(c.aspect))) throw new Error("zFight(): a camera's aspect is a finite number above 0 (got " + c.aspect + ")");
   root.updateMatrixWorld(true);
   const eyes = cams.map((c) => {
     c.updateMatrixWorld(true); c.updateProjectionMatrix();
@@ -145,7 +146,7 @@ export function zFight(root, { cameras, bits = 24, mpu = M, reach = 0.05, maxFac
     const A = meshes[i], B = meshes[j];
     if (!A.box.intersectsBox(B.box)) continue;
     const dbl = A.mats.concat(B.mats).some((m) => m && m.side === THREE.DoubleSide);
-    let best = null, seen = false, held = false;
+    let best = null, seen = false, held = false, blind = false;
     for (const fa of A.f) for (const fb of B.f) {
       const dot = fa.n.dot(fb.n);
       if (!(dot > 0.9999 || (dot < -0.9999 && dbl))) continue;
@@ -167,14 +168,17 @@ export function zFight(root, { cameras, bits = 24, mpu = M, reach = 0.05, maxFac
         if (!eye.fr.containsPoint(centre)) continue;
         looked = true;
         const raw = apart(eye, fa, fb, centre, FLAT, FLAT, mpu), eff = apart(eye, fa, fb, centre, oa, ob, mpu);
-        if (raw !== null && raw < FIGHT) would = true;
-        if (eff !== null && eff < FIGHT) {
+        // a depth that cannot be computed (edge-on, degenerate, NaN) decides nothing: the pair is unseen, never passed
+        if (!Number.isFinite(raw) || !Number.isFinite(eff)) { blind = true; continue; }
+        if (raw < FIGHT) would = true;
+        if (eff < FIGHT) {
           const z = -centre.clone().applyMatrix4(eye.c.matrixWorldInverse).z * mpu, nr = eye.c.near * mpu, fr = eye.c.far * mpu;
           const step = z * z * (fr - nr) / (fr * nr * 2 ** bits);
           if (!fight || step > fight.worst) fight = { worst: step, depth: z };
         }
       }
       if (!looked) { seen = true; continue; }
+      if (blind && !fight) continue;
       if (fight) { if (!best || gap < best.gap) best = { gap, ...fight }; }
       else if (would) held = true;
     }
@@ -183,7 +187,8 @@ export function zFight(root, { cameras, bits = 24, mpu = M, reach = 0.05, maxFac
         a: label(A.o), b: label(B.o), gap_mm: +(best.gap * 1000).toFixed(3), step_mm: +(best.worst * 1000).toFixed(3), depth_m: +best.depth.toFixed(2),
         suggest: `polygonOffset with units (-1 or more; a factor alone shifts nothing on a face seen head-on) on the material of whichever should show in front, or lift it ${Math.ceil(best.worst * 2000 * 100) / 100} mm along the face normal`,
       });
-    } else if (held) mitigated++;
+    } else if (blind) unseen++;
+    else if (held) mitigated++;
     else if (seen) unseen++;
   }
   return { pairs, unseen, mitigated, skipped, meshes: meshes.length };
