@@ -4,14 +4,17 @@
 // STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix), so the agent reads ~15 lines instead of running a
 // dozen commands. Never prints secrets.
 //
-// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start]
+// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
+//   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
+//                  --skill-dir points it at another folder.
 //   --start  VoiceStudio STOPPED (macOS app installed, not running): open it and wait ≤ 60 s for the backend.
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const vsArg = args.indexOf('--vs-url');
@@ -21,9 +24,14 @@ if (!/^https?:\/\//.test(vsRaw || '')) { console.error('--vs-url needs a URL, e.
 const vsUrl = vsRaw.replace(/\/+$/, '');
 const asJson = args.includes('--json');
 const start = args.includes('--start');
+const checkSkill = args.includes('--check-skill');
+const sdArg = args.indexOf('--skill-dir'), sdEq = args.find(a => a.startsWith('--skill-dir='));
+const sdRaw = sdEq ? sdEq.slice('--skill-dir='.length) : sdArg >= 0 ? args[sdArg + 1] : fileURLToPath(new URL('..', import.meta.url));
+if (!sdRaw) { console.error('--skill-dir needs a path'); process.exit(2); }
+const skillDir = path.resolve(sdRaw);
 
-const run = (cmd, argv, timeout = 60000) => new Promise(res =>
-  execFile(cmd, argv, { timeout, maxBuffer: 8 << 20 }, (err, stdout, stderr) => res({ ok: !err, out: String(stdout || ''), err: String(stderr || err?.message || '') })));
+const run = (cmd, argv, timeout = 60000, env) => new Promise(res =>
+  execFile(cmd, argv, { timeout, maxBuffer: 8 << 20, env: { ...process.env, ...env } }, (err, stdout, stderr) => res({ ok: !err, killed: !!err?.killed, out: String(stdout || ''), err: String(stderr || err?.message || '') })));
 // Never null: a failure keeps why it failed, because a refused port (nothing running) and a timeout
 // (running but busy) need opposite fixes, and "couldn't read" must never read as "none".
 const get = (url, init = {}, ms = 8000) => fetch(url, { ...init, signal: AbortSignal.timeout(ms) })
@@ -190,10 +198,37 @@ async function media() {
   return out;
 }
 
-const groups = await Promise.all(start ? [voicestudio()] : [tools(), voicestudio(), elevenlabs(), media()]);
+// The skill's own clone, read-only except the fetch (which writes inside its .git): behind origin/main means fixes
+// the run would miss. Every unknown is a WARN to rerun, never "up to date", never a reason to install.
+const clean = t => String(t).replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 80); // remote text printed to the agent
+async function skillClone() {
+  const item = 'DALANG skill', dir = skillDir;
+  const q = /[^\w@%+=:,./-]/.test(dir) ? `'${dir.replace(/'/g, `'\\''`)}'` : dir; // shell-safe in the printed fix
+  const g = (...a) => run('git', ['-C', dir, ...a], 20000, { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -o BatchMode=yes' });
+  const top = await g('rev-parse', '--show-toplevel');
+  let own = false;
+  try { own = top.ok && realpathSync(top.out.trim()) === realpathSync(dir); } catch { /* unreadable path: treated as no clone of its own */ }
+  // A copy or zip of the skill (or a folder inside some other repo) has no clone of its own to compare.
+  if (!own) return [[item, 'INFO', 'not a git clone — no update check; to update, clone the repo again (README "Install")']];
+  const f = await g('fetch', '--quiet', 'origin', 'main');
+  if (!f.ok) return [[item, 'WARN', `could not check (${f.killed ? 'timeout' : clean(f.err.split('\n')[0]) || 'fetch failed'}) — rerun preflight; this is not "up to date"`]];
+  const [c, s, d] = await Promise.all([g('rev-list', '--left-right', '--count', 'HEAD...origin/main'), g('log', '-1', '--format=%h %s', 'origin/main'), g('status', '--porcelain', '--untracked-files=no')]);
+  const m = c.ok && /^(\d+)\s+(\d+)$/.exec(c.out.trim());
+  if (!m || !s.ok) return [[item, 'WARN', 'could not read origin/main — rerun preflight']];
+  const ahead = +m[1], behind = +m[2], dirty = d.ok && d.out.trim() !== '', [sha, ...subj] = s.out.trim().split(' ');
+  const latest = clean(subj.join(' ')), pl = n => n === 1 ? 'commit' : 'commits';
+  if (behind > 0 && ahead > 0) return [[item, 'WARN', `diverged: ${behind} ${pl(behind)} behind and ${ahead} ahead of origin/main — cannot fast-forward; tell the user, never pull or reset on your own`]];
+  if (behind > 0 && (dirty || !d.ok)) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) but the clone has uncommitted changes (or its state could not be read) — a pull may refuse; ask the user, never stash or reset on your own`]];
+  if (behind > 0) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) — asked in Brief Call 0: git -C ${q} pull --ff-only, then re-read SKILL.md`]];
+  if (ahead > 0) return [[item, 'INFO', `${ahead} ${pl(ahead)} ahead of origin/main (local work) — nothing to pull`]];
+  return [[item, 'OK', `up to date with origin/main (${sha})${dirty ? '; uncommitted local changes' : ''}`]];
+}
+
+const groups = await Promise.all(checkSkill ? [skillClone()] : start ? [voicestudio()] : [skillClone(), tools(), voicestudio(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
+if (checkSkill) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
 // The summary repeats the fix that matters, so a filtered read still gets it.
