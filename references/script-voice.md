@@ -36,7 +36,7 @@ Show the script with its numbers table and an empty **Untagged numbers** list, a
 When the script has a `[calc]` number, write `model.mjs` in the project at Step 3: plain JavaScript, the one source of every number the film computes, so the narration, the cards and the world can never disagree.
 
 - **Inputs, named**: each a `[src]` or `[assume]` value of `script.md` (`showersPerMonth`, `chainringTeeth`, `batteryWh`). A changed assumption at Gate 1 is one edit here, then `node model.mjs`, then the lint; never a hunt through the cards.
-- **`numbers`**: every `[calc]` result by name, `{ value, say }`. `value` is in the unit the film states; `say` is the narration's words for it, computed from `value` by a small `words()` in the narration language with the narration's rounding ("about forty dollars"), never typed, so it moves with the value. A counterfactual ("if it ran non-stop") is the same model with one input changed, never a second copy.
+- **`numbers`**: every `[calc]` result by name, `{ value, say }`. `value` is unrounded (the narration and the cards round it), in the unit the film states; `say` is the narration's words for it, computed from `value` by a small `words()` in the narration language with the narration's rounding ("about forty dollars"), never typed, so it moves with the value. A counterfactual ("if it ran non-stop") is the same model with one input changed, never a second copy.
 - **`state(t)`**, when the film shows a process over time: counters, on/off states and levels at model time `t`; the scene maps film time to model time (a sped-up month in 20 s) and reads it every frame, so a counter ticks and a status flips exactly when the model says.
 - **A pure ES module**: no top-level `node:` imports, so the scene can `import { numbers, state } from '../model.mjs'`; run as main, `node model.mjs` prints the calculation card's lines and writes `numbers.json`.
 - **Narration**: numbers stay words (the voice reads what is written, and digits are read differently per engine and language). A spoken model number is a beat named after it: `{about forty dollars|cost_month}`. A figure written in digits is compared after its rounding ("40" = one significant figure, "12.5" = one decimal).
@@ -49,7 +49,7 @@ Examples: two water-heater tank sizes over a month of showers (cost per month, l
 export const inputs = { showersPerMonth: 60, kwhPerShower: 1.6, pricePerKwh: 0.13 }; // [assume], [assume], [src]
 const words = (n) => /* the narration language's number words, 0–999 */ String(n);
 const cost = inputs.showersPerMonth * inputs.kwhPerShower * inputs.pricePerKwh;
-export const numbers = { cost_month: { value: Math.round(cost * 10) / 10, say: `about ${words(Math.round(cost))} dollars` } };
+export const numbers = { cost_month: { value: cost, say: `about ${words(Math.round(cost))} dollars` } };
 export const state = (day) => ({ spent: cost * Math.min(day, 30) / 30, heating: day % 1 > 0.75 }); // heats 6 h each night
 if (typeof process !== 'undefined' && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) {
   console.log(`${inputs.showersPerMonth} × ${inputs.kwhPerShower} kWh × ${inputs.pricePerKwh} = ${numbers.cost_month.value}`);

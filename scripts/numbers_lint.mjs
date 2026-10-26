@@ -79,6 +79,7 @@ const readings = tok => {
     out.push({ n: Number(tok.slice(0, k).replace(/[.,]/g, '') + '.' + tok.slice(k + 1)), round: v => Math.round(v * 10 ** d) / 10 ** d }); }
   return out;
 };
+const show = v => String(Number(v.toPrecision(12))); // 15.99, not 15.990000000000002
 const close = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a));
 
 let beats = 0;
@@ -90,9 +91,9 @@ if (model) lines(narration ?? '').forEach((l, i) => {
     const toks = text.match(/\d+(?:[.,]\d+)*/g);
     if (toks) {
       const v = Math.abs(n.value);
-      if (!toks.some(t => readings(t).some(r => close(r.round(v), r.n)))) problems.push(`${at} {${text}|${name}} says ${toks.join(', ')}, model ${n.value}`);
+      if (!toks.some(t => readings(t).some(r => close(r.round(v), r.n)))) problems.push(`${at} {${text}|${name}} says ${toks.join(', ')}, model ${show(n.value)}`);
     } else if (typeof n.say === 'string') {
-      if (!says(text, n.say)) problems.push(`${at} {${text}|${name}} says "${text.trim()}", model ${n.value} — expects "${n.say}"`);
+      if (!says(text, n.say)) problems.push(`${at} {${text}|${name}} says "${text.trim()}", model ${show(n.value)} — expects "${n.say}"`);
     } else warns.push(`${at} {${text}|${name}} is spoken in words and numbers.json gives no say for ${name} — add say in model.mjs`);
   }
 });
