@@ -30,8 +30,9 @@
 // those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
-// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports; a file the
-// .engine.json beside it lists is the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
+// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports, each load resolved
+// to its URL as a browser does, <base href> and import maps included, a load that is neither a project file nor a remote
+// http(s) library being unknown; a file the .engine.json beside it lists is the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
 // draft"; no JS is parsed); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
 // in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
 // from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
@@ -338,9 +339,10 @@ const RAW_TAGS = new Set(['script', 'style', 'textarea', 'title']);
 //     unmodelled }. A member is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
 //   master: the data-fx-chain of the first data-composition-id element (the master bus), or null.
 //   scripts: { attrs, text } of every <script>.
+//   base: the href of the first <base href> (the document base the scripts resolve against), or null.
 export function scanHtml(html) {
   const media = [], groups = new Map(), scripts = [], stack = [];
-  let master;
+  let master, base;
   const re = /<!--[\s\S]*?(?:-->|$)|<\/([a-zA-Z][\w:.-]*)[^>]*>|<([a-zA-Z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
   for (let m; (m = re.exec(html));) {
     if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
@@ -353,6 +355,7 @@ export function scanHtml(html) {
       continue;
     }
     if (master === undefined && Object.hasOwn(attrs, 'data-composition-id')) master = attrs['data-fx-chain'] || null;
+    if (name === 'base' && base === undefined && Object.hasOwn(attrs, 'href')) base = attrs.href;
     if (name === 'hf-audio-group') {
       const id = attrs['data-hf-render-id'] ?? attrs.id, v = parseFloat(attrs['data-volume']);
       if (id) groups.set(id, { volume: Number.isFinite(v) ? v : 1, fx: attrs['data-fx-chain'] || null, automation: attrs['data-automation'] || null, hidden: Object.hasOwn(attrs, 'data-hidden'), unmodelled: unmodelledOf(attrs, INPUTS.bus, dups) });
@@ -366,7 +369,7 @@ export function scanHtml(html) {
     }
     if (!VOID_TAGS.has(name)) stack.push({ name, hidden: Object.hasOwn(attrs, 'data-hidden'), id: attrs.id || '' });
   }
-  return { media, groups, master: master ?? null, scripts };
+  return { media, groups, master: master ?? null, scripts, base: base ?? null };
 }
 function mediaTag(kind, attrs, rest, context, dups = []) {
   const bad = [];
@@ -400,36 +403,79 @@ export const masterFxChain = (html) => scanHtml(html).master;
 export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
 const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
 // Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either loads) with a MIX_TOKENS
-// word, a local script that cannot be read, or a module load the check cannot resolve (a dynamic import whose specifier is
-// not one plain string, a template literal with ${ included). A module is followed by a relative or root path in quotes
-// (a backtick string without ${ too), or by a bare name that a <script type="importmap"> maps to a local file (the exact
-// key, or a key ending in "/"). A remote script or import map target is a library, and a bare name the maps do not know
-// is a vendor module: neither is read.
-export function scriptProblem(scripts, dir, read) {
-  const seen = new Set(), mapped = [];
-  let mapErr = null;
+// word, a local script that cannot be read, or a load the check cannot resolve. The one rule for every load: a script src or
+// a module specifier becomes the URLs it may load, and locate() calls each URL a local file of the project (read), a remote
+// http(s) library (not read) or neither (NOT CHECKED); nothing else decides. A module specifier is resolved as a browser
+// does: a relative, root or absolute URL against its base (the document's, which a <base href> sets, or the importing
+// module's), then every import map entry whose key (resolved against the document) is that URL or bare name, exactly or as
+// a "/" prefix, adds its target; the URL itself is kept as well, so that a file is never missed. A bare name that no map
+// knows is a vendor module (a browser fails on it). A dynamic import whose specifier is not one plain string (a template
+// literal with ${ included), a script element made at run time and importScripts() are loads the check cannot resolve.
+export function scriptProblem(scripts, dir, read, { base = null } = {}) {
+  const ORIGIN = 'http://project.invalid', seen = new Set(), mapped = [];
+  const unresolved = (where, what) => `${where} loads a module the check cannot resolve (${what.replace(/\s+/g, ' ').slice(0, 40)}), so whether it sets a media volume is unknown: import it by a plain quoted path and rerun, or check the bed by ear on the draft`;
+  let doc;
+  try { doc = new URL(base ?? 'index.html', `${ORIGIN}/index.html`); } catch { return `the page's <base href="${base}"> is not a URL, so which file a script loads is unknown: fix it and rerun`; }
+  // A specifier as a URL (relative, root or absolute), or null for a bare name. Throws on a relative one that is not a URL.
+  const urlOf = (spec, from) => (/^(?:\.{1,2})?\//.test(spec) ? new URL(spec, from) : URL.canParse(spec) ? new URL(spec) : null);
   for (const s of scripts) {
     if ((s.attrs.type || '').trim().toLowerCase() !== 'importmap') continue;
     try {
       const j = JSON.parse(s.text);
       if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('not an object');
       for (const m of [j.imports, ...Object.values(j.scopes && typeof j.scopes === 'object' ? j.scopes : {})]) {
-        if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) if (typeof v === 'string') mapped.push([k, v]);
+        if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) {
+          if (k === '' || typeof v !== 'string') continue;
+          let key = k, to = null;
+          try { key = urlOf(k, doc)?.href ?? k; } catch { /* a key that is not a URL is matched as written */ }
+          try { to = urlOf(v, doc); } catch { /* a target that is not a URL loads nothing: the browser blocks the import */ }
+          if (to) mapped.push([key, to]);
+        }
       }
-    } catch (e) { mapErr = `a <script type="importmap"> cannot be read (${e.message}), so which local module a bare import loads is unknown: fix the JSON and rerun`; }
+    } catch (e) { return `a <script type="importmap"> cannot be read (${e.message}), so which local module an import loads is unknown: fix the JSON and rerun`; }
   }
-  const unresolved = (where, what) => `${where} loads a module the check cannot resolve (${what.replace(/\s+/g, ' ').slice(0, 40)}), so whether it sets a media volume is unknown: import it by a plain quoted path and rerun, or check the bed by ear on the draft`;
-  const LOCAL = /^(?:\.{1,2})?\//;
-  // The local files a specifier loads: itself when it is a relative or root path, else what the import maps give it.
-  const targets = (spec, base) => {
-    if (LOCAL.test(spec)) return [file(spec, base)].filter(Boolean);
-    if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(spec)) return [];
-    return mapped.flatMap(([k, v]) => {
-      const to = k === spec ? v : k.endsWith('/') && spec.startsWith(k) && v.endsWith('/') ? v + spec.slice(k.length) : null;
-      return to != null && LOCAL.test(to) ? [file(to, dir)].filter(Boolean) : [];
-    });
+  // The URLs a module specifier may load: the URL itself (when it is one) and every import map target whose key matches it.
+  const moduleUrls = (spec, from) => {
+    const own = urlOf(spec, from), key = own ? own.href : spec, out = own ? [own] : [];
+    for (const [k, to] of mapped) {
+      if (k === key) out.push(to);
+      else if (k.endsWith('/') && key.startsWith(k) && to.href.endsWith('/')) out.push(new URL(key.slice(k.length), to));
+    }
+    return out;
   };
-  const visit = (code, where, base) => {
+  // The one choke point: what a URL is. A local file of the project, a remote library, or null (the check cannot tell: a
+  // data: or blob: module, a server on this machine that may serve the project itself, any other scheme).
+  const locate = (u) => {
+    if (u.origin === ORIGIN) return { file: path.join(dir, ...decodeURIComponent(u.pathname).split('/')) };
+    if ((u.protocol === 'http:' || u.protocol === 'https:') && !/^(?:localhost|127\.[\d.]+|0\.0\.0\.0|\[::1?\]|.*\.localhost)$/i.test(u.hostname)) return { remote: true };
+    return null;
+  };
+  const fileUrl = (p) => new URL(path.relative(dir, p).split(path.sep).map(encodeURIComponent).join('/'), `${ORIGIN}/`);
+  // A file the .engine.json beside it lists is the DALANG engine copy (engine/three/build.mjs): a vendored library, like a
+  // remote script, not read (its text has the word volume as a measure of space). Anything the manifest does not list is read.
+  const manifests = new Map();
+  const isEngine = (p) => {
+    const d = path.dirname(p);
+    if (!manifests.has(d)) {
+      let names = new Set();
+      try { const r = read(path.join(d, '.engine.json')); if (r.text != null) names = new Set(JSON.parse(r.text).map((e) => e.file)); } catch { /* not a manifest: nothing is the engine */ }
+      manifests.set(d, names);
+    }
+    return manifests.get(d).has(path.basename(p));
+  };
+  // Every load ends here: each URL is read, skipped as a remote library, or NOT CHECKED.
+  const loadAll = (urls, where, what) => {
+    for (const u of urls) {
+      let at = null;
+      try { at = locate(u); } catch { /* a path that does not decode: unknown */ }
+      if (!at) return unresolved(where, what);
+      if (at.remote) continue;
+      const why = load(at.file);
+      if (why) return why;
+    }
+    return null;
+  };
+  const visit = (code, where, from) => {
     const w = code.match(MIX_TOKENS);
     if (w) return `${where} has the word "${w[0]}": script may change the mix; check the bed by ear on the draft (a ducking written as a data-automation volume lane on the tag is read by this check)`;
     // a script element made at run time, or importScripts(): a script the page loads whose file the check does not follow
@@ -444,26 +490,12 @@ export function scriptProblem(scripts, dir, read) {
     for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*(["'`])((?:(?!\1)[^\\])*)\1/g)) specs.push([im[2], im[1]]);
     for (const [spec, quote] of specs) {
       if (quote === '`' && spec.includes('${')) return unresolved(where, '`' + spec + '`');
-      for (const p of targets(spec, base)) { const why = load(p); if (why) return why; }
+      let urls;
+      try { urls = moduleUrls(spec, from); } catch { return unresolved(where, spec); }
+      const why = loadAll(urls, where, spec);
+      if (why) return why;
     }
     return null;
-  };
-  const file = (spec, base) => {
-    if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(spec)) return null; // remote
-    const clean = spec.split(/[?#]/)[0];
-    return clean.startsWith('/') ? path.join(dir, clean) : path.resolve(base, clean);
-  };
-  // A file the .engine.json beside it lists is the DALANG engine copy (engine/three/build.mjs): a vendored library, like a
-  // remote script, not read (its text has the word volume as a measure of space). Anything the manifest does not list is read.
-  const manifests = new Map();
-  const isEngine = (p) => {
-    const d = path.dirname(p);
-    if (!manifests.has(d)) {
-      let names = new Set();
-      try { const r = read(path.join(d, '.engine.json')); if (r.text != null) names = new Set(JSON.parse(r.text).map((e) => e.file)); } catch { /* not a manifest: nothing is the engine */ }
-      manifests.set(d, names);
-    }
-    return manifests.get(d).has(path.basename(p));
   };
   const load = (p) => {
     if (seen.has(p)) return null;
@@ -471,12 +503,16 @@ export function scriptProblem(scripts, dir, read) {
     if (isEngine(p)) return null;
     const r = read(p), where = `the script ${path.relative(dir, p) || p}`;
     if (r.text == null) return `${where} could not be read (${r.why}), so whether it sets a media volume is unknown: fix the path and rerun`;
-    return visit(r.text, where, path.dirname(p));
+    return visit(r.text, where, fileUrl(p));
   };
-  if (mapErr) return mapErr;
   for (const s of scripts) {
     if (!JS_TYPE.test((s.attrs.type || '').trim())) continue;
-    const why = s.attrs.src ? (file(s.attrs.src, dir) ? load(file(s.attrs.src, dir)) : null) : visit(s.text, 'an inline <script>', dir);
+    let why;
+    if (s.attrs.src) {
+      let u = null;
+      try { u = new URL(s.attrs.src, doc); } catch { /* not a URL */ }
+      why = u ? loadAll([u], 'a <script src>', s.attrs.src) : unresolved('a <script src>', s.attrs.src);
+    } else why = visit(s.text, 'an inline <script>', doc);
     if (why) return why;
   }
   return null;
@@ -664,7 +700,7 @@ function main(argv) {
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
     if (narrLaneErr) return `the narration's data-automation cannot be modelled (${narrLaneErr}), so its level is unknown`;
     if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
-    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; });
+    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; }, { base: page.base });
     if (sp) return sp;
     if (narrTag) {
       const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
