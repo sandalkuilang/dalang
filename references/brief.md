@@ -58,13 +58,14 @@ Then AskUserQuestion: Call 0 only when setup left a choice, then Calls 1 and 2 (
 | Platform | fps |
 |---|---|
 | Shorts, Reels, TikTok, Instagram feed | 30 |
-| YouTube landscape | 30; 24 only for a film look the user picks (offered under "Calm cinematic"), with the blur rule of `camera-motion.md` §10 |
+| YouTube landscape | 30; 24 only for a film look the user picks (offered as its own Energy option, item 7), with the blur rule of `camera-motion.md` §10 |
 | anything else | 30 |
 
 Those platforms play at 30 (Reels caps there), so 24 repeats one frame in four and judders on pans. Never 60: double the render time, re-encoded to 30.
+
 5. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Narrative pacing is strongest at 30–90 s; above 3 min, one composition per section.
 6. **Visual style** — read `looks.md` and `visual-direction.md` §5. Offer the **looks of the chosen realism that best fit this topic** (up to 4), recommended first; name the others in the question text so "Other" reaches them. Every option gets a `preview`: a short sketch of one frame of *this* topic in that look (the real subject and its source, set, the ground colour and how the hero separates from it, light, type, motion), never a banned default (`looks.md`, `visual-direction.md` §5). A reference the user liked steers the palette: use its `## Palette` in `reference-measurements.md` when Step 2 measured one.
-7. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" goes on Punchy for 9:16 under 60 s, else on Modern balanced.
+7. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" goes on Punchy for 9:16 under 60 s, else on Modern balanced. YouTube landscape adds a fourth option, "Calm cinematic, film look (24 fps)" (blur per `camera-motion.md` §10); only picking it saves fps 24, else 30.
 8. **Audience** — General public, one main idea "(Recommended)"; Students; Professionals/enthusiasts.
 
 ### Call 3 — Voice

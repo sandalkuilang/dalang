@@ -183,7 +183,7 @@ that reads as:
 ### Changed
 
 - **Default fps follows the platform: 30** for Shorts, Reels, TikTok, feed and landscape (they play at 30, so 24 repeats one
-  frame in four and judders); 24 only as a film look the user picks, and then every camera move and fast body gets
+  frame in four and judders); 24 only as a film look the user picks (on YouTube landscape, its own fourth Energy option "Calm cinematic, film look (24 fps)"), and then every camera move and fast body gets
   motion blur (`camera-motion.md` §10), because rendered 3D has no natural blur and strobes. Never 60 (double render time,
   re-encoded to 30). Rubric: "strobing on camera moves" is a P1 (`visual-direction.md` §11, `review.md`, `qc.md`).
 - **Reading is mechanical, images stay in subagents, scenes are patched with `Edit`** (`SKILL.md` "Work fast"): the
