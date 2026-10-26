@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // node tests/retake.mjs — tts_timestamps.mjs against a mock VoiceStudio that can hear what it is sent.
 // Covers: a VoiceStudio 503 ("abandoned job") is BUSY — wait, retry once, then WARN + exit 3, never FAILED; a heavy
-// engine (VoxCPM2) never gets a chunk over its limit; a light engine keeps one chunk.
+// engine (VoxCPM2) never gets a chunk over its limit; a light engine keeps one chunk; --retake auto, --retake <n,…> and
+// --retake changed re-speak only the flagged, named or edited sentences and splice them into the take.
 // The mock speaks real audio: a 24 kHz mono 16-bit WAV where each word is 0.30 s of one constant sample value
 // (its id in a vocabulary), 0.10 s of silence after it, and 0.40 s more after a sentence end. Its transcription route
 // reads those values back, so the words it "hears" are the words in the audio — a splice of two takes is heard as
@@ -262,6 +263,53 @@ await test("E7.--retake is refused for ElevenLabs, a sample and a dialogue, befo
     assert.match(r.out, why);
     assert.equal(r.speech.length, 0);
   }
+});
+
+// ── --retake changed ─────────────────────────────────────────────────────────
+const EDITED = NARRATION.replace("old mill", "stone mill");
+const S2_NEW = "It runs past the stone mill.";
+await test("E8. --retake changed after editing one sentence re-speaks only that sentence", async () => {
+  const first = await take(NARRATION);
+  assert.equal(first.code, 0, first.out);
+  const before = durationOf(first);
+  const r = await take(EDITED, { dir: first.dir }, ["--retake", "changed"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 1, "no full take: one request");
+  assert.equal(r.speech[0].input, S2_NEW);
+  assert.match(r.out, /Retake\s+: sentence 2 .*try 1.*changed/);
+  assert.deepEqual(wordsOf(r), tokensOf(EDITED), "words.json matches the edited narration.txt");
+  assert.ok(Math.abs(durationOf(r) - before) < 0.05, `as long as before (${before} s), not ${durationOf(r)} s`);
+  const resp = JSON.parse(fs.readFileSync(path.join(r.audio, "narration.response.json"), "utf8"));
+  assert.equal(resp._meta.text.trim(), EDITED.trim(), "the response describes the edited take, so the next --retake changed compares with it");
+  assert.deepEqual(resp.transcript.words.map((w) => w.word), tokensOf(EDITED));
+  const again = await take(EDITED, { dir: first.dir }, ["--retake", "changed"]);
+  assert.equal(again.speech.length, 0, "the take now matches the script");
+});
+await test("E8b. --retake changed on an unchanged script re-speaks nothing", async () => {
+  const first = await take(NARRATION);
+  const r = await take(NARRATION, { dir: first.dir }, ["--retake", "changed"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 0);
+  assert.match(r.out, /matches the last take/);
+  assert.deepEqual(wordsOf(r), tokensOf(NARRATION));
+});
+await test("E8c. --retake changed with a sentence added and one removed re-speaks the new one and drops the old", async () => {
+  const first = await take(NARRATION);
+  const NEXT = "It runs past the old mill. Water turns the wheel all day. The town grows near the bank. Boats wait by the quay.\n";
+  const r = await take(NEXT, { dir: first.dir }, ["--retake", "changed"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 1);
+  assert.equal(r.speech[0].input, "Boats wait by the quay.");
+  assert.deepEqual(wordsOf(r), tokensOf(NEXT));
+});
+await test("E8d. --retake changed re-speaks a changed sentence that comes out wrong a second time, then warns", async () => {
+  const first = await take(NARRATION);
+  const r = await take(EDITED, { dir: first.dir, speak: (b) => ({ tokens: b.input.split(/\s+/).flatMap((t) => (norm(t) === "stone" ? [t, "maybe"] : [t])) }) }, ["--retake", "changed"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 2, "try 1, then try 2");
+  assert.equal(r.speech[0].seed, 42);
+  assert.equal(r.speech[1].seed, 43);
+  assert.match(r.out, /WARNING\s+: sentence 2 .*after 2 tries/);
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });
