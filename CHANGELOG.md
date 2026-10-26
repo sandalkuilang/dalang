@@ -67,7 +67,9 @@ that reads as:
   in jittered layers and, cut, shows whole grains at the cut face, over a body wearing the new `grains` surface;
   presets for lentils, coffee, rice, oats, sugar, sand and gravel; `examples/canister.js`; the rule in `looks.md` (a
   bulk of small things shows its grains; a smooth slab reads as foam or gravel); the self-check asserts counts, real
-  size, the kept side and separate grains.
+  size, the kept side and separate grains. The fill's cut is the cutaway's plane in world space (any normal, a
+  rotated container too) and follows its timeline (`on`, `off`, `set`) through a `userData.cutTo` hook that
+  `cutaway()` calls; a fill shallower than its grains stays above the floor; `max` capping is asserted.
 
 ### Changed
 
