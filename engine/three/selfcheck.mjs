@@ -478,6 +478,7 @@ assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatch
   const live = el.material;
   assert.ok(live.emissiveIntensity === 2.5 && live.emissive.getHex() === 0xff4400 && live.opacity === 0.4 && live.transparent && live.color.getHex() === 0x112233, "later edits to the set's own material reach the part (glow, fade, colour)");
   assert.ok(live.map === probeMap, "a map swap reaches the part");
+  assert.equal(lc.parts.find((p) => p.mesh === el).cap.material.color.getHex(), new THREE.Color(0x112233).multiplyScalar(0.8).getHex(), "the cap follows the part's colour");
   assert.ok(pts.material.uniforms.uScale.value === 7, "a shader's uniforms are shared: an update on the original reaches the part");
   assert.ok(live.clippingPlanes.includes(lc.plane) && live.clipShadows, "the carried clone is still cut");
   live.emissiveIntensity = 9; lc.at(2);
@@ -500,6 +501,9 @@ assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatch
   assert.ok(new THREE.Box3().setFromObject(pr).getSize(new THREE.Vector3()).equals(size), "the assembly's size is not the caps'");
   const ps2 = new THREE.Scene(); ps2.add(pr); pc.at(2);
   assert.ok(pc.group.parent === ps2, "the group follows the root to another scene");
+  const whole2 = new THREE.Scene(); whole2.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), new THREE.MeshStandardMaterial()));
+  const wc = cutaway(whole2); whole2.updateMatrixWorld(true); wc.at(0);
+  assert.ok(wc.group.parent === whole2 && wc.parts[0].cap.visible, "a root that is the scene itself keeps its caps in it");
 }
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
