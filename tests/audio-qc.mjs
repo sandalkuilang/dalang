@@ -219,6 +219,26 @@ try {
       console.log("ok  CLI: a spike -> 'click at 0:01.2', a hole inside a word -> 'dropout at 0:01.1', both exit 3");
     }
 
+    // 11b. --mix scans the mix file too: a clean mix adds no flag, a spike in the mix alone is reported against the mix.
+    {
+      const dir = project("mix", { narr: voice(steady), bedDb: 15 });
+      const bed = tone(880, 4.2, 0.3 * db(-15), RATE), mixed = voice(steady).map((v, i) => v + bed[i]);
+      fs.writeFileSync(path.join(dir, "mix.wav"), wav(mixed, RATE));
+      let r = run(dir, ["--mix", "mix.wav"]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /Clicks\s*:.*mix\.wav none/);
+      mixed[Math.round(2.2 * RATE)] += 0.6;
+      fs.writeFileSync(path.join(dir, "mix.wav"), wav(mixed, RATE));
+      r = run(dir, ["--mix", "mix.wav"]);
+      assert.equal(r.status, 3, r.stdout + r.stderr);
+      assert.match(r.stdout, /click at 0:02\.2 in mix\.wav/);
+      assert.match(r.stdout, /audio\/narration\.wav none/);
+      r = run(dir, ["--mix", "missing.mp4"]);
+      assert.equal(r.status, 2, "a mix that cannot be read is NOT CHECKED, never OK: " + r.stdout);
+      assert.match(r.stdout, /NOT CHECKED: mix/);
+      console.log("ok  CLI: --mix scans the mix (clean = no flag, a spike = a click in mix.wav), an unreadable mix = exit 2 NOT CHECKED");
+    }
+
     // 12. A sentence pitched up 5 semitones is flagged with its number.
     {
       const r = run(project("drift", { narr: voice([150, 150, 150 * 2 ** (5 / 12), 150]), bedDb: 15 }));
@@ -239,7 +259,7 @@ try {
       }
       let r = run(project("nobed", { narr: voice(steady), bedDb: null }), [], { ...process.env, PATH: bin });
       assert.equal(r.status, 0, r.stdout + r.stderr);
-      assert.match(r.stdout, /INFO\s*bed: no music/);
+      assert.match(r.stdout, /INFO\s*:\s*bed: no music/);
       r = run(project("bed15b", { narr: voice(steady), bedDb: 15 }), [], { ...process.env, PATH: bin });
       assert.equal(r.status, 0, "with only ffmpeg and ffprobe on PATH: " + r.stdout + r.stderr);
       console.log("ok  CLI: no music <audio> is an INFO; a PATH holding only ffmpeg and ffprobe still passes (no Python)");
