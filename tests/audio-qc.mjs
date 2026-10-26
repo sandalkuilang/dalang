@@ -765,6 +765,11 @@ try {
       ok(run(make("k-bus-inert", `<hf-audio-group id="mb" data-volume="1" data-label="Music"></hf-audio-group>${music('data-audio-group="mb"')}`)), "a bus with a label");
       ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
       ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
+      // the DALANG engine copy (listed by the .engine.json beside it) is a vendored library, like a remote script: not read; a file it does not list is read
+      const engineImport = `${music()}<script type="module">import { dust } from "./assets/kit.js";</script>`, engineFile = { "assets/kit.js": "// motes fill a volume\nexport const dust = 1;\n" };
+      ok(run(make("k-engine", engineImport, { ...engineFile, "assets/.engine.json": JSON.stringify([{ file: "kit.js", licence: "MIT" }]) })), "an engine file listed in .engine.json is a library, not read");
+      notChecked(run(make("c-engine-unlisted", engineImport, { ...engineFile, "assets/.engine.json": JSON.stringify([{ file: "other.js" }]) })), "a file the manifest does not list is read");
+      notChecked(run(make("c-engine-nomanifest", engineImport, engineFile)), "a file with no manifest is read");
       ok(run(make("k-comment", `<!-- ${music()} -->`)), "a commented-out bed is not in the film", /OK — no bed in the film/);
       ok(run(make("k-lane", music(lane([{ target: "volume", points: [{ t: 0, v: 1 }, { t: 4, v: 1, curve: 0 }] }])))), "a straight volume lane");
       console.log("ok  CLI: the class rule: a hidden or <template> ancestor, an attribute or lane outside the inventory, a script volume = exit 2 NOT CHECKED; each neighbour passes");
