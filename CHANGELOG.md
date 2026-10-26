@@ -37,8 +37,8 @@ that reads as:
   calling thread when none starts) beside the main island, which alone keeps `onStep`, kinematic paths, `track` and
   `keep`. The result and the cache file are the same as a single world's (the self-check compares them exactly); a
   body of one island meeting another's (in the pre-roll too, where loose pieces settle), a script reaching a declared
-  body (its methods, a world query such as `castRay` or `contactPairsWith`, a lookup of its handle), a kinematic body
-  or a joint across islands throw instead of baking something different. While islands are declared, `onStep`,
+  body (its methods, a world query such as `castRay` or `contactPairsWith`, a lookup of its handle), a kinematic body,
+  a joint across islands or one impact name on bodies of two islands throw instead of baking something different. While islands are declared, `onStep`,
   `track` and `keep` read main-island bodies through their own methods; world-wide queries refuse. They also cannot
   change what every island world shares with the main one (gravity, solver settings, fixed bodies and static
   colliders, joints inside an island, an extra world step): those calls throw, a change that slips past is caught
