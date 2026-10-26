@@ -10,9 +10,19 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(here, "..", "scripts", "palette.mjs");
-const { oklchL, dominant } = await import(script);
+const measure = path.join(here, "..", "scripts", "measure_reference.sh");
+const { oklchL, dominant, spawnProblem } = await import(script);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-palette-"));
-const cli = (args) => spawnSync("node", [script, ...args], { encoding: "utf8" });
+const cli = (args, env = process.env) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env });
+// A PATH holding only the given ffmpeg stand-in (a shell script body, or null for a file that cannot run).
+const fakeFfmpeg = (name, body) => {
+  const dir = path.join(tmp, name);
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "ffmpeg"), body ?? "", { mode: body == null ? 0o644 : 0o755 });
+  return { ...process.env, PATH: dir };
+};
+const ffprobe = spawnSync("ffmpeg", ["-version"]);
+const hasFfmpeg = !(ffprobe.error && ffprobe.error.code === "ENOENT") && ffprobe.status === 0;
 
 try {
   // 1. Lightness: white 1, black 0, mid grey ~0.6 (OKLab L is perceptual, not linear).
@@ -54,9 +64,31 @@ try {
   assert.match(r.stderr, /FAILED/);
   console.log("ok  missing file: exit 1 with FAILED");
 
-  // 5. A real clip: half light warm, half dark.
-  const has = spawnSync("ffmpeg", ["-version"]);
-  if (has.error || has.status !== 0) console.log("video case skipped: ffmpeg not found");
+  // 5. ffmpeg stand-ins: each way ffmpeg can fail is its own FAILED line, and only a real ENOENT says "not found".
+  const failed = (r, re, notRe) => {
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stderr, /^FAILED: /);
+    assert.match(r.stderr, re);
+    if (notRe) assert.doesNotMatch(r.stderr, notRe);
+    assert.equal(r.stdout, "", "no palette header on a failure");
+  };
+  const any = path.join(tmp, "any.mp4");
+  fs.writeFileSync(any, "not a video");
+  failed(cli([any], { ...process.env, PATH: path.join(tmp, "empty-path") }), /ffmpeg not found/);
+  failed(cli([any], fakeFfmpeg("noexec", null)), /EACCES.*rerun/s, /not found/);
+  failed(cli([any], fakeFfmpeg("fails", "#!/bin/sh\necho 'boom: bad input' >&2\nexit 1\n")), /could not read .*boom: bad input/);
+  failed(cli([any], fakeFfmpeg("signal", "#!/bin/sh\nkill -9 $$\n")), /signal.*rerun/s, /not found/);
+  failed(cli([any], fakeFfmpeg("silent", "#!/bin/sh\nexit 0\n")), /no frames decoded.*rerun/s);
+  assert.match(spawnProblem({ code: "ENOENT" }, 1), /^ffmpeg not found/);
+  const big = spawnProblem({ code: "ENOBUFS" }, 0.01);
+  assert.match(big, /ENOBUFS/);
+  assert.match(big, /larger --every/);
+  assert.doesNotMatch(big, /not found/);
+  assert.doesNotMatch(spawnProblem({ code: "EMFILE" }, 1), /not found/);
+  console.log("ok  ffmpeg failures: absent (ENOENT) says not found; EACCES, a signal, ENOBUFS, EMFILE say rerun; bad input and zero frames exit 1");
+
+  // 6. A real clip: half light, half dark.
+  if (!hasFfmpeg) console.log("video cases skipped: ffmpeg did not run (" + (ffprobe.error ? ffprobe.error.code : "status " + ffprobe.status) + ")");
   else {
     const clip = path.join(tmp, "two.mkv");
     const f = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i",
@@ -74,6 +106,44 @@ try {
     const [light, dark] = rows.slice(0, 2).sort((a, b) => b.L - a.L);
     assert.ok(light.L > 0.85 && dark.L < 0.35, r.stdout);
     console.log("ok  clip: two colours about half each, the light one L > 0.85, the dark one L < 0.35");
+
+    // 7. An existing file that is not a video, and a clip with no video stream, are failures, never an empty palette.
+    failed(cli([any]), /could not read .*any\.mp4/);
+    const audio = path.join(tmp, "tone.wav");
+    const a = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=d=1", audio], { encoding: "utf8" });
+    assert.equal(a.status, 0, a.stderr);
+    failed(cli([audio]), /could not read .*tone\.wav/);
+    console.log("ok  garbage file and audio-only clip: exit 1 with FAILED, no Palette header");
+
+    // 8. measure_reference.sh: the palette lands in the summary; a failing palette does not stop it; no Node still finishes.
+    const run = (out, scriptsDir, env) => spawnSync("bash", [path.join(scriptsDir, "measure_reference.sh"), clip, out], { encoding: "utf8", env });
+    let m = run(path.join(tmp, "m1"), path.dirname(measure), process.env);
+    assert.equal(m.status, 0, m.stderr);
+    assert.match(m.stdout, /Overall \(\d+ frames\)/);
+    assert.match(fs.readFileSync(path.join(tmp, "m1", "palette.txt"), "utf8"), /^Palette: /);
+
+    const broken = path.join(tmp, "broken-scripts");
+    fs.mkdirSync(broken);
+    for (const n of ["measure_reference.sh", "stillness.mjs", "loudness.mjs"]) fs.copyFileSync(path.join(path.dirname(measure), n), path.join(broken, n));
+    fs.writeFileSync(path.join(broken, "palette.mjs"), "console.error('FAILED: stand-in palette failure');process.exit(1);\n");
+    m = run(path.join(tmp, "m2"), broken, process.env);
+    assert.equal(m.status, 0, "a failing palette must not stop the measurement: " + m.stderr);
+    assert.ok(fs.existsSync(path.join(tmp, "m2", "summary.txt")));
+    assert.match(fs.readFileSync(path.join(tmp, "m2", "palette.txt"), "utf8"), /FAILED: stand-in palette failure/);
+    assert.match(m.stdout, /palette\.txt: FAILED: stand-in palette failure/, "the summary says the palette failed");
+    assert.doesNotMatch(m.stdout, /Overall/);
+
+    const bin = path.join(tmp, "bin-no-node");
+    fs.mkdirSync(bin);
+    for (const t of ["bash", "env", "ffmpeg", "ffprobe", "awk", "tee", "cat", "head", "ls", "wc", "tr", "grep", "cut", "mkdir", "dirname", "basename", "sed", "sort", "rm"]) {
+      const w = spawnSync("sh", ["-c", `command -v ${t}`], { encoding: "utf8" }).stdout.trim();
+      if (w.startsWith("/")) fs.symlinkSync(w, path.join(bin, t));
+    }
+    m = run(path.join(tmp, "m3"), path.dirname(measure), { ...process.env, PATH: bin });
+    assert.equal(m.status, 0, "no Node: still finishes: " + m.stderr);
+    assert.ok(fs.existsSync(path.join(tmp, "m3", "summary.txt")));
+    assert.ok(!fs.existsSync(path.join(tmp, "m3", "palette.txt")));
+    console.log("ok  measure_reference.sh: palette in the summary; a failing palette is reported and non-fatal; no Node still finishes");
   }
   console.log("OK");
 } finally {
