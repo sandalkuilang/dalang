@@ -36,8 +36,10 @@ that reads as:
   for the whole shot as separate worlds, each in a worker (Web Worker in a page, `worker_threads` in Node, in the
   calling thread when none starts) beside the main island, which alone keeps `onStep`, kinematic paths, `track` and
   `keep`. The result and the cache file are the same as a single world's (the self-check compares them exactly); a
-  body of one island meeting another's, a script reaching a declared body, a kinematic body or a joint across
-  islands throw instead of baking something different.
+  body of one island meeting another's (in the pre-roll too, where loose pieces settle), a script reaching a declared
+  body (its methods, a world query such as `castRay` or `contactPairsWith`, a lookup of its handle), a kinematic body
+  or a joint across islands throw instead of baking something different. While islands are declared, `onStep`,
+  `track` and `keep` read main-island bodies through their own methods; world-wide queries refuse.
 
 - **A real merge gate**: `scripts/gate.sh` (`--fast`: syntax, `SKILL.md` front-matter, diagrams; full: also the
   engine build and self-check and `tests/preflight-mock.mjs`, preflight against a mock VoiceStudio in 29 cases).

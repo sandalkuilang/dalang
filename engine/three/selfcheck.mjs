@@ -192,6 +192,7 @@ const reach = {
   "getRigidBody of a declared body": (I) => { const h = I.a.body.handle; return () => I.s.world.getRigidBody(h); },
   "bodies.get of a declared body": (I) => { const h = I.a.body.handle; return () => I.s.world.bodies.get(h); },
   "a collider of a declared body kept from before": (I) => { const c = I.a.body.collider(0); return () => c.translation(); },
+  "a declared collider handed to a main collider": (I) => { const c = I.a.body.collider(0), m = I.push.body.collider(0); return () => m.contactCollider(c, 1); },
 };
 for (const [what, make] of Object.entries(reach)) {
   for (const via of ["onStep", "track", "keep"]) {

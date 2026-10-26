@@ -92,9 +92,12 @@ here with a line in this table. Air is one shared field: every source adds into 
    `bakeCached(duration, onStep, preroll, { islands: [[mug, bowl], [lamp]] })`. Each island is its own world, baked
    in a worker while this thread bakes the main island (every body not listed): the same `{ pose, impacts, report }`,
    the same cache file. Only the main island runs `onStep`, the kinematic paths, `track` and `keep`: a script that
-   reads or pushes a declared body throws, a kinematic body or a joint across islands is refused, and a body of one
-   island coming within 5 mm of another's (judged on the drawn geometry) throws with the pair and the time, so merge
-   those islands. The pre-roll is not checked: place declared groups apart. A worker that cannot start falls back
+   reaches a declared body throws (its methods, a lookup of its handle, and every world-wide query: `castRay`,
+   `intersectionsWithShape`, `contactPairsWith`, `forEachCollider`… cannot tell a body baked in another world from an
+   empty place, so they refuse; read a main-island body through its own methods), a kinematic body or a joint across
+   islands is refused, and a body of one island coming within 5 mm of another's (judged on the drawn geometry, in the
+   pre-roll as well as the shot: a piece that settles onto a declared body there would fall through it in its own
+   world) throws with the pair and the time, so merge those islands. A worker that cannot start falls back
    to this thread (a warning, same result, no gain). Gain: the slowest island's time, not the sum.
 5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
