@@ -3,7 +3,7 @@
 // Music, SFX and image searches print licensed results and download their previews; an NC or ND result, and a CC BY
 // result with no creator to credit, are dropped; --take copies one into the project and appends an ASSETS.json row that
 // passes check_assets.mjs; a 429 is retried after its Retry-After; a source that fails is a WARN + "rerun" (exit 3),
-// never "nothing matched"; the bundled /media-use SFX library takes its licence from its own CREDITS.md.
+// never "nothing matched"; music is told from SFX by duration, not by category; the bundled /media-use SFX library takes its licence from its own CREDITS.md.
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs";
@@ -50,23 +50,23 @@ const audioRoutes = (u, _n, base) => {
     ov(base, { id: "good", title: "Calm Morning", url: `${base}/files/good.mp3`, foreign_landing_url: "https://example.org/good" }),
     ov(base, { id: "nc", title: "Paid Work", license: "by-nc", url: `${base}/files/nc.mp3` }),
     ov(base, { id: "nocreator", title: "Nobody", creator: null, url: `${base}/files/nocreator.mp3` }),
-    ov(base, { id: "long", title: "Long One", license: "cc0", license_version: "1.0", creator: null, duration: 5000, url: `${base}/files/long.mp3` }),
+    ov(base, { id: "long", title: "Long One", license: "cc0", license_version: "1.0", creator: null, duration: 60000, url: `${base}/files/long.mp3` }),
     ov(base, { id: "short", title: "Short One", license: "cc0", license_version: "1.0", creator: null, duration: 1500, url: `${base}/files/short.mp3` }),
   ] }];
   return [404, {}];
 };
 
-await test("1. music: licensed results with previews and results.json; NC and a CC BY without creator are dropped", async () => withMock(audioRoutes, async (m) => {
+await test("1. music: licensed results with previews and results.json, no category filter, a clip under 20 s is not music; NC and a CC BY without creator are dropped", async () => withMock(audioRoutes, async (m) => {
   const out = dir("music");
   const r = await run(["--type", "music", "--query", "calm morning", "--out", out], env(m));
   assert.equal(r.code, 0, r.out);
-  assert.ok(m.seen.some((s) => /category=music/.test(s)), m.seen.join(" "));
+  assert.ok(m.seen.every((s) => !/category=/.test(s)), m.seen.join(" "));
   assert.ok(m.seen.some((s) => /license=cc0/.test(decodeURIComponent(s))), "licence filter not sent");
   assert.match(r.out, /Calm Morning/); assert.match(r.out, /CC-BY-4\.0/); assert.match(r.out, /Ann/);
   assert.doesNotMatch(r.out, /Paid Work|Nobody/);
   assert.match(r.out, /--take/);
   const res = JSON.parse(fs.readFileSync(path.join(out, "results.json"), "utf8"));
-  assert.deepEqual(res.map((x) => x.title).sort(), ["Calm Morning", "Long One", "Short One"]);
+  assert.deepEqual(res.map((x) => x.title).sort(), ["Calm Morning", "Long One"]);
   for (const x of res) assert.ok(fs.existsSync(path.join(out, x.file)), x.file);
   const good = res.find((x) => x.title === "Calm Morning");
   assert.equal(good.licence, "CC-BY-4.0"); assert.equal(good.author, "Ann"); assert.equal(good.duration, 90);
@@ -336,6 +336,65 @@ await test("15. --take: a folder-like --as is a usage error (exit 2); a destinat
   const good = await run(["--take", file, "--as", "assets/sfx/new/m.mp3", "--project", proj]);
   assert.equal(good.code, 0, good.out); assert.ok(fs.existsSync(path.join(proj, "assets/sfx/new/m.mp3")));
   assert.equal(JSON.parse(fs.readFileSync(path.join(proj, "ASSETS.json"), "utf8")).length, 1);
+}));
+
+// Freesound-like CC0 music: Openverse gives it category null, so category=music matches none of it.
+const freesoundRoutes = (u, _n, base) => {
+  if (u.pathname !== "/v1/audio/") return [404, {}];
+  if (u.searchParams.get("category") === "music") return [200, { result_count: 0, results: [] }];
+  return [200, { result_count: 3, results: [
+    ov(base, { id: "fs-long", title: "Piano Remix", license: "cc0", license_version: "1.0", creator: "fs", category: null, provider: "freesound", duration: 60000, url: `${base}/files/fs-long.mp3` }),
+    ov(base, { id: "fs-short", title: "Door Click", license: "cc0", license_version: "1.0", creator: "fs", category: null, provider: "freesound", duration: 2000, url: `${base}/files/fs-short.mp3` }),
+    ov(base, { id: "fs-null", title: "No Length", license: "cc0", license_version: "1.0", creator: "fs", category: null, provider: "freesound", duration: null, url: `${base}/files/fs-null.mp3` }),
+  ] }];
+};
+const titles = (d) => JSON.parse(fs.readFileSync(path.join(d, "results.json"), "utf8")).map((x) => x.title).sort();
+
+await test("16. music is kept apart from SFX by length, not by category: a CC0 track with category null is listed, a 2 s clip is not, --min-duration moves the line", async () => withMock(freesoundRoutes, async (m) => {
+  const out = dir("fs");
+  const r = await run(["--type", "music", "--query", "piano", "--licence", "cc0", "--out", out], env(m));
+  assert.equal(r.code, 0, r.out);
+  assert.ok(m.seen.every((s) => !/category=/.test(s)), m.seen.join(" "));
+  assert.deepEqual(titles(out), ["No Length", "Piano Remix"]);
+  assert.doesNotMatch(r.out, /Door Click/);
+  const out2 = dir("fs2");
+  const r2 = await run(["--type", "music", "--query", "piano", "--licence", "cc0", "--min-duration", "1", "--out", out2], env(m));
+  assert.equal(r2.code, 0, r2.out);
+  assert.deepEqual(titles(out2), ["Door Click", "No Length", "Piano Remix"]);
+  const out3 = dir("fs3");
+  const r3 = await run(["--type", "sfx", "--query", "click", "--licence", "cc0", "--out", out3], env(m));
+  assert.equal(r3.code, 0, r3.out);
+  assert.ok(m.seen.some((s) => /category=sound_effect/.test(s)), m.seen.join(" "));
+  assert.ok(titles(out3).includes("Door Click"), "sfx has no default minimum");
+  await withMock((u, _n, base) => [200, { result_count: 1, results: [ov(base, { id: "only", title: "Door Click", license: "cc0", license_version: "1.0", category: null, duration: 2000, url: `${base}/files/only.mp3` })] }], async (m2) => {
+    const r4 = await run(["--type", "music", "--query", "piano", "--licence", "cc0", "--out", dir("fs4")], env(m2));
+    assert.equal(r4.code, 1, r4.out); assert.match(r4.out, /nothing matched/); assert.match(r4.out, /--min-duration/);
+  });
+}));
+
+await test("17. a provider filetype 'mp32' is saved as .mp3; wav stays wav", async () => withMock((u, _n, base) => [200, { result_count: 2, results: [
+  ov(base, { id: "p1", title: "Piano Hiphop", filetype: "mp32", url: `${base}/files/p.mp32`, duration: 90000 }),
+  ov(base, { id: "p2", title: "Wave One", filetype: "wav", url: `${base}/files/w.wav`, duration: 90000 }),
+] }], async (m) => {
+  const out = dir("ext");
+  const r = await run(["--type", "music", "--query", "piano", "--out", out], env(m));
+  assert.equal(r.code, 0, r.out);
+  const files = fs.readdirSync(out).sort();
+  assert.ok(files.includes("01-piano-hiphop.mp3"), files.join(" "));
+  assert.ok(files.includes("02-wave-one.wav"), files.join(" "));
+  assert.ok(!files.some((f) => /\.mp32$/.test(f)), files.join(" "));
+}));
+
+await test("18. a music search reads a second page when page one is all short clips; --min-duration is validated", async () => withMock((u, _n, base) => {
+  if (u.searchParams.get("page") === "2") return [200, { results: [ov(base, { id: "p2", title: "Page Two Track", license: "cc0", license_version: "1.0", creator: null, duration: 60000, url: `${base}/files/p2.mp3` })] }];
+  return [200, { results: Array.from({ length: 20 }, (_, i) => ov(base, { id: "s" + i, title: "Click " + i, license: "cc0", license_version: "1.0", creator: null, duration: 2000, url: `${base}/files/s${i}.mp3` })) }];
+}, async (m) => {
+  const out = dir("paging");
+  const r = await run(["--type", "music", "--query", "piano", "--licence", "cc0", "--out", out], env(m));
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(titles(out), ["Page Two Track"]);
+  assert.equal((await run(["--type", "music", "--query", "x", "--min-duration", "abc", "--out", dir("u1")], env(m))).code, 2);
+  assert.equal((await run(["--type", "music", "--query", "x", "--min-duration", "30", "--max-duration", "10", "--out", dir("u2")], env(m))).code, 2);
 }));
 
 fs.rmSync(tmp, { recursive: true, force: true });
