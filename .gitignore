@@ -26,7 +26,11 @@ node_modules/
 .waveform-cache/
 .thumbnails/
 
-# Local-only agent caches
+# Local-only agent caches (the sapu contract, its aliases and the project plugin settings are committed)
 graft/
-.claude/
+.claude/*
+!/.claude/settings.json
+!/.claude/sapu.json
+!/.claude/sapu/
+!/.claude/skills/
 __pycache__/

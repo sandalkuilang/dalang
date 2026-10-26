@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "repo": "sandalkuilang/dalang",
+  "ghUser": "sandalkuilang",
+  "gitEmail": "yudha_hyp@yahoo.com",
+  "baseBranch": "main",
+  "mergeMethod": "rebase",
+  "gate": {
+    "fast": "scripts/gate.sh --fast",
+    "merge": "scripts/gate.sh",
+    "summaryStart": "^Gate summary",
+    "redIf": null
+  },
+  "redAreas": null,
+  "redAreaSpecialists": [],
+  "mergeAfter": null,
+  "labels": { "tierPrefix": "risk:", "inProgress": "agent:in-progress", "done": "agent:done" },
+  "securityEpic": null,
+  "invariantDomains": "the skill staying generic (no test-video detail anywhere), the user's consent gates (gate approvals, installs, paid services, recorded or cloned voices), preflight never reading an unknown state as missing, the asset licence gate, and the account and attribution rules",
+  "testResources": "nothing outside your worktree: the tests use the system temp directory and ephemeral local ports",
+  "guard": { "envFiles": [], "postgres": null, "deny": [] },
+  "policy": { "fileIssues": false }
+}

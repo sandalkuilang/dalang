@@ -37,6 +37,8 @@ that reads as:
   CI runs the full gate on every push and pull request.
 - **`CLAUDE.md`**: the rules for changing the skill (generic, docs in step, physical motion, never "unknown" read
   as "missing", installs only with consent, personal account, no AI attribution).
+- **sapu contract** (`.claude/sapu.json`, `.claude/sapu/*.md`, the `/sapu`, `/forge` and `/dream` aliases): the
+  backlog agent works issues through `scripts/gate.sh`, files none itself, and merges by rebase.
 
 ## [1.3.0] - 2026-10-26
 
