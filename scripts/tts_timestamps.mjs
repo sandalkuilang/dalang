@@ -37,6 +37,9 @@
 // --seed (VoiceStudio, default 42): fixed sampling seed, so an approved sample and the full take match.
 // --align auto|off: off skips forced alignment (on by default when align.py, its Python deps and a model for
 // --language are present; else timing comes from transcribing the audio).
+// --model: VoiceStudio speaks with its active TTS model (the one preflight reports) unless --model names another. The take
+// prints "Model : <name> — <licence>" and records the model in <name>.response.json _meta; scripts/check_assets.mjs
+// checks the narration's ASSETS.json licence against it (scripts/voice_licences.mjs is the one table).
 // --steps (VoiceStudio OmniVoice, default 32 = the model's documented quality preset; the app default is 16; 32 takes longer).
 // Outputs: <out>/words.json ({ i, text, start, end, est?, score? } — est = timing estimated), beats.json,
 // beats.js (BEATS, BEATS_LIST, SECTIONS, WORDS, NARRATION_DURATION[, LINES]), narration.srt (sidecar subtitles). The last line is "DONE <audio>".
@@ -49,6 +52,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { voiceModel, vsModelName } from './voice_licences.mjs';
 
 const API = 'https://api.elevenlabs.io';
 const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000 };
@@ -94,7 +98,8 @@ function parseArgs(argv) {
     }
   }
   if (!['elevenlabs', 'voicestudio'].includes(a.engine)) die(`Unknown --engine ${a.engine}. Use elevenlabs or voicestudio.`);
-  a.model ??= a.engine === 'voicestudio' ? 'omnivoice' : 'eleven_v4';
+  a.modelFrom = a.model ? '--model' : null;
+  if (a.engine === 'elevenlabs') a.model ??= 'eleven_v4'; // VoiceStudio: the active model, read in main()
   if (a.engine === 'voicestudio') a.format = 'wav'; // parts are joined losslessly, then measured
   a.format ??= 'mp3_44100_128';
   return a;
@@ -204,6 +209,25 @@ async function vsVoiceId(a, v) {
   return hit.voice_id;
 }
 
+// VoiceStudio's active TTS model, read as preflight reads it, so the take is spoken by the model the user was told
+// about. Unreadable is not "none": stop and say so, never fall back to a default model.
+async function vsActiveModel(a) {
+  let sel, why = 'unexpected reply';
+  try {
+    const res = await fetch(`${a.vsUrl}/api/settings/performance-profile`, { signal: AbortSignal.timeout(30000) });
+    if (res.ok) sel = (await res.json())?.selections; else why = `HTTP ${res.status}`;
+  } catch (e) { why = e.cause?.code || e.name || 'no answer'; }
+  if (!sel || typeof sel !== 'object') die(`could not read VoiceStudio's active TTS model (${why} from ${a.vsUrl}/api/settings/performance-profile) — rerun when the backend answers, or pass --model <name> (references/voice.md "Licence"). Nothing is missing; install nothing.`);
+  return vsModelName(sel.tts?.model || 'k2-fsa/OmniVoice'); // no selection = the app default, as preflight reads it
+}
+
+// One line per generation: which model speaks, under which licence, and where the choice came from.
+function modelLine(a, meta, from) {
+  const v = voiceModel(meta);
+  const lic = v ? `${v.licence}${v.nc ? ' — non-commercial: tell the user; ASSETS.json lists the narration so' : ''}` : 'licence not in scripts/voice_licences.mjs: check its model card';
+  console.log(`Model      : ${meta.model}${meta.tier ? ` (plan ${meta.tier})` : ''} — ${lic} — ${from}`);
+}
+
 async function vsGenerate(a, text, audioPath) {
   const chunks = chunkLines(text, /voxcpm/i.test(a.model || '') ? 120 : 700);
   const parts = [];
@@ -250,7 +274,8 @@ async function vsDialogue(a, seq, audioPath, text) {
       const body = { model: a.model, input: item.text, voice, response_format: 'wav' };
       if (a.language) body.language = a.language;
       if (a.speed) body.speed = a.speed;
-      if (item.style || a.instructions) body.instructions = [item.style, a.instructions].filter(Boolean).join(', ');
+      // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
+      if (item.style || a.instructions) body[/voxcpm/i.test(a.model || '') ? 'description' : 'instructions'] = [item.style, a.instructions].filter(Boolean).join(', ');
       if (Number.isInteger(a.seed)) body.seed = a.seed;
       if (Number.isInteger(a.steps)) body.num_step = a.steps;
       const res = await vs(a, '/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -675,6 +700,10 @@ async function main() {
     : ['sample', a.voice || id || 'voice', a.instructions && `${slug(a.instructions).slice(0, 24)}-${createHash('sha1').update(a.instructions).digest('hex').slice(0, 6)}`, a.engine === 'voicestudio' && `s${a.seed}`, a.speed && `x${a.speed}`].filter(Boolean).map(slug).join('-');
   let response;
   let voiceId = null;
+  if (a.engine === 'voicestudio' && !a.fromResponse && !a.fromAudio) {
+    if (!a.model) { a.model = await vsActiveModel(a); a.modelFrom = "VoiceStudio's active TTS model"; }
+    modelLine(a, { engine: 'voicestudio', model: a.model }, a.modelFrom);
+  }
   if (a.fromResponse) {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
@@ -708,6 +737,10 @@ async function main() {
     response._meta = { engine: 'voicestudio', voice_id: voiceId, instructions: a.instructions, seed: a.seed, model: a.model, language: a.language, speed: a.speed ?? 1, text: clean, characters: spoken.length, created: new Date().toISOString() };
   } else {
     voiceId = await resolveVoiceId(a);
+    // The plan decides the output licence (free tier: non-commercial); unreadable = unknown, never "free".
+    const tier = await fetch(`${API}/v1/user/subscription`, { headers: { 'xi-api-key': apiKey() }, signal: AbortSignal.timeout(15000) })
+      .then(r => r.ok ? r.json() : null).then(b => b?.tier ?? null).catch(() => null);
+    modelLine(a, { engine: 'elevenlabs', model: a.model, tier }, a.modelFrom || 'default');
     const body = { text: clean, model_id: a.model };
     if (a.language) body.language_code = a.language;
     if (a.speed) body.voice_settings = { speed: a.speed }; // ElevenLabs accepts 0.7–1.2
@@ -715,7 +748,7 @@ async function main() {
     process.stdout.write(`Requesting audio from ElevenLabs (${clean.length} characters, model ${a.model}${a.language ? `, language ${a.language}` : ''})... `);
     response = await api(`/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps?${q}`, { method: 'POST', body });
     console.log('done.');
-    response._meta = { engine: 'elevenlabs', voice_id: voiceId, model: a.model, language: a.language, speed: a.speed ?? 1, text: clean, characters: clean.length, created: new Date().toISOString() };
+    response._meta = { engine: 'elevenlabs', voice_id: voiceId, model: a.model, tier, language: a.language, speed: a.speed ?? 1, text: clean, characters: clean.length, created: new Date().toISOString() };
   }
 
   const alignment = response.alignment || response.normalized_alignment;
