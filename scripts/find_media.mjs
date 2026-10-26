@@ -6,7 +6,7 @@
 //
 // Usage:
 //   node find_media.mjs --type music|sfx|image --query "<1-2 English words>" --out review/<dir>
-//        [--licence cc0,by] [--max-duration <s>] [--max 8] [--source openverse|commons]
+//        [--licence cc0,by] [--min-duration <s>] [--max-duration <s>] [--max 8] [--source openverse|commons]
 //   node find_media.mjs --type sfx --bundled [--query "<words>"] [--media-use <sfx dir>] --out review/<dir>
 //   node find_media.mjs --take review/<dir>/<file> --as assets/<path> [--project .]
 //
@@ -14,6 +14,9 @@
 //   always dropped, and so is a result that needs a credit but names no author. Share-alike is opt-in (by-sa).
 //   --bundled applies the same filters to the library's licence (from its CREDITS.md): an NC/ND or out-of-list CC licence, or a CC BY
 //   (the library names no creator), lists nothing and says why (exit 1); a custom, non-CC library licence is listed as it is.
+// Music is told from SFX by length, not by Openverse category: its CC0 music (Freesound) has category null, so a category
+//   filter dropped all of it. --type music therefore defaults to --min-duration 20 (a result of unknown length is kept);
+//   --min-duration works for any type, by hand. SFX keeps category=sound_effect.
 // Exit: 0 results; 1 every source answered and nothing matched; 2 usage; 3 a source failed and nothing was found, or a local file
 //   could not be made, copied or written (rerun).
 // A source that fails is a WARN with "rerun", never "nothing matched" (an unreadable answer is not an empty one); neither is a local
@@ -44,7 +47,7 @@ const args = {};
   }
 }
 function usage(msg) {
-  console.error(`${msg}\nusage: find_media.mjs --type music|sfx|image --query "<q>" --out <dir> [--licence cc0,by] [--max-duration s] [--max 8] [--source openverse|commons]\n       find_media.mjs --type sfx --bundled [--query "<q>"] [--media-use <dir>] --out <dir>\n       find_media.mjs --take <file> --as assets/<path> [--project .]`);
+  console.error(`${msg}\nusage: find_media.mjs --type music|sfx|image --query "<q>" --out <dir> [--licence cc0,by] [--min-duration s] [--max-duration s] [--max 8] [--source openverse|commons]\n       find_media.mjs --type sfx --bundled [--query "<q>"] [--media-use <dir>] --out <dir>\n       find_media.mjs --take <file> --as assets/<path> [--project .]`);
   process.exit(2);
 }
 
@@ -102,11 +105,13 @@ const normCommons = name => {
 const stripHtml = s => String(s ?? '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const slug = s => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '') || 'item';
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'image/tiff': 'tif', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav' };
+// jpeg is jpg; a provider's "mp32" (Jamendo) and any other mp3* variant is plain mp3.
+const normExt = e => (e === 'jpeg' ? 'jpg' : /^mp3/.test(e) ? 'mp3' : e);
 const extOf = (filetype, url, mime, type) => {
   const f = String(filetype || '').toLowerCase().replace(/^\./, '');
-  if (/^[a-z0-9]{2,5}$/.test(f)) return f === 'jpeg' ? 'jpg' : f;
+  if (/^[a-z0-9]{2,5}$/.test(f)) return normExt(f);
   const u = path.extname(new URL(url, 'http://x').pathname).slice(1).toLowerCase();
-  if (/^[a-z0-9]{2,5}$/.test(u)) return u === 'jpeg' ? 'jpg' : u;
+  if (/^[a-z0-9]{2,5}$/.test(u)) return normExt(u);
   return MIME_EXT[mime] || (type === 'image' ? 'jpg' : 'mp3');
 };
 const readJSON = p => JSON.parse(readFileSync(p, 'utf8'));
@@ -150,13 +155,18 @@ const out = path.resolve(args.out);
 const max = Math.max(1, Number(args.max ?? 8) || 8);
 const maxDur = args['max-duration'] !== undefined ? Number(args['max-duration']) : null;
 if (maxDur !== null && !(maxDur > 0)) usage('--max-duration must be a number of seconds');
+const DEFAULT_MIN_MUSIC = 20;
+const minDurGiven = args['min-duration'] !== undefined;
+const minDur = minDurGiven ? Number(args['min-duration']) : type === 'music' ? DEFAULT_MIN_MUSIC : null;
+if (minDurGiven && !(minDur > 0)) usage('--min-duration must be a number of seconds');
+if (minDur !== null && maxDur !== null && minDur > maxDur) usage('--min-duration is longer than --max-duration');
 const hint = `take one: node <skill-dir>/scripts/find_media.mjs --take ${path.join(args.out, '<file>')} --as assets/<path>`;
 
 function finish(results, warns) {
   for (const w of warns) console.log(`WARN: ${w}`);
   if (!results.length) {
     if (warns.length) { console.log('Nothing was found, and a source did not answer — that is not "no results". Rerun in a minute.'); process.exit(3); }
-    console.log(`nothing matched "${query}" — try other English words (1-2 words work best)${args.licence ? '' : ', or widen --licence'}`);
+    console.log(`nothing matched "${query}" — try other English words (1-2 words work best)${args.licence ? '' : ', or widen --licence'}${minDur !== null && !minDurGiven ? ` (music is kept at ${minDur} s or longer: --min-duration <s> to change)` : ''}`);
     process.exit(1);
   }
   local(`writing ${path.join(out, 'results.json')}`, () => writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n'));
@@ -195,7 +205,7 @@ function bundled() {
   const found = readdirSync(lib).filter(f => AUDIO_EXT.test(f)).sort().map(f => {
     const e = byFile.get(f) ?? {}, name = path.parse(f).name, hay = `${name} ${e.description ?? ''}`.toLowerCase();
     return { f, e, name, score: words.length ? words.filter(w => hay.includes(w)).length : 1 };
-  }).filter(x => x.score > 0 && (maxDur === null || x.e.duration == null || x.e.duration <= maxDur)).sort((a, b) => b.score - a.score).slice(0, max);
+  }).filter(x => x.score > 0 && (maxDur === null || x.e.duration == null || x.e.duration <= maxDur) && (!minDurGiven || x.e.duration == null || x.e.duration >= minDur)).sort((a, b) => b.score - a.score).slice(0, max);
   local(`making ${out}`, () => mkdirSync(out, { recursive: true }));
   finish(found.map(x => {
     local(`copying ${x.f} to ${out}`, () => copyFileSync(path.join(lib, x.f), path.join(out, x.f)));
@@ -211,10 +221,13 @@ function bundledRefusal(lic) {
   return null; // a custom library licence (not Creative Commons): listed as it is, check_assets.mjs decides
 }
 
-async function openverse() {
+async function openverse(page = 1) {
   const kind = type === 'image' ? 'images' : 'audio';
   const p = new URLSearchParams({ q: query, license: ovLicenceParam, page_size: '20' });
-  if (type !== 'image') p.set('category', type === 'music' ? 'music' : 'sound_effect');
+  // Music is NOT filtered by category: Freesound CC0 tracks carry category null, so category=music returned none of them.
+  // Music is kept apart from SFX by duration in the candidate loop instead.
+  if (type === 'sfx') p.set('category', 'sound_effect');
+  if (page > 1) p.set('page', String(page));
   const j = await getJSON(`${OPENVERSE}/${kind}/?${p}`);
   if (!Array.isArray(j?.results)) throw new Error('answer has no results list');
   return j.results.map(r => ({
@@ -250,11 +263,18 @@ else {
   for (const s of order) {
     if (cands.length >= max) break;
     try {
-      for (const c of await SOURCES[s]()) {
-        if (!c.url || seen.has(c.url) || !licenceOk(c.licence)) continue;
-        if (needsCredit(c.licence) && !c.author) continue;       // CC BY with no author: no credit possible
-        if (maxDur !== null && c.duration != null && c.duration > maxDur) continue;
-        seen.add(c.url); cands.push(c);
+      // Without a category filter page one can be all short clips: a music search reads up to 3 pages.
+      const pages = type === 'music' && s === 'openverse' ? 3 : 1;
+      for (let page = 1; page <= pages && cands.length < max; page++) {
+        const raw = await SOURCES[s](page);
+        for (const c of raw) {
+          if (!c.url || seen.has(c.url) || !licenceOk(c.licence)) continue;
+          if (needsCredit(c.licence) && !c.author) continue;       // CC BY with no author: no credit possible
+          if (maxDur !== null && c.duration != null && c.duration > maxDur) continue;
+          if (minDur !== null && c.duration != null && c.duration < minDur) continue;   // unknown length is kept
+          seen.add(c.url); cands.push(c);
+        }
+        if (raw.length < 20) break;                              // a short page is the last one
       }
     } catch (e) { warns.push(`${s} did not answer (${e.message}) — rerun`); }
   }
