@@ -39,7 +39,11 @@ that reads as:
   body of one island meeting another's (in the pre-roll too, where loose pieces settle), a script reaching a declared
   body (its methods, a world query such as `castRay` or `contactPairsWith`, a lookup of its handle), a kinematic body
   or a joint across islands throw instead of baking something different. While islands are declared, `onStep`,
-  `track` and `keep` read main-island bodies through their own methods; world-wide queries refuse.
+  `track` and `keep` read main-island bodies through their own methods; world-wide queries refuse. They also cannot
+  change what every island world shares with the main one (gravity, solver settings, fixed bodies and static
+  colliders, joints inside an island, an extra world step): those calls throw, a change that slips past is caught
+  after the bake, and a refused bake is never saved. The cache key ignores the lazily loaded bake worker, so a
+  page that spawned one hashes the next sim like a page that did not.
 
 - **A real merge gate**: `scripts/gate.sh` (`--fast`: syntax, `SKILL.md` front-matter, diagrams; full: also the
   engine build and self-check and `tests/preflight-mock.mjs`, preflight against a mock VoiceStudio in 29 cases).

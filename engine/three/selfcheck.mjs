@@ -2,6 +2,7 @@
 // node selfcheck.mjs <project>/assets/engine — after build.mjs: each check fails loudly if a known trap is back.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
@@ -228,6 +229,7 @@ const shared = {
   "a static collider removed": (I) => { const [f] = statics(I); return () => I.s.world.removeCollider(f, true); },
   "gravity replaced": (I) => () => { I.s.world.gravity = { x: 0, y: 0, z: 0 }; },
   "gravity edited in place": (I) => () => { I.s.world.gravity.y = 0; },
+  "an extra step of the world": (I) => () => I.s.world.step(),
   "the timestep": (I) => () => { I.s.world.timestep = 1 / 240; },
   "the solver iterations": (I) => () => { I.s.world.numSolverIterations = 1; },
   "the integration parameters": (I) => () => { I.s.world.integrationParameters.normalizedAllowedLinearError = 0.1; },
@@ -250,7 +252,7 @@ for (const [what, make] of Object.entries(shared)) {
 }
 {
   // Legitimate: the main island's own bodies are free, and every shared thing may be read; the result is the single world's.
-  const script = (I) => { let n = 0; return (t) => { const f = statics(I)[0]; n += I.s.world.gravity.y + f.translation().y + f.friction() + I.fx.translation().x + I.s.world.timestep + (f.isEnabled() ? 1 : 0) + I.fx.collider(0).halfExtents().x; I.push.body.addForce({ x: 0, y: 0, z: 0.01 }, true); I.push.body.applyImpulse({ x: 0, y: 0, z: 0.0001 }, true); if (t > 0.2) I.push.body.setLinvel({ x: 0, y: 0, z: 1 }, true); }; };
+  const script = (I) => { let n = 0; const f = statics(I)[0]; return (t) => { n += I.s.world.gravity.y + f.translation().y + f.friction() + I.fx.translation().x + I.s.world.timestep + (f.isEnabled() ? 1 : 0) + I.fx.collider(0).halfExtents().x; I.push.body.addForce({ x: 0, y: 0, z: 0.01 }, true); I.push.body.applyImpulse({ x: 0, y: 0, z: 0.0001 }, true); if (t > 0.2) I.push.body.setLinvel({ x: 0, y: 0, z: 1 }, true); }; };
   const S = await withFixed(), sr = await S.s.bakeCached(1, script(S), 0.2, S.opts);
   const P = await withFixed(), pr = await P.s.bakeCached(1, script(P), 0.2, { ...P.opts, islands: [[P.a], [P.b]] });
   for (const t of times) assert.deepEqual(ipose(pr, t), ipose(sr, t), `reading the shared state and driving a main body matches the single world at ${t} s`);
@@ -278,11 +280,12 @@ for (const [what, make] of Object.entries(shared)) {
     globalThis.document = {}; performance.getEntriesByType = () => list.map((name) => ({ name })); globalThis.fetch = async (u) => ({ text: async () => texts.get(u) ?? `// ${u}` });
     try { const I = await isles({ store: new Map() }); return (await I.s.bakeCached(0.2, null, 0.1, I.opts)).hash; } finally { Object.assign(globalThis, { document: real.document, fetch: real.fetch }); performance.getEntriesByType = real.entries; }
   };
-  const base = [dir + "kit.js", dir + "examples/interior.js", dir + "bakecore.js"], noWorker = await hashWith(base);
-  assert.equal(await hashWith([...base, dir + "bake-worker.js"]), noWorker, "a page that spawned a bake worker hashes like one that did not");
-  assert.equal(await hashWith([...base, dir + "bake-worker.js?v=2", dir + "bake/abc.bin"]), noWorker, "a worker script with a query, and the bake files themselves, are no input either");
-  assert.notEqual(await hashWith([...base, dir + "set.js"]), noWorker, "a module the set loads is an input: a new one misses the cache");
-  texts.set(dir + "kit.js", "// edited");
+  const root = pathToFileURL(realpathSync(resolve(process.argv[2] || ".")) + "/").href, at = (f) => root + f; // the URL physics.js was loaded from (links resolved)
+  const base = [at("kit.js"), at("examples/interior.js"), at("bakecore.js")], noWorker = await hashWith(base);
+  assert.equal(await hashWith([...base, at("bake-worker.js")]), noWorker, "a page that spawned a bake worker hashes like one that did not");
+  assert.equal(await hashWith([...base, at("bake-worker.js?v=2"), at("bake/abc.bin")]), noWorker, "a worker script with a query, and the bake files themselves, are no input either");
+  assert.notEqual(await hashWith([...base, at("set.js")]), noWorker, "a module the set loads is an input: a new one misses the cache");
+  texts.set(at("kit.js"), "// edited");
   assert.notEqual(await hashWith(base), noWorker, "a changed module misses the cache");
 }
 

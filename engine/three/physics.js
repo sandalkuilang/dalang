@@ -24,10 +24,14 @@ function hasher() {
 // lives; bake files aside) and the beats.js globals. A change to the set or its timeline changes the hash even where
 // onStep's source does not. Inline scripts are left out: the renderer rewrites them, so a snapshot and a render would
 // never share a bake — a value an inline script feeds the bake goes in opts.key. Empty outside a browser.
+// Engine files the page loads only when something happens at run time, so they are in one page load's resource timeline
+// and not in the next one's (the bake worker: spawned on a cache miss, and a dedicated worker's script is listed in its
+// creator's timeline). They decide nothing a hashed file does not: the worker runs bakecore.js, which every page loads.
+const LAZY = ["bake-worker.js"];
 async function sources() {
   if (typeof document === "undefined" || typeof performance === "undefined") return "";
   const root = new URL("./", import.meta.url).href;
-  const urls = [...new Set(performance.getEntriesByType("resource").map((e) => e.name.split(/[?#]/)[0]))].filter((u) => u.startsWith(root) && /\.(m?js|json)$/.test(u) && !u.startsWith(root + "bake/")).sort();
+  const urls = [...new Set(performance.getEntriesByType("resource").map((e) => e.name.split(/[?#]/)[0]))].filter((u) => u.startsWith(root) && /\.(m?js|json)$/.test(u) && !u.startsWith(root + "bake/") && !LAZY.includes(u.slice(root.length))).sort();
   const texts = await Promise.all(urls.map((u) => fetch(u).then((r) => r.text()).catch(() => "")));
   const g = globalThis, timing = JSON.stringify([g.BEATS, g.WORDS, g.SECTIONS, g.NARRATION_DURATION]);
   return urls.map((u) => u.slice(root.length)).concat(texts, timing).join("\n");
@@ -41,6 +45,24 @@ function fence(obj, active, refuse, allow = []) {
     for (const k of Object.getOwnPropertyNames(p)) if (k !== "constructor" && !allow.includes(k) && typeof Object.getOwnPropertyDescriptor(p, k).value === "function") keys.add(k);
   keys.forEach((k) => Object.defineProperty(obj, k, { configurable: true, value(...a) { if (active()) refuse(k, a); return proto[k].apply(this, a); } }));
   return () => keys.forEach((k) => delete obj[k]);
+}
+
+// Locks an object against change: each method whose name says it changes something (set…, enable…, add…, create…) is
+// shadowed by one that calls refuse(key, args) first when active() says so, and so is each property with a setter.
+// Reads stay open. A key the object already shadows (a fence) is left to that. Returns the function that lifts the lock.
+const CHANGES = /^(set|enable|lock|restrict|add|apply|reset|remove|create|configure)[A-Z]|^(step|sleep|wakeUp|recompute\w*|switchTo\w*|finalizeDeserialization)$/;
+function lock(obj, active, refuse) {
+  const done = new Set();
+  for (let p = Object.getPrototypeOf(obj); p && p !== Object.prototype; p = Object.getPrototypeOf(p))
+    for (const k of Object.getOwnPropertyNames(p)) {
+      const d = Object.getOwnPropertyDescriptor(p, k);
+      if (k === "constructor" || Object.hasOwn(obj, k) || done.has(k)) continue;
+      if (typeof d.value === "function" && CHANGES.test(k)) Object.defineProperty(obj, k, { configurable: true, value(...a) { if (active()) refuse(k, a); return d.value.apply(this, a); } });
+      else if (d.set) Object.defineProperty(obj, k, { configurable: true, get: d.get && function () { return d.get.call(this); }, set(v) { if (active()) refuse(k, [v]); d.set.call(this, v); } });
+      else continue;
+      done.add(k);
+    }
+  return () => done.forEach((k) => delete obj[k]);
 }
 
 // Cache file: "DLB1", header length, JSON header, then per body its stored steps (u32) and poses (7 × f32), then each
@@ -167,13 +189,26 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       },
     };
   }
+  const solverOf = () => { const ip = world.integrationParameters; return [world.numSolverIterations, ip.numInternalPgsIterations, ip.normalizedAllowedLinearError, ip.contact_natural_frequency, ip.maxCcdSubsteps, ip.normalizedPredictionDistance, ip.numAdditionalFrictionIterations]; };
+  // What every island world shares with this one, as one hash: gravity, the solver, every fixed body, every collider that
+  // belongs to no body or to a fixed one, and how many bodies, colliders and joints there are. Taken before the main
+  // island's bake and after it: a script that changed any of it (by a call the fence did not know) never reached the
+  // island worlds, which restored the world as it was before.
+  function sharedState() {
+    const h = hasher(), v3 = (v) => { h.num(v.x); h.num(v.y); h.num(v.z); }, q4 = (q) => { v3(q); h.num(q.w); };
+    v3(world.gravity); h.num(world.timestep); solverOf().forEach((x) => h.num(x ?? NaN));
+    world.forEachRigidBody((b) => { if (b.isFixed()) { h.num(b.handle); h.num(b.isEnabled()); v3(b.translation()); q4(b.rotation()); } });
+    world.forEachCollider((c) => { const p = c.parent(); if (!p || p.isFixed()) { h.num(c.handle); h.num(c.parent()?.handle ?? -1); h.num(c.shapeType()); v3(c.translation()); q4(c.rotation()); h.num(c.friction()); h.num(c.restitution()); h.num(c.density()); h.num(c.collisionGroups()); h.num(c.isSensor()); h.num(c.isEnabled()); } });
+    h.num(world.bodies.len()); h.num(world.colliders.len()); h.num(world.impulseJoints.len()); h.num(world.multibodyJoints.len?.() ?? 0);
+    return h.hex();
+  }
+
   // Everything that decides a bake's result, hashed (64-bit). Shapes are read field by field, so any collider counts.
   async function fingerprint(duration, onStep, preroll, opts, isl = []) {
     const h = hasher(), v3 = (v) => { h.num(v.x); h.num(v.y); h.num(v.z); }, q4 = (q) => { v3(q); h.num(q.w); };
     const any = (x) => { if (typeof x === "number" || typeof x === "boolean") h.num(+x); else if (ArrayBuffer.isView(x)) x.forEach((e) => h.num(e)); else if (x && typeof x === "object") Object.keys(x).sort().forEach((k) => { h.str(k); any(x[k]); }); };
     h.str(`format ${BAKE_FORMAT}`); h.num(duration); h.num(preroll); h.num(world.timestep); v3(world.gravity);
-    const ip = world.integrationParameters;
-    [world.numSolverIterations, ip.numInternalPgsIterations, ip.normalizedAllowedLinearError, ip.contact_natural_frequency, ip.maxCcdSubsteps, ip.normalizedPredictionDistance, ip.numAdditionalFrictionIterations].forEach((x) => h.num(x ?? NaN));
+    solverOf().forEach((x) => h.num(x ?? NaN));
     world.forEachRigidBody((b) => { h.num(b.handle); h.num(b.bodyType()); v3(b.translation()); q4(b.rotation()); v3(b.linvel()); v3(b.angvel()); h.num(b.mass()); v3(b.principalInertia()); h.num(b.linearDamping()); h.num(b.angularDamping()); h.num(b.gravityScale()); h.num(b.isEnabled()); h.num(b.isCcdEnabled()); });
     world.forEachCollider((c) => { h.num(c.handle); h.num(c.parent()?.handle ?? -1); any(c.shape); v3(c.translation()); q4(c.rotation()); h.num(c.friction()); h.num(c.restitution()); h.num(c.density()); h.num(c.collisionGroups()); h.num(c.isSensor()); h.num(c.isEnabled()); });
     world.impulseJoints.forEach((j) => { h.num(j.type()); h.num(j.body1().handle); h.num(j.body2().handle); v3(j.anchor1()); v3(j.anchor2()); });
@@ -252,13 +287,17 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // The islands baked apart and merged into one result, the way bake() gives it. Each declared island is a restored copy
   // of the world with every other body off, baked in a worker while this thread bakes the main island (every body not
   // declared: only it runs onStep, the kinematic paths, opts.track and opts.keep). Declared bodies and every world query are fenced meanwhile,
-  // so a script that reaches a declared body fails instead of seeing a body that is switched off. Each world also bakes
+  // so a script that reaches a declared body fails instead of seeing a body that is switched off. What the island worlds
+  // share with this one (gravity, solver, fixed bodies, static colliders, joints) cannot be changed by a script either. Each world also bakes
   // its pre-roll without the others: crossing() proves from the pre-roll poses (pre) that they never met.
   async function bakeIslands(isl, duration, onStep, preroll, opts) {
     const of = new Map(); isl.forEach((hs, k) => hs.forEach((h) => of.set(h, k + 1)));
     const idx = Array.from({ length: isl.length + 1 }, () => []); // the tracked indices of each island, main first
     tracked.forEach((t, i) => idx[of.get(t.body.handle) || 0].push(i));
-    const nm = names(), snap = world.takeSnapshot();
+    const own = new Set(tracked.map((t) => t.body.handle)), stray = []; // a body the sim did not make is switched off in every island world: it would never meet a declared body
+    world.forEachRigidBody((b) => { if (!b.isFixed() && !own.has(b.handle)) stray.push(b.handle); });
+    if (stray.length) throw new Error(`opts.islands: body ${stray[0]} is neither fixed nor made by roundBox, dynamicHull or kinematicHull: the island worlds switch it off, so it would never touch their bodies (or drop opts.islands)`);
+    const nm = names(), snap = world.takeSnapshot(), shared0 = sharedState();
     const jobs = isl.map((hs, k) => ({ snap, handles: hs, items: idx[k + 1].map((i) => ({ h: tracked[i].body.handle, name: tracked[i].name, impacts: tracked[i].impacts, soft: tracked[i].soft, until: held.get(tracked[i].body.handle) ?? -Infinity })), duration, preroll, mpu, names: nm }));
     const finish = await startPool(RAPIER, jobs, opts.workers); // every worker has its job before this thread is busy
     // The set's own scripts (onStep, a kinematic pose, opts.track, opts.keep) run inside script(): while one runs, nothing
@@ -297,8 +336,29 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         colliderProto[key] = function (...a) { const h = a.find((x) => x && typeof x === "object" && hidCol.has(x.handle)); if (live() && h) throw new Error(`${hidCol.get(h.handle)}: ${key} reads a body of an island, which onStep, opts.track and opts.keep cannot see`); return orig.apply(this, a); };
         lift.push(() => { if (had) colliderProto[key] = orig; else delete colliderProto[key]; });
       });
+      // What the island worlds share with this one (gravity, the solver, the fixed bodies and static colliders, the joints)
+      // was fixed by the snapshot: a script that changes it here changes only this world. Refused too; the hash below
+      // catches a change by a call no fence knew.
+      const wasFixed = (c) => { const p = c.parent(); return !p || p.isFixed(); }, keeps = (what) => (key) => { throw new Error(`${what}.${key}() changes what every island world shares with this one, and the island worlds never see it: onStep, opts.track and opts.keep may change the bodies outside opts.islands only (or leave this out of opts.islands)`); };
+      const bodies = [], colliders = [];
+      world.forEachRigidBody((b) => { if (b.isFixed()) bodies.push(b); });
+      world.forEachCollider((c) => { if (wasFixed(c)) colliders.push(c); });
+      lift.push(
+        lock(world, live, keeps("world")), lock(world.integrationParameters, live, keeps("world.integrationParameters")),
+        ...bodies.map((b) => lock(b, live, keeps(`fixed body ${b.handle}`))), ...colliders.map((c) => lock(c, live, keeps(`static collider ${c.handle}`))),
+      );
+      let gv = world.gravity; const guard = (v) => new Proxy(v, { set(o, k, x) { if (live()) keeps("world")("gravity"); return Reflect.set(o, k, x); } });
+      let gp = guard(gv);
+      Object.defineProperty(world, "gravity", { configurable: true, enumerable: true, get: () => gp, set(v) { if (live()) keeps("world")("gravity"); gv = v; gp = guard(v); } });
+      lift.push(() => Object.defineProperty(world, "gravity", { configurable: true, enumerable: true, writable: true, value: gv }));
+      // A joint inside an island is a joint of bodies that are switched off here: reached through a joint set, it is fenced like its bodies.
+      [world.impulseJoints, world.multibodyJoints].forEach((set) => set.forEach?.((j) => {
+        const label = hid.get(j.body1().handle);
+        if (label) lift.push(fence(j, live, () => { throw new Error(`${label}: its joint cannot be reached by onStep, opts.track or opts.keep, which see only the bodies outside opts.islands`); }));
+      }));
       main = runBake(world, idx[0].map((i) => itemOf(tracked[i])), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: nm, script, trace: true });
     } finally { lift.reverse().forEach((undo) => undo()); }
+    if (sharedState() !== shared0) throw new Error("opts.islands: gravity, the solver, a fixed body, a static collider or a joint changed during the bake, and the island worlds never saw it: change them before the bake, or leave the bodies they touch out of opts.islands");
     const parts = [{ res: main, idx: idx[0] }, ...(await finish()).map((res, k) => ({ res, idx: idx[k + 1] }))];
     parts.forEach(({ res }) => { if (res.n !== main.n || res.dt !== main.dt) throw new Error("islands disagree on the number of steps"); });
     // One result in tracked order: poses by body, the report lists by body, the impacts by time then body (a single world's order).

@@ -97,7 +97,12 @@ here with a line in this table. Air is one shared field: every source adds into 
    empty place, so they refuse; read a main-island body through its own methods), a kinematic body or a joint across
    islands is refused, and a body of one island coming within 5 mm of another's (judged on the drawn geometry, in the
    pre-roll as well as the shot: a piece that settles onto a declared body there would fall through it in its own
-   world) throws with the pair and the time, so merge those islands. A worker that cannot start falls back
+   world) throws with the pair and the time, so merge those islands. What every island world shares with the main one
+   is fixed when the bake starts and the scripts may not change it: gravity, the solver settings, every fixed body
+   and static collider (move, disable, remove, add), joints inside an island, a step of the world. Those calls throw
+   while `onStep`, `track` or `keep` run (reading them stays open, as does driving a main-island body), and a change
+   that slips past is caught after the bake: nothing is saved. A dynamic body the sim did not make is refused too.
+   Set such a change up before the bake, or leave the bodies it touches out of `islands`. A worker that cannot start falls back
    to this thread (a warning, same result, no gain). Gain: the slowest island's time, not the sum.
 5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
