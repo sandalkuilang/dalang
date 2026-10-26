@@ -281,33 +281,42 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // declared body falls through its place and ends far from it, with nothing left to see at t = 0. pre: each body's
   // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot; sp: each body's reach.
   // Judged on the path between two steps, not only at the steps: a fast body can pass a declared one between them
-  // (CCD stops it there in the single world). Each reach centre moves in a straight line over the step, and two bodies
-  // come closest where their relative motion does (sweep). ponytail: the chord of a spinning body's arc and a step of
-  // gravity stay well under the 5 mm margin at 480 Hz; a sub-step proof only if a set spins faster than ~100 rad/s.
+  // (CCD stops it there in the single world). Rapier's CCD ends a body's step at its first contact (the bounce comes in
+  // the next step), so over one step its centre of mass moves in a straight line, and two bodies come closest where
+  // their relative motion does (sweep). A reach centre off the centre of mass also turns about it: the chord of that arc
+  // is at most lever·(1 − cos(θ/2)), θ the turn over the step, added to the body's reach. A script's teleport between
+  // two steps (jumps) is not a path: the step is judged from where the body was put. Gravity bends a step by ~5 µm.
   const sweep = (a0, a1, b0, b1) => {
     const r = [0, 1, 2].map((k) => a0[k] - b0[k]), v = [0, 1, 2].map((k) => a1[k] - a0[k] - (b1[k] - b0[k]));
     const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], t = vv > 0 ? Math.min(1, Math.max(0, -(r[0] * v[0] + r[1] * v[1] + r[2] * v[2]) / vv)) : 0;
     return Math.hypot(r[0] + t * v[0], r[1] + t * v[1], r[2] + t * v[2]);
   };
-  function crossing(poses, pre, of, n, dt, sp) {
+  function crossing(poses, pre, jumps, of, n, dt, sp) {
     const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values());
-    let at = tracked.map(() => null);
     const isle = tracked.map((t) => of.get(t.body.handle) || 0), P = pre.length ? pre[0].length / 7 : 0;
+    const lever = tracked.map((t, i) => { const m = t.body.localCom(); return Math.hypot(sp[i].c[0] - m.x, sp[i].c[1] - m.y, sp[i].c[2] - m.z); });
+    const centre = (i, [x, y, z, qx, qy, qz, qw]) => {
+      const [vx, vy, vz] = sp[i].c, tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx); // c rotated by q, then moved to the body
+      return [x + vx + qw * tx + (qy * tz - qz * ty), y + vy + qw * ty + (qz * tx - qx * tz), z + vz + qw * tz + (qx * ty - qy * tx)];
+    };
+    let at = tracked.map(() => null), q = tracked.map(() => null), k = 0;
     const frame = (pose, when) => {
-      const was = at; at = at.slice(); // was: each reach centre at the step before (null before the first)
+      // from: each reach centre where this step began (the step before, or where a script put it); grow: its arc's chord
+      const from = [], grow = [], wasQ = q; q = q.slice();
       const lo = Array.from({ length: K }, () => [Infinity, Infinity, Infinity]), hi = Array.from({ length: K }, () => [-Infinity, -Infinity, -Infinity]);
       tracked.forEach((_, i) => {
-        const [x, y, z, qx, qy, qz, qw] = pose(i), [vx, vy, vz] = sp[i].c;
-        const tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx); // c rotated by q, then moved to the body
-        at[i] = [x + vx + qw * tx + (qy * tz - qz * ty), y + vy + qw * ty + (qz * tx - qx * tz), z + vz + qw * tz + (qx * ty - qy * tx)];
-        const k = isle[i], r = sp[i].r + margin, w = was[i] || at[i];
-        for (let a = 0; a < 3; a++) { lo[k][a] = Math.min(lo[k][a], at[i][a] - r, w[a] - r); hi[k][a] = Math.max(hi[k][a], at[i][a] + r, w[a] + r); }
+        const now = pose(i), j = jumps[i]?.get(k), q0 = j ? j.slice(3) : wasQ[i], before = at[i];
+        at[i] = centre(i, now); q[i] = Array.from(now.subarray(3, 7)); from[i] = j ? centre(i, j) : before || at[i];
+        grow[i] = q0 ? lever[i] * (1 - Math.min(1, Math.abs(q0[0] * q[i][0] + q0[1] * q[i][1] + q0[2] * q[i][2] + q0[3] * q[i][3]))) : 0;
+        const ki = isle[i], r = sp[i].r + grow[i] + margin, w = from[i];
+        for (let a = 0; a < 3; a++) { lo[ki][a] = Math.min(lo[ki][a], at[i][a] - r, w[a] - r); hi[ki][a] = Math.max(hi[ki][a], at[i][a] + r, w[a] + r); }
       });
+      k++;
       for (let ka = 0; ka < K; ka++) for (let kb = ka + 1; kb < K; kb++) {
         if ([0, 1, 2].some((a) => lo[ka][a] > hi[kb][a] || lo[kb][a] > hi[ka][a])) continue; // the islands' boxes do not even overlap
         for (let i = 0; i < tracked.length; i++) if (isle[i] === ka) for (let j = 0; j < tracked.length; j++) if (isle[j] === kb) {
-          const d = sweep(was[i] || at[i], at[i], was[j] || at[j], at[j]) - sp[i].r - sp[j].r;
-          if (d < margin) throw new Error(`${ka ? `island ${ka}` : "the main island"} and island ${kb} meet: "${tracked[i].name}" and "${tracked[j].name}" come within ${(Math.max(0, d) * mpu * 1000).toFixed(1)} mm at ${when} — put them in one island (or drop opts.islands) and bake again`);
+          const d = sweep(from[i], at[i], from[j], at[j]) - sp[i].r - sp[j].r - grow[i] - grow[j];
+          if (!(d >= margin)) throw new Error(`${ka ? `island ${ka}` : "the main island"} and island ${kb} meet: "${tracked[i].name}" and "${tracked[j].name}" come within ${(Math.max(0, d || 0) * mpu * 1000).toFixed(1)} mm at ${when} — put them in one island (or drop opts.islands) and bake again`);
         }
       }
     };
@@ -410,11 +419,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     const parts = [{ res: main, idx: idx[0] }, ...(await finish()).map((res, k) => ({ res, idx: idx[k + 1] }))];
     parts.forEach(({ res }) => { if (res.n !== main.n || res.dt !== main.dt) throw new Error("islands disagree on the number of steps"); });
     // One result in tracked order: poses by body, the report lists by body, the impacts by time then body (a single world's order).
-    const poses = [], pre = [], list = (key) => parts.flatMap(({ res, idx: ix }) => res.ord[key].map((li, e) => ({ gi: ix[li], v: res.report[key][e] }))).sort((a, b) => a.gi - b.gi).map((x) => x.v);
-    parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; pre[gi] = res.pre[li]; }));
+    const poses = [], pre = [], jumps = [], list = (key) => parts.flatMap(({ res, idx: ix }) => res.ord[key].map((li, e) => ({ gi: ix[li], v: res.report[key][e] }))).sort((a, b) => a.gi - b.gi).map((x) => x.v);
+    parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; pre[gi] = res.pre[li]; jumps[gi] = res.jumps?.[li] || new Map(); }));
     const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
     const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
-    crossing(poses, pre, of, main.n, main.dt, reach0);
+    crossing(poses, pre, jumps, of, main.n, main.dt, reach0);
     return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled") } });
   }
 

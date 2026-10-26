@@ -31,18 +31,27 @@ export function runBake(world, items, o) {
       if (st.s.length && st.s[st.s.length - 1] < s - 1) { st.s.push(s - 1); st.p.push(...prev[i]); }
       st.s.push(s); st.p.push(...cur); last[i] = cur;
     }
-    prev[i] = cur;
+    prev[i] = cur; seen[i] = cur;
   });
   const sample = (s) => track.forEach(([k, fn]) => { series[k][s] = call(fn); });
   const aim = (t) => kin.forEach((k) => { const { p, q } = call(k.pose, t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
   items.forEach((b) => { b.com0 = { ...b.body.worldCom() }; b.q0 = { ...b.body.rotation() }; }); // pre-roll drift is measured at the centre of mass
   const P = Math.round(preroll / dt), pre = trace ? items.map(() => new Float32Array(P * 7)) : null;
+  // jumps (with trace): a body a script moved (setTranslation, setRotation) between two traced poses, keyed by the
+  // traced pose that follows (pre-roll steps first, then the shot): its pose when the physical step began. The island
+  // proof judges the step's path from there, so a teleport (a held piece placed at its cue) is never read as a path.
+  const jumps = trace ? items.map(() => new Map()) : null, seen = items.map(() => null);
+  const mark = (k) => jumps && items.forEach((b, i) => {
+    const p = b.body.translation(), q = b.body.rotation(), c = [p.x, p.y, p.z, q.x, q.y, q.z, q.w].map(Math.fround);
+    if (seen[i] && c.some((v, j) => v !== seen[i][j])) jumps[i].set(k, c);
+  });
   for (let s = P; s > 0; s--) {
     const t = -s * dt;
     gate(t);
-    if (pre) items.forEach((b, i) => { const p = b.body.translation(), q = b.body.rotation(); pre[i].set([p.x, p.y, p.z, q.x, q.y, q.z, q.w], (P - s) * 7); });
+    if (pre) items.forEach((b, i) => { const p = b.body.translation(), q = b.body.rotation(); pre[i].set([p.x, p.y, p.z, q.x, q.y, q.z, q.w], (P - s) * 7); seen[i] = Array.from(pre[i].subarray((P - s) * 7, (P - s + 1) * 7)); });
     if (onStep) call(onStep, t);
     aim(t);
+    mark(P - s + 1);
     world.step();
   }
   const up = (q) => [2 * (q.x * q.y - q.w * q.z), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z + q.w * q.x)]; // where a body's own +y points
@@ -60,6 +69,7 @@ export function runBake(world, items, o) {
     gate(t);
     if (onStep) call(onStep, t);
     aim(t);
+    mark(P + s);
     world.step();
     record(s); sample(s);
     hist.push(items.map((b) => b.body.linvel()));
@@ -106,7 +116,7 @@ export function runBake(world, items, o) {
     poses: S.map((st) => ({ s: Uint32Array.from(st.s), p: Float32Array.from(st.p) })),
     kept: keep ? JSON.parse(JSON.stringify(call(keep))) : undefined, // what onStep built that the set reads later (a stop time)
     report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating, moving, settled }, // settled: how far a body moved in the pre-roll (a big number = it was placed wrong)
-    ord, pre,
+    ord, pre, jumps,
   };
 }
 
