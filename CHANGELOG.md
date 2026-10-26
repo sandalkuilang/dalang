@@ -44,8 +44,9 @@ that reads as:
   plus fracture / splash events) to `<audio>` rows. Material pair + weight pick a sample tag (`wood-on-wood light`,
   `metal-on-stone heavy`, `glass-shatter`, `cloth-soft`, `water-splash`, `latch-click`) from the project's sample library;
   gain = 0.5 × (dv / 1.2)^0.6, capped; contacts under 40 ms apart merge into the hardest; under 0.15 m/s they are dropped;
-  `data-start` is the impact time. An unknown material is `unplaced`, a tag with no sample is `missing`, a sample with no
-  `ASSETS.json` source and licence is refused. It prints the table to approve in `PRODUCTION.md`. `tests/sfx.mjs` is a gate step
+  `data-start` is the impact time. An unknown material is `unplaced`, a tag with no sample is `missing`, a sample whose
+  `ASSETS.json` row is missing, or one `check_assets.mjs` would refuse (no source or licence, ND, unlisted licence, NC under `--commercial`,
+  CC BY without author) is a problem, not a row; a fracture without a known material is `unplaced`. It prints the table to approve in `PRODUCTION.md`. `tests/sfx.mjs` is a gate step
   (it runs `check_assets.mjs` on the picked files).
 - **Numbers model and numbers lint** (Step 3, Gate 1): when the script computes, the project's `model.mjs` is the one
   source of every `[calc]` number. Plain JS with named `[src]`/`[assume]` inputs; it exports `numbers` (each result by
