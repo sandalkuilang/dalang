@@ -373,14 +373,17 @@ try {
       assert.match(run1(imap({ imports: { "lib/": "./js/lib/" } }), mod('import "lib/x.js";')) || "", mixed, "a prefix key of the import map");
       assert.match(run1(imap({ scopes: { "./js/": { duck: "./js/duck.js" } } }), mod('import "duck";')) || "", mixed, "a scoped import map entry");
       assert.match(run1(imap({ imports: { duck: "./js/gone.js" } }), mod('import "duck";')) || "", /could not be read/, "an import map target that cannot be read");
-      assert.match(run1(imap("{ not json"), mod('import "duck";')) || "", /import map/, "an import map that does not parse is unknown");
+      assert.match(run1(imap("{ not json"), mod('import "duck";')) || "", /importmap/, "an import map that does not parse is unknown");
       assert.match(run1(imap({ imports: { duck: "./js/duck.js" } }), mod('import "other";'), { attrs: { src: "js/x.js" }, text: "" }) || "", /could not be read/, "other scripts are still read");
       assert.match(run1(mod("await import(`./js/duck.js`);")) || "", mixed, "a dynamic import with a template literal");
       assert.match(run1(mod("await import( `/js/duck.js` );")) || "", mixed, "a dynamic import with a template literal and spaces");
-      assert.match(run1(mod("const n = 'duck'; await import(`./js/${n}.js`);")) || "", /import\(/, "a template literal with a substitution cannot be resolved");
-      assert.match(run1(mod("await import(name);")) || "", /import\(/, "a dynamic import with a computed specifier cannot be resolved");
-      assert.match(run1(mod("await import('./js/' + n);")) || "", /import\(/, "a concatenated specifier cannot be resolved");
+      assert.match(run1(mod("const n = 'duck'; await import(`./js/${n}.js`);")) || "", /cannot resolve/, "a template literal with a substitution cannot be resolved");
+      assert.match(run1(mod("await import(name);")) || "", /cannot resolve/, "a dynamic import with a computed specifier cannot be resolved");
+      assert.match(run1(mod("await import('./js/' + n);")) || "", /cannot resolve/, "a concatenated specifier cannot be resolved");
+      assert.match(run1(mod("const s = document.createElement('script'); s.src = './js/duck.js'; document.head.append(s);")) || "", /cannot resolve/, "a script element made at run time");
+      assert.match(run1(mod("importScripts('./js/duck.js');")) || "", /cannot resolve/, "importScripts");
       // the other side
+      assert.equal(run1(mod("const d = document.createElement('div'); const s = 'importScriptsNot';")), null, "createElement of another tag");
       assert.equal(run1(imap({ imports: { duck: "./js/ok.js" } }), mod('import { f } from "duck"; f();')), null, "an import map to a local file with no mix word");
       assert.equal(run1(imap({ imports: { three: "https://cdn.example.test/three.module.js", "d3/": "https://cdn.example.test/d3/" } }), mod('import * as T from "three"; import "d3/x.js";')), null, "an import map to a remote library is not read");
       assert.equal(run1(imap({ imports: { duck: "./js/duck.js" } }), mod('import { f } from "./js/ok.js";')), null, "a mapped file that nothing imports is not read");
