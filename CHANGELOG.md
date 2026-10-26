@@ -18,9 +18,10 @@ that reads as:
 <br/>
 
 1. Move the `Unreleased` items into a new `## [x.y.z] - YYYY-MM-DD` section and add its link at the bottom.
-2. Commit, then tag and push:
+2. Do it on a `release/vx.y.z` branch with the README's clone example pinned, and merge its PR (`main` is
+   protected). Then tag the merged commit and push:
    ```bash
-   git tag -a vx.y.z -m "vx.y.z" && git push origin vx.y.z
+   git tag -a vx.y.z -m "vx.y.z" origin/main && git push origin vx.y.z
    ```
 3. The `release` workflow verifies the scripts, the `SKILL.md` front-matter and that this file
    has a section for the tag — then publishes the GitHub release with generated notes.
@@ -29,6 +30,8 @@ that reads as:
 </details>
 
 ## [Unreleased]
+
+## [1.4.0] - 2026-10-26
 
 ### Added
 
@@ -56,6 +59,7 @@ that reads as:
 
 - The step loop of a bake moved from `physics.js` to `bakecore.js` (with `pool.js` and `bake-worker.js` for the
   workers). Same behaviour; the engine sources change, so every cached bake is computed once more.
+- `main` is protected: every change, a release included, goes in through a PR (`CLAUDE.md`, the release steps above).
 
 ## [1.3.0] - 2026-10-26
 
@@ -328,7 +332,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/sandalkuilang/dalang/compare/v1.0.0...v1.1.0

@@ -51,9 +51,11 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 
 - Personal repo: commits and GitHub writes use only the owner's personal account (`sandalkuilang`), never a work
   account.
-- Work on a branch and merge through a PR whose gate is green; `main` only takes a release commit.
+- `main` is protected: every change, a release included, goes in from a branch through a PR (rebase merge, linear
+  history), with its gate green. No direct push, no force push, for admins too.
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
-- Releases: move `Unreleased` into `## [x.y.z] - date`, pin the README's clone example, tag `vx.y.z`. The
-  `release` workflow publishes the section.
+- Releases: on a `release/vx.y.z` branch, move `Unreleased` into `## [x.y.z] - date` and pin the README's clone
+  example; merge its PR, then tag `vx.y.z` on the merged commit in `main`. The `release` workflow publishes the
+  section.
 - The installed copy (`~/.claude/skills/dalang`) is a clone of this repo: update it with `git pull`, never edit
   it directly.
