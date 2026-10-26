@@ -1003,6 +1003,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.equal(repeats(caps, [{ text: "air" }]).length, 0, "one word of a phrase is not a repeat");
   assert.equal(repeats(caps, [{ text: "air is", from: 0, to: 100 }]).length, 1, "a label inside a phrase repeats");
   assert.equal(repeats(caps, [{ text: "The air is thinner", from: 100, to: 110 }]).length, 0, "the same words at another time are not a repeat");
+}
 // Camera stations, attention by ghosting, loop end: one world, one camera, no cut. A small set in metres (a kept base,
 // a group with a shell and a core, a second box sharing the shell's material), run at M = 2.
 {
@@ -1249,5 +1250,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), any scale and gravity");
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, camera stations and travel, attention by ghosting, loop end, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, any scale and gravity");
