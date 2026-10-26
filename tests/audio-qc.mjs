@@ -423,6 +423,29 @@ try {
       assert.equal(run1([mod("const d = document.createElement('div'); const s = 'importScriptsNot';")]), null, "createElement of another tag");
       assert.equal(run1([{ attrs: { type: "application/json" }, text: '{"imports": "import(x)"}' }]), null, "a JSON block is data, not a script");
       assert.equal(run1([mod('import "./duck.js";')]), null, "without <base>, the relative import loads the clean file at the root");
+      // A nested document: a srcdoc is a document read like index.html (pageProblem, its loads resolved against index.html,
+      // as its base URL is the parent's); an element that opens a local document (FRAMES) loads scripts the check does not
+      // resolve; a remote http(s) document is another origin, which cannot reach the page. An SVG <script href> is a load.
+      const fr = (html) => q.pageProblem(q.scanHtml(html), "/p", rd);
+      assert.match(fr('<iframe srcdoc="&lt;script src=&quot;js/duck.js&quot;&gt;&lt;/script&gt;"></iframe>') || "", mixed, "a srcdoc's <script src> is read");
+      assert.match(fr(`<iframe srcdoc='&lt;script type="module"&gt;import "./js/b.js";&lt;/script&gt;'></iframe>`) || "", mixed, "a srcdoc's module import is followed");
+      assert.match(fr('<iframe srcdoc="&lt;script src=&quot;js/gone.js&quot;&gt;&lt;/script&gt;"></iframe>') || "", /could not be read/, "a srcdoc's script that cannot be read");
+      assert.match(fr('<iframe srcdoc="&lt;base href=&quot;js/&quot;&gt;&lt;script src=&quot;duck.js&quot;&gt;&lt;/script&gt;"></iframe>') || "", unresolved, "a srcdoc's own <base href>");
+      assert.match(fr('<iframe srcdoc="&lt;iframe src=&quot;widget.html&quot;&gt;&lt;/iframe&gt;"></iframe>') || "", unresolved, "a local frame inside a srcdoc");
+      assert.match(fr('<iframe srcdoc="&lt;iframe srcdoc=&quot;&amp;lt;script src=&amp;quot;js/duck.js&amp;quot;&amp;gt;&amp;lt;/script&amp;gt;&quot;&gt;&lt;/iframe&gt;"></iframe>') || "", mixed, "a srcdoc inside a srcdoc");
+      assert.match(fr('<svg><script href="js/duck.js"></script></svg>') || "", mixed, "an SVG <script href> is read");
+      assert.match(fr('<svg><script xlink:href="js/duck.js"></script></svg>') || "", mixed, "an SVG <script xlink:href> is read");
+      assert.ok(Object.keys(q.FRAMES).length >= 6, "the elements that open a document");
+      for (const [tag, attrs] of Object.entries(q.FRAMES)) for (const attr of attrs.filter((x) => x !== "srcdoc")) {
+        for (const v of ["widget.html", "./w/x.html", "/widget.html", "w.svg", "data:text/html,&lt;script&gt;1&lt;/script&gt;", "blob:http://project.invalid/1", "http://localhost:8080/w.html", "file:///p/widget.html"]) assert.match(fr(`<${tag} ${attr}="${v}"></${tag}>`) || "", unresolved, `<${tag} ${attr}="${v}"> opens a document the check does not read`);
+        for (const v of ["https://www.example.test/embed/1", "http://cdn.example.test/w.html", "", " ", "about:blank"]) assert.equal(fr(`<${tag} ${attr}="${v}"></${tag}>`), null, `<${tag} ${attr}="${v}"> is another origin or no document`);
+      }
+      // the other side: a clean srcdoc, an image, an empty iframe, a remote embed; an SVG script with clean code
+      assert.equal(fr('<iframe srcdoc="&lt;script src=&quot;js/ok.js&quot;&gt;&lt;/script&gt;&lt;p&gt;hi&lt;/p&gt;"></iframe><img src="d.svg"><iframe></iframe><iframe src="https://www.example.test/embed/1"></iframe>'), null, "a clean srcdoc, an image and a remote frame");
+      assert.equal(fr('<svg><script href="js/ok.js"></script><a href="widget.html">w</a></svg><a href="widget.html">w</a>'), null, "an SVG script with clean code; a link opens no document in the page");
+      // the invariant: every field scanHtml collects is judged; a field pageProblem does not know throws, never passes
+      assert.throws(() => q.pageProblem({ ...q.scanHtml(""), workers: [] }, "/p", rd), /not judged/, "an unjudged scan field");
+      assert.deepEqual(Object.keys(q.scanHtml("")).sort(), ["base", "frames", "groups", "handlers", "master", "media", "scripts"], "the scan fields");
     }
     console.log("ok  the class rule: an attribute outside the inventory, a hidden or <template> ancestor, a lane or a script volume the check does not model = not modelled; inert ones pass");
   }
@@ -839,8 +862,13 @@ try {
         ["c-svg-onload", `${music()}<svg onload="document.getElementById('music-a').volume=0.02"></svg>`, {}, "an svg onload handler"],
         ["c-srcdoc", `${music()}<iframe srcdoc="&lt;script&gt;parent.document.getElementById('music-a').volume=0.02&lt;/script&gt;"></iframe>`, {}, "an iframe srcdoc with a script"],
         ["c-js-url", `${music()}<iframe src="javascript:parent.document.getElementById('music-a').volume=0.02"></iframe>`, {}, "a javascript: URL"],
+        ["c-srcdoc-src", `${music()}<iframe srcdoc="&lt;script src=&quot;js/duck.js&quot;&gt;&lt;/script&gt;"></iframe>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0.02 });\n" }, "a srcdoc's <script src> that changes the bed"],
+        ["c-iframe-local", `${music()}<iframe src="widget.html"></iframe>`, { "widget.html": "<script>parent.document.getElementById('music-a').volume=0.02</script>\n" }, "a local document in an iframe"],
+        ["c-object-local", `${music()}<object data="widget.html"></object>`, { "widget.html": "<script>parent.document.getElementById('music-a').volume=0.02</script>\n" }, "a local document in an object"],
+        ["c-embed-local", `${music()}<embed src="widget.svg">`, { "widget.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>parent.document.getElementById('music-a').volume=0.02</script></svg>\n" }, "a local document in an embed"],
+        ["c-svg-script-href", `${music()}<svg><script href="js/duck.js"></script></svg>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0.02 });\n" }, "an SVG script loaded by href"],
       ]) notChecked(run(make(name, tags, files)), what);
-      for (const [name, tags] of [["p-base", `<base href="js/">${music()}`], ["p-importmap", `${music()}<script type="importmap">{"imports":{}}</script>`], ["p-dynamic", `${music()}<script type="module">import(\`./x.js\`);</script>`]]) {
+      for (const [name, tags] of [["p-base", `<base href="js/">${music()}`], ["p-importmap", `${music()}<script type="importmap">{"imports":{}}</script>`], ["p-dynamic", `${music()}<script type="module">import(\`./x.js\`);</script>`], ["p-iframe", `${music()}<iframe src="widget.html"></iframe>`]]) {
         assert.match(run(make(name, tags)).stdout, /page loads scripts the check does not resolve; check the bed by ear on the draft/, name + ": the advice names the limit");
       }
       notChecked(run(project("c-narr-hidden", { narr: voice(steady), bedDb: 15, html: `<div id="root"><section data-hidden><audio id="narration" src="audio/narration.wav"></audio></section><audio id="music" src="assets/music.wav"></audio></div>` })), "the narration under a hidden ancestor");
@@ -852,7 +880,8 @@ try {
       ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
       ok(run(make("k-handler", `<body onload="document.body.classList.add('ready')">${music()}<img src="a.png" onerror="this.hidden=true"><script type="text/x-handlebars">{{volume}}</script><script type="application/ld+json">{"volume": 1}</script></body>`)), "a handler without a mix token, a data block of a non-JavaScript type");
       ok(run(make("k-plain", `${music()}<script>tl.to("#title", { opacity: 1 }, 0);</script><script src="js/plain.js"></script>`, { "js/plain.js": "gsap.to('#title', { y: 10 });\n" })), "a plain page, relative scripts without a mix token, a bed 15 dB under the voice");
-      ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
+      ok(run(make("k-frames", `${music()}<iframe src="https://www.example.test/embed/1"></iframe><iframe srcdoc="&lt;script src=&quot;js/plain.js&quot;&gt;&lt;/script&gt;&lt;p&gt;hi&lt;/p&gt;"></iframe><iframe></iframe><img src="a.svg"><svg><script href="js/plain.js"></script></svg>`, { "js/plain.js": "gsap.to('#title', { y: 10 });\n" })), "a remote frame, a clean srcdoc script, an empty frame, an image, a clean SVG script");
+      ok(run(make("k-import",`${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
       // the DALANG engine copy (listed by the .engine.json beside it) is a vendored library, like a remote script: not read; a file it does not list is read
       const engineImport = `${music()}<script type="module">import { dust } from "./assets/kit.js";</script>`, engineFile = { "assets/kit.js": "// motes fill a volume\nexport const dust = 1;\n" };
       ok(run(make("k-engine", engineImport, { ...engineFile, "assets/.engine.json": JSON.stringify([{ file: "kit.js", licence: "MIT" }]) })), "an engine file listed in .engine.json is a library, not read");
