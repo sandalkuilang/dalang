@@ -151,7 +151,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   brief.md             steps 0–2: setup, the brief questions, a reference
   script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
-  qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, sound-off quiz, final, hand-off
+  qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
   visual-direction.md  realism ladder, restraint, composition, review rubric, information layers
   looks.md             the nine looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts

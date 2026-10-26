@@ -108,7 +108,7 @@ const READING = {
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },
   7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', null), ...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)'), ...VD_LAYERS] },
-  8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [] },
+  8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: [...of('qc.md', '### Post description (POST.md)'), ...of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)')], sub: [] },
 };
 const isFence = l => /^\s*```/.test(l);
 const kb = b => (b / KB).toFixed(1);
