@@ -152,7 +152,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   script-voice.md      steps 3–4: writing for the ear, number provenance, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
-  visual-direction.md  realism ladder, restraint, composition, review rubric
+  visual-direction.md  realism ladder, restraint, composition, review rubric, information layers
   looks.md             the nine looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
@@ -203,7 +203,7 @@ video/<slug>/
 ├── narration.txt     only the spoken words + {beat|name} markers
 ├── audio/            narration, words.json, beats.json, beats.js
 ├── SPEC.md           the LOOK in numbers · OBJECTS · BANNED defaults
-├── storyboard.md     colour script + shot table, times from beats.json
+├── storyboard.md     colour script + shot table with overlays, times from beats.json
 └── style-frames/     three stills, approved before anything is built
 ```
 

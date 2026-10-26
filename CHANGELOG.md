@@ -172,6 +172,11 @@ that reads as:
   end-of-line comments, whole-line comments and `//` inside strings; exit 2 when nothing could be linted.
   Run after every patch and before every snapshot or draft render (`look-build.md` §6.8) and in the Step 7 QC block
   (`qc.md`); `lessons.md` says why; `tests/lint-scene.mjs` joins the merge gate.
+- **Information layers for explainers** (`visual-direction.md` §12): a claim headline (kicker, headline, status
+  tag), data cards anchored beside their subject, world labels and captions, each with one job, plus evidence,
+  calculation, running-tally, impact-numeral and recap-checklist cards; sizes and positions per 9:16, 4:5 and
+  16:9, at most 3 cards besides the caption, sides and hues fixed, one fact in one layer. The storyboard's shot
+  table has an Overlay column that Step 6 builds text from; the review rubric adds Sound off and No repeat.
 
 ### Changed
 
@@ -218,6 +223,9 @@ that reads as:
 - **Unattended runs: Realism, Reality and Clarity P1s block the final** like a P0 until a round fixed them or two
   rounds failed; a Realism or Reality fail stays a P0 that never ships; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
   `review.md`). `lessons.md` gains the `font:` shorthand and scene-id lessons.
+- **Anchored side cards are allowed on 9:16** (`visual-direction.md` §7): two subjects may each carry a data
+  card beside them (≤ 30 % of the width); side-by-side columns of prose stay banned. §5's one-text-block rule
+  becomes one headline and at most 3 cards; §8 pairs physical comparisons with a running tally.
 
 ### Fixed
 

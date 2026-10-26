@@ -66,7 +66,8 @@ const VD_RESTRAINT = of('visual-direction.md', '## 5. Restraint: top-notch, not 
 const VD_CINEMA = of('visual-direction.md', '## 6. Cinematography');
 const THREEJS = of('looks.md', '### Install the engine into the project', '### Light and material per look', '### Set dressing, real scale, interior style, condition', '### True shapes and true surfaces');
 const VD_HERO = of('visual-direction.md', '## 1. The hero is real (the realism ladder)', '### 1.1 Per subject and source: machines, sourcing, stills, people, checks');
-const ASSET_PASS = of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
+const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
+const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
 const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO], sub: [] },
   1: {
@@ -83,7 +84,7 @@ const READING = {
       ...LOOKS, ...THREEJS,
       ...VD_HERO,
       ...VD_ENERGY, ...VD_RESTRAINT, ...VD_CINEMA,
-      ...of('visual-direction.md', '## 7. Composition (read the format from `BRIEF.md`)', '## 8. What the best educational videos do'),
+      ...of('visual-direction.md', '## 7. Composition (read the format from `BRIEF.md`)', '## 8. What the best educational videos do'), ...VD_LAYERS,
       ...of('craft-rules.md', '## 2. Push-in: camera, not scissors', '## 3. Beats: everything lands on a word', '## 4. Motion budget: no dead seconds', '## 5. The mitten rule (stylised characters only)', '## 6. On-screen text'),
       ...of('camera-motion.md',
         '## 1. Angle is a sourcing decision, movement is a timeline decision', '## 2. Camera moves: every perceptible move answers "what changed?"', '## 3. Axis, eyelines, cuts, rhythm', '## 4. Story shape, the loaded frame, faceless staging',
@@ -95,11 +96,11 @@ const READING = {
   6: {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
-      ...THREEJS, ...ASSET_PASS, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...of('craft-rules.md', '## 6. On-screen text'),
+      ...THREEJS, ...ASSET_PASS, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS,...of('craft-rules.md', '## 6. On-screen text'),
       ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },
-  7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', null), ...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)')] },
+  7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', null), ...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)'), ...VD_LAYERS] },
   8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [] },
 };
 const isFence = l => /^\s*```/.test(l);
