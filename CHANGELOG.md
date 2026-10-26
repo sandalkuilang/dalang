@@ -261,6 +261,10 @@ that reads as:
 - **Hand-off deliverables** (`qc.md` Step 8): `final.mp4`, `narration.srt`, `CREDITS.md` and `POST.md`. The credit
   rule for the upload text moved into the Post description section (rule unchanged: no credit line unless the user
   chose one).
+- **Model per subagent job** (`SKILL.md` "Work fast", `review.md`, `qc.md`): a table says which model each subagent
+  uses. The fresh-eyes review, the second Realism / Reality check, the style-frame check and the scopes verdict keep the
+  session's (strongest) model; fix checks, asset pair checks, media screening and fact research (strongest when the
+  topic is technical or contested) run on the mid tier (`model: "sonnet"`). A host with no model choice inherits.
 - **Sound from the bake** (`camera-motion.md` §5.3, `look-build.md` §7, `craft-rules.md` §7): the merge window of near-simultaneous
   contacts is 40 ms (was ~30), the pitched-up variant for lighter contacts is gone (a lighter contact takes the lighter weight
   tag), and "sparingly, key beats only" now scopes to non-physical sounds (pop, whoosh); a sound with a physical cause is placed
