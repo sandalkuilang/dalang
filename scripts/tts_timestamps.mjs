@@ -46,6 +46,8 @@
 // --model: VoiceStudio speaks with its active TTS model (the one preflight reports) unless --model names another. The take
 // prints "Model : <name> — <licence>" and records the model in <name>.response.json _meta; scripts/check_assets.mjs
 // checks the narration's ASSETS.json licence against it (scripts/voice_licences.mjs is the one table).
+// DALANG_VS_BUSY_WAIT_S (env, default 180): seconds to wait after a VoiceStudio 503 (a job ran over its compute limit and
+// still holds the device) before the one retry. Still busy: "WARN … rerun in a few minutes" and exit code 3 (never FAILED).
 // --steps (VoiceStudio OmniVoice, default 32 = the model's documented quality preset; the app default is 16; 32 takes longer).
 // Outputs: <out>/words.json ({ i, text, start, end, est?, score? } — est = timing estimated), beats.json,
 // beats.js (BEATS, BEATS_LIST, SECTIONS, WORDS, NARRATION_DURATION[, LINES]), narration.srt (sidecar subtitles). The last line is "DONE <audio>".
@@ -136,7 +138,7 @@ async function api(pathname, { method = 'GET', body } = {}) {
 }
 
 // ── VoiceStudio (local, OpenAI-compatible API) ──────────────────────────────
-async function vs(a, pathname, init = {}) {
+async function vs(a, pathname, init = {}, retried = false) {
   let res;
   try { res = await fetch(a.vsUrl + pathname, init); }
   catch (e) {
@@ -147,6 +149,19 @@ async function vs(a, pathname, init = {}) {
   }
   if (!res.ok) {
     const body = await res.text();
+    // 503: the server abandoned a job that ran over its compute limit and keeps the device until it finishes, so an
+    // immediate retry competes with it. That is BUSY, not a failure: wait, retry once, then say "rerun" (exit 3).
+    if (res.status === 503) {
+      const short = body.replace(/\s+/g, ' ').slice(0, 200);
+      if (!retried) {
+        const s = Number(process.env.DALANG_VS_BUSY_WAIT_S ?? 180);
+        console.log(`\nBUSY       : VoiceStudio answered 503 on ${pathname} (${short}) — waiting ${s} s for the device to finish its job, then retrying once.`);
+        await new Promise(r => setTimeout(r, s * 1000));
+        return vs(a, pathname, init, true);
+      }
+      console.error(`WARN: VoiceStudio is still busy on ${pathname} (${short}) — it is still finishing an abandoned job; rerun in a few minutes. Nothing is missing: do not restart VoiceStudio, install nothing, keep the engine.`);
+      process.exit(3);
+    }
     let detail = null; try { detail = JSON.parse(body).detail; } catch { /* not JSON */ }
     if (detail?.error === 'asr_model_missing') {
       const rec = detail.recommended || {};
@@ -161,11 +176,27 @@ async function vs(a, pathname, init = {}) {
 
 // Split text into chunks of whole lines (whole sentences when a line is too long), each well under
 // VoiceStudio's 4,096-character cap and its 300 s compute limit per request. VoxCPM2 on a 16 GB Mac
-// runs ~22× slower than real time, so its chunks stay near 120 characters (~9 s of speech).
+// runs ~22× slower than real time, so its chunks stay near 120 characters (~9 s of speech) and never over: a sentence
+// still longer than the limit splits after a comma (or another clause mark), then at a space.
+const chunkMax = model => /voxcpm/i.test(model || '') ? 120 : 700;
+function fit(s, max) {
+  if (s.length <= max) return [s];
+  const out = [];
+  const add = piece => { if (out.length && (out[out.length - 1] + ' ' + piece).length <= max) out[out.length - 1] += ' ' + piece; else out.push(piece); };
+  for (const clause of s.split(/(?<=[,;:—–、，；])\s*/).map(c => c.trim()).filter(Boolean)) {
+    if (clause.length <= max) { add(clause); continue; }
+    for (const w of clause.split(/\s+/)) {
+      if (w.length <= max) add(w);
+      else for (let i = 0; i < w.length; i += max) out.push(w.slice(i, i + max)); // no space to cut at (CJK): every max characters
+    }
+  }
+  return out;
+}
 function chunkLines(text, max = 700) {
   const out = [];
   const units = text.split('\n').map(l => l.trim()).filter(Boolean)
-    .flatMap(l => l.length <= max ? [l] : (l.match(/[^.!?…。！？]+[.!?…。！？]*\s*/g) || [l]).map(s => s.trim()).filter(Boolean));
+    .flatMap(l => l.length <= max ? [l] : (l.match(/[^.!?…。！？]+[.!?…。！？]*\s*/g) || [l]).map(s => s.trim()).filter(Boolean))
+    .flatMap(u => fit(u, max));
   for (const line of units) {
     if (out.length && (out[out.length - 1] + ' ' + line).length <= max) out[out.length - 1] += ' ' + line;
     else out.push(line);
@@ -267,7 +298,7 @@ function modelLine(a, meta, from) {
 }
 
 async function vsGenerate(a, text, audioPath) {
-  const chunks = chunkLines(text, /voxcpm/i.test(a.model || '') ? 120 : 700);
+  const chunks = chunkLines(text, chunkMax(a.model));
   const parts = [];
   const voice = await vsVoiceId(a, a.voiceId || a.voice);
   for (const [k, input] of chunks.entries()) {
