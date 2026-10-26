@@ -33,6 +33,12 @@ that reads as:
 
 ### Added
 
+- **Review strips**: `scripts/strips.mjs` reads the storyboard's shot table (or `beats.json`), captures N stills per
+  shot in one snapshot call and writes numbered sheets (one row per shot) and an index of frame → time → shot.
+  `qc.md` and the fresh-eyes review use it instead of hand-tiled contact sheets; `tests/strips.mjs` checks it in
+  the gate.
+- **Skill feedback in the hand-off**: the agent ends `PRODUCTION.md` with a `## Skill feedback` section of generic
+  traps, their cost and a suggested rule, to report upstream; it never edits the installed skill.
 - `tests/voice-licence.mjs` in the merge gate: the take's model against a mock VoiceStudio, and the narration row
   against the take's recorded model on fixture projects.
 - **Cutaway (section view)**: `engine/three/cutaway.js` cuts an assembly open with one clipping plane on every
@@ -47,6 +53,12 @@ that reads as:
   a stencil buffer. `examples/flask.js` is the ready piece, and the
   self-check asserts the plane on every part (a late one too), the caps' settings and the shell's ring.
   Documented in `engine/three/README.md`, `looks.md` and `camera-motion.md`.
+
+### Changed
+
+- **Unattended runs: Reality and Clarity P1s block the final** like a P0 until a round fixed them or two rounds
+  failed; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
+  `review.md`). `lessons.md` gains the `font:` shorthand and scene-id lessons.
 
 ### Fixed
 

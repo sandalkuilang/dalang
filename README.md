@@ -170,6 +170,7 @@ scripts/
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
+  strips.mjs           review strips: stills per shot on numbered sheets + index
   check_assets.mjs     licence gate for every asset → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
@@ -177,7 +178,7 @@ scripts/
 engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics,
                   cloth, air, plants, particles, water, fur, cutaways) with a self-check; bake.mjs caches a
                   physics bake once for every snapshot and render; examples/ ready pieces
-tests/            preflight against a mock VoiceStudio (run by the gate)
+tests/            preflight against a mock VoiceStudio, review strips (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```
@@ -227,7 +228,7 @@ The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — n
 
 <br/>
 
-Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language).
+Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, fixes every Reality or Clarity P1 before a final — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
 
 </details>
 
