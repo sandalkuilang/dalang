@@ -487,6 +487,24 @@ assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatch
   assert.equal(el.material.emissiveIntensity, 0.5, "the original changing again wins again");
   assert.equal(fixed.material.color.getHex(), 0x00ff00, "an untouched material keeps its own colour");
 }
+// A texture swap on the set's material points the clone at the new texture: the clone shares the old texture with the
+// original and with every material outside the root, so the old one is never written into (a copy would overwrite its
+// source in place); a swap back restores it; value properties (colour, vector) are still copied into the clone's own.
+{
+  const px = (v) => new THREE.DataTexture(new Uint8Array([v, v, v, 255]), 1, 1);
+  const texOff = px(0), texOn = px(255), texEm = px(10), texEmOn = px(200);
+  const screen = new THREE.MeshStandardMaterial({ map: texOff, emissiveMap: texEm }), outside = new THREE.MeshStandardMaterial({ map: texOff, emissiveMap: texEm });
+  const sr = new THREE.Group(), sm = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), screen); sr.add(sm);
+  const sc = cutaway(sr); sr.updateMatrixWorld(true); sc.at(0);
+  screen.map = texOn; screen.emissiveMap = texEmOn; screen.normalScale.set(3, 4); sc.at(1);
+  assert.ok(sm.material.map === texOn && sm.material.emissiveMap === texEmOn, "a texture swap points the clone at the new texture");
+  assert.ok(texOff.image.data[0] === 0 && texEm.image.data[0] === 10 && outside.map === texOff && outside.map.image.data[0] === 0, "the old texture, shared with materials outside the root, is never written into");
+  assert.ok(sm.material.normalScale.x === 3 && sm.material.normalScale.y === 4 && sm.material.normalScale !== screen.normalScale, "a vector property is copied into the clone's own object");
+  screen.map = texOff; screen.emissiveMap = texEm; sc.at(2);
+  assert.ok(sm.material.map === texOff && sm.material.emissiveMap === texEm && texOn.image.data[0] === 255 && texEmOn.image.data[0] === 200, "a swap back restores the old texture and leaves the other one whole");
+  screen.map = null; sc.at(3);
+  assert.ok(sm.material.map === null, "a map removed on the original is removed on the clone");
+}
 // The cap group is never under the root, also when at() runs before the root is in the scene (a pose or preview):
 // it joins the scene once the root has one, follows the root to another scene, and the assembly's size stays its own.
 {
