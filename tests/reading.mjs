@@ -218,6 +218,85 @@ try {
   assert.equal(re3.code, 0, `a bigger indexed section within 8 KB passes: ${re3.err}`);
   assert.equal(JSON.parse(re3.out).total, json.total, "indexed sections are outside the Read-now total");
 
+  // 5. The table reaches every section it must. (a) No section of any reference (lessons.md aside: it is read by
+  // headline and grep, never whole) is over the 8 KB budget, listed in the table or not: a section the table does
+  // not list is a section the gate cannot see. (b) Every pointer in a step's "Read now" text to another reference
+  // section has a line in that step's look-up index (or is read, or is for the subagent): the agent has a ready command.
+  const refDir = path.join(root, "references");
+  const refFiles = fs.readdirSync(refDir).filter((f) => f.endsWith(".md"));
+  const linesOf = (f) => fs.readFileSync(path.join(refDir, f), "utf8").split("\n");
+  const sections = (f) => { // [{ heading, from, to, bytes }] for every heading of any level, outside ``` fences
+    const ls = linesOf(f); const hs = []; let fence = false;
+    ls.forEach((l, i) => { if (/^\s*```/.test(l)) fence = !fence; else if (!fence && /^#{1,6} /.test(l)) hs.push(i); });
+    return hs.map((h, k) => { const to = k + 1 < hs.length ? hs[k + 1] : ls.length; return { heading: ls[h], from: h + 1, to, bytes: Buffer.byteLength(ls.slice(h, to).join("\n").trimEnd() + "\n") }; });
+  };
+  for (const f of refFiles.filter((x) => x !== "lessons.md")) {
+    for (const s of sections(f)) assert.ok(s.bytes <= SECTION_MAX, `${f} "${s.heading}" is ${s.bytes} B, over the 8 KB budget: split it with a ### heading and list its parts in state.mjs`);
+  }
+  // The one command that installs the three.js engine is in the index of the steps that build with it (5 and 6).
+  for (const n of [5, 6]) {
+    const cmds = json.steps[n].commands.refs;
+    const hit = cmds.find((c) => { const r = spawnSync("sh", ["-c", c], { cwd: os.tmpdir(), encoding: "utf8" }); return /build\.mjs assets/.test(r.stdout) && /selfcheck\.mjs assets/.test(r.stdout); });
+    assert.ok(hit, `step ${n}: the look-up index has a line whose section prints the engine install (build.mjs assets, selfcheck.mjs assets)`);
+  }
+  // A heading's number: "## 6. On-screen text" -> "6", "### 5.2 Contact" -> "5.2", "## Step 3 — Script" -> "3".
+  const numOf = (h) => (h ?? "").match(/^#{1,6} (?:Step )?(\d+(?:\.\d+)?)(?=[.\s—:)]|$)/)?.[1] ?? null;
+  const pointersOf = (line) => { // [{ file, nums? , quote?, any? }] found in one line of a step's Read-now text
+    const out = []; const seenFiles = []; let last = null, lastEnd = 0;
+    const re = /`([\w\/.-]+\.md)`|§\s?(\d+(?:\.\d+)?)(?:\s?[–-]\s?(\d+))?|"([^"]+)"|\bStep (\d+)\b/g;
+    for (let m; (m = re.exec(line)); ) {
+      const glued = /^\s*$/.test(line.slice(lastEnd, m.index)); // directly after the file mention
+      if (m[1]) {
+        last = refFiles.includes(m[1]) ? m[1] : null; lastEnd = re.lastIndex;
+        if (last) { seenFiles.push(last); out.push({ file: last }); }
+      } else if (m[2]) {
+        const lo = Number(m[2]), hi = m[3] ? Number(m[3]) : lo;
+        const nums = m[3] ? Array.from({ length: hi - lo + 1 }, (_, i) => String(lo + i)) : [m[2]];
+        if (glued && last) { out.pop(); out.push({ file: last, nums }); lastEnd = re.lastIndex; }
+        else if (seenFiles.length) out.push({ any: [...seenFiles], nums });
+      } else if (m[4] && glued && last) { const p = out.at(-1); if (p?.file === last && !p.nums) { p.quote = m[4]; lastEnd = re.lastIndex; } }
+      else if (m[5] && glued && last) { const p = out.at(-1); if (p?.file === last && !p.nums) { p.nums = [m[5]]; lastEnd = re.lastIndex; } }
+    }
+    return out;
+  };
+  const textOf = (e) => linesOf(e.file).slice(e.from - 1, e.to).join("\n").toLowerCase();
+  const pointerProblems = (steps, readLinesOf) => {
+    const bad = [];
+    for (const [n, s] of Object.entries(steps)) {
+      const have = [...s.read, ...s.refs, ...s.sub];
+      const coversNum = (file, num) => have.some((e) => e.file === file && (e.heading === null || numOf(e.heading) === num));
+      const exists = (file, num) => sections(file).some((x) => numOf(x.heading) === num);
+      for (const [where, line] of readLinesOf(s)) for (const p of pointersOf(line)) {
+        if (p.any) { // a bare § after several files: covered when some file in the line has it
+          for (const num of p.nums) if (p.any.some((f) => exists(f, num)) && !p.any.some((f) => coversNum(f, num))) bad.push(`step ${n} ${where}: §${num} (${[...new Set(p.any)].join(", ")}) has no index line`);
+        } else if (p.nums) {
+          for (const num of p.nums) {
+            if (!exists(p.file, num)) bad.push(`step ${n} ${where}: ${p.file} has no section ${num}`);
+            else if (!coversNum(p.file, num)) bad.push(`step ${n} ${where}: ${p.file} §${num} has no index line`);
+          }
+        } else if (p.quote) {
+          if (!have.some((e) => e.file === p.file && (e.heading === null || textOf(e).includes(p.quote.toLowerCase())))) bad.push(`step ${n} ${where}: ${p.file} "${p.quote}" has no index line`);
+        } else if (!have.some((e) => e.file === p.file)) bad.push(`step ${n} ${where}: ${p.file} has no index line`);
+      }
+    }
+    return bad;
+  };
+  const readLines = (s) => s.read.flatMap((e) => linesOf(e.file).slice(e.from - 1, e.to).map((l, i) => [`${e.file}:${e.from + i}`, l]).filter(([, l]) => !/^\s*```/.test(l)));
+  // the pointer reader itself, on lines of every form the references use
+  assert.deepEqual(pointersOf("see `craft-rules.md` §6 (lower third)"), [{ file: "craft-rules.md", nums: ["6"] }]);
+  assert.deepEqual(pointersOf('`voice.md` "Clone")'), [{ file: "voice.md", quote: "Clone" }]);
+  assert.deepEqual(pointersOf("`camera-motion.md` §1–3, §8"), [{ file: "camera-motion.md", nums: ["1", "2", "3"] }, { any: ["camera-motion.md"], nums: ["8"] }]);
+  assert.deepEqual(pointersOf("`look-build.md` Step 6, item 7"), [{ file: "look-build.md", nums: ["6"] }]);
+  assert.deepEqual(pointersOf("in `references/format.md` §6"), [], "a /hyperframes file is not a pointer into the skill");
+  const loose = pointerProblems(json.steps, readLines);
+  assert.deepEqual(loose, [], `a pointer in a step's text with no line in that step's look-up index:\n${loose.join("\n")}`);
+  // the legitimate side: a pointer the step does read, or indexes, passes (a fixture step that points at its own and an indexed section)
+  const fixSteps = { 9: { read: [{ file: "craft-rules.md", heading: "## 6. On-screen text", from: 39, to: 56 }], refs: [{ file: "voice.md", heading: "### Clone (VoiceStudio, free, local)", from: 35, to: 40 }], sub: [] } };
+  const fixLines = () => [["fix:1", "captions per `craft-rules.md` §6 and `voice.md` \"Clone\""]];
+  assert.deepEqual(pointerProblems(fixSteps, fixLines), [], "pointers covered by a read or an index entry pass");
+  assert.equal(pointerProblems({ 9: { ...fixSteps[9], refs: [] } }, fixLines).length, 1, "the same text without the index entry is one problem");
+  assert.equal(pointerProblems(fixSteps, () => [["fix:1", "`script-voice.md` §3"]]).length, 1, "a pointer into a section the step does not list is a problem");
+
   console.log("reading: ok");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
