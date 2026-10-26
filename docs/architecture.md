@@ -15,7 +15,7 @@ flowchart LR
         PF["preflight.mjs"]
         TTS["tts_timestamps.mjs"]
         ST["stillness.mjs"]
-        LD["loudness.mjs"]
+        LD["loudness.mjs · audio_qc.mjs"]
         AL["align.py"]
         QC["qc.mjs · timing_lint.mjs · lint_scene.mjs<br/>state.mjs · check_assets.mjs"]
         MR["measure_reference.sh · palette.mjs"]
@@ -45,7 +45,7 @@ flowchart LR
 | `scripts/preflight.mjs` | environment check, ~15 lines of output; `--start` opens an installed VoiceStudio; reports when the skill's own clone is behind `origin/main` (fetch only) | install anything, print secrets, pull or update on its own |
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
 | `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
-| `scripts/stillness.mjs`, `loudness.mjs`, `qc.mjs`, `scopes.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, black frames, colour tags, exposure and hue per cut, cuts inside words) | judge taste |
+| `scripts/stillness.mjs`, `loudness.mjs`, `audio_qc.mjs`, `qc.mjs`, `scopes.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, bed level under the voice, clicks, voice drift, black frames, colour tags, exposure and hue per cut, cuts inside words) | judge taste |
 | `scripts/lint_scene.mjs` | flags a mid-line `//` comment that swallows the code after it (`file:line`, the swallowed text) | rewrite the code |
 | `scripts/numbers_lint.mjs` | Gate 1: each narration beat named after a model number (`name`, further mentions `name__suffix`) holds a mention of its `numbers.json` value in a declared form (its `say`, or a figure after the spoken rounding, alone or in the say's place; other beats are not read), each `[calc: name]` is in `numbers.json`, `numbers.json` is not older than `model.mjs` (`file:line`, spoken, model value) | compute the numbers (the project's `model.mjs` does) |
 | `scripts/storyboard_lint.mjs` | Step 5: the shot table of `storyboard.md` against the energy's limits (`visual-direction.md` §3): an empty Subject action or Camera cell, 3+ rows with the same size and angle, the share of text-only rows, the average shot (`storyboard.md:line row N`); `state.mjs approve 3` records its result | judge taste, edit the storyboard |

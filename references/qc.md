@@ -10,6 +10,7 @@ node <skill-dir>/scripts/lint_scene.mjs     # no code swallowed by a mid-line //
 npx hyperframes render --fps 10 --quality draft --quiet --output draft.mp4   # run in the background
 node <skill-dir>/scripts/stillness.mjs draft.mp4    # target ≤ 10 %, no still stretch > 1.5 s (planned pauses: --allow a-b)
 node <skill-dir>/scripts/loudness.mjs draft.mp4     # target ≈ −14 LUFS, true peak ≤ −1 dBTP
+node <skill-dir>/scripts/audio_qc.mjs . --mix draft.mp4   # bed 8–25 dB under the voice, no click or dropout, no off-pitch sentence
 node <skill-dir>/scripts/qc.mjs draft.mp4 --size <WxH from BRIEF.md>   # black frames, clipping, silences, ends before the narration, codec and colour tags
 node <skill-dir>/scripts/timing_lint.mjs    # every picture cut between words, no scene under 1 s
 npx hyperframes snapshot --review --describe false
@@ -27,7 +28,7 @@ node <skill-dir>/scripts/scopes.mjs draft.mp4 --png   # exposure and hue per cut
 - **User away (autonomous mode):** a Realism or Reality fail of the subject or a shot is a P0, never shipped (next bullet). A Realism, Reality or Clarity P1 (one detail off the real thing, the narrated cause shown only in part) blocks the final like a P0 until a round fixes it or two rounds fail on it; then it ships as a known bug, named in the hand-off with why. Other P1s (craft, composition, transition) may ship, listed in the hand-off. With the user present, Gate 4 is theirs.
 - The reviewer runs the rubric; you compare the review sheet's beat frames with the approved style frames (the film must look like them, not drift back to defaults) and a second strongest-model subagent checks Realism and Reality on full-resolution snapshots of every shot with the subject (people judged in motion), a text verdict per shot; you never open the stills yourself; a Realism or Reality fail (P0) is fixed before Gate 4; a lesser detail (P1) follows the user-away rule.
 - A fix check between rounds: a mid-tier subagent (`model: "sonnet"`) gets the `changed (targeted)` stills and the finding to confirm gone.
-- Too quiet → raise the narration in the mix. Too still → add motion where the script points. `stillness.mjs` counts a drifting still as motion: it catches frozen frames, not slideshows (the Action test).
+- Too quiet → raise the narration in the mix. Bed flagged → its `data-volume` or lane; a click or an off sentence → `tts_timestamps.mjs --retake <n>`. Too still → add motion where the script points. `stillness.mjs` counts a drifting still as motion: it catches frozen frames, not slideshows (the Action test).
 - Run `check`, snapshots and renders with no model job running: next to a model job one `check` took 121–149 s instead of 13–18 s.
 - A render far slower than the last one (over 3×) → stop it and look for a cause (`--debug`, other Chrome processes, a heavy filter) instead of waiting.
 - Log every problem in `PRODUCTION.md`.
@@ -40,7 +41,7 @@ Then `npx hyperframes preview --background --no-open` (without `--no-open` it la
 ```bash
 node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
 npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output final.mp4
-node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4
+node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4 && node <skill-dir>/scripts/audio_qc.mjs . --mix final.mp4
 ```
 
 `--commercial` when the video will be monetised (fails non-commercial licences). Loudness still off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4` and deliver that file.
