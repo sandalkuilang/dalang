@@ -297,6 +297,27 @@ try {
   assert.equal(pointerProblems({ 9: { ...fixSteps[9], refs: [] } }, fixLines).length, 1, "the same text without the index entry is one problem");
   assert.equal(pointerProblems(fixSteps, () => [["fix:1", "`script-voice.md` §3"]]).length, 1, "a pointer into a section the step does not list is a problem");
 
+  // 6. The accent budget agrees across the file: §5 and the §11 Restraint row allow the accent colour on ONE element
+  // per shot, so no §12 layer may take it unconditionally (a headline over an impact numeral would break §5).
+  const vd = fs.readFileSync(path.join(root, "references", "visual-direction.md"), "utf8");
+  const sec = (re) => { const m = re.exec(vd); assert.ok(m, `section ${re} not found`); const rest = vd.slice(m.index + m[0].length); const n = rest.search(/\n## /); return n < 0 ? rest : rest.slice(0, n); };
+  const s5 = sec(/\n## 5\. Restraint[^\n]*\n/), s11 = sec(/\n## 11\. Review rubric[^\n]*\n/), s12 = sec(/\n## 12\. Information layers[^\n]*\n/);
+  const row = (s, name) => s.split("\n").find((l) => l.startsWith(`| ${name} |`)) || "";
+  const bullet = (s, name) => s.split("\n").find((l) => l.startsWith(`- **${name}**`)) || "";
+  // the attack: the headline's key term and the impact numeral both take the accent colour, so a shot with both has two
+  assert.ok(row(s12, "Claim headline"), "headline row present");
+  assert.doesNotMatch(row(s12, "Claim headline"), /accent/i, "the headline's key term is styled without the accent colour");
+  assert.doesNotMatch(bullet(s12, "Impact numeral"), /shot's one accent/, "the numeral is not unconditionally the shot's one accent");
+  assert.match(s12, /accent budget/i, "§12 states the accent budget");
+  assert.match(s12, /active word[^\n]*\bink\b/i, "§12 says what the caption's active word does when the numeral holds the accent");
+  // the legitimate side: the headline key term is still styled (italic + underline), the numeral is still an accent
+  // holder when it is on screen, and §5 and the Restraint row still allow exactly one accent element per shot
+  assert.match(row(s12, "Claim headline"), /italic/);
+  assert.match(row(s12, "Claim headline"), /underline/);
+  assert.match(bullet(s12, "Impact numeral"), /accent/);
+  assert.match(s5, /accent colour appears on \*\*one\*\* element per shot/);
+  assert.match(row(s11, "Restraint"), /accent used once/);
+
   console.log("reading: ok");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
