@@ -79,6 +79,11 @@ if (a.some((x) => /silencedetect/.test(x))) process.exit(0);
 if (a.includes('concat')) {
   const list = fs.readFileSync(a[a.indexOf('-i') + 1], 'utf8').split('\\n').map((l) => /^file '(.*)'$/.exec(l)).filter(Boolean).map((m) => m[1].replace(/'\\\\''/g, "'"));
   fs.writeFileSync(o, wav(Buffer.concat(list.map((f) => pcm(fs.readFileSync(f))))));
+} else if (a.some((x) => /atempo=/.test(x))) {
+  const t = parseFloat(a.find((x) => /atempo=/.test(x)).split('=')[1]); const src = pcm(fs.readFileSync(a[a.indexOf('-i') + 1]));
+  const n = Math.round(src.length / 2 / t), out = Buffer.alloc(n * 2);
+  for (let i = 0; i < n; i++) out.writeInt16LE(src.readInt16LE(Math.min(Math.floor(i * t), src.length / 2 - 1) * 2), i * 2);
+  fs.writeFileSync(o, wav(out));
 } else if (a.includes('-i')) fs.copyFileSync(a[a.indexOf('-i') + 1], o);
 `, { mode: 0o755 });
 fs.writeFileSync(path.join(shim, "ffprobe"), `#!/usr/bin/env node
@@ -395,6 +400,89 @@ await test("H5. a sentence flagged only after the splice is named once, and one 
   const r = await take(NARRATION, { speak: adds(() => true) }, ["--retake", "auto"]);
   assert.match(r.out, /WARNING\s+: sentence 3 .*after 2 tries/);
   assert.doesNotMatch(r.out, /may not say the script/, "already warned by name");
+});
+
+// ── --tempo: the approved take on disk plays at another speed and stays a first-class take ─────────────────────
+const respOf = (r) => path.join(r.audio, "narration.response.json");
+const metaOf = (r) => JSON.parse(fs.readFileSync(respOf(r), "utf8"))._meta;
+const tempo = (r, t, extra = []) => take(NARRATION, { dir: r.dir }, ["--from-response", respOf(r), "--tempo", String(t), ...extra]);
+const checkAssets = fileURLToPath(new URL("../scripts/check_assets.mjs", import.meta.url));
+let T1;
+await test("T1. --tempo 0.9 on a take: duration x 1/0.9, no new speech, model kept, _meta.tempo recorded", async () => {
+  const r0 = await take(NARRATION, { model: "openbmb/VoxCPM2" });
+  const d0 = durationOf(r0), last0 = JSON.parse(fs.readFileSync(path.join(r0.audio, "words.json"), "utf8")).at(-1).end;
+  const r = await tempo(r0, 0.9);
+  T1 = { r0, d0 };
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 0, "no speech request");
+  assert.ok(Math.abs(durationOf(r) - d0 / 0.9) <= d0 / 0.9 * 0.01, `${durationOf(r)} vs ${d0 / 0.9}`);
+  const m = metaOf(r);
+  assert.match(m.model, /voxcpm/i); assert.equal(m.tempo, 0.9); assert.equal(m.engine, "voicestudio");
+  assert.deepEqual(wordsOf(r), tokensOf(NARRATION));
+  const last = JSON.parse(fs.readFileSync(path.join(r.audio, "words.json"), "utf8")).at(-1).end;
+  assert.ok(Math.abs(last - last0 / 0.9) <= 0.05, `${last} vs ${last0 / 0.9}`);
+  assert.match(r.out, /Tempo\s+: x0\.9/);
+});
+await test("T2. a tempo-changed take passes check_assets --commercial with no hand-written licence", async () => {
+  const dir = path.join(tmp, "proj");
+  fs.mkdirSync(path.join(dir, "assets"), { recursive: true }); fs.mkdirSync(path.join(dir, "audio"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "assets", "narration.m4a"), "");
+  fs.writeFileSync(path.join(dir, "ASSETS.json"), JSON.stringify([{ file: "assets/narration.m4a", source: "generated", licence: "Apache-2.0", author: "VoiceStudio", model: "m", prompt: "narration.txt" }]));
+  fs.copyFileSync(respOf(T1.r0), path.join(dir, "audio", "narration.response.json"));
+  const r = await new Promise((ok) => execFile(process.execPath, [checkAssets, dir, "--commercial"], { timeout: 30000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+  assert.equal(r.code, 0, r.out);
+  assert.doesNotMatch(r.out, /unknown/i);
+});
+await test("T3. --retake 2 on a tempo-changed take re-speaks one sentence at the same tempo", async () => {
+  const r = await take(NARRATION, { dir: T1.r0.dir, model: "openbmb/VoxCPM2" }, ["--retake", "2"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 1);
+  assert.equal(r.speech[0].input, S2);
+  assert.equal(metaOf(r).tempo, 0.9);
+  assert.ok(Math.abs(durationOf(r) - T1.d0 / 0.9) <= 0.1, `${durationOf(r)} vs ${T1.d0 / 0.9}`);
+  const runs = JSON.parse(fs.readFileSync(path.join(r.audio, "words.json"), "utf8")).find((w) => norm(w.text) === "runs");
+  assert.ok(Math.abs(runs.end - runs.start - 0.333) <= 0.04, `runs lasts ${runs.end - runs.start}`);
+});
+await test("T4. --tempo refusals: out of range, no take, combined flags, an ElevenLabs take", async () => {
+  const base = await take(NARRATION);
+  let r = await tempo(base, 1.5);
+  assert.notEqual(r.code, 0); assert.match(r.out, /FAILED/); assert.match(r.out, /0\.8 to 1\.2/);
+  const fresh = path.join(tmp, "empty-case"); fs.mkdirSync(fresh);
+  r = await take(NARRATION, { dir: fresh }, ["--from-response", path.join(fresh, "audio", "narration.response.json"), "--tempo", "0.9"]);
+  assert.notEqual(r.code, 0); assert.match(r.out, /FAILED/); assert.match(r.out, /not found/);
+  r = await tempo(base, 0.9, ["--retake", "changed"]);
+  assert.notEqual(r.code, 0); assert.match(r.out, /FAILED/); assert.match(r.out, /do not combine/);
+  r = await tempo(base, 0.9, ["--speed", "0.9"]);
+  assert.notEqual(r.code, 0); assert.match(r.out, /FAILED/); assert.match(r.out, /do not combine/);
+  const el = path.join(tmp, "eleven-case"); fs.mkdirSync(path.join(el, "audio"), { recursive: true });
+  const resp = JSON.parse(fs.readFileSync(respOf(base), "utf8")); resp._meta.engine = "elevenlabs";
+  fs.writeFileSync(path.join(el, "audio", "narration.response.json"), JSON.stringify(resp));
+  fs.copyFileSync(path.join(base.audio, resp.audio_file), path.join(el, "audio", resp.audio_file));
+  r = await take(NARRATION, { dir: el }, ["--from-response", path.join(el, "audio", "narration.response.json"), "--tempo", "0.9"]);
+  assert.notEqual(r.code, 0); assert.match(r.out, /FAILED/); assert.match(r.out, /--speed/);
+});
+await test("T5. tempo is cumulative (0.9 x 0.9 = 0.81); a third pass past 0.8 is refused and changes nothing", async () => {
+  const r0 = await take(NARRATION);
+  const d0 = durationOf(r0);
+  await tempo(r0, 0.9);
+  const r = await tempo(r0, 0.9);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(metaOf(r).tempo, 0.81);
+  assert.ok(Math.abs(durationOf(r) - d0 / 0.81) <= d0 / 0.81 * 0.01);
+  const resp = fs.readFileSync(respOf(r)), audio = fs.readFileSync(path.join(r.audio, JSON.parse(resp).audio_file));
+  const x = await tempo(r0, 0.9);
+  assert.notEqual(x.code, 0); assert.match(x.out, /FAILED/); assert.match(x.out, /total stays 0\.8/);
+  assert.ok(fs.readFileSync(respOf(r)).equals(resp), "response unchanged");
+  assert.ok(fs.readFileSync(path.join(r.audio, JSON.parse(resp).audio_file)).equals(audio), "audio unchanged");
+});
+await test("T6. --tempo 1 leaves the take as it is", async () => {
+  const r0 = await take(NARRATION);
+  const audio = fs.readFileSync(path.join(r0.audio, JSON.parse(fs.readFileSync(respOf(r0), "utf8")).audio_file));
+  const r = await tempo(r0, 1);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /unchanged/);
+  assert.equal(metaOf(r).tempo, undefined);
+  assert.ok(fs.readFileSync(path.join(r.audio, JSON.parse(fs.readFileSync(respOf(r), "utf8")).audio_file)).equals(audio));
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });
