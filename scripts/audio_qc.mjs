@@ -18,15 +18,20 @@
 // The starting values come from real films; tune them here only (THRESHOLDS). Every flag is a P1 (references/qc.md,
 // Step 7); the results go into PRODUCTION.md. A bed whose level the script cannot compute (index.html unreadable or
 // absent without --music, no src in the HTML, a data-volume or lane that does not parse, a data-playback-rate other than
-// 1, an <audio> not named as music that plays longer than an SFX, loops without a short data-duration or cannot be read, an
-// audible <video data-has-audio="true"> (its sound is mixed), until --music names every bed; a data-fx-chain on a bed, the
-// narration, a bus or the composition root, a bus lane, a fade-out without a clip end, a data-composition-src sub-composition)
-// is NOT CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. The Result is made in one
-// place (verdict): OK only when the bed, clicks and voice each have an outcome. The render inputs are those of HyperFrames'
-// parseAudioElements (0.8.206); a tag it leaves out (data-hidden on the tag or its bus, a data-duration of 0, a data-end
-// at or before the start) is not a bed; the hidden state of an ancestor element is not seen without a DOM. Known limits: lane
-// curves are read as straight lines between points; a `loop` bed is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
-// show a false dropout.
+// 1, an <audio> not named as music that plays longer than an SFX, loops without a short data-duration or cannot be read, a
+// <video> that is not muted (HyperFrames' compile step gives it an id and data-has-audio="true", so its sound is mixed),
+// until --music names every bed; a data-fx-chain on a bed, the narration, a bus or the composition root, a bus lane, a
+// fade-out without a clip end, a data-composition-src sub-composition) is NOT CHECKED, never "no bed" and never OK; so is a
+// voice check with fewer than 3 voiced sentences. The Result is made in one place (verdict): OK only when the bed, clicks and
+// voice each have an outcome. The render inputs are those of HyperFrames 0.8.206 (compileTimingAttrs, parseAudioElements,
+// resolveAudioGroups, the volume it samples from the timeline), and one rule covers them (INPUTS, renderProblem): each is
+// modelled or known not to change the mix, and any other one (an attribute outside the inventory, a data-hidden or
+// <template> ancestor, a lane other than a straight volume lane, a gain HyperFrames clamps, a script that writes a media
+// volume) makes the tag's level NOT CHECKED. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
+// data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Known limits: a `loop` bed
+// is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a remote script
+// is a library and is not read; a mix with sharp percussion can show a false click; an engine that writes digital zeros
+// inside a word can show a false dropout.
 //
 // Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]   (--music: once per bed)
 // Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun) · 1 usage / failure.
@@ -90,13 +95,25 @@ export function gainAt(volume, lane, t) {
   }
   return volume * lane[lane.length - 1].v;
 }
-// The points of the volume lane in a data-automation JSON, or null. A JSON that does not parse throws.
+// The points of the volume lane in a data-automation JSON (sorted by t), or null without one. Only what the model applies
+// passes; anything else throws, so the tag is NOT CHECKED: a JSON that does not parse, a format other than HyperFrames'
+// version 1 with a lanes list, a lane other than volume (rate, fx.*), a point that is not {t, v} numbers, a curved point
+// (curve, viaX / viaY; the model draws straight lines), a gain HyperFrames clamps, more points than it reads (512).
 export function laneOf(automation) {
   if (!automation) return null;
   const j = JSON.parse(automation);
-  const lane = (j.lanes || []).find((l) => l && l.target === 'volume');
-  const pts = lane && Array.isArray(lane.points) ? lane.points.filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v)) : [];
-  return pts.length ? pts.sort((a, b) => a.t - b.t) : null;
+  if (!j || typeof j !== 'object' || j.version !== 1 || !Array.isArray(j.lanes)) throw new Error('not a version 1 automation with a lanes list');
+  const other = j.lanes.find((l) => !l || l.target !== 'volume');
+  if (other) throw new Error(`a "${other && other.target}" lane, which this check does not model`);
+  const lane = j.lanes[0];
+  if (!lane) return null;
+  if (!Array.isArray(lane.points) || lane.points.length > 512) throw new Error('a volume lane without a points list of at most 512');
+  for (const p of lane.points) {
+    if (!p || !Number.isFinite(p.t) || !Number.isFinite(p.v)) throw new Error('a lane point that is not {t, v} numbers');
+    if (p.curve || p.viaX !== undefined || p.viaY !== undefined) throw new Error('a curved lane segment, which this check reads as a straight line');
+    if (p.v < 0 || p.v > HF_MAX_GAIN) throw new Error(`a lane gain of ${p.v} (HyperFrames clamps a gain to 0–${HF_MAX_GAIN.toFixed(2)})`);
+  }
+  return lane.points.length ? [...lane.points].sort((a, b) => a.t - b.t) : null;
 }
 // The clip placed at `start` seconds with its gain, as `total` samples of the composition's timeline. opts.mediaStart:
 // seconds skipped at the head of the file (data-media-start); opts.dur: the clip's length on the timeline (data-duration);
@@ -271,7 +288,7 @@ export function phrasesFrom(words, gap = 0.3) {
 // The attributes of a tag's text: name="v", name='v', name=v and a bare name (loop): a bare attribute is present with ''.
 const attrsOf = (text) => {
   const attrs = {};
-  for (const a of text.matchAll(/([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
+  for (const a of text.matchAll(/([\w:.@-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
     attrs[a[1].toLowerCase()] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
   }
   return attrs;
@@ -279,59 +296,146 @@ const attrsOf = (text) => {
 // A fade length as HyperFrames reads it: parseFloat, and only a finite value above 0 is a fade.
 const fadeOf = (v) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 
-// Every <audio ...> tag and every <video id data-has-audio="true"> tag without `muted` (HyperFrames mixes that video's sound):
-// { kind, id, src, start, end, volume, duration, mediaStart, rate, automation, bad, loop, group, fx, fadeIn, fadeOut, hidden }
-// (bad: an attribute that is not a number; loop / hidden: the bare attribute is present; group: data-audio-group; fx:
-// data-fx-chain; end: data-end). A tag without src takes the src of its first <source> child.
-export function audioTags(html) {
-  const out = [];
-  for (const m of html.matchAll(/<(audio|video)(?=[\s/>])([^>]*?)(\/?)>/gi)) {
-    const kind = m[1].toLowerCase();
-    const attrs = attrsOf(m[2]);
-    if (kind === 'video' && (attrs['data-has-audio'] !== 'true' || Object.hasOwn(attrs, 'muted') || !attrs.id)) continue;
-    const bad = [];
-    const num = (k, dflt) => {
-      if (attrs[k] == null || attrs[k] === '') return dflt;
-      const v = Number(attrs[k]);
-      if (Number.isFinite(v)) return v;
-      bad.push(k); return dflt;
-    };
-    let src = attrs.src || '';
-    if (!src && !m[3]) {
-      const rest = html.slice(m.index + m[0].length), end = rest.search(new RegExp(`</${kind}\\s*>|<${kind}(?=[\\s/>])`, 'i'));
-      const sm = (end < 0 ? rest : rest.slice(0, end)).match(/<source\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
-      if (sm) src = (sm[1] ?? sm[2]).replace(/&amp;/g, '&');
-    }
-    out.push({
-      kind, id: attrs.id || '', src, start: num('data-start', 0), end: num('data-end', null), volume: num('data-volume', 1),
-      duration: num('data-duration', null), mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1),
-      automation: attrs['data-automation'] || null, bad, loop: Object.hasOwn(attrs, 'loop'),
-      group: attrs['data-audio-group'] || null, fx: attrs['data-fx-chain'] || null,
-      fadeIn: fadeOf(attrs['data-fade-in']), fadeOut: fadeOf(attrs['data-fade-out']), hidden: Object.hasOwn(attrs, 'data-hidden'),
-    });
-  }
+// ── The render inputs: the one rule against "unknown reported as OK" ─────────
+// HyperFrames (0.8.206) mixes what its compile step and parseAudioElements / resolveAudioGroups read from the page, plus
+// the volume a script sets over the timeline (it samples element.volume per frame). Every attribute of a media element
+// or a bus is in exactly one place: INPUTS (applied by the model, or judged by renderProblem) or INERT (does not change
+// the mix). Any other attribute, an ancestor whose state the check cannot see (data-hidden, <template>), a lane or a
+// script volume the model does not apply, is an input this check does not model: renderProblem returns it, so a measured
+// tag (the narration, a bed) is NOT CHECKED and a tag longer than an SFX is 'unknown'. Nothing is ignored by default:
+// a new input is modelled only by adding it here and applying it.
+export const HF_MAX_GAIN = 10 ** (12 / 20); // HyperFrames clamps a gain to 0..+12 dB
+export const INPUTS = {
+  media: new Set(['src', 'data-start', 'data-end', 'data-duration', 'data-volume', 'data-media-start', 'data-playback-rate', 'data-automation', 'loop', 'data-audio-group', 'data-fx-chain', 'data-fade-in', 'data-fade-out', 'data-hidden', 'data-has-audio', 'muted']),
+  bus: new Set(['data-volume', 'data-fx-chain', 'data-automation', 'data-hidden']),
+};
+export const INERT = new Set(['id', 'class', 'style', 'title', 'alt', 'type', 'width', 'height', 'poster', 'preload', 'crossorigin', 'referrerpolicy', 'controls', 'autoplay', 'playsinline', 'webkit-playsinline', 'disablepictureinpicture', 'disableremoteplayback', 'data-hf-id', 'data-hf-render-id', 'data-hf-auto-start', 'data-track-index', 'data-layer', 'data-label', 'data-name']);
+// The inputs of a tag or bus outside the inventory, and a gain HyperFrames clamps: [] when the model covers it all.
+const unmodelledOf = (attrs, known) => {
+  const out = Object.keys(attrs).filter((k) => !known.has(k) && !INERT.has(k) && !k.startsWith('aria-'));
+  const v = parseFloat(attrs['data-volume']);
+  if (Number.isFinite(v) && (v < 0 || v > HF_MAX_GAIN)) out.push(`data-volume ${v} (HyperFrames clamps a gain to 0–${HF_MAX_GAIN.toFixed(2)})`);
   return out;
-}
+};
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const RAW_TAGS = new Set(['script', 'style', 'textarea', 'title']);
 
-// The <hf-audio-group> buses by id: { volume (data-volume, 1 when absent or not a number), fx, automation, hidden }. A member
-// is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
-export function groupsOf(html) {
-  const out = new Map();
-  for (const m of html.matchAll(/<hf-audio-group(?=[\s/>])([^>]*?)\/?>/gi)) {
-    const a = attrsOf(m[1]), id = a['data-hf-render-id'] ?? a.id, v = parseFloat(a['data-volume']);
-    if (id) out.set(id, { volume: Number.isFinite(v) ? v : 1, fx: a['data-fx-chain'] || null, automation: a['data-automation'] || null, hidden: Object.hasOwn(a, 'data-hidden') });
+// One walk over index.html the way a browser reads it: a comment or raw text (script, style) holds no tag, a closing
+// tag closes up to its element, `/>` closes only a void element (a `<div data-hidden/>` stays open). Every <audio> and
+// every <video> that HyperFrames mixes is a media tag: its compile step gives each one an id and a <video> without
+// data-has-audio the flag "true" unless it is muted, so a video is silent only when muted or data-has-audio is not "true".
+// Returns { media, groups, master, scripts }:
+//   media: { kind, id, src, start, end, volume, duration, mediaStart, rate, automation, bad, loop, group, fx, fadeIn,
+//     fadeOut, hidden, unmodelled, context } (bad: an attribute that is not a number; loop / hidden: the bare attribute;
+//     group: data-audio-group; fx: data-fx-chain; end: data-end; unmodelled: unmodelledOf; context: why an ancestor's state
+//     is unknown, or null). A tag without src takes the src of its first <source> child.
+//   groups: the <hf-audio-group> buses by id: { volume (data-volume, 1 when absent or not a number), fx, automation, hidden,
+//     unmodelled }. A member is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
+//   master: the data-fx-chain of the first data-composition-id element (the master bus), or null.
+//   scripts: { attrs, text } of every <script>.
+export function scanHtml(html) {
+  const media = [], groups = new Map(), scripts = [], stack = [];
+  let master;
+  const re = /<!--[\s\S]*?(?:-->|$)|<\/([a-zA-Z][\w:.-]*)[^>]*>|<([a-zA-Z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+  for (let m; (m = re.exec(html));) {
+    if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
+    if (!m[2]) continue;
+    const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''));
+    if (RAW_TAGS.has(name)) {
+      const close = html.slice(re.lastIndex).search(new RegExp(`</${name}\\s*>`, 'i')), end = close < 0 ? html.length : re.lastIndex + close;
+      if (name === 'script') scripts.push({ attrs, text: html.slice(re.lastIndex, end) });
+      re.lastIndex = end;
+      continue;
+    }
+    if (master === undefined && Object.hasOwn(attrs, 'data-composition-id')) master = attrs['data-fx-chain'] || null;
+    if (name === 'hf-audio-group') {
+      const id = attrs['data-hf-render-id'] ?? attrs.id, v = parseFloat(attrs['data-volume']);
+      if (id) groups.set(id, { volume: Number.isFinite(v) ? v : 1, fx: attrs['data-fx-chain'] || null, automation: attrs['data-automation'] || null, hidden: Object.hasOwn(attrs, 'data-hidden'), unmodelled: unmodelledOf(attrs, INPUTS.bus) });
+    }
+    const silentVideo = name === 'video' && (Object.hasOwn(attrs, 'muted') || (Object.hasOwn(attrs, 'data-has-audio') && attrs['data-has-audio'] !== 'true'));
+    if ((name === 'audio' || name === 'video') && !silentVideo) {
+      const hiddenBy = stack.find((e) => e.hidden), template = stack.some((e) => e.name === 'template');
+      const context = template ? 'is inside a <template>, whose content HyperFrames renders only as the page\'s one wrapper'
+        : hiddenBy ? `is inside <${hiddenBy.name}${hiddenBy.id ? ` id="${hiddenBy.id}"` : ''} data-hidden>` : null;
+      media.push(mediaTag(name, attrs, selfClosed ? '' : html.slice(re.lastIndex), context));
+    }
+    if (!VOID_TAGS.has(name)) stack.push({ name, hidden: Object.hasOwn(attrs, 'data-hidden'), id: attrs.id || '' });
   }
-  return out;
+  return { media, groups, master: master ?? null, scripts };
 }
-// The data-fx-chain of the composition's root element (the first one with a data-composition-id): the master bus, or null.
-export function masterFxChain(html) {
-  const m = html.match(/<[a-z][\w-]*(?=[\s/>])([^>]*\bdata-composition-id\b[^>]*)>/i);
-  return m ? attrsOf(m[1])['data-fx-chain'] || null : null;
+function mediaTag(kind, attrs, rest, context) {
+  const bad = [];
+  const num = (k, dflt) => {
+    if (attrs[k] == null || attrs[k] === '') return dflt;
+    const v = Number(attrs[k]);
+    if (Number.isFinite(v)) return v;
+    bad.push(k); return dflt;
+  };
+  let src = attrs.src || '';
+  if (!src && rest) {
+    const end = rest.search(new RegExp(`</${kind}\\s*>|<${kind}(?=[\\s/>])`, 'i'));
+    const sm = (end < 0 ? rest : rest.slice(0, end)).match(/<source\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    if (sm) src = (sm[1] ?? sm[2]).replace(/&amp;/g, '&');
+  }
+  return {
+    kind, id: attrs.id || '', src, start: num('data-start', 0), end: num('data-end', null), volume: num('data-volume', 1),
+    duration: num('data-duration', null), mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1),
+    automation: attrs['data-automation'] || null, bad, loop: Object.hasOwn(attrs, 'loop'),
+    group: attrs['data-audio-group'] || null, fx: attrs['data-fx-chain'] || null,
+    fadeIn: fadeOf(attrs['data-fade-in']), fadeOut: fadeOf(attrs['data-fade-out']), hidden: Object.hasOwn(attrs, 'data-hidden'),
+    unmodelled: unmodelledOf(attrs, INPUTS.media), context,
+  };
+}
+export const audioTags = (html) => scanHtml(html).media;
+export const groupsOf = (html) => scanHtml(html).groups;
+export const masterFxChain = (html) => scanHtml(html).master;
+
+// A script that writes a media volume (a GSAP tween of `volume`, `el.volume = …`, a data-volume set at run time), with
+// comments left out: the text around it, or null. HyperFrames samples that volume from the timeline; this check does not
+// run the timeline.
+export function volumeWrite(code) {
+  const src = code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\\'"`])\/\/[^\n]*/g, '$1');
+  const m = src.match(/["']?\bvolume["']?\s*:(?!:)|\.volume\s*[-+*/]?=(?!=)|data-volume/);
+  return m ? src.slice(Math.max(0, m.index - 30), m.index + 40).replace(/\s+/g, ' ').trim() : null;
+}
+const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
+// Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either imports by a
+// relative path) that writes a media volume, or a local script that cannot be read. A remote script is a library and a
+// bare import (an import map name) is a vendor module: neither is read.
+export function scriptProblem(scripts, dir, read) {
+  const seen = new Set();
+  const visit = (code, where, base) => {
+    const w = volumeWrite(code);
+    if (w) return `${where} writes a media volume ("${w}"), which HyperFrames samples from the timeline and this check does not run: write the ducking as a data-automation volume lane on the tag (which this check reads), then rerun`;
+    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["']((?:\.{1,2})?\/[^"']+)["']/g)) {
+      const p = file(im[1], base);
+      if (p) { const why = load(p); if (why) return why; }
+    }
+    return null;
+  };
+  const file = (spec, base) => {
+    if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(spec)) return null; // remote
+    const clean = spec.split(/[?#]/)[0];
+    return clean.startsWith('/') ? path.join(dir, clean) : path.resolve(base, clean);
+  };
+  const load = (p) => {
+    if (seen.has(p)) return null;
+    seen.add(p);
+    const r = read(p), where = `the script ${path.relative(dir, p) || p}`;
+    if (r.text == null) return `${where} could not be read (${r.why}), so whether it sets a media volume is unknown: fix the path and rerun`;
+    return visit(r.text, where, path.dirname(p));
+  };
+  for (const s of scripts) {
+    if (!JS_TYPE.test((s.attrs.type || '').trim())) continue;
+    const why = s.attrs.src ? (file(s.attrs.src, dir) ? load(file(s.attrs.src, dir)) : null) : visit(s.text, 'an inline <script>', dir);
+    if (why) return why;
+  }
+  return null;
 }
 // The clip's length on the timeline: data-end (absolute, wins) minus data-start, else data-duration, else null (to the end of the film).
 export const clipLength = (t) => (t.end != null ? t.end - t.start : t.duration ?? null);
 // Why HyperFrames leaves the tag out of the mix (data-hidden on it or its group, a data-duration of 0 or less, a data-end
-// at or before the start), or null. The hidden state of an ancestor element is not visible without a DOM: a known limit.
+// at or before the start), or null. An ancestor's data-hidden is not judged here: it is the tag's context (renderProblem).
 export function notRendered(t, groups = new Map()) {
   if (t.hidden) return 'data-hidden';
   if (t.group && groups.get(t.group)?.hidden) return `its audio group "${t.group}" is data-hidden`;
@@ -339,11 +443,17 @@ export function notRendered(t, groups = new Map()) {
   if (!t.bad.some((k) => k === 'data-end' || k === 'data-start') && t.end != null && t.end <= t.start) return 'data-end is not after data-start';
   return null;
 }
-// What the gain model leaves out for this tag, or null: an fx chain (data-fx-chain, such as a gain or a carve), a bus lane
-// or fx chain, a playback rate, a fade-out that needs a clip end it does not have; for the narration also a media start or a loop
-// (its words are timed on the file). Each makes the bed NOT CHECKED, because the mix then differs from what is measured.
+// The one place a tag's render inputs are judged: what the gain model leaves out for this tag, or null. An ancestor state
+// the check cannot see (data-hidden, <template>), an input outside the inventory (INPUTS / INERT) on the tag or its bus, a
+// lane laneOf does not model, an fx chain (data-fx-chain, such as a gain or a carve), a bus lane or fx chain, a playback
+// rate, a fade-out that needs a clip end it does not have; for the narration also a media start or a loop (its words are
+// timed on the file). Each makes the bed NOT CHECKED, because the mix then differs from what is measured.
 export function renderProblem(t, groups = new Map(), { narration = false } = {}) {
   const g = t.group ? groups.get(t.group) : null;
+  if (t.context) return `${t.context}, a state this check cannot see without a DOM: put data-hidden on the tag itself or move the tag out, then rerun`;
+  if (t.unmodelled && t.unmodelled.length) return `has ${t.unmodelled.join(', ')}, an input this check does not model`;
+  if (g && g.unmodelled && g.unmodelled.length) return `is on the audio group "${t.group}", which has ${g.unmodelled.join(', ')}, an input this check does not model`;
+  try { laneOf(t.automation); } catch (e) { return `has a data-automation this check cannot model (${e.message})`; }
   if (t.fx) return 'has a data-fx-chain (an effect chain such as a gain or a carve), which this check does not model';
   if (g && g.fx) return `is on the audio group "${t.group}", which has a data-fx-chain this check does not model`;
   if (g && g.automation) return `is on the audio group "${t.group}", which has a data-automation lane this check does not model`;
@@ -372,8 +482,8 @@ export function musicTags(tags) {
 // src. skipped: HyperFrames leaves it out of the mix (notRendered). sfx: plays at most THRESHOLDS.sfxMaxS (its clip length,
 // data-end or data-duration, else lengthOf(tag): the file's length in seconds, or { why } when it cannot be read, after
 // data-media-start and at its playback rate); a `loop` tag is one only with a clip length that short. unknown: anything else
-// (a longer clip, a looped one, a file that cannot be read, a timing attribute that does not parse, any <video> with sound);
-// it may be the bed, so the bed is NOT CHECKED until --music names it.
+// (a longer clip, a looped one, a file that cannot be read, a timing attribute that does not parse, an input outside the
+// inventory, any <video> that is not muted); it may be the bed, so the bed is NOT CHECKED until --music names it.
 export function tagRoles(tags, narrTag, lengthOf, music = [], groups = new Map()) {
   const others = tags.filter((t) => t !== narrTag);
   const beds = new Set([...musicTags(others.filter((t) => t.kind !== 'video')), ...others.filter((t) => music.some((m) => t.id === m || t.src === m))]);
@@ -382,12 +492,13 @@ export function tagRoles(tags, narrTag, lengthOf, music = [], groups = new Map()
     const gone = notRendered(t, groups);
     if (gone) return { tag: t, role: 'skipped', why: gone };
     if (beds.has(t)) return { tag: t, role: 'bed' };
-    if (t.kind === 'video') return { tag: t, role: 'unknown', why: 'a <video data-has-audio="true"> mixes its own sound' };
+    if (t.kind === 'video') return { tag: t, role: 'unknown', why: 'a <video> that is not muted mixes its own sound (HyperFrames gives it data-has-audio="true")' };
     const badTime = t.bad.filter((k) => k !== 'data-volume' && k !== 'data-start');
     if (badTime.length) return { tag: t, role: 'unknown', why: `${badTime.join(', ')} is not a number` };
     if (!(t.rate > 0)) return { tag: t, role: 'unknown', why: `data-playback-rate ${t.rate}` };
     const clip = clipLength(t);
     if (clip != null && clip >= 0 && clip <= T.sfxMaxS) return { tag: t, role: 'sfx' };
+    if (t.unmodelled && t.unmodelled.length) return { tag: t, role: 'unknown', why: `has ${t.unmodelled.join(', ')}, an input this check does not model` };
     if (t.loop) return { tag: t, role: 'unknown', why: `loop without a clip length (data-end or data-duration) of at most ${T.sfxMaxS} s` };
     const len = lengthOf(t);
     if (typeof len !== 'number' || !Number.isFinite(len)) return { tag: t, role: 'unknown', why: (len && len.why) || 'its length could not be read' };
@@ -457,16 +568,16 @@ function main(argv) {
 
   // Inputs
   const html = readText(at('index.html'));
-  const tags = html.text ? audioTags(html.text) : [];
+  const page = html.text ? scanHtml(html.text) : { media: [], groups: new Map(), master: null, scripts: [] }, tags = page.media;
   if (html.err) warn(html.err);
   else if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
   for (const t of tags) if (t.bad.length) warn(`<audio${t.id ? ' id="' + t.id + '"' : ''}> ${t.bad.join(', ')} is not a number (a template expression?): read as the default`);
-  const groups = html.text ? groupsOf(html.text) : new Map(), master = html.text ? masterFxChain(html.text) : null;
+  const groups = page.groups, master = page.master;
   const narrTag = tags.find((t) => t.kind !== 'video' && /narration/i.test(t.id + ' ' + t.src));
   const narrFile = narrTag && narrTag.src && !/^[a-z]+:/i.test(narrTag.src) && !missing(at(narrTag.src), '') ? at(narrTag.src) : at('audio/narration.wav');
   const narrStart = narrTag ? narrTag.start : 0, narrVol = narrTag ? narrTag.volume : 1;
   let narrLane = null, narrLaneErr = null;
-  try { narrLane = narrTag ? laneOf(narrTag.automation) : null; } catch (e) { narrLaneErr = e.message; warn(`the narration's data-automation is not JSON (${e.message}): its lane is ignored`); }
+  try { narrLane = narrTag ? laneOf(narrTag.automation) : null; } catch (e) { narrLaneErr = e.message; warn(`the narration's data-automation cannot be modelled (${e.message})`); }
 
   const wj = readText(at('audio/words.json'));
   let words = null;
@@ -497,13 +608,15 @@ function main(argv) {
   const roles = html.text == null ? [] : tagRoles(tags, narrTag, lengthOf, music, groups);
   const unknown = roles.filter((r) => r.role === 'unknown');
   const musicCues = roles.filter((r) => r.role === 'bed').map((r) => r.tag);
-  for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ kind: 'audio', id: '', src: m, start: 0, end: null, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, group: null, fx: null, fadeIn: 0, fadeOut: 0 });
+  for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ kind: 'audio', id: '', src: m, start: 0, end: null, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, group: null, fx: null, fadeIn: 0, fadeOut: 0, hidden: false, unmodelled: [], context: null });
   let bedLine = null;
   const bedProblem = () => {
     if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
-    if (narrLaneErr) return `the narration's data-automation is not JSON (${narrLaneErr}), so its level is unknown`;
+    if (narrLaneErr) return `the narration's data-automation cannot be modelled (${narrLaneErr}), so its level is unknown`;
     if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
+    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; });
+    if (sp) return sp;
     if (narrTag) {
       const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
       if (p) return `the narration <audio> ${p}, so the mix differs from what is measured`;
@@ -515,14 +628,13 @@ function main(argv) {
       if (c.bad.length) return `${who} ${c.bad.join(', ')} is not a number (a template expression?), so its gain is unknown`;
       const p = renderProblem(c, groups);
       if (p) return `${who} ${p}`;
-      try { laneOf(c.automation); } catch (e) { return `${who} data-automation is not JSON (${e.message}), so its gain is unknown`; }
     }
     return null;
   };
   if (html.text && /\bdata-composition-src\s*=/i.test(html.text)) {
     skip('bed', 'index.html loads a sub-composition (data-composition-src), whose own <audio> tags this check does not read, so which music plays is unknown: put the music and narration <audio> tags in index.html itself and rerun');
   } else if (unknown.length) {
-    const names = unknown.slice(0, 6).map((r) => `${r.tag.id ? `<audio id="${r.tag.id}">` : r.tag.src || '<audio>'} (${r.why})`).join(', ');
+    const names = unknown.slice(0, 6).map((r) => `${r.tag.id ? `<${r.tag.kind} id="${r.tag.id}">` : r.tag.src || `<${r.tag.kind}>`} (${r.why})`).join(', ');
     skip('bed', `${names} is neither a music cue by name (music, bgm, bed, soundtrack, e.g. music-a) nor an SFX (at most ${T.sfxMaxS} s): if it is the bed (or one of them) name every bed with --music <id> (repeatable), then rerun`);
   } else if (!musicCues.length) {
     if (html.err) skip('bed', 'index.html could not be read, so which music plays is unknown: fix the WARN above and rerun');
