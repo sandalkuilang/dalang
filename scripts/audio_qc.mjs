@@ -37,7 +37,10 @@
 // the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may
 // change the mix; check the bed by ear on the draft"; no JS is parsed). SCRIPT-LOAD LIMIT: a page with a <base href> anywhere,
 // a <script type="importmap"> or a dynamic import( of any form loads scripts this check does not resolve, so it is NOT CHECKED
-// ("page loads scripts the check does not resolve; check the bed by ear on the draft"); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
+// ("page loads scripts the check does not resolve; check the bed by ear on the draft"). A NESTED DOCUMENT: an iframe srcdoc
+// is read as a document like index.html (its own media is NOT CHECKED); an iframe or frame src, an object data, an embed
+// src (FRAMES) that opens a local or unresolved document is NOT CHECKED, a remote http(s) one is another origin. One
+// choke point judges every document (pageProblem): a scan field it does not know throws, never passes; (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
 // in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
 // from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
 // data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Other limits: a `loop`
@@ -306,11 +309,13 @@ export function phrasesFrom(words, gap = 0.3) {
 
 // The attributes of a tag's text: name="v", name='v', name=v and a bare name (loop): a bare attribute is present with ''.
 // The first value of a repeated name wins, like the DOM; the repeated names go to `dups`.
-const attrsOf = (text, dups = []) => {
+// `raw` gets each value as written (no character reference decoded), for the attributes whose text is decoded once, in full (htmlDecode).
+const attrsOf = (text, dups = [], raw = {}) => {
   const attrs = {};
   for (const a of text.matchAll(/([\w:.@-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
     const k = a[1].toLowerCase();
     if (Object.hasOwn(attrs, k)) { if (!dups.includes(k)) dups.push(k); continue; }
+    raw[k] = a[2] ?? a[3] ?? a[4] ?? '';
     attrs[k] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
   }
   return attrs;
@@ -351,18 +356,25 @@ const RAW_TAGS = new Set(['script', 'style', 'textarea', 'title']);
 //   scripts: { attrs, text } of every <script>.
 //   handlers: { tag, attr, text } of every script text that sits in an attribute, on any element: an on* event handler
 //     (onload, onerror...) and a javascript: URL (character references decoded). Script text like any <script>, see scriptProblem.
+//   frames: { tag, attr, value } of every attribute that opens another document in the page (FRAMES: an iframe src or
+//     srcdoc, a frame src, an object data, an embed src...), its value decoded once; a javascript: URL is a handler instead.
 //   base: the href of the first <base href> (a page with one is NOT CHECKED, see scriptProblem), or null.
+// Every field is judged by pageProblem (code) or the bed check (mix); a field neither knows throws (SCAN_FIELDS).
 export function scanHtml(html) {
-  const media = [], groups = new Map(), scripts = [], handlers = [], stack = [];
+  const media = [], groups = new Map(), scripts = [], handlers = [], frames = [], stack = [];
   let master, base;
   const re = /<!--[\s\S]*?(?:-->|$)|<\/([a-zA-Z][\w:.-]*)[^>]*>|<([a-zA-Z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
   for (let m; (m = re.exec(html));) {
     if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
     if (!m[2]) continue;
-    const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups);
-    for (const [attr, v] of Object.entries(attrs)) {
+    const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], raw = {}, attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups, raw);
+    // Every attribute of every element, decoded once as the browser does: script text (an on* handler, a javascript: URL,
+    // an iframe srcdoc, word-checked as script), and a document the element opens (FRAMES, judged as a load by scriptProblem).
+    for (const attr of Object.keys(attrs)) {
+      const v = htmlDecode(raw[attr]), opens = Object.hasOwn(FRAMES, name) && FRAMES[name].includes(attr);
       const js = /^on[a-z]+$/.test(attr) || (name === 'iframe' && attr === 'srcdoc') ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
-      if (js != null) handlers.push({ tag: name, attr, text: htmlDecode(js) });
+      if (js != null) handlers.push({ tag: name, attr, text: js });
+      if (opens && (attr === 'srcdoc' || js == null)) frames.push({ tag: name, attr, value: v });
     }
     if (RAW_TAGS.has(name)) {
       const close = html.slice(re.lastIndex).search(new RegExp(`</${name}\\s*>`, 'i')), end = close < 0 ? html.length : re.lastIndex + close;
@@ -385,8 +397,11 @@ export function scanHtml(html) {
     }
     if (!VOID_TAGS.has(name)) stack.push({ name, hidden: Object.hasOwn(attrs, 'data-hidden'), id: attrs.id || '' });
   }
-  return { media, groups, master: master ?? null, scripts, handlers, base: base ?? null };
+  return { media, groups, master: master ?? null, scripts, handlers, frames, base: base ?? null };
 }
+// The elements that open another document in the page (a nested browsing context or a plugin) and the attributes that
+// name it. A srcdoc is read as a document like index.html; any other local document is a load the check does not resolve.
+export const FRAMES = { iframe: ['src', 'srcdoc'], frame: ['src'], object: ['data'], embed: ['src'], portal: ['src'], fencedframe: ['src'] };
 function mediaTag(kind, attrs, rest, context, dups = []) {
   const bad = [];
   const num = (k, dflt) => {
@@ -435,7 +450,10 @@ export function isJsScript(attrs) {
 // folder of index.html (a remote http(s) library and a bare name are vendor code, not read). A page with a <base href>, a
 // <script type="importmap"> or a dynamic import( of any form loads scripts the check does not resolve: NOT CHECKED (UNRESOLVED).
 export const UNRESOLVED = 'page loads scripts the check does not resolve; check the bed by ear on the draft';
-export function scriptProblem(scripts, dir, read, { base = null, handlers = [] } = {}) {
+// A NESTED DOCUMENT is bounded the same way: an iframe srcdoc is read as a document like index.html (pageProblem; its base
+// URL is index.html's, so its loads resolve as above); any other document an element opens (FRAMES) that is not a remote
+// http(s) page (another origin cannot reach this page) is a load the check does not resolve; an empty one or about:blank is none.
+export function scriptProblem(scripts, dir, read, { base = null, handlers = [], frames = [] } = {}) {
   const ORIGIN = 'http://project.invalid', seen = new Set(), doc = new URL(`${ORIGIN}/index.html`);
   const unresolved = (what) => `${UNRESOLVED} (${String(what).replace(/\s+/g, ' ').slice(0, 50)})`;
   if (base !== null) return unresolved(`<base href="${base}">`);
@@ -494,12 +512,15 @@ export function scriptProblem(scripts, dir, read, { base = null, handlers = [] }
   };
   for (const s of scripts) {
     if (!isJsScript(s.attrs)) continue;
-    let why;
-    if (s.attrs.src) {
+    let why = null;
+    // every attribute that loads the script's file: src, and href / xlink:href of an SVG <script>
+    for (const k of ['src', 'href', 'xlink:href']) {
+      if (why || !s.attrs[k]) continue;
       let u = null;
-      try { u = new URL(s.attrs.src, doc); } catch { /* not a URL */ }
-      why = u ? loadUrl(u, s.attrs.src) : unresolved(s.attrs.src);
-    } else why = visit(s.text, 'an inline <script>', doc);
+      try { u = new URL(s.attrs[k], doc); } catch { /* not a URL */ }
+      why = u ? loadUrl(u, s.attrs[k]) : unresolved(s.attrs[k]);
+    }
+    if (!why && !s.attrs.src) why = visit(s.text, 'an inline <script>', doc);
     if (why) return why;
   }
   // script text in an attribute (an on* handler, a javascript: URL) on any element runs in the page like an inline script
@@ -507,7 +528,29 @@ export function scriptProblem(scripts, dir, read, { base = null, handlers = [] }
     const why = visit(h.text, `the ${h.attr} attribute of <${h.tag}>`, doc);
     if (why) return why;
   }
+  for (const f of frames) {
+    const v = f.value.trim(), what = `<${f.tag} ${f.attr}="${v}">, a document whose scripts can reach the page`;
+    let why = null;
+    if (f.attr === 'srcdoc') why = pageProblem(scanHtml(f.value), dir, read, { nested: `the srcdoc of <${f.tag}>` });
+    else if (v !== '' && !/^about:blank(?:[?#]|$)/i.test(v)) {
+      let at = null;
+      try { at = locate(new URL(v, doc)); } catch { /* not a URL, or a path that does not decode: unknown */ }
+      why = at && at.remote ? null : unresolved(what);
+    }
+    if (why) return why;
+  }
   return null;
+}
+// THE ONE PLACE A DOCUMENT IS JUDGED for what may change the mix: index.html, and each srcdoc in it (nested: where it sits).
+// Every field scanHtml returns is judged: the code fields here (scriptProblem), the mix fields by the bed check of
+// index.html (media, groups, master; a srcdoc's own <audio> or <video> is a mix this check does not read). A field in
+// neither list is a scan nobody judges: it throws, so a new kind of input can never pass unread.
+export const SCAN_FIELDS = { code: ['scripts', 'handlers', 'frames', 'base'], mix: ['media', 'groups', 'master'] };
+export function pageProblem(page, dir, read, { nested = null } = {}) {
+  const unjudged = Object.keys(page).filter((k) => !SCAN_FIELDS.code.includes(k) && !SCAN_FIELDS.mix.includes(k));
+  if (unjudged.length) throw new Error(`pageProblem: the scan field ${unjudged.join(', ')} is not judged`);
+  if (nested && (page.media.length || page.master !== null)) return `${nested} has its own <audio>, <video> or mix, which this check does not read; check the bed by ear on the draft`;
+  return scriptProblem(page.scripts, dir, read, { base: page.base, handlers: page.handlers, frames: page.frames });
 }
 // The clip's length on the timeline: data-end (absolute, wins) minus data-start, else data-duration, else null (to the end of the film).
 export const clipLength = (t) => (t.end != null ? t.end - t.start : t.duration ?? null);
@@ -645,7 +688,7 @@ function main(argv) {
 
   // Inputs
   const html = readText(at('index.html'));
-  const page = html.text ? scanHtml(html.text) : { media: [], groups: new Map(), master: null, scripts: [], handlers: [] }, tags = page.media;
+  const page = html.text ? scanHtml(html.text) : scanHtml(''), tags = page.media;
   if (html.err) warn(html.err);
   else if (html.text == null) info('no index.html: the bed is read from --music only and the narration is audio/narration.wav');
   for (const t of tags) if (t.bad.length) warn(`<audio${t.id ? ' id="' + t.id + '"' : ''}> ${t.bad.join(', ')} is not a number (a template expression?): read as the default`);
@@ -692,7 +735,7 @@ function main(argv) {
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
     if (narrLaneErr) return `the narration's data-automation cannot be modelled (${narrLaneErr}), so its level is unknown`;
     if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
-    const sp = scriptProblem(page.scripts, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; }, { base: page.base, handlers: page.handlers });
+    const sp = pageProblem(page, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; });
     if (sp) return sp;
     if (narrTag) {
       const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
