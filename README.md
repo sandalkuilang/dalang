@@ -171,13 +171,14 @@ scripts/
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
   strips.mjs           review strips: stills per shot on numbered sheets + index
+  captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
   check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets
   gate.sh              the repo's gate (--fast static; full adds the engine self-check and tests/)
 engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms,
-                  cloth, air, plants, particles, grains, water, fur, cutaways) with a self-check; bake.mjs caches a
+                  cloth, air, plants, particles, grains, water, fur, cutaways, captions and labels) with a self-check; bake.mjs caches a
                   physics bake once for every snapshot and render; examples/ ready pieces
 tests/            preflight against a mock VoiceStudio, review strips (run by the gate)
 docs/             workflow + architecture, with diagrams
