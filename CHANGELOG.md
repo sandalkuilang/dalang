@@ -33,8 +33,9 @@ that reads as:
 
 ### Added
 
-- **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[illus]` or
-  `[unknown]`, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
+- **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[assume: …]` (a stated
+  assumption, only as a `[calc]` input), `[illus]` or `[unknown]`; section durations, a source's own year or page and
+  visual-note specs are not numbers, so Gate 1's list can be empty, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
   admission), and Gate 1 lists any untagged number (`script-voice.md` §3, `SKILL.md`, `qc.md` Step 7). The arc list
   gains **two beliefs, tested**, with its beat map, and an uncertainty rule: never invent the missing number, say
   what is not known, then what is certain.

@@ -90,7 +90,7 @@ Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: 
 - Text safe zones per format: `craft-rules.md` §6.
 - Comparisons on 9:16 are sequential, stacked, or one object in two states, never two side-by-side columns.
 - When a number is the point, it is the biggest thing on screen (220–320 px at 1080 wide), in tabular figures, counting up over 1.2–1.6 s and then holding.
-- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card, `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card is the frame's one text block: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
+- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (its `[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card is the frame's one text block: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
 
 ## 8. What the best educational videos do
 
