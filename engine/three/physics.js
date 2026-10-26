@@ -3,7 +3,27 @@ import { G, M } from "./kit.js";
 import { runBake } from "./bakecore.js";
 import { startPool } from "./pool.js";
 export { RAPIER };
-export const slow = () => { throw new Error("todo"); }, replay = slow; // stub (red)
+
+// Time remaps for a shot that shows a baked event slowed or again: tau(t) maps the shot's time to the bake's time, so
+// every view reads the one bake (apply(tau(t)), pose(i, tau(t)), travel(t, fps, tau)), never a second bake.
+// slow: real time until t0, then `rate` (1/50 = fifty times slower) for `hold` s, then back to real time linearly over `rampOut` s.
+export function slow(t0, rate, rampOut, hold = 0) {
+  if (!Number.isFinite(t0) || !(rate > 0 && rate <= 1)) throw new Error("slow(t0, rate, rampOut, hold): t0 is a time in s and the rate is in (0, 1] (1/50 = fifty times slower)");
+  if (!(rampOut >= 0) || !(hold >= 0)) throw new Error("slow(t0, rate, rampOut, hold): rampOut and hold are s ≥ 0");
+  const t1 = t0 + hold, t2 = t1 + rampOut, at2 = t0 + rate * hold + (rampOut * (1 + rate)) / 2;
+  return (t) => {
+    if (t < t0) return t;
+    if (t < t1) return t0 + rate * (t - t0);
+    if (t < t2) { const u = t - t1; return t0 + rate * hold + rate * u + ((1 - rate) * u * u) / (2 * rampOut); }
+    return at2 + (t - t2);
+  };
+}
+// replay: the bake's event at tEvent plays again from the shot's time tShot (a later shot, another angle). Slow-motion
+// replay composes the two: (t) => replay(tEvent, tShot)(slow(tShot, 1 / 50, 0.4)(t)).
+export function replay(tEvent, tShot) {
+  if (!Number.isFinite(tEvent) || !Number.isFinite(tShot)) throw new Error("replay(tEvent, tShot): two times in s");
+  return (t) => tEvent + (t - tShot);
+}
 
 const BAKE_FORMAT = 1; // bump when the stored layout or what a bake means changes: every older cache file then misses
 
@@ -116,6 +136,10 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   world.integrationParameters.contact_natural_frequency = 60;
   world.integrationParameters.maxCcdSubsteps = 4;
   const tracked = [], kin = [], held = new Map(), owner = new Map(); let replayed = false; // owner: collider handle → the object it was built from
+  const mech = []; // mechanism parts (mechanism.js): { bodies, key, step(t, dt), event() }: stepped before onStep, hashed, kept out of islands
+  const dt0 = world.timestep; // taken here: inside an island bake's script a part must not read the fenced world
+  const withParts = (onStep) => (mech.length ? (t) => { mech.forEach((p) => p.step(t, dt0)); if (onStep) onStep(t); } : onStep);
+  const events = () => mech.map((p) => p.event?.()).filter(Boolean);
   // o.group (1–15): parts of one object (a chair's seat and base) share a collision group and never collide with each other.
   const surface = (c, o) => { c.setFriction(o.friction ?? 0.55).setRestitution(o.restitution ?? 0.15).setDensity(o.density ?? 600); if (o.group) c.setCollisionGroups(((1 << o.group) << 16) | (0xffff & ~(1 << o.group))); return c; };
   const tmp = new THREE.Vector3();
@@ -172,9 +196,10 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       series,
       at(name, t) { const a = series[name]; if (!a) throw new Error(`no tracked series "${name}" (opts.track)`); const u = Math.min(n - 1, Math.max(0, t / dt)), s0 = Math.floor(u), s1 = Math.min(n - 1, s0 + 1); return a[s0] + (a[s1] - a[s0]) * (u - s0); },
       // Fastest tracked point speed around t (m per video frame): decides whether the frame needs motion blur.
-      travel(t, fps) {
+      // A remapped shot (slow, replay) passes its tau, so the blur follows what the frame shows.
+      travel(t, fps, tau = (x) => x) {
         let m = 0;
-        tracked.forEach((b, i) => { m = Math.max(m, pose(i, t + 0.5 / fps).p.distanceTo(pose(i, t - 0.5 / fps).p)); });
+        tracked.forEach((b, i) => { m = Math.max(m, pose(i, tau(t + 0.5 / fps)).p.distanceTo(pose(i, tau(t - 0.5 / fps)).p)); });
         return m;
       },
       apply(t) {
@@ -218,6 +243,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     world.impulseJoints.forEach((j) => { h.num(j.type()); h.num(j.body1().handle); h.num(j.body2().handle); v3(j.anchor1()); v3(j.anchor2()); });
     held.forEach((u, k) => { h.num(k); h.num(u); });
     if (isl.length) { h.str("islands"); isl.forEach((hs) => { h.num(hs.length); hs.forEach((x) => h.num(x)); }); } // how a bake is split into islands is part of its key
+    mech.forEach((p) => h.str(p.key));
     kin.forEach((k) => { h.str(k.pose); for (let i = 0; i <= 16; i++) { const { p, q } = k.pose(-preroll + ((duration + preroll) * i) / 16); v3(p); if (q) q4(q); } });
     h.str(onStep || ""); h.str(opts.keep || ""); Object.entries(opts.track || {}).forEach(([k, fn]) => { h.str(k); h.str(fn); });
     h.str(JSON.stringify(opts.key ?? "")); h.str(await sources());
@@ -236,6 +262,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       const b = x?.body || x, t = tracked.find((e) => e.body === b);
       if (!t) throw new Error("opts.islands takes bodies made by roundBox or dynamicHull");
       if (kin.some((e) => e.body === b)) throw new Error(`"${t.name}" is kinematic: a body moved by a path stays in the main island`);
+      if (mech.some((p) => p.bodies.includes(b))) throw new Error(`"${t.name}" is moved by a mechanism part (a spring or a latch): it stays in the main island`);
       if (seen.has(b.handle)) throw new Error(`"${t.name}" is in two islands (or listed twice)`);
       seen.add(b.handle);
       return b.handle;
@@ -425,7 +452,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         const label = hid.get(j.body1().handle);
         if (label) lift.push(fence(j, live, () => { throw new Error(`${label}: its joint cannot be reached by onStep, opts.track or opts.keep, which see only the bodies outside opts.islands`); }));
       }));
-      main = runBake(world, idx[0].map((i) => itemOf(tracked[i])), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: nm, script, trace: true });
+      main = runBake(world, idx[0].map((i) => itemOf(tracked[i])), { duration, preroll, mpu, onStep: withParts(onStep), kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: nm, script, trace: true });
     } finally { lift.reverse().forEach((undo) => undo()); }
     if (sharedState() !== shared0) throw new Error("opts.islands: gravity, the solver, a fixed body, a static collider or a joint changed during the bake, and the island worlds never saw it: change them before the bake, or leave the bodies they touch out of opts.islands");
     world.propagateModifiedBodyPositionsToColliders(); // the bake is over: read every collider where its body is
@@ -441,7 +468,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
     const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
     crossing(poses, pre, jumps, run, of, main.n, main.dt, reach0);
-    return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled") } });
+    return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled"), ...(mech.length ? { latches: events() } : {}) } });
   }
 
   const sim = {
@@ -513,14 +540,23 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       if (!tracked.some((e) => e.body === b)) throw new Error("hold() takes a body made by roundBox, dynamicHull or kinematicHull");
       held.set(b.handle, until); return x;
     },
+    // A mechanism part (mechanism.js): stepped before onStep every step (the pre-roll too), its key hashed into the bake,
+    // its bodies refused in opts.islands; event() → { name, t } goes in report.latches. early: true runs it before the other
+    // parts (a latch releases first, so its spring acts on the very step after the release).
+    part(p) {
+      if (replayed) throw new Error("mechanism parts are added before bakeCached");
+      (p.early ? mech.unshift(p) : mech.push(p)); return p;
+    },
     // Simulate [0, duration] after a pre-roll that lets everything settle onto its real support (a rug's thickness,
     // a soft seat), so frame 0 shows bodies already at rest. onStep(t) runs before each step (pushes, resistance).
     // opts.track = { name: () => number } samples a value after every recorded step (a liquid level): baked.at(name, t).
     // opts.keep = () => JSON stores what onStep built for later (a stop time, events): baked.kept.
+    // Mechanism parts (mechanism.js) run before onStep; their release times come back in report.latches.
     bake(duration, onStep, preroll = 0.5, opts = {}) {
       if (replayed && !opts.fromCache) throw new Error("bake after bakeCached: a cached replay leaves the world at its start — bake everything in one bakeCached");
       if (opts.islands?.length) throw new Error("islands are baked in workers: use bakeCached");
-      const { ord, pre, ...data } = runBake(world, tracked.map(itemOf), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: names() });
+      const { ord, pre, ...data } = runBake(world, tracked.map(itemOf), { duration, preroll, mpu, onStep: withParts(onStep), kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: names() });
+      if (mech.length) data.report.latches = events(); // when each latch let go: stored with the bake, so a replay knows it
       return baked(data);
     },
     // bake(), stored once in assets/bake/<hash>.bin and replayed from there by every later page load (a snapshot, the
