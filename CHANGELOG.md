@@ -159,7 +159,7 @@ that reads as:
   `engine/three/type.js`): captions get a target, not only a keep-out, as fractions of the frame height: 9:16 Reels and
   TikTok block top 72-76 %, bottom at most ~82 %; Shorts as low as its band allows (bottom 69 %); 4:5 bottom 92 %; 16:9
   the bottom 15 %. The trade-off is said once: the lowest lines may brush the platform overlay, so check the phone sheet,
-  never lift captions toward the middle. A 9:16 caption above ~70 % of the height (Shorts: ~65 %) is a P1 ("captions too
+  never lift captions toward the middle. A 9:16 caption block whose top edge is above ~70 % of the height (Reels, TikTok) or whose bottom edge is above ~65 % (Shorts) is a P1 ("captions too
   high, compete with the hero"). The engine's Reels caption zone now ends at 82 % (was 75 %); Shorts is unchanged, and
   TikTok moves from the Shorts line to the Reels line.
 - **VoxCPM2 chunks never exceed 120 characters**: a sentence longer than that splits at a comma, then at a space
