@@ -21,6 +21,8 @@ const { particles, contrast, READABLE } = await use("particles.js");
 const { water, dispersion, seaState } = await use("water.js");
 const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
+const { grains, presets } = await use("grains.js");
+const { makeCanister } = await use("examples/canister.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -29,7 +31,7 @@ assert.equal(M, 2, "makeKit sets the scale every module reads");
 const finite = (a) => Array.from(a).every(Number.isFinite);
 
 // Surfaces: tileable maps with no NaN.
-for (const k of ["fabric", "pile", "wood", "bamboo", "micro"]) { const s = get(k); assert.ok(finite(s.a.image.data) && finite(s.b.image.data), k + " map has NaN"); }
+for (const k of ["fabric", "pile", "wood", "bamboo", "micro", "grains"]) { const s = get(k); assert.ok(finite(s.a.image.data) && finite(s.b.image.data), k + " map has NaN"); }
 
 // Physics in real units: a 30 cm box dropped 10 cm onto a floor lands, touching it, within 2 mm, and the report
 // says nothing floats or moves; a stuffed cushion (thousands of crowded points) builds a hull without aborting.
@@ -572,6 +574,41 @@ assert.ok(hatched.uncut.includes(whole) && whole.material === sharedMat && hatch
   const wc = cutaway(whole2); whole2.updateMatrixWorld(true); wc.at(0);
   assert.ok(wc.group.parent === whole2 && wc.parts[0].cap.visible, "a root that is the scene itself keeps its caps in it");
 }
+// Grains: a bulk of small things shows separate grains at real size, in layers, on its top and at its cut; none on
+// the removed side, none stacked into one blob, the same twice; a canister's fill stays whole under its cutaway.
+const gcut = { normal: new THREE.Vector3(0, 0, 1), offset: 0 };
+const gr0 = grains(kit, { preset: "lentil", at: new THREE.Vector3(), radius: 0.05, height: 0.08, cut: gcut });
+const L0 = presets.lentil, s0 = 0.92 * Math.sqrt(L0.l * L0.w), want = (2 * Math.PI * 0.05 ** 2 / 2) / s0 ** 2;
+assert.ok(Math.abs(gr0.counts.top - want) / want < 0.35, "two layers over the half disc: " + gr0.counts.top + " of ~" + want.toFixed(0));
+assert.ok(gr0.counts.face > 50, "the cut face shows whole grains: " + gr0.counts.face);
+assert.equal(gr0.mesh.count, gr0.counts.top + gr0.counts.face, "one instance per grain");
+gr0.mesh.geometry.computeBoundingBox();
+{
+  const m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), top = [], bb = gr0.mesh.geometry.boundingBox;
+  for (let i = 0; i < gr0.mesh.count; i++) {
+    gr0.mesh.getMatrixAt(i, m4); m4.decompose(p, q, sc);
+    assert.ok(finite(p.toArray()) && finite(sc.toArray()) && finite(q.toArray()), "grain " + i + " has NaN");
+    assert.ok(p.z <= 0.3 * L0.t + 1e-6, "no grain on the removed side: z = " + (p.z * 1000).toFixed(2) + " mm");
+    assert.ok(Math.hypot(p.x, p.z) <= 0.05 && p.y <= 0.08 + 1e-6 && p.y >= 0, "grain inside the container: " + p.toArray());
+    const len = (bb.max.x - bb.min.x) * sc.x;
+    assert.ok(Math.abs(len / L0.l - 1) < 0.15, "a lentil grain is 5 mm long: " + (len * 1000).toFixed(2) + " mm");
+    if (i < gr0.counts.top) top.push(p.clone());
+  }
+  let near = Infinity; // grains of one layer never stack into one blob
+  for (let a = 0; a < top.length; a++) for (let b = a + 1; b < top.length; b++) if (Math.abs(top[a].y - top[b].y) < 1e-9) near = Math.min(near, Math.hypot(top[a].x - top[b].x, top[a].z - top[b].z));
+  assert.ok(near >= 0.25 * s0, "grains of a layer stay apart: closest " + (near * 1000).toFixed(2) + " mm");
+  assert.equal(new Set(top.map((v) => v.y.toFixed(9))).size, 2, "two jittered layers");
+}
+const gr1 = grains(kit, { preset: "lentil", at: new THREE.Vector3(), radius: 0.05, height: 0.08, cut: gcut });
+assert.deepEqual(Array.from(gr1.mesh.instanceMatrix.array), Array.from(gr0.mesh.instanceMatrix.array), "grains are the same every build");
+assert.ok(gr0.body.userData.cut === false && gr0.mesh.userData.cut === false, "a fill built already cut is not clipped again");
+assert.ok(grains(kit, { preset: "coffee", at: new THREE.Vector3(), width: 0.1, depth: 0.08, height: 0.05 }).counts.face === 0, "no cut, no cut face");
+const sugar = grains(kit, { preset: "sugar", at: new THREE.Vector3(), radius: 0.05, height: 0.05, instances: false });
+assert.ok(!sugar.mesh && sugar.body && sugar.counts.top === 0, "grains too small to see are the body's texture alone");
+assert.ok(finite(get("grains", { size: 0.005, long: 1.4 }).a.image.data), "grains map has NaN");
+const CN = makeCanister({ ...kit, scene: new THREE.Scene(), rest: (o) => o }, { at: new THREE.Vector3(), cut: {} });
+CN.group.updateMatrixWorld(true); CN.cut.at(0);
+assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh.userData.cut?.shell), "the canister's wall is cut and its grains stay whole");
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
@@ -589,4 +626,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, any scale and gravity");
