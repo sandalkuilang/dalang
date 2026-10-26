@@ -30,6 +30,37 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **VoiceStudio states in preflight**, each with its fix: `STOPPED` (macOS app installed, closed; "never launched"
+  when the first launch would download its runtime), `BUSY` (running but not answering, or restarting its backend:
+  never restarted), `DOWN` (Linux/Windows or another local port), `UNREACHABLE` (a remote `--vs-url`), `CONFLICT`
+  (something else on the port), and an Intel-Mac `MISSING` that points to a remote backend. Apple silicon is read
+  from the hardware, so an x64 Node under Rosetta still counts. A remote backend that refuses reads (API key or
+  loopback-only settings) says so instead of "busy".
+- **`preflight.mjs --start`** opens a stopped app, waits ≤ 60 s and checks VoiceStudio only, so the run stays inside
+  a default 120 s tool timeout and the agent never writes its own polling loop. `--vs-url=<url>` works too.
+- **Saved voices in preflight**: a `Voices` line lists the VoiceStudio profiles (quoted name = id); a voice named in
+  the request is matched there and saved as `voice` in `BRIEF.md`, never searched for in earlier videos.
+- **Brief Call 0**: setup choices preflight leaves (HyperFrames skills, a free stock-footage key, the voice engine,
+  which moved here from Call 2) are asked before Call 1, so they have an answer path and the Realism recommendation
+  knows its sources.
+
+### Fixed
+
+- **Stale generator promises**: Principle 6 and the Brief's Angle and Realism options no longer offer generated
+  stills or clips as a default Hyperreal source, nor do look C, the storyboard checks or the A-roll list; they
+  are a paid, on-request exception. The brief's "generators get
+  machine anatomy wrong" reason for asking for machine photos is gone.
+- **Unreadable read as missing**: a timed-out, failed or empty `/models`, profile or voices read is a `WARN … rerun`,
+  never `MISSING … install` or "no saved profile".
+- **Filtered preflight reads**: the `Voice:` summary repeats the VoiceStudio fix, the rows to fix, a missing AudioSeal
+  watermark and the CC-BY-NC caveat.
+- **hyperframes `MISSING` when Docker was off**: Docker only serves `render --docker`, which dalang never uses.
+- **Hyperreal with no footage source**: with no stock key and no user material, the Realism option names where
+  the moving subject comes from (Commons, three.js), and autonomous mode picks look A only when those cover it.
+- `--vs-url` without a URL exits with a message instead of a crash; a rejected ElevenLabs key says why.
+
 ### Removed
 
 - **Local image and music generators:** `mflux` (Z-Image Turbo, SeedVR2) and ACE-Step

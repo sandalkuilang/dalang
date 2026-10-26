@@ -42,7 +42,7 @@ flowchart LR
 |---|---|---|
 | `SKILL.md` | order of work, gates, quality bar | build animations |
 | `references/` | craft knowledge, read one § at a time | get loaded wholesale |
-| `scripts/preflight.mjs` | environment check, ~15 lines of output | install anything, print secrets |
+| `scripts/preflight.mjs` | environment check, ~15 lines of output; `--start` opens an installed VoiceStudio | install anything, print secrets |
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
 | `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
 | `scripts/stillness.mjs`, `loudness.mjs`, `qc.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, black frames, colour tags, cuts inside words) | judge taste |

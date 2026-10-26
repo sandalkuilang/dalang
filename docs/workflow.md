@@ -6,7 +6,7 @@ Nine steps, four approval gates. Nothing renders at final quality before Gate 4.
 
 ```mermaid
 flowchart TD
-    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>platform, duration, language, angle, look, voice"]
+    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>setup choices, platform, language, angle, realism, duration, look, voice"]
     S1 --> S2{"Reference video?"}
     S2 -- yes --> M["Step 2 · Measure reference<br/>numbers only, never reuse"]
     S2 -- no --> S3

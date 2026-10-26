@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 // Step 0 in one call: every tool, voice engine and media source dalang needs, checked in parallel.
-// Prints one compact line per item (OK / MISSING / WARN + the fix), so the agent reads ~15 lines
-// instead of running a dozen commands. Never prints secrets.
+// Prints one compact line per item (OK / MISSING / WARN / INFO / PAID / SKIP, and for VoiceStudio also
+// STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix), so the agent reads ~15 lines instead of running a
+// dozen commands. Never prints secrets.
 //
-// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json]
+// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start]
+//   --start  VoiceStudio STOPPED (macOS app installed, not running): open it and wait ≤ 60 s for the backend.
+//            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
 import { execFile } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
@@ -12,12 +15,26 @@ import path from 'node:path';
 
 const args = process.argv.slice(2);
 const vsArg = args.indexOf('--vs-url');
-const vsUrl = (vsArg >= 0 ? args[vsArg + 1] : 'http://localhost:3900').replace(/\/+$/, '');
+const vsEq = args.find(a => a.startsWith('--vs-url='));
+const vsRaw = vsEq ? vsEq.slice('--vs-url='.length) : vsArg >= 0 ? args[vsArg + 1] : 'http://localhost:3900';
+if (!/^https?:\/\//.test(vsRaw || '')) { console.error('--vs-url needs a URL, e.g. http://192.168.1.20:3900'); process.exit(2); }
+const vsUrl = vsRaw.replace(/\/+$/, '');
 const asJson = args.includes('--json');
+const start = args.includes('--start');
 
 const run = (cmd, argv, timeout = 60000) => new Promise(res =>
   execFile(cmd, argv, { timeout, maxBuffer: 8 << 20 }, (err, stdout, stderr) => res({ ok: !err, out: String(stdout || ''), err: String(stderr || err?.message || '') })));
-const get = (url, init = {}, ms = 8000) => fetch(url, { ...init, signal: AbortSignal.timeout(ms) }).then(async r => ({ status: r.status, body: await r.json().catch(() => null) })).catch(() => null);
+// Never null: a failure keeps why it failed, because a refused port (nothing running) and a timeout
+// (running but busy) need opposite fixes, and "couldn't read" must never read as "none".
+const get = (url, init = {}, ms = 8000) => fetch(url, { ...init, signal: AbortSignal.timeout(ms) })
+  .then(async r => ({ status: r.status, body: await r.json().catch(() => null) }))
+  .catch(e => ({ status: 0, body: null, err: e.name === 'TimeoutError' ? 'timeout'
+    // localhost tries ::1 and 127.0.0.1; one refusal among mixed errnos (IPv6 off) still means nothing listens.
+    : e.cause?.code === 'ECONNREFUSED' || e.cause?.errors?.some(x => x.code === 'ECONNREFUSED') ? 'ECONNREFUSED'
+    : (e.cause?.code || e.message) }));
+const why = r => r.err || (r.status === 200 ? 'unexpected reply' : `HTTP ${r.status}`);
+const denied = r => r.status === 401 || r.status === 403;
+const deniedNote = r => `backend refused the read (${why(r)}: auth or loopback-only) — dalang sends no API key; open that backend to this machine without a key, or run dalang where it runs`;
 
 async function tools() {
   const [ff, fp, hf] = await Promise.all([run('ffmpeg', ['-version']), run('ffprobe', ['-version']), run('npx', ['--yes', 'hyperframes', 'doctor', '--json'], 120000)]);
@@ -26,23 +43,93 @@ async function tools() {
   let hfOk = false;
   try {
     const d = JSON.parse(hf.out.slice(hf.out.indexOf('{')));
-    hfOk = (d.checks || []).every(c => c.ok || /optional/i.test(`${c.detail} ${c.hint || ''}`));
+    // Docker only serves `render --docker`, which dalang never uses.
+    hfOk = (d.checks || []).every(c => c.ok || /optional/i.test(`${c.detail} ${c.hint || ''}`) || /docker/i.test(c.name || ''));
   } catch { /* npx or hyperframes missing */ }
   return [
     ['node', major >= 22 ? 'OK' : 'MISSING', `v${process.versions.node}${major >= 22 ? '' : ' — needs 22+'}`],
     ['ffmpeg/ffprobe', ff.ok && fp.ok ? 'OK' : 'MISSING', ff.ok && fp.ok ? '' : 'install ffmpeg (macOS: brew install ffmpeg)'],
-    ['hyperframes', hfOk ? 'OK' : 'MISSING', hfOk ? '' : 'npx hyperframes skills update (ask first), then restart Claude'],
+    ['hyperframes', hfOk ? 'OK' : 'MISSING', hfOk ? '' : 'asked in Brief Call 0: npx hyperframes skills update, then restart Claude'],
   ];
 }
 
+const vsU = (() => { try { return new URL(vsUrl); } catch { return null; } })();
+const vsLocal = !!vsU && ['localhost', '127.0.0.1', '[::1]'].includes(vsU.hostname);
+const appPort = vsU?.port === '3900'; // the app always serves :3900; another local port is some other backend
+const mac = process.platform === 'darwin';
+// Hardware, not the Node binary: an x64 Node under Rosetta still runs on Apple silicon. Intel Macs get the UI only.
+const appleSilicon = mac && (await run('/usr/sbin/sysctl', ['-n', 'hw.optional.arm64'], 5000)).out.trim() === '1';
+// ponytail: macOS app paths only; Linux/Windows report DOWN ("open it or install it"), with no --start path.
+const vsApp = vsLocal && appPort && appleSilicon ? ['/Applications/VoiceStudio.app', path.join(homedir(), 'Applications/VoiceStudio.app')].find(existsSync) : undefined;
+// Its venv exists only once the first launch finished downloading the runtime.
+const vsPython = path.join(homedir(), 'Library/Application Support/VoiceStudio/runtime/project/.venv/bin/python');
+const START_WAIT_MS = 60000; // instant refused probe + 60 s + one 6 s poll + 8 s reads ≈ 75 s < 120 s tool timeout
+const waitS = `${START_WAIT_MS / 1000} s`;
+const isVs = h => h.status === 200 && h.body?.version != null;
+
+function vsDown(h, opened, appRunning) {
+  if (!vsLocal) return ['UNREACHABLE', h.err === 'ECONNREFUSED'
+    ? `nothing listens at ${vsUrl} — ask the user to start it on that machine; install nothing here`
+    : `backend at ${vsUrl} not answering (${why(h)}): busy or unreachable — ask the user; never restart a backend that may be running a job; install nothing here`];
+  if (h.status === 200 || (h.status >= 400 && h.status < 500)) return ['CONFLICT', `something else answers at ${vsUrl} (${why(h)}) — not VoiceStudio: free the port or pass --vs-url`];
+  // A timeout, 5xx or reset is a running backend that is busy or starting: never restart it.
+  if (h.err !== 'ECONNREFUSED') return ['BUSY', opened
+    ? `opened; backend up but still starting (${why(h)}) — rerun preflight in a minute, no --start needed`
+    : `backend up but not answering /health (${why(h)}): an inline download or another session's job — wait a minute and rerun; never restart or reinstall it`];
+  // Refused: nothing listens. The app may still be running while it restarts its backend (it does every ~60 s when stuck).
+  if (appRunning) return ['BUSY', 'app running, backend (re)starting — rerun preflight in a minute; never restart or reinstall it'];
+  if (!vsApp) {
+    if (!mac || !appPort) return ['DOWN', `nothing at ${vsUrl} — if VoiceStudio (or the backend on that port) is installed, open it and rerun preflight; otherwise install it with consent (references/voice.md "Setup")`];
+    if (!appleSilicon) return ['MISSING', 'Intel Mac: the app has no local backend — pass --vs-url <remote backend>; install nothing'];
+    return ['MISSING', `not in /Applications — install it with consent (references/voice.md "Setup")`];
+  }
+  const firstLaunch = !existsSync(vsPython);
+  if (!opened) return ['STOPPED', firstLaunch
+    ? 'installed, never launched: its first launch downloads a runtime (several GB, 10+ min) — ask the user first, then --start'
+    : `installed, not running — rerun with --start (opens it, waits ≤ ${waitS})`];
+  if (!opened.ok) return ['STOPPED', `could not open ${vsApp} (${opened.err.trim().slice(0, 120)}) — ask the user to open it`];
+  return ['STOPPED', firstLaunch
+    ? 'opened; first launch is downloading its runtime (several GB, 10+ min) — rerun --start every few minutes, never your own polling loop'
+    : `opened, but no backend within ${waitS} — rerun --start once; still down → ask the user to look at the app window`];
+}
+
 async function voicestudio() {
-  const health = await get(`${vsUrl}/health`);
-  if (!health || health.status !== 200) return [['VoiceStudio', 'MISSING', `backend not answering at ${vsUrl} — install/open the app (references/voice.md)`]];
-  const [models, prof] = await Promise.all([get(`${vsUrl}/models`, {}, 20000), get(`${vsUrl}/api/settings/performance-profile`)]);
-  const list = Array.isArray(models?.body) ? models.body : (models?.body?.models || []);
+  let health = await get(`${vsUrl}/health`);
+  let opened = null, appRunning = false;
+  if (!isVs(health) && health.err === 'ECONNREFUSED' && vsApp) {
+    // Anchored to the start of the command line: another shell whose arguments mention the path can't match.
+    appRunning = (await run('pgrep', ['-f', `^${vsApp}/Contents/MacOS/`], 5000)).ok;
+    if (start && !appRunning) {
+      opened = await run('open', [vsApp]);
+      if (opened.ok) for (const t0 = Date.now(); Date.now() - t0 < START_WAIT_MS; await new Promise(r => setTimeout(r, 3000))) {
+        health = await get(`${vsUrl}/health`, {}, 3000);
+        if (isVs(health)) break;
+      }
+    }
+  }
+  if (!isVs(health)) return [['VoiceStudio', ...vsDown(health, opened, appRunning)]];
+  const readMs = opened ? 8000 : 20000; // keeps a --start run inside the tool timeout
+  const [models, prof, voices] = await Promise.all(['/models', '/api/settings/performance-profile', '/v1/audio/voices'].map(u => get(vsUrl + u, {}, readMs)));
+  // Saved profiles, so a voice the user names in the request is matched here, not searched for elsewhere.
+  // Names are quoted: a name holding "; " or a newline can't fake another entry or row.
+  const vlist = voices.status === 200 && Array.isArray(voices.body?.voices) ? voices.body.voices : null;
+  const saved = (vlist || []).filter(v => v.type === 'profile').map(v => `${JSON.stringify(String(v.name))} = ${v.voice_id}${v.language ? ` (${v.language})` : ''}`);
+  // A real list always carries the built-in aliases: an empty or unknown-shaped one is unreadable, not "none".
+  const oddTypes = !vlist?.length || vlist.some(v => !['profile', 'openai_alias', 'default'].includes(v.type));
+  const voicesRow = denied(voices) ? ['  Voices', 'WARN', deniedNote(voices)]
+    : !vlist ? ['  Voices', 'WARN', `could not list saved profiles (${why(voices)}) — rerun preflight; never assume none exist`]
+    : saved.length ? ['  Voices', 'INFO', `saved profiles: ${saved.join('; ')}`]
+    : oddTypes ? ['  Voices', 'WARN', 'voice list empty or of unknown shape — check `tts_timestamps.mjs --list-voices`; never assume none exist']
+    : ['  Voices', 'INFO', 'no saved profile — design or clone one in Step 4 (references/voice.md)'];
+  const vsOk = ['VoiceStudio', 'OK', `v${health.body.version} on ${health.body?.device ?? '?'}`];
+  // Unreadable state is not missing state: a busy backend must never send the agent to reinstall GB of models.
+  // An empty catalogue is a backend still loading (the real one lists every model it knows), not missing models.
+  const list = Array.isArray(models.body) ? models.body : models.body?.models;
+  const unread = models.status !== 200 || !Array.isArray(list) || !list.length ? models : prof.status !== 200 || !prof.body?.selections ? prof : null;
+  if (unread) return [vsOk, ...['  TTS model', '  ASR (word timing)'].map(i => [i, 'WARN', denied(unread) ? deniedNote(unread) : `could not read model state (${why(unread)}) — backend busy; rerun preflight, install nothing`]), voicesRow];
   const ready = id => { const m = list.find(x => x.repo_id === id); return !!m && m.installed && !m.incomplete; };
-  const tts = prof?.body?.selections?.tts || {};
-  const asr = prof?.body?.selections?.asr || {};
+  const tts = prof.body.selections?.tts || {};
+  const asr = prof.body.selections?.asr || {};
   const ttsOk = ready(tts.model || 'k2-fsa/OmniVoice');
   // mlx-whisper's "model" is the engine name; its real weights default to whisper-large-v3-mlx.
   const asrRepo = asr.engine === 'mlx-whisper' && !String(asr.model).includes('/') ? 'mlx-community/whisper-large-v3-mlx' : asr.model;
@@ -51,10 +138,13 @@ async function voicestudio() {
   let sealOk = false;
   try { sealOk = readdirSync(sealDir).some(f => !f.includes('.partial') && statSync(path.join(sealDir, f)).size > 50e6); } catch { /* no cache */ }
   return [
-    ['VoiceStudio', 'OK', `v${health.body?.version ?? '?'} on ${health.body?.device ?? '?'}`],
+    vsOk,
     ['  TTS model', ttsOk ? 'OK' : 'MISSING', ttsOk ? `${tts.model || 'k2-fsa/OmniVoice'}${/omnivoice/i.test(tts.model || 'omnivoice') ? ' — weights CC-BY-NC: non-commercial videos only (references/voice.md "Licence")' : ''}` : 'install with consent (references/voice.md "Models")'],
     ['  ASR (word timing)', asrOk ? 'OK' : 'MISSING', asrOk ? `${asr.engine} ${asrRepo}` : `active: ${asr.engine || 'none'} ${asrRepo || ''} not installed — install faster-whisper turbo + tier "balanced" (references/voice.md)`],
-    ['  AudioSeal watermark', sealOk ? 'OK' : 'MISSING', sealOk ? '' : 'pre-download outside the backend before the first generation (references/voice.md)'],
+    // The watermark cache lives beside the backend: a local check says nothing about a remote one.
+    !vsLocal ? ['  AudioSeal watermark', 'INFO', 'remote backend: pre-download it on that machine (references/voice.md)']
+      : ['  AudioSeal watermark', sealOk ? 'OK' : 'MISSING', sealOk ? '' : 'pre-download outside the backend before the first generation (references/voice.md)'],
+    voicesRow,
   ];
 }
 
@@ -63,7 +153,7 @@ async function elevenlabs() {
   // Paid service: reported, never required, never used unless the user asks.
   if (!key) return [['ElevenLabs (paid)', 'SKIP', 'no key — not needed, free VoiceStudio is the default']];
   const s = await get('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': key } });
-  if (!s || s.status !== 200) return [['ElevenLabs (paid)', 'SKIP', `key rejected (${s?.status ?? 'network'}) — not needed`]];
+  if (s.status !== 200) return [['ElevenLabs (paid)', 'SKIP', `key rejected or unreachable (${why(s)}) — not needed`]];
   const b = s.body;
   return [['ElevenLabs (paid)', 'PAID', `optional, only if the user asks — tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? '; free tier: non-commercial, no cloning/library voices' : ''}`]];
 }
@@ -83,23 +173,34 @@ async function media() {
   const out = [
     // No image or music generator in the default path (references/brief.md): footage, photos, three.js and licensed tracks. HeyGen spends metered credits, so it is listed as paid.
     // Real motion footage: Pexels and Pixabay have free APIs (commercial-OK licences) but need a key the user signs up for.
-    ['Stock video', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? 'OK' : 'WARN', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? `${['PEXELS_API_KEY', 'PIXABAY_API_KEY'].filter(k => process.env[k]).join(', ')} set (free, real motion footage)` : 'no key — ask the user once for a free PEXELS_API_KEY (pexels.com/api) or PIXABAY_API_KEY: real footage is the cheapest way to make the subject move (references/visual-direction.md §1 rung 2)'],
+    ['Stock video', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? 'OK' : 'WARN', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? `${['PEXELS_API_KEY', 'PIXABAY_API_KEY'].filter(k => process.env[k]).join(', ')} set (free, real motion footage)` : 'no key — asked in Brief Call 0: a free PEXELS_API_KEY (pexels.com/api) or PIXABAY_API_KEY; real footage is the cheapest way to make the subject move (references/visual-direction.md §1 rung 2)'],
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
   // Forced aligner (tts_timestamps.mjs): which languages have a local model.
   const root = process.env.ALIGN_MODELS || path.join(homedir(), '.cache', 'dalang', 'align');
   let langs = []; try { langs = readdirSync(root).filter(l => existsSync(path.join(root, l, 'config.json'))); } catch {}
-  const py = process.env.DALANG_PYTHON || path.join(homedir(), 'Library/Application Support/VoiceStudio/runtime/project/.venv/bin/python');
+  const py = process.env.DALANG_PYTHON || vsPython;
   if (langs.length && !existsSync(py)) langs = []; // a model without its Python can't run
   out.push(['Word aligner', langs.length ? 'OK' : 'INFO', langs.length ? `local models: ${langs.join(', ')} (sharper word timing)` : 'no local model — timing from transcript; optional download per language (references/voice.md "Forced alignment")']);
-  if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — npx hyperframes skills update (ask first)`]);
+  if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — asked in Brief Call 0: npx hyperframes skills update`]);
   if (process.env.GEMINI_API_KEY) out.push(['Snapshots', 'WARN', 'GEMINI_API_KEY is set — `hyperframes snapshot` uploads frames to Gemini unless you pass --describe false']);
   return out;
 }
 
-const groups = await Promise.all([tools(), voicestudio(), elevenlabs(), media()]);
+const groups = await Promise.all(start ? [voicestudio()] : [tools(), voicestudio(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
-else for (const [item, status, note] of rows) console.log(`${status.padEnd(7)} ${item.padEnd(22)} ${note}`);
+else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
-if (!asJson) console.log(voiceOk ? '\nVoice: ready (free, VoiceStudio).' : '\nVoice: VoiceStudio not ready — fix it (free, references/voice.md "Setup"); a paid engine only if the user asks.');
+const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
+// The summary repeats the fix that matters, so a filtered read still gets it.
+const [, vsStatus, vsNote] = rows.find(([i]) => i === 'VoiceStudio');
+const ttsRow = rows.find(([i]) => i === '  TTS model');
+const unreadable = ttsRow?.[1] === 'WARN';
+const sealMissing = rows.some(([i, s]) => i === '  AudioSeal watermark' && s === 'MISSING');
+const missing = rows.filter(([i, s]) => ['  TTS model', '  ASR (word timing)', '  AudioSeal watermark'].includes(i) && s === 'MISSING').map(([i]) => i.trim());
+const caveat = nc ? '; OmniVoice weights CC-BY-NC — tell the user before a monetised video' : '';
+if (!asJson) console.log('\nVoice: ' + (voiceOk ? `ready (free, VoiceStudio${caveat})${sealMissing ? ' — but pre-download the AudioSeal watermark before the first generation (references/voice.md)' : ''}.`
+  : vsStatus !== 'OK' ? `VoiceStudio ${vsStatus} — ${vsNote}. A paid engine only if the user asks.`
+  : unreadable ? `VoiceStudio state unreadable — ${ttsRow[2]}.`
+  : `VoiceStudio not ready — fix ${missing.join(' and ')} (free, references/voice.md "Setup")${caveat}; a paid engine only if the user asks.`));
