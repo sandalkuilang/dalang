@@ -23,15 +23,21 @@
 // until --music names every bed; a data-fx-chain on a bed, the narration, a bus or the composition root, a bus lane, a
 // fade-out without a clip end, a data-composition-src sub-composition) is NOT CHECKED, never "no bed" and never OK; so is a
 // voice check with fewer than 3 voiced sentences. The Result is made in one place (verdict): OK only when the bed, clicks and
-// voice each have an outcome. The render inputs are those of HyperFrames 0.8.206 (compileTimingAttrs, parseAudioElements,
-// resolveAudioGroups, the volume it samples from the timeline), and one rule covers them (INPUTS, renderProblem): each is
-// modelled or known not to change the mix, and any other one (an attribute outside the inventory, a data-hidden or
-// <template> ancestor, a lane other than a straight volume lane, a gain HyperFrames clamps, a script that writes a media
-// volume) makes the tag's level NOT CHECKED. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
-// data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Known limits: a `loop` bed
-// is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a remote script
-// is a library and is not read; a mix with sharp percussion can show a false click; an engine that writes digital zeros
-// inside a word can show a false dropout.
+// voice each have an outcome.
+//
+// THE CONTRACT IS BOUNDED TO THE DECLARED MIX: the <audio> and <video> tags and the <hf-audio-group> buses of index.html,
+// with the attributes of the allowlist below (INPUTS = modelled or judged, INERT = no effect on the mix; the inputs are
+// those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
+// meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
+// element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
+// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports) whose text has the
+// word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
+// draft"; no JS is parsed); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
+// in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
+// from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
+// data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Other limits: a `loop`
+// bed is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a mix with
+// sharp percussion can show a false click; an engine that writes digital zeros inside a word can show a false dropout.
 //
 // Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]   (--music: once per bed)
 // Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun) · 1 usage / failure.
@@ -41,6 +47,14 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { osProblem } from './palette.mjs';
 
+// ── ALLOWLIST: the attributes of a media element or a bus that the model applies or judges (INPUTS) or knows do not
+// change the mix (INERT; aria-* too). Written once; a new input is modelled only by adding it here and applying it.
+export const HF_MAX_GAIN = 10 ** (12 / 20); // HyperFrames clamps a gain to 0..+12 dB
+export const INPUTS = {
+  media: new Set(['src', 'data-start', 'data-end', 'data-duration', 'data-volume', 'data-media-start', 'data-playback-rate', 'data-automation', 'loop', 'data-audio-group', 'data-fx-chain', 'data-fade-in', 'data-fade-out', 'data-hidden', 'data-has-audio', 'muted']),
+  bus: new Set(['data-volume', 'data-fx-chain', 'data-automation', 'data-hidden']),
+};
+export const INERT = new Set(['id', 'class', 'style', 'title', 'alt', 'type', 'width', 'height', 'poster', 'preload', 'crossorigin', 'referrerpolicy', 'controls', 'autoplay', 'playsinline', 'webkit-playsinline', 'disablepictureinpicture', 'disableremoteplayback', 'data-hf-id', 'data-hf-render-id', 'data-hf-auto-start', 'data-track-index', 'data-layer', 'data-label', 'data-name']);
 export const THRESHOLDS = {
   bedMaxUnder: 25, bedMinUnder: 8,        // dB of the bed under the narration: inaudible above the first, masking below the second
   clickRatio: 8, clickFloor: 0.1,         // a jump over 8x the local jump RMS and over 0.1 full scale
@@ -286,33 +300,24 @@ export function phrasesFrom(words, gap = 0.3) {
 }
 
 // The attributes of a tag's text: name="v", name='v', name=v and a bare name (loop): a bare attribute is present with ''.
-const attrsOf = (text) => {
+// The first value of a repeated name wins, like the DOM; the repeated names go to `dups`.
+const attrsOf = (text, dups = []) => {
   const attrs = {};
   for (const a of text.matchAll(/([\w:.@-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-    attrs[a[1].toLowerCase()] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
+    const k = a[1].toLowerCase();
+    if (Object.hasOwn(attrs, k)) { if (!dups.includes(k)) dups.push(k); continue; }
+    attrs[k] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
   }
   return attrs;
 };
 // A fade length as HyperFrames reads it: parseFloat, and only a finite value above 0 is a fade.
 const fadeOf = (v) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 
-// ── The render inputs: the one rule against "unknown reported as OK" ─────────
-// HyperFrames (0.8.206) mixes what its compile step and parseAudioElements / resolveAudioGroups read from the page, plus
-// the volume a script sets over the timeline (it samples element.volume per frame). Every attribute of a media element
-// or a bus is in exactly one place: INPUTS (applied by the model, or judged by renderProblem) or INERT (does not change
-// the mix). Any other attribute, an ancestor whose state the check cannot see (data-hidden, <template>), a lane or a
-// script volume the model does not apply, is an input this check does not model: renderProblem returns it, so a measured
-// tag (the narration, a bed) is NOT CHECKED and a tag longer than an SFX is 'unknown'. Nothing is ignored by default:
-// a new input is modelled only by adding it here and applying it.
-export const HF_MAX_GAIN = 10 ** (12 / 20); // HyperFrames clamps a gain to 0..+12 dB
-export const INPUTS = {
-  media: new Set(['src', 'data-start', 'data-end', 'data-duration', 'data-volume', 'data-media-start', 'data-playback-rate', 'data-automation', 'loop', 'data-audio-group', 'data-fx-chain', 'data-fade-in', 'data-fade-out', 'data-hidden', 'data-has-audio', 'muted']),
-  bus: new Set(['data-volume', 'data-fx-chain', 'data-automation', 'data-hidden']),
-};
-export const INERT = new Set(['id', 'class', 'style', 'title', 'alt', 'type', 'width', 'height', 'poster', 'preload', 'crossorigin', 'referrerpolicy', 'controls', 'autoplay', 'playsinline', 'webkit-playsinline', 'disablepictureinpicture', 'disableremoteplayback', 'data-hf-id', 'data-hf-render-id', 'data-hf-auto-start', 'data-track-index', 'data-layer', 'data-label', 'data-name']);
-// The inputs of a tag or bus outside the inventory, and a gain HyperFrames clamps: [] when the model covers it all.
-const unmodelledOf = (attrs, known) => {
+// Unmodelled inputs of a tag or bus: an attribute outside the ALLOWLIST (top of the file), a repeated one, a gain
+// HyperFrames clamps; [] when the model covers it all. renderProblem makes them NOT CHECKED for a measured tag.
+const unmodelledOf = (attrs, known, dups = []) => {
   const out = Object.keys(attrs).filter((k) => !known.has(k) && !INERT.has(k) && !k.startsWith('aria-'));
+  for (const k of dups) out.push(`a repeated ${k}`);
   const v = parseFloat(attrs['data-volume']);
   if (Number.isFinite(v) && (v < 0 || v > HF_MAX_GAIN)) out.push(`data-volume ${v} (HyperFrames clamps a gain to 0–${HF_MAX_GAIN.toFixed(2)})`);
   return out;
@@ -340,7 +345,7 @@ export function scanHtml(html) {
   for (let m; (m = re.exec(html));) {
     if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
     if (!m[2]) continue;
-    const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''));
+    const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups);
     if (RAW_TAGS.has(name)) {
       const close = html.slice(re.lastIndex).search(new RegExp(`</${name}\\s*>`, 'i')), end = close < 0 ? html.length : re.lastIndex + close;
       if (name === 'script') scripts.push({ attrs, text: html.slice(re.lastIndex, end) });
@@ -350,20 +355,20 @@ export function scanHtml(html) {
     if (master === undefined && Object.hasOwn(attrs, 'data-composition-id')) master = attrs['data-fx-chain'] || null;
     if (name === 'hf-audio-group') {
       const id = attrs['data-hf-render-id'] ?? attrs.id, v = parseFloat(attrs['data-volume']);
-      if (id) groups.set(id, { volume: Number.isFinite(v) ? v : 1, fx: attrs['data-fx-chain'] || null, automation: attrs['data-automation'] || null, hidden: Object.hasOwn(attrs, 'data-hidden'), unmodelled: unmodelledOf(attrs, INPUTS.bus) });
+      if (id) groups.set(id, { volume: Number.isFinite(v) ? v : 1, fx: attrs['data-fx-chain'] || null, automation: attrs['data-automation'] || null, hidden: Object.hasOwn(attrs, 'data-hidden'), unmodelled: unmodelledOf(attrs, INPUTS.bus, dups) });
     }
     const silentVideo = name === 'video' && (Object.hasOwn(attrs, 'muted') || (Object.hasOwn(attrs, 'data-has-audio') && attrs['data-has-audio'] !== 'true'));
     if ((name === 'audio' || name === 'video') && !silentVideo) {
       const hiddenBy = stack.find((e) => e.hidden), template = stack.some((e) => e.name === 'template');
       const context = template ? 'is inside a <template>, whose content HyperFrames renders only as the page\'s one wrapper'
         : hiddenBy ? `is inside <${hiddenBy.name}${hiddenBy.id ? ` id="${hiddenBy.id}"` : ''} data-hidden>` : null;
-      media.push(mediaTag(name, attrs, selfClosed ? '' : html.slice(re.lastIndex), context));
+      media.push(mediaTag(name, attrs, selfClosed ? '' : html.slice(re.lastIndex), context, dups));
     }
     if (!VOID_TAGS.has(name)) stack.push({ name, hidden: Object.hasOwn(attrs, 'data-hidden'), id: attrs.id || '' });
   }
   return { media, groups, master: master ?? null, scripts };
 }
-function mediaTag(kind, attrs, rest, context) {
+function mediaTag(kind, attrs, rest, context, dups = []) {
   const bad = [];
   const num = (k, dflt) => {
     if (attrs[k] == null || attrs[k] === '') return dflt;
@@ -383,30 +388,25 @@ function mediaTag(kind, attrs, rest, context) {
     automation: attrs['data-automation'] || null, bad, loop: Object.hasOwn(attrs, 'loop'),
     group: attrs['data-audio-group'] || null, fx: attrs['data-fx-chain'] || null,
     fadeIn: fadeOf(attrs['data-fade-in']), fadeOut: fadeOf(attrs['data-fade-out']), hidden: Object.hasOwn(attrs, 'data-hidden'),
-    unmodelled: unmodelledOf(attrs, INPUTS.media), context,
+    unmodelled: unmodelledOf(attrs, INPUTS.media, dups), context,
   };
 }
 export const audioTags = (html) => scanHtml(html).media;
 export const groupsOf = (html) => scanHtml(html).groups;
 export const masterFxChain = (html) => scanHtml(html).master;
 
-// A script that writes a media volume (a GSAP tween of `volume`, `el.volume = …`, a data-volume set at run time), with
-// comments left out: the text around it, or null. HyperFrames samples that volume from the timeline; this check does not
-// run the timeline.
-export function volumeWrite(code) {
-  const src = code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\\'"`])\/\/[^\n]*/g, '$1');
-  const m = src.match(/["']?\bvolume["']?\s*:(?!:)|\.volume\s*[-+*/]?=(?!=)|data-volume/);
-  return m ? src.slice(Math.max(0, m.index - 30), m.index + 40).replace(/\s+/g, ' ').trim() : null;
-}
+// The one rule for scripts: HyperFrames samples element.volume from the timeline and a script can change the mix in more ways
+// than a check can parse, so any script text with one of these words may change it. No JS form is parsed.
+export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
 const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
 // Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either imports by a
-// relative path) that writes a media volume, or a local script that cannot be read. A remote script is a library and a
+// relative path) with a MIX_TOKENS word, or a local script that cannot be read. A remote script is a library and a
 // bare import (an import map name) is a vendor module: neither is read.
 export function scriptProblem(scripts, dir, read) {
   const seen = new Set();
   const visit = (code, where, base) => {
-    const w = volumeWrite(code);
-    if (w) return `${where} writes a media volume ("${w}"), which HyperFrames samples from the timeline and this check does not run: write the ducking as a data-automation volume lane on the tag (which this check reads), then rerun`;
+    const w = code.match(MIX_TOKENS);
+    if (w) return `${where} has the word "${w[0]}": script may change the mix; check the bed by ear on the draft (a ducking written as a data-automation volume lane on the tag is read by this check)`;
     for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["']((?:\.{1,2})?\/[^"']+)["']/g)) {
       const p = file(im[1], base);
       if (p) { const why = load(p); if (why) return why; }
