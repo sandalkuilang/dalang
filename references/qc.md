@@ -32,7 +32,7 @@ Then `npx hyperframes preview --background --no-open` (without `--no-open` it la
 
 ```bash
 node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
-npx hyperframes render --quality high --quiet --output final.mp4
+npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output final.mp4
 node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4
 ```
 
