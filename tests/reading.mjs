@@ -122,6 +122,24 @@ try {
     }
   }
 
+  // 3b. The refs tier is a look-up index, not reading: one line per section (its heading and the exact sed command),
+  // no body printed, outside the 60 KB total (which counts what "Read now" and the lesson headlines print).
+  for (let n = 0; n <= 8; n++) {
+    const s = json.steps[n];
+    const out = run("next", mk(`p-index-${n}`), "--step", String(n)).out;
+    const lines = out.split("\n"); const i = lines.findIndex((l) => l.startsWith("Look up when needed"));
+    if (!s.refs.length) { assert.equal(i, -1, `step ${n}: no refs, no index`); continue; }
+    assert.ok(i >= 0, `step ${n}: an index block "Look up when needed" in:\n${out}`);
+    const idx = []; for (const l of lines.slice(i + 1)) { if (!l.startsWith("sed -n ")) break; idx.push(l); }
+    assert.equal(idx.length, s.refs.length, `step ${n}: one index line per section, none merged into a range`);
+    s.refs.forEach((e, k) => {
+      assert.ok(idx[k].startsWith(s.commands.refs[k]), `step ${n}: line ${k} starts with the exact command`);
+      assert.ok(idx[k].includes((e.heading ?? "").replace(/^#+ /, "")), `step ${n}: line ${k} names the heading "${e.heading}"`);
+    });
+    const body = spawnSync("sh", ["-c", s.commands.refs[0]], { encoding: "utf8" }).stdout.split("\n").filter((l) => l.trim() && !l.startsWith("#"))[0];
+    if (body) assert.ok(!out.slice(out.indexOf("Look up when needed")).includes(body), `step ${n}: the index prints no section body`);
+  }
+
   // 4. Fixture skills: the check fails where it must.
   const rd = (skill) => run("reading", "--skill", skill);
   const step0 = "## Step 0 — Setup (once)";
@@ -143,25 +161,22 @@ try {
   assert.equal(rc.code, 1, "a lesson tag outside 0–8 fails");
   assert.match(rc.err, /lessons\.md:\d+/);
 
-  // A lesson with no tag holds at every step (lessons.md's header): it is printed at Steps 0–8, never dropped. A tagged
-  // one stays at its own steps. A bullet that is neither (no headline, no tag) fails instead of vanishing.
+  // Every lesson line carries a step tag: an untagged "- **" line fails (it used to be guessed to hold everywhere),
+  // naming the line; a tagged one stays at its own steps; the repo has none untagged.
   const rd2 = (skill) => run("reading", "--json", "--skill", skill);
   const u = skillCopy("s-untagged");
-  edit(u, "lessons.md", (s) => s.trimEnd() + "\n- **Untagged fixture lesson** holds everywhere.\n- [4] **Tagged fixture lesson** holds at Step 4 only.\n");
+  edit(u, "lessons.md", (s) => s.trimEnd() + "\n- **Untagged fixture lesson** has no step tag.\n");
   const ru = rd2(u);
-  assert.equal(ru.code, 0, `an untagged lesson is valid: ${ru.err}`);
-  const su = JSON.parse(ru.out).steps;
-  for (let n = 0; n <= 8; n++) {
-    assert.ok(su[n].lessons.includes("**Untagged fixture lesson**"), `step ${n}: the untagged lesson is printed`);
-    assert.equal(su[n].lessons.includes("**Tagged fixture lesson**"), n === 4, `step ${n}: a tagged lesson stays at its own step`);
-  }
-  // the repo's own untagged lessons reach every step through `next` as well
-  const untaggedInRepo = fs.readFileSync(path.join(root, "references", "lessons.md"), "utf8").split("\n").filter((l) => l.startsWith("- **"));
-  assert.ok(untaggedInRepo.length > 0, "the repo has untagged lessons to check");
-  for (let n = 0; n <= 8; n++) {
-    const out = run("next", mk(`p-untagged-${n}`), "--step", String(n)).out;
-    for (const l of untaggedInRepo) assert.ok(out.includes(l.match(/^- (\*\*.+?\*\*)/)[1]), `step ${n}: next prints the untagged lesson ${l.slice(0, 40)}`);
-  }
+  assert.equal(ru.code, 1, "an untagged lesson line fails the check");
+  assert.match(ru.err, /lessons\.md:\d+.*step tag/, `names the line and asks for a step tag:\n${ru.err}`);
+  const t = skillCopy("s-tagged");
+  edit(t, "lessons.md", (s) => s.trimEnd() + "\n- [4] **Tagged fixture lesson** holds at Step 4 only.\n");
+  const rt = rd2(t);
+  assert.equal(rt.code, 0, `a tagged lesson is valid: ${rt.err}`);
+  const st = JSON.parse(rt.out).steps;
+  for (let n = 0; n <= 8; n++) assert.equal(st[n].lessons.includes("**Tagged fixture lesson**"), n === 4, `step ${n}: a tagged lesson stays at its own step`);
+  const untaggedInRepo = fs.readFileSync(path.join(root, "references", "lessons.md"), "utf8").split("\n").filter((l) => /^\s*[-*+] (?!\[)/.test(l));
+  assert.deepEqual(untaggedInRepo, [], "every lesson line in the repo has a step tag");
   const um = skillCopy("s-malformed");
   edit(um, "lessons.md", (s) => s.trimEnd() + "\n- A bullet with neither a tag nor a bold headline.\n");
   const rum = rd(um);
@@ -184,6 +199,24 @@ try {
   assert.equal(rdd.code, 1, "a total over 60 KB fails");
   assert.match(rdd.err, /60 KB/);
   assert.doesNotMatch(rdd.err, /section budget/, "no single section is over its own budget");
+
+  // The look-up index keeps the section checks (budget, heading) but is outside the Read-now total.
+  const refHeading = "## Setup — VoiceStudio"; // Step 0's index entry in voice.md
+  const e1 = skillCopy("s-index-over");
+  edit(e1, "voice.md", after(refHeading, filler(9000)));
+  const re1 = rd(e1);
+  assert.equal(re1.code, 1, "an indexed section over 8 KB fails");
+  assert.ok(re1.err.includes("voice.md") && re1.err.includes("8 KB"), `names the file and the budget:\n${re1.err}`);
+  const e2 = skillCopy("s-index-gone");
+  edit(e2, "voice.md", (s) => s.replace(refHeading, "## Setup — VoiceStudio, moved"));
+  const re2 = rd(e2);
+  assert.equal(re2.code, 1, "an indexed heading that is gone fails");
+  assert.match(re2.err, /not found/);
+  const e3 = skillCopy("s-index-room");
+  edit(e3, "voice.md", after(refHeading, filler(1500)));
+  const re3 = run("reading", "--json", "--skill", e3);
+  assert.equal(re3.code, 0, `a bigger indexed section within 8 KB passes: ${re3.err}`);
+  assert.equal(JSON.parse(re3.out).total, json.total, "indexed sections are outside the Read-now total");
 
   console.log("reading: ok");
 } finally {
