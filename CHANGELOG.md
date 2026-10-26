@@ -38,13 +38,16 @@ that reads as:
   name, `{ value, say }`, `say` computed from `value` in the narration language) and, for a process over time,
   `state(t)` (counters, on/off states, levels); `node model.mjs` prints the calculation card's lines and writes
   `numbers.json`. `script.md` tags a model number `[calc: name]`, the narration stays words and speaks it in a beat of
-  that name, and the build reads `numbers` / `state(t)` (no number typed into the composition).
+  that name (a further mention in `<name>__<suffix>`), and the build reads `numbers` / `state(t)` (no number typed into the composition).
   `scripts/numbers_lint.mjs [project]` fails (exit 1, `file:line`, spoken value, model value) on a beat that says
-  another number (words: its `say`, whole words; digits: after the spoken rounding, decimals, significant figures,
-  thousands separators), a `[calc: name]` missing from `numbers.json`, or a `numbers.json` older than `model.mjs`;
-  an unreadable `numbers.json` or a beat in words with no `say` is a WARN (exit 2), never "not found"; hand
+  another number (words first: its `say`, whole words, case, punctuation and hyphens ignored, a figure beside them is
+  another figure; else digits after the spoken rounding, decimals, significant figures, thousands separators), a beat
+  name used twice, a `[calc: name]` missing from `numbers.json`, or a `numbers.json` older than `model.mjs`;
+  an unreadable `numbers.json`, a beat in words with no `say`, or a beat of another name that holds a model number's
+  `say` with one word changed is a WARN (exit 2), never "not found" and never OK; hand
   arithmetic `[calc: a × b = c]` is listed, not checked. Docs: `script-voice.md` "Numbers model",
-  `visual-direction.md` §12, `look-build.md` Step 6. Test: `tests/numbers-lint.mjs`, in the merge gate.
+  `visual-direction.md` §12, `look-build.md` Step 6. Test: `tests/numbers-lint.mjs`, in the merge gate. `state.mjs`: Gate 1's approval also hashes
+  `model.mjs` and `numbers.json` when they exist, so a changed input or a rerun that moves a number makes it stale.
 - **Time-compressed paired run and status tag vocabulary** (`visual-direction.md` §12): two identical sets that differ
   in one variable run on the model's `state(t)`, with live A/B counters and status flips, tagged SPED UP and a
   footnote naming the inputs; the headline's status tag reads ILLUSTRATION (`[illus]`), SPED UP or OUR MODEL

@@ -23,7 +23,9 @@ import { fileURLToPath } from 'node:url';
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const GATES = {
-  1: { name: 'script', files: ['script.md', 'narration.txt'] },
+  // `optional`: hashed when present, not required. The model is what the approved numbers come from: an input edited
+  // in model.mjs, or a rerun that writes another numbers.json, makes the approval stale even when the words stay.
+  1: { name: 'script', files: ['script.md', 'narration.txt'], optional: ['model.mjs', 'numbers.json'] },
   2: { name: 'voice', files: ['audio/beats.json'] },
   3: { name: 'look', files: ['SPEC.md', 'storyboard.md', 'style-frames'] },
   4: { name: 'draft', files: ['index.html'] },
@@ -45,6 +47,7 @@ const hashOf = g => {
   const h = createHash('sha1');
   const add = p => { if (!existsSync(p)) return h.update(`missing:${p}`); if (statSync(p).isDirectory()) readdirSync(p).sort().forEach(f => add(path.join(p, f))); else h.update(readFileSync(p)); };
   GATES[g].files.forEach(f => add(path.join(dir, f)));
+  (GATES[g].optional ?? []).filter(f => existsSync(path.join(dir, f))).forEach(f => add(path.join(dir, f)));
   return h.digest('hex').slice(0, 12);
 };
 const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
