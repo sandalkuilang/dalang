@@ -14,10 +14,10 @@ const { sweep } = await use("fur.js");
 const { get } = await use("surfaces.js");
 const { loose } = await use("bodies.js");
 const { cushion } = await use("examples/interior.js");
-const { makeWind, breeze, bakeBend } = await use("wind.js");
+const { makeWind, breeze, bakeBend, draught } = await use("wind.js");
 const { jet } = await use("air.js");
 const { tree, grass } = await use("plants.js");
-const { particles } = await use("particles.js");
+const { particles, contrast, READABLE } = await use("particles.js");
 const { water, dispersion, seaState } = await use("water.js");
 const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
@@ -395,6 +395,19 @@ const last = steam.frames.at(-1); let rise = 0, alive = 0;
 for (let i = 0; i < steam.count; i++) if (last[i * 8 + 7] > 0) { rise += last[i * 8 + 1] * M; alive++; }
 assert.ok(alive > 10 && rise / alive > 0.05, "steam rises: mean " + (rise / alive * 100).toFixed(1) + " cm");
 assert.deepEqual(steam.frames.at(-1), steam2.frames.at(-1), "particles are the same every bake");
+// Steam is seen by contrast: over a light sweep it is lost, a darker backing makes it read, its shaded side helps;
+// a room draught breaks the plume sideways where still air stands it up as a column.
+const lightSweep = 0xe8e4dc, darkBack = 0x4a4640, bare = contrast("steam", lightSweep, { shade: 0 });
+assert.ok(!bare.readable && bare.lit < READABLE, "unshaded steam on a light sweep is unreadable: " + bare.lit.toFixed(3));
+assert.ok(contrast("steam", darkBack).lit > 3 * READABLE, "steam over a darker backing reads");
+assert.ok(contrast("steam", lightSweep).shaded > 1.5 * bare.lit, "the shaded side lifts steam off a light ground");
+assert.ok(steam.contrast(darkBack).readable && !steam.contrast(lightSweep, { shade: 0 }).readable, "a plume reports its own contrast");
+const spread = (f) => { const p = particles(kit, { kind: "steam", at: new THREE.Vector3(0, 0, 0), field: f, seed: 4 }).bake(2), fr = p.frames.at(-1), xs = [];
+  for (let i = 0; i < p.count; i++) if (fr[i * 8 + 7] > 0) xs.push(Math.hypot(fr[i * 8], fr[i * 8 + 2]) * M); return xs.reduce((s, x) => s + x, 0) / xs.length; };
+const room = makeWind().add(draught({ speed: 0.1 })), rs = spread(room), cs0 = spread(calm);
+assert.ok(rs > 2 * cs0, "a room draught carries the plume aside: " + (rs * 100).toFixed(1) + " cm vs " + (cs0 * 100).toFixed(1) + " cm in still air");
+let dm = 0; const dv = new THREE.Vector3(); for (let i = 0; i < 2000; i++) dm += draught({ speed: 0.1 })(new THREE.Vector3(i * 0.013, 0.4, i * 0.007), i * 0.05, dv).length() * M;
+assert.ok(dm / 2000 > 0.06 && dm / 2000 < 0.16, "room air ~0.1 m/s: " + (dm / 2000).toFixed(3));
 assert.equal(vt.impacts.length, drop.impacts.length, "rain is the same twice");
 // Water: capillary-gravity dispersion; a pond's sea state; no folding crests.
 const k1 = 2 * Math.PI; assert.ok(Math.abs(dispersion(k1) / k1 - Math.sqrt(9.81 / k1 + 7.4e-5 * k1)) < 1e-9, "dispersion");
@@ -576,4 +589,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), cutaway, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, any scale and gravity");
