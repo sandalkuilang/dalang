@@ -640,6 +640,9 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   CN.cut.on(2).set(-0.02, 3); CN.cut.at(3);
   const sn = CN.cut.plane.normal.clone().negate();
   assert.ok(CN.fill.counts.face > 20 && pts(CN.fill).every((p) => sn.dot(p) <= CN.cut.plane.constant + 0.3 * cof.w / M + 1e-6) && verts(CN.fill).every((p) => sn.dot(p) <= CN.cut.plane.constant + 1e-6), "a slid cut moves the fill with the wall");
+  { const g0 = CN.fill.body.geometry, a0 = CN.fill.mesh.instanceMatrix; CN.cut.at(3); assert.ok(CN.fill.body.geometry === g0 && CN.fill.mesh.instanceMatrix === a0, "an unchanged plane does not rebuild the fill"); }
+  for (const bad of [{ radius: -0.05 }, { radius: 0.05, height: -1 }, { radius: 0.05, layers: 0 }, { radius: 0.05, cut: { normal: new THREE.Vector3() } }, { radius: Infinity }]) assert.throws(() => grains(kit, { preset: "lentil", ...bad }), /grains:/, "bad input is refused: " + JSON.stringify(bad));
+  assert.ok(grains(kit, { preset: "lentil", radius: 0.05, height: 0 }).body === null, "a fill of no height is empty, not an error");
   assert.ok(CN.cut.uncut.filter((o) => o === CN.fill.mesh || o === CN.fill.body).length === 2, "a rebuilt fill is the same two parts, listed once");
   // A shallow fill never sinks through the floor: every grain's lowest point is at or above y = 0.
   const low = (g, P) => { const bb = g.mesh.geometry.boundingBox || (g.mesh.geometry.computeBoundingBox(), g.mesh.geometry.boundingBox), h = [Math.max(bb.max.x, -bb.min.x), Math.max(bb.max.y, -bb.min.y), Math.max(bb.max.z, -bb.min.z)]; let lo = Infinity; for (let i = 0; i < g.mesh.count; i++) { g.mesh.getMatrixAt(i, m4); const e = m4.elements; lo = Math.min(lo, e[13] - Math.hypot(e[1] * h[0], e[5] * h[1], e[9] * h[2])); } return lo; };
