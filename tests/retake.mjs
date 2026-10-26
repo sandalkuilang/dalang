@@ -246,7 +246,16 @@ await test("E5. --retake with a number past the last sentence, or with no take o
   assert.equal(bad.code, 1, bad.out);
   assert.match(bad.out, /auto, changed or sentence numbers/);
 });
-await test("E7. --retake is refused for ElevenLabs, a sample and a dialogue, before any request", async () => {
+await test("E6. without --retake a flagged sentence is named, with the command that fixes it, and nothing is re-spoken", async () => {
+  const r = await take(NARRATION, { speak: adds((k) => k === 0) });
+  assert.equal(r.code, 0, r.out);
+  assert.equal(r.speech.length, 1);
+  assert.match(r.out, /Retake\s+: sentence 3 may not say the script \(heard ≠ script\) — run again with --retake auto --from-response \S*narration\.response\.json/);
+  assert.doesNotMatch(r.out, /listen/i, "no warning tells the agent to listen");
+  const clean = await take(NARRATION);
+  assert.doesNotMatch(clean.out, /Retake\s+:/);
+});
+await test("E7.--retake is refused for ElevenLabs, a sample and a dialogue, before any request", async () => {
   for (const [text, extra, why] of [[NARRATION, ["--engine", "elevenlabs"], /ElevenLabs/], [NARRATION, ["--sample"], /single-voice/], ["A: Hello there.\nB: Hi there.\n", ["--voices", "a=va,b=va"], /single-voice/]]) {
     const r = await take(text, {}, ["--retake", "auto", ...extra]);
     assert.equal(r.code, 1, r.out);

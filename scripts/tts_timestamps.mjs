@@ -28,6 +28,16 @@
 //                                 A --sample audition over 20 s is cut at its last word end <= 15 s when its
 //                                 <name>.words.json is next to it (those words become the ref text).
 //
+//   node tts_timestamps.mjs --input narration.txt --out audio --voice <profile> --language en --retake auto
+//                              -> after the take, every sentence with a low alignment run, an untimed word or heard words
+//                                 that differ from the script is re-spoken alone (same voice and settings; the second try
+//                                 with seed + 1), spliced in at the pauses around it (10 ms equal-power crossfade, never
+//                                 inside a word), and the whole file is transcribed and timed again. At most two tries per
+//                                 sentence, then a WARNING naming it. VoiceStudio single-voice takes only.
+//   node tts_timestamps.mjs --input narration.txt --out audio --retake 3,5 [--from-response audio/narration.response.json]
+//                              -> re-speak sentences 3 and 5 of the take on disk (no full take); --retake auto with
+//                                 --from-response fixes that take instead of making a new one
+//
 // Dialogue files: every spoken line is "Speaker: text"; a line "(1.5)" is 1.5 s of silence; a leading
 // [tag] on a line becomes that line's style hint. Output adds window.LINES (speaker, text, start, end).
 //
@@ -100,6 +110,7 @@ function parseArgs(argv) {
       case '--seed': a.seed = parseInt(next(), 10); if (!Number.isInteger(a.seed)) die('--seed needs an integer'); break;
       case '--steps': a.steps = parseInt(next(), 10); break;
       case '--align': a.align = next(); if (!['auto', 'off'].includes(a.align)) die('--align takes auto or off'); break;
+      case '--retake': a.retake = next(); if (!/^(auto|changed|\d+(,\d+)*)$/.test(a.retake)) die('--retake takes auto, changed or sentence numbers like 3,5'); break;
       case '--save-profile': a.saveProfile = next(); break;
       case '--ref': a.ref = next(); break;
       case '--ref-text': a.refText = next(); break;
@@ -108,6 +119,7 @@ function parseArgs(argv) {
     }
   }
   if (!['elevenlabs', 'voicestudio'].includes(a.engine)) die(`Unknown --engine ${a.engine}. Use elevenlabs or voicestudio.`);
+  if (a.retake && a.engine === 'elevenlabs') die('--retake re-speaks with VoiceStudio; an ElevenLabs take is regenerated whole.');
   a.modelFrom = a.model ? '--model' : null;
   if (a.engine === 'elevenlabs') a.model ??= 'eleven_v4'; // VoiceStudio: the active model, read in main()
   if (a.engine === 'voicestudio') a.format = 'wav'; // parts are joined losslessly, then measured
@@ -298,6 +310,12 @@ function modelLine(a, meta, from) {
 }
 
 async function vsGenerate(a, text, audioPath) {
+  await vsSpeak(a, text, audioPath);
+  return vsTranscribe(a, audioPath, text);
+}
+
+// Speak `text` into `audioPath` (chunked for the engine, joined). `seed` lets a retake try another voice sample.
+async function vsSpeak(a, text, audioPath, seed = a.seed) {
   const chunks = chunkLines(text, chunkMax(a.model));
   const parts = [];
   const voice = await vsVoiceId(a, a.voiceId || a.voice);
@@ -307,7 +325,7 @@ async function vsGenerate(a, text, audioPath) {
     if (a.speed) body.speed = a.speed;
     // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
     if (a.instructions) body[/voxcpm/i.test(a.model || '') ? 'description' : 'instructions'] = a.instructions;
-    if (Number.isInteger(a.seed)) body.seed = a.seed;
+    if (Number.isInteger(seed)) body.seed = seed;
     if (Number.isInteger(a.steps)) body.num_step = a.steps;
     const res = await vs(a, '/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if ((res.headers.get('content-type') || '').includes('json')) die(`VoiceStudio returned JSON instead of audio: ${(await res.text()).slice(0, 400)}`);
@@ -317,7 +335,6 @@ async function vsGenerate(a, text, audioPath) {
     if (chunks.length > 1) process.stdout.write(`${k + 1}/${chunks.length} `);
   }
   if (parts.length > 1) await joinWavs(parts, audioPath);
-  return vsTranscribe(a, audioPath, text);
 }
 
 async function joinWavs(parts, audioPath) {
@@ -360,7 +377,7 @@ async function vsDialogue(a, seq, audioPath, text) {
 
 // Transcribe an audio file back with word timestamps and turn the words into an
 // ElevenLabs-shaped character alignment, so the rest of the pipeline stays the same.
-async function vsTranscribe(a, audioPath, text) {
+async function vsTranscribe(a, audioPath, text, soft = false) {
   const form = new FormData();
   form.append('file', new Blob([await readFile(audioPath)]), path.basename(audioPath));
   form.append('model', 'whisper-1');
@@ -373,6 +390,7 @@ async function vsTranscribe(a, audioPath, text) {
   form.append('prompt', text.replace(/\s+/g, ' ').slice(0, 600));
   const tr = await (await vs(a, '/v1/audio/transcriptions', { method: 'POST', body: form })).json();
   const words = (tr.words || []).filter(w => Number.isFinite(w.start) && Number.isFinite(w.end));
+  if (!words.length && soft) return null; // a retake's clip with no words: that try failed, the caller keeps the old audio
   if (!words.length) die('VoiceStudio transcription returned no word timestamps. Check that a speech-to-text model is installed (GET /models).');
 
   const characters = [], starts = [], ends = [];
@@ -740,6 +758,212 @@ function probeDuration(file) {
   } catch { return null; }
 }
 
+// Timing of one take: the transcript's character times matched to the narration, then (when it can) forced alignment.
+// `align` lets a caller time a take without running the aligner.
+function timeTake(a, response, clean, gaps, audioPath, align = a.align) {
+  const alignment = response.alignment || response.normalized_alignment;
+  const { times, exact } = mapTimes(clean, alignment);
+  let { words, missing } = buildWords(clean, times, response.transcript ? silences(audioPath) : [], gaps);
+  // ElevenLabs returns exact character times; only transcribed timing benefits from alignment.
+  const aligned = !response.transcript || align === 'off' ? null
+    : a.language ? forceAlign(a, audioPath, clean, words, times) : { note: 'no --language, so no alignment model' };
+  if (aligned?.ok) { missing = words.filter(w => w.est).length; for (const w of words) { w.start = round(w.start); w.end = round(w.end); } }
+  return { times, exact, words, missing, aligned };
+}
+
+// ── Sentence retake ─────────────────────────────────────────────────────────
+// A sentence the voice got wrong is re-spoken alone and spliced into the take at the pauses around it; the whole
+// file is then transcribed and timed again. Flagged = a low alignment run, an untimed word, or heard words that
+// differ from the script.
+const RATE = 24000;
+const XFADE = 240; // 10 ms at 24 kHz: the equal-power crossfade at each splice, always inside a pause
+const SENTENCE_SEP = /(?<=[.!?…。！？]["'”’)\]]*)[ \t]+|\n+/g;
+const NO_SPACES = /^(ja|zh|th|lo|km|my)(-|$)/i; // one "word" is a whole sentence there: heard-vs-script words cannot be compared
+
+// The sentences of the clean text that hold a spoken word: { n (1-based), cs, ce, text, words }.
+function sentencesOf(clean, words) {
+  const spans = []; let cs = 0;
+  for (const m of clean.matchAll(SENTENCE_SEP)) { spans.push([cs, m.index]); cs = m.index + m[0].length; }
+  spans.push([cs, clean.length]);
+  const out = [];
+  for (const [s, e] of spans) {
+    const ws = words.filter(w => w._s >= s && w._s < e);
+    if (ws.length) out.push({ n: out.length + 1, cs: s, ce: e, text: stripTags(clean.slice(s, e)).trim(), words: ws });
+  }
+  return out;
+}
+
+// Where each sentence's audio starts and ends: the cut between two sentences is the middle of the longest silence
+// between the last word of one and the first of the next (else the middle of that gap), so a splice never lands in a word.
+function regionsOf(sents, quiet, dur) {
+  const cut = (prev, next) => {
+    const lo = prev.words[prev.words.length - 1].end, hi = next.words[0].start;
+    if (!(hi > lo)) return (lo + hi) / 2;
+    let best = null;
+    for (const [x, y] of quiet) {
+      const s = Math.max(x, lo), e = Math.min(y, hi);
+      if (e - s > 0.02 && (!best || e - s > best[1] - best[0])) best = [s, e];
+    }
+    return best ? (best[0] + best[1]) / 2 : (lo + hi) / 2;
+  };
+  const cuts = sents.slice(1).map((s, k) => cut(sents[k], s));
+  return sents.map((s, k) => {
+    const A = k === 0 ? 0 : cuts[k - 1], B = k === sents.length - 1 ? dur : cuts[k];
+    const first = s.words[0], last = s.words[s.words.length - 1];
+    return { a: A, b: B, lead: Math.max(0, first.start - A), trail: Math.max(0, B - last.end) };
+  });
+}
+
+// Why a sentence is flagged (an empty list = fine).
+function flagsOf(a, sents, regions, transcriptWords, aligned) {
+  const heardAll = (transcriptWords || []).map(w => ({ t: stripPunct(String(w.word).trim()).toLowerCase(), mid: (w.start + w.end) / 2 })).filter(w => w.t);
+  return sents.map((s, k) => {
+    const why = [];
+    if (s.words.some(w => w.est)) why.push('untimed words');
+    if (aligned?.ok) {
+      let run = 0, hit = false;
+      for (const w of s.words) { run = w.score !== undefined && (w.score === null || w.score < 0.3) ? run + 1 : 0; if (run >= 3) hit = true; }
+      if (hit) why.push('low alignment score');
+    }
+    if (transcriptWords && !(a.language && NO_SPACES.test(a.language))) {
+      const heard = heardAll.filter(w => w.mid >= regions[k].a && w.mid < regions[k].b).map(w => w.t);
+      const script = s.words.map(w => w.text.toLowerCase());
+      const minus = (xs, ys) => { const left = [...ys]; return xs.filter(x => { const i = left.indexOf(x); if (i < 0) return true; left.splice(i, 1); return false; }); };
+      const extra = minus(heard, script), missing = minus(script, heard);
+      // digits heard for a spelled-out number are harmless (the existing word-count warning says so)
+      if (extra.some(t => !/\d/.test(t)) || (missing.length && !extra.length)) why.push('heard ≠ script');
+    }
+    return why;
+  });
+}
+
+// 24 kHz mono 16-bit PCM, no dependency. A take that is not that is normalised with ffmpeg first (normalisePcm).
+function readPcm(file) {
+  const b = readFileSync(file);
+  let p = 12, fmt = null;
+  while (p + 8 <= b.length) {
+    const id = b.toString('latin1', p, p + 4), n = b.readUInt32LE(p + 4);
+    if (id === 'fmt ') fmt = { tag: b.readUInt16LE(p + 8), ch: b.readUInt16LE(p + 10), rate: b.readUInt32LE(p + 12), bits: b.readUInt16LE(p + 22) };
+    if (id === 'data') {
+      if (!fmt || fmt.tag !== 1 || fmt.ch !== 1 || fmt.rate !== RATE || fmt.bits !== 16) die(`${file} is not 24 kHz mono 16-bit PCM, which the splice needs.`);
+      const len = Math.floor(Math.min(n, b.length - p - 8) / 2), out = new Int16Array(len);
+      for (let i = 0; i < len; i++) out[i] = b.readInt16LE(p + 8 + i * 2);
+      return out;
+    }
+    p += 8 + n + (n & 1);
+  }
+  return die(`${file} has no audio data.`);
+}
+function writePcm(file, samples) {
+  const b = Buffer.alloc(44 + samples.length * 2);
+  b.write('RIFF', 0); b.writeUInt32LE(36 + samples.length * 2, 4); b.write('WAVEfmt ', 8);
+  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(RATE, 24);
+  b.writeUInt32LE(RATE * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(samples.length * 2, 40);
+  for (let i = 0; i < samples.length; i++) b.writeInt16LE(samples[i], 44 + i * 2);
+  writeFileSync(file, b);
+}
+function normalisePcm(src, dst) {
+  try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-ac', '1', '-ar', String(RATE), '-c:a', 'pcm_s16le', dst]); }
+  catch (e) { die(`ffmpeg could not read ${src}: ${e.message}`); }
+  return readPcm(dst);
+}
+
+// The new take: `pieces` in order, each { keep: k } (the old take's region k) or { clip, r0, r1, lead, trail } (a re-spoken
+// sentence: its words run r0..r1 in the clip, and it gets the old region's pause before and after it, padded with silence).
+// Consecutive kept regions stay one stretch of the old audio; every other join is an equal-power crossfade of XFADE samples.
+function assemble(take, regions, pieces) {
+  const parts = [];
+  for (const p of pieces) {
+    if (p.keep !== undefined) {
+      const r = regions[p.keep], last = parts[parts.length - 1];
+      if (last && last.keep !== undefined && last.keep + 1 === p.keep) { last.to = Math.round(r.b * RATE); last.keep = p.keep; }
+      else parts.push({ keep: p.keep, from: Math.round(r.a * RATE), to: Math.round(r.b * RATE) });
+    } else {
+      const from = Math.round((p.r0 - p.lead) * RATE), to = Math.round((p.r1 + p.trail) * RATE);
+      const out = new Int16Array(Math.max(0, to - from));
+      for (let i = 0; i < out.length; i++) { const j = from + i; if (j >= 0 && j < p.clip.length) out[i] = p.clip[j]; }
+      parts.push({ samples: out });
+    }
+  }
+  let out = new Int16Array(0);
+  for (const part of parts) {
+    const B = part.samples || take.subarray(part.from, Math.min(part.to, take.length));
+    if (out.length < XFADE || B.length < XFADE) { const j = new Int16Array(out.length + B.length); j.set(out); j.set(B, out.length); out = j; continue; }
+    const j = new Int16Array(out.length + B.length - XFADE);
+    j.set(out.subarray(0, out.length - XFADE));
+    for (let i = 0; i < XFADE; i++) {
+      const t = (i + 0.5) / XFADE;
+      j[out.length - XFADE + i] = Math.round(out[out.length - XFADE + i] * Math.cos(t * Math.PI / 2) + B[i] * Math.sin(t * Math.PI / 2));
+    }
+    j.set(B.subarray(XFADE), out.length);
+    out = j;
+  }
+  return out;
+}
+
+// --retake: re-speak the flagged sentences (auto) or the numbered ones, splice them in, time the file again.
+// At most two tries per sentence (the second with seed + 1), then a WARNING that names it.
+async function retake(a, ctx) {
+  let { response, t } = ctx;
+  const { clean, gaps, audioPath } = ctx;
+  if (a.retake === 'changed') die('--retake changed is not available yet.');
+  const dir = path.join(a.out, '_retake');
+  const jsonPath = a.fromResponse || path.join(a.out, `${ctx.base}.response.json`);
+  const dur = () => probeDuration(audioPath) ?? (t.words.length ? t.words[t.words.length - 1].end : 0);
+  const survey = () => {
+    const sents = sentencesOf(clean, t.words);
+    const regions = regionsOf(sents, silences(audioPath), dur());
+    return { sents, regions, flags: flagsOf(a, sents, regions, response.transcript?.words, t.aligned) };
+  };
+  let { sents, regions, flags } = survey();
+  const flagged = () => sents.filter((s, k) => flags[k].length).map(s => s.n);
+  console.log(`Sentences  : ${sents.length}${flagged().length ? ` (flagged: ${flagged().join(', ')})` : ''}`);
+  let targets;
+  if (a.retake === 'auto') targets = flagged();
+  else {
+    targets = [...new Set(a.retake.split(',').map(Number))].sort((x, y) => x - y);
+    const bad = targets.filter(n => n < 1 || n > sents.length);
+    if (bad.length) die(`--retake: the take has ${sents.length} sentences; ${bad.join(', ')} ${bad.length > 1 ? 'are' : 'is'} not one of them.`);
+  }
+  const why = new Map(targets.map(n => [n, flags[n - 1].length ? flags[n - 1].join(', ') : 'asked for']));
+  const tries = new Map();
+  const short = s => s.text.length > 40 ? `${s.text.slice(0, 40)}…` : s.text;
+  mkdirSync(dir, { recursive: true });
+  try {
+    for (let round = 1; round <= 2 && targets.length; round++) {
+      const seed = round === 1 ? a.seed : a.seed + 1;
+      const old = normalisePcm(audioPath, path.join(dir, 'take.wav'));
+      const pieces = sents.map((s, k) => ({ keep: k }));
+      let spliced = 0;
+      for (const n of targets) {
+        const s = sents[n - 1], r = regions[n - 1];
+        const raw = path.join(dir, `s${n}.raw.wav`);
+        await vsSpeak(a, s.text, raw, seed);
+        tries.set(n, round);
+        const heard = await vsTranscribe(a, raw, s.text, true);
+        const ws = heard?.transcript.words;
+        if (!ws?.length) { console.log(`Retake     : sentence ${n} "${short(s)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
+        pieces[n - 1] = { clip: normalisePcm(raw, path.join(dir, `s${n}.wav`)), r0: ws[0].start, r1: ws[ws.length - 1].end, lead: r.lead, trail: r.trail };
+        spliced++;
+        console.log(`Retake     : sentence ${n} "${short(s)}" re-spoken (try ${round}, seed ${seed}) — ${why.get(n)}`);
+      }
+      if (!spliced) break;
+      writePcm(audioPath, assemble(old, regions, pieces));
+      const meta = response._meta;
+      response = await vsTranscribe(a, audioPath, stripTags(clean));
+      response._meta = { ...meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
+      await writeFile(jsonPath, JSON.stringify(response));
+      t = timeTake(a, response, clean, gaps, audioPath);
+      ({ sents, regions, flags } = survey());
+      targets = targets.filter(n => flags[n - 1].length);
+    }
+    for (const n of targets) {
+      if (tries.get(n) === 2) console.log(`WARNING    : sentence ${n} "${short(sents[n - 1])}" still ${flags[n - 1].join(', ')} after 2 tries — do not deliver this take: respell the sentence in narration.txt, then --retake changed.`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  return { response, t };
+}
+
 async function main() {
   const a = parseArgs(process.argv.slice(2));
   if (a.help) {
@@ -758,6 +982,12 @@ async function main() {
   if (a.ownRecording && !a.fromAudio) die('--own-recording states the origin of a --from-audio file; it needs --from-audio.');
   if (!a.fromAudio && !order.length && clean.length > limit) die(`Narration is ${clean.length} characters, over the ${a.engine} limit of ${limit}. Split it into one file per section.`);
   if (order.length && !a.fromAudio && !a.fromResponse && !a.sample && a.engine !== 'voicestudio') die('Multi-voice dialogue is generated with --engine voicestudio --voices name=voice,...; or record it and pass --from-audio.');
+  if (a.retake && (a.sample || a.fromAudio || order.length)) die('--retake works on a single-voice VoiceStudio narration take, not on a sample, a --from-audio file or a dialogue.');
+  if (a.retake && a.retake !== 'auto') {
+    // a numbered or changed retake works on the take that is on disk: no full take
+    a.fromResponse ??= path.join(a.out, `${a.name}.response.json`);
+    if (!existsSync(a.fromResponse)) die(`--retake ${a.retake} works on an existing take: ${a.fromResponse} not found. Make the take first (add --retake auto to fix it as it is made).`);
+  }
   const unnamed = beats.filter(b => !b.label).length;
   if (unnamed && !a.sample) console.warn(`WARNING: ${unnamed} beat(s) have no |name and get auto names (b1, b2, ...) that shift when beats are added. Use {text|name}.`);
 
@@ -778,7 +1008,20 @@ async function main() {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
     a.language ??= response._meta?.language ?? null;
-    if (response._meta?.text && response._meta.text !== clean) {
+    if (a.retake) {
+      // the sentences are re-spoken by the voice and settings that made the take
+      const m = response._meta || {};
+      if (m.engine !== 'voicestudio') die('--retake re-speaks with VoiceStudio; this take was not made by it (an ElevenLabs or recorded take is regenerated whole).');
+      a.model = m.model ?? a.model;
+      if (!a.model) die('--retake: the take does not record its model; pass --model <name>.');
+      a.voice = m.voice_id ?? a.voice; a.voiceId = null;
+      a.instructions ??= m.instructions;
+      if (Number.isInteger(m.seed)) a.seed = m.seed;
+      if (a.speed === undefined && m.speed && m.speed !== 1) a.speed = m.speed;
+      if (Number.isInteger(m.steps)) a.steps = m.steps;
+      modelLine(a, { engine: 'voicestudio', model: a.model }, 'the take being retaken');
+    }
+    if (response._meta?.text && response._meta.text !== clean && a.retake !== 'changed') {
       console.warn('WARNING: the narration words differ from when this response was made. Timing may be off; regenerate the audio if the words changed.');
     }
   } else if (a.fromAudio) {
@@ -813,7 +1056,7 @@ async function main() {
     process.stdout.write(`Requesting audio from VoiceStudio (${spoken.length} characters, model ${a.model}${a.language ? `, language ${a.language}` : ''}), then transcribing it back for word timing... `);
     response = await vsGenerate(a, spoken, audioPath);
     console.log('done.');
-    response._meta = { engine: 'voicestudio', voice_id: voiceId, instructions: a.instructions, seed: a.seed, model: a.model, language: a.language, speed: a.speed ?? 1, text: clean, characters: spoken.length, created: new Date().toISOString() };
+    response._meta = { engine: 'voicestudio', voice_id: voiceId, instructions: a.instructions, seed: a.seed, steps: a.steps, model: a.model, language: a.language, speed: a.speed ?? 1, text: clean, characters: spoken.length, created: new Date().toISOString() };
   } else {
     voiceId = await resolveVoiceId(a);
     // The plan decides the output licence (free tier: non-commercial); unreadable = unknown, never "free".
@@ -845,12 +1088,9 @@ async function main() {
   if (!existsSync(audioPath)) die(`Audio file ${audioPath} is missing; timing needs it.`);
   if (!a.fromResponse) await writeFile(path.join(a.out, `${base}.response.json`), JSON.stringify(response));
 
-  const { times, exact } = mapTimes(clean, alignment);
-  let { words, missing } = buildWords(clean, times, response.transcript ? silences(audioPath) : [], gaps);
-  // ElevenLabs returns exact character times; only transcribed timing benefits from alignment.
-  const aligned = !response.transcript || a.align === 'off' ? null
-    : a.language ? forceAlign(a, audioPath, clean, words, times) : { note: 'no --language, so no alignment model' };
-  if (aligned?.ok) { missing = words.filter(w => w.est).length; for (const w of words) { w.start = round(w.start); w.end = round(w.end); } }
+  let t = timeTake(a, response, clean, gaps, audioPath);
+  if (a.retake) ({ response, t } = await retake(a, { response, clean, gaps, audioPath, base, t }));
+  const { times, exact, words, missing, aligned } = t;
   const beatList = buildBeats(beats, words, times, clean);
   const sectionList = buildSections(sections, words);
   const lineList = buildLines(dlines, words);
@@ -886,7 +1126,7 @@ async function main() {
   if (silent.length) console.log(`WARNING    : ${silent.length} dialogue line(s) matched no word in the audio: ${silent.map(l => `${l.speaker}: "${l.text.slice(0, 30)}"`).join('; ')}`);
   if (response.transcript) {
     const heard = response.transcript.words.length;
-    if (Math.abs(heard - nWords) > Math.max(2, nWords * 0.05)) console.log(`WARNING    : the transcript heard ${heard} words but the narration has ${nWords}. Often a spelled-out number heard as digits (harmless if the words below are timed); otherwise a skipped or misread word — listen there.`);
+    if (Math.abs(heard - nWords) > Math.max(2, nWords * 0.05)) console.log(`WARNING    : the transcript heard ${heard} words but the narration has ${nWords}. Often a spelled-out number heard as digits (harmless if the words below are timed); otherwise a skipped or misread word — --retake auto re-speaks the sentences that differ.`);
   }
   if (aligned?.ok) {
     console.log('Timing     : forced alignment against the script (score per word in words.json).');
@@ -894,7 +1134,7 @@ async function main() {
     let run = [];
     for (const w of [...publicWords, { score: 1 }]) {
       if (w.score !== undefined && (w.score === null || w.score < 0.3)) { run.push(w); continue; }
-      if (run.length >= 3) console.log(`WARNING    : low alignment score on "${run.map(x => x.text).join(' ')}" (${run[0].start.toFixed(2)}s) — the voice may not say the script there; listen.`);
+      if (run.length >= 3) console.log(`WARNING    : low alignment score on "${run.map(x => x.text).join(' ')}" (${run[0].start.toFixed(2)}s) — the voice may not say the script there; --retake auto re-speaks that sentence.`);
       run = [];
     }
   } else if (aligned?.note) console.log(`Timing     : transcript (${aligned.note}).`);
@@ -903,7 +1143,14 @@ async function main() {
     const est = publicWords.filter(w => w.est);
     console.log(`WARNING    : ${missing} word(s) had no timing and were estimated (est: true in words.json): ${est.slice(0, 12).map(w => `#${w.i} "${w.text}" ${w.start.toFixed(2)}s`).join(', ')}${est.length > 12 ? ', …' : ''}`);
     const hit = beatList.filter(b => b.word_index !== undefined && publicWords[b.word_index]?.est);
-    if (hit.length) console.log(`WARNING    : beat(s) starting on an estimated word: ${hit.map(b => b.name).join(', ')} — check them by ear.`);
+    if (hit.length) console.log(`WARNING    : beat(s) starting on an estimated word: ${hit.map(b => b.name).join(', ')} — --retake auto, or check them in words.json.`);
+  }
+  if (!a.retake && !a.sample && !a.fromAudio && !order.length && response._meta?.engine === 'voicestudio' && response.transcript) {
+    const sents = sentencesOf(clean, words);
+    const regions = regionsOf(sents, silences(audioPath), duration);
+    const flags = flagsOf(a, sents, regions, response.transcript.words, aligned);
+    const hit = sents.filter((s, k) => flags[k].length);
+    if (hit.length) console.log(`Retake     : sentence${hit.length > 1 ? 's' : ''} ${hit.map(s => s.n).join(', ')} may not say the script (${[...new Set(hit.flatMap(s => flags[s.n - 1]))].join(', ')}) — run again with --retake auto --from-response ${a.fromResponse || path.join(a.out, `${base}.response.json`)}: only those are re-spoken.`);
   }
   const bad = beatList.filter(b => b.start === null);
   if (bad.length) console.log(`WARNING    : ${bad.length} beat(s) matched no word: ${bad.map(b => b.text).join(', ')}`);
