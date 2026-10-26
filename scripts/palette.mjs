@@ -7,7 +7,7 @@
 //   node palette.mjs <video> [--every 1] [--top 6] [--step 16]
 //   node palette.mjs --compare <#hex> <#hex>   lightness gap of two colours (figure-ground: ≥ 0.20 separates)
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const SIDE = 64, FIGURE_GROUND = 0.2, MAX_BUFFER = 1024 ** 3;
@@ -48,13 +48,17 @@ export function top(counts, n = 6) {
 }
 export const dominant = (buf, { step = 16, top: n = 6 } = {}) => top(count(buf, step), n);
 const line = (cs) => cs.map((c) => `${c.hex} ${c.pct.toFixed(1)} % L ${c.L.toFixed(2)}`).join(' · ');
-// What a spawn error means. Only ENOENT says ffmpeg is missing; any other error is an unknown state: say what the
-// code was and to rerun (ENOBUFS: the raw frames passed the buffer, so a larger --every).
+// The one place an OS error (a stat, a spawn) becomes words: nothing else in this script may say "not found".
+// Only ENOENT is missing; every other code, or none, is an unknown state: name the code and say what to rerun.
+export function osProblem(err, what, { where = '', rerun = 'check the permissions and rerun' } = {}) {
+  const code = (err && err.code) || 'unknown error';
+  if (code === 'ENOENT') return `${what} not found${where}`;
+  return `${what} could not be checked or run (${code})${where}, which does not mean it is missing: ${rerun}`;
+}
+// A spawn error of ffmpeg (ENOBUFS: the raw frames passed the buffer, so a larger --every).
 export function spawnProblem(err, every) {
-  const code = err && err.code;
-  if (code === 'ENOENT') return 'ffmpeg not found (not on PATH)';
-  if (code === 'ENOBUFS') return `ffmpeg ran, but its frames passed the ${MAX_BUFFER / 2 ** 30} GiB buffer (ENOBUFS): rerun with a larger --every (now ${every})`;
-  return `ffmpeg could not be run (${code || 'unknown error'}), which does not mean it is missing: rerun, or with a larger --every`;
+  if (err && err.code === 'ENOBUFS') return `ffmpeg ran, but its frames passed the ${MAX_BUFFER / 2 ** 30} GiB buffer (ENOBUFS): rerun with a larger --every (now ${every})`;
+  return osProblem(err, 'ffmpeg', { where: ' on PATH', rerun: 'check the permissions and rerun, or with a larger --every' });
 }
 const fail = (msg) => { console.error(`FAILED: ${msg}`); process.exit(1); };
 
@@ -76,7 +80,9 @@ function main(argv) {
   }
   if (!o.file) fail('usage: node palette.mjs <video> [--every 1] [--top 6] [--step 16] | --compare <#hex> <#hex>');
   if (!(o.every > 0 && o.top >= 1 && o.step >= 1 && o.step <= 128)) fail('--every, --top and --step must be positive numbers (--step ≤ 128)');
-  if (!existsSync(o.file)) fail(`file not found: ${o.file}`);
+  try { statSync(o.file); } catch (e) {
+    fail(osProblem(e, 'file', { where: `: ${o.file}`, rerun: 'check the permissions of the file and its folders, then rerun' }));
+  }
   const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', o.file, '-map', '0:v:0', '-vf',
     `fps=1/${o.every},scale=${SIDE}:${SIDE}:flags=area,format=rgb24`, '-f', 'rawvideo', '-'],
     { maxBuffer: MAX_BUFFER });
