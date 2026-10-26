@@ -127,7 +127,10 @@ async function voicestudio() {
   const list = Array.isArray(models.body) ? models.body : models.body?.models;
   const unread = models.status !== 200 || !Array.isArray(list) || !list.length ? models : prof.status !== 200 || !prof.body?.selections ? prof : null;
   if (unread) return [vsOk, ...['  TTS model', '  ASR (word timing)'].map(i => [i, 'WARN', denied(unread) ? deniedNote(unread) : `could not read model state (${why(unread)}) — backend busy; rerun preflight, install nothing`]), voicesRow];
-  const ready = id => { const m = list.find(x => x.repo_id === id); return !!m && m.installed && !m.incomplete; };
+  // A selection names its weights by repo id ("k2-fsa/OmniVoice") or, for some engines, by bare name ("voxcpm2"):
+  // a bare name matches the repo's own name, case aside ("openbmb/VoxCPM2").
+  const entry = id => list.find(x => x.repo_id === id) || (!String(id).includes('/') && list.find(x => String(x.repo_id).split('/').pop().toLowerCase() === String(id).toLowerCase()));
+  const ready = id => { const m = entry(id); return !!m && m.installed && !m.incomplete; };
   const tts = prof.body.selections?.tts || {};
   const asr = prof.body.selections?.asr || {};
   const ttsOk = ready(tts.model || 'k2-fsa/OmniVoice');
@@ -139,7 +142,7 @@ async function voicestudio() {
   try { sealOk = readdirSync(sealDir).some(f => !f.includes('.partial') && statSync(path.join(sealDir, f)).size > 50e6); } catch { /* no cache */ }
   return [
     vsOk,
-    ['  TTS model', ttsOk ? 'OK' : 'MISSING', ttsOk ? `${tts.model || 'k2-fsa/OmniVoice'}${/omnivoice/i.test(tts.model || 'omnivoice') ? ' — weights CC-BY-NC: non-commercial videos only (references/voice.md "Licence")' : ''}` : 'install with consent (references/voice.md "Models")'],
+    ['  TTS model', ttsOk ? 'OK' : 'MISSING', ttsOk ? `${entry(tts.model || 'k2-fsa/OmniVoice').repo_id}${/omnivoice/i.test(tts.model || 'omnivoice') ? ' — weights CC-BY-NC: non-commercial videos only (references/voice.md "Licence")' : ''}` : 'install with consent (references/voice.md "Models")'],
     ['  ASR (word timing)', asrOk ? 'OK' : 'MISSING', asrOk ? `${asr.engine} ${asrRepo}` : `active: ${asr.engine || 'none'} ${asrRepo || ''} not installed — install faster-whisper turbo + tier "balanced" (references/voice.md)`],
     // The watermark cache lives beside the backend: a local check says nothing about a remote one.
     !vsLocal ? ['  AudioSeal watermark', 'INFO', 'remote backend: pre-download it on that machine (references/voice.md)']
