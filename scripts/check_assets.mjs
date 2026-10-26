@@ -6,7 +6,8 @@
 //   "licence": "CC-BY-4.0", "author": "Name", "model": "<model> (<its licence>)",
 //   "prompt": "...", "seed": 42, "beat": "hook" }]
 // Files an engine build wrote are listed in its .engine.json (engine/three/build.mjs), read here from every folder
-// under assets/: never list them in ASSETS.json by hand. A manifest that cannot be read, or a row that points outside
+// under assets/: never list them in ASSETS.json by hand. Its rows are checked like ASSETS.json rows, the narration
+// cross-check included. A manifest that cannot be read, or a row that points outside
 // its folder, is a problem (fail closed). A licence "A AND B" (or A + B, A / B, A, B, A OR B ...) is checked part by part.
 // The narration's row is also checked against the model that spoke it: audio/<name>.response.json _meta, read through
 // scripts/voice_licences.mjs. A non-commercial voice listed under a commercial licence is a problem; a voice that
@@ -47,11 +48,15 @@ const rows = [...list, ...engineRows];
 const listed = new Set(rows.filter(a => a.file).map(a => path.normalize(a.file)));
 
 // Allowed for any use; NC/research licences only for non-commercial films; ND never (\b so "Licence" isn't "NC").
-// A licence is one id, optionally followed by a version or a plain word ("CC0 1.0 Universal", "MIT License", "Pexels
-// License"); anything else after it ("MIT GPL-3.0") is a second licence and fails. Matched whole, never by its start.
-const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)(\s+(v?\d[\d.]*|universal|license|licence|content|mark|dedication|only))*$/i;
+// A licence is one id, optionally followed by an SPDX version ("CC0-1.0", "MIT-0") and a version or a plain word
+// ("CC0 1.0 Universal", "CC-BY-4.0 International", "MIT License", "Pexels License"); anything else after it ("MIT
+// GPL-3.0") is a second licence and fails. Matched whole, never by its start.
+const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)(-[\d.]+)?(\s+(v?\d[\d.]*|universal|international|unported|license|licence|content|mark|dedication|only))*$/i;
+// A credit note ("attribution", "credit required") states a duty, not a licence: the voice table's own string for an
+// ElevenLabs free-tier narration is "...: non-commercial, attribution". Alone it is no licence (the whole text fails).
+const NOTE = /^(with\s+)?(attribution|credit)(\s+(required|needed))?$/i;
 // Every way of joining licences: AND, OR, WITH, PLUS, + / , ; & | and brackets. Each part is checked on its own.
-const licParts = l => String(l ?? '').split(/\s+(?:AND|OR|WITH|PLUS)\s+|[()+\/,;&|]/i).map(s => s.trim()).filter(Boolean);
+const licParts = l => String(l ?? '').split(/\s+(?:AND|OR|WITH|PLUS)\s+|[()+\/,;&|]/i).map(s => s.trim()).filter(s => s && !NOTE.test(s));
 const ccBy = l => licParts(l).some(p => /^CC-BY/i.test(p));
 const NC = /\bNC\b|non-?commercial|research/i;
 const ND = /\bND\b|no[- ]?deriv/i;
@@ -88,9 +93,9 @@ for (const f of takes) {
   if (!v) { warnings.push(`audio/${f}: the voice's output licence is unknown — ${unknownVoice(meta)}`); continue; }
   if (!v.nc) continue;
   const stem = f.slice(0, -'.response.json'.length);
-  const rows = list.filter(r => r.file && r.licence && path.parse(r.file).name === stem);
-  if (!rows.length) warnings.push(`audio/${f}: spoken by ${v.name} (${v.licence}) but no ASSETS.json row is named "${stem}.*" — no row to check; list the narration under that licence`);
-  for (const a of rows)
+  const named = rows.filter(r => r.file && r.licence && path.parse(r.file).name === stem);
+  if (!named.length) warnings.push(`audio/${f}: spoken by ${v.name} (${v.licence}) but no ASSETS.json row is named "${stem}.*" — no row to check; list the narration under that licence`);
+  for (const a of named)
     if (!NC.test(a.licence)) problems.push(`${a.file}: spoken by ${v.name} (audio/${f}), whose output is ${v.licence} — listed as "${a.licence}"; list that licence`);
 }
 

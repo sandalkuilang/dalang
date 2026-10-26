@@ -189,7 +189,7 @@ await test("F. a non-commercial film narrated by ElevenLabs free tier reaches OK
 });
 
 await test("G. the narration cross-check reads engine-manifest rows too: a non-commercial voice cannot ride in as MIT", async () => {
-  const eng = (licence) => JSON.stringify([{ file: "narration.mp3", source: "VoiceStudio", licence }]);
+  const eng = (licence) => JSON.stringify([{ file: "narration.mp3", source: "VoiceStudio", licence, author: "V" }]);
   const top = await run(check, [take(omni, [], { "assets/.engine.json": eng("MIT") }), "--commercial"]);
   assert.equal(top.code, 3, top.out);
   assert.match(top.out, /spoken by OmniVoice/);
