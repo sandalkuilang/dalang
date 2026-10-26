@@ -95,9 +95,12 @@ here with a line in this table. Air is one shared field: every source adds into 
    reaches a declared body throws (its methods, a lookup of its handle, and every world-wide query: `castRay`,
    `intersectionsWithShape`, `contactPairsWith`, `forEachCollider`… cannot tell a body baked in another world from an
    empty place, so they refuse; read a main-island body through its own methods), a kinematic body, one impact name on bodies of two islands or a joint across
-   islands is refused, and a body of one island coming within 5 mm of another's (judged on the drawn geometry, in the
-   pre-roll as well as the shot: a piece that settles onto a declared body there would fall through it in its own
-   world) throws with the pair and the time, so merge those islands. What every island world shares with the main one
+   islands is refused, and a body of one island coming within 5 mm of another's (judged on what can touch: every
+   collider of the body, with its offset and contact skin, and the drawn geometry, so a collider built wider than its
+   mesh counts; in the pre-roll as well as the shot: a piece that settles onto a declared body there would fall through
+   it in its own world) throws with the pair and the time, so merge those islands. While the islands bake, a script may
+   change a main-island collider's friction, restitution, mass or filters, never where it can touch (shape, size, offset,
+   contact skin: those calls throw, and a collider that reaches further after the bake is caught). What every island world shares with the main one
    is fixed when the bake starts and the scripts may not change it: gravity, the solver settings, every fixed body
    and static collider (move, disable, remove, add), joints inside an island, a step of the world. Those calls throw
    while `onStep`, `track` or `keep` run (reading them stays open, as does driving a main-island body), and a change
