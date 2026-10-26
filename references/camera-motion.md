@@ -64,11 +64,16 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 
 ## 5. Physical timing
 
+### 5.1 Curves, springs, distance, gravity
+
 - **Curves.** An After Effects influence pair (out `a` %, in `b` %) is `cubic-bezier(a/100, 0, 1−b/100, 1)` **[D]**. Arrivals have incoming influence ≥ 75 % and reach peak speed in the first 20–35 % of the move: `(0.33,0,0.2,1)`, `(0.2,0,0.2,1)`. Register once with `CustomEase` (free since GSAP 3.13): emphasized-decelerate `(0.05,0.7,0.1,1)` for arrivals that land with authority, emphasized-accelerate `(0.3,0,0.8,0.15)` for exits, quart-inOut `(0.76,0,0.24,1)` for a motion-control camera. The symmetric 33/33 `(0.33,0,0.67,1)` is the generated look.
 - **Springs [D]:** overshoot = `e^(−ζπ/√(1−ζ²))`, so the ≤ 4 % cap means damping ratio **ζ ≥ 0.72** (0.8 → 1.5 %, 0.9 → 0.15 %); settle ≈ `4/(ζω)`. Use the closed form as an ease so every frame renders on its own: `x(t) = 1 − e^(−ζωt)(cos ωd t + (ζω/ωd) sin ωd t)`, `ωd = ω√(1−ζ²)`. Opacity and colour: ζ = 1, always.
 - **Duration grows with distance, by square root [O]:** `dur ≈ base·√(dist/base_dist)` (0.3 s at 200 px → 0.6 s at 800 px). **Mass:** heavy things start slower, overshoot less (ζ ≥ 0.85) and make the surface react (a 0.3–0.6 % camera bump for 3–5 frames, a shadow or dust pulse); light things snap (ζ 0.6–0.75) and flutter.
 - **1/3 rule:** nothing travels more than a third of the frame in one unbroken tween without an intermediate key or a scale change. **No velocity cliffs:** a multi-point path is **one** tween (`keyframes: {x: [...], y: [...], easeEach: "none"}, ease: "power2.inOut"`, or MotionPath `curviness: 1–1.5`), never chained `to()`s that stop at every key.
 - **Gravity [D]:** fall time `√(2h/g)` — 1 m = 0.45 s (13.5 frames at 30 fps), 0.5 m = 0.32 s, 2 m = 0.64 s; set px-per-metre from a known size in the frame. `power2.in` **is** free fall (`power2.out` for the rise). A bounce with restitution e: height × e², airtime × e (ball ≈ 0.75–0.85, wood ≈ 0.5, putty 0); `CustomBounce` with strength ≈ 1−e. Velocity changes within one frame on impact — never ease into a collision. Paper and leaves: ease in for ~0.2 s, then linear with sway.
+
+### 5.2 Contact is simulated: the set, colliders, units, mass, solver
+
 - **3D objects that touch, fall or collide are simulated, never keyframed** (the engine's `physics.js`, `bodies.js`, `cloth.js`, `air.js`: `engine/three/README.md`; any object is a body from its own mesh with its looked-up mass and friction, so nothing is declared per object). Every motion has a cause the viewer can read (a push, a knock, a draught, a sound); nothing starts, drifts or loops on its own. Use Rapier (`@dimforge/rapier3d-compat`, Apache-2.0, deterministic; bundle it to its own ESM file in `assets/`) and **bake** before the first frame: simulate the shot once, store every body's pose whenever it moves, interpolate at any time, so frames seek and every render worker gets the same result (check: render twice, `ffmpeg -f framemd5` — every frame identical). **Bake once per change to the set:** `sim.bakeCached(...)` in the set, then `node <skill-dir>/engine/three/bake.mjs <project>` before any snapshot, preview or render, so they all replay one stored bake (`assets/bake/`) instead of simulating again on every page load (a long shot with many bodies costs minutes per load, more than once per render). A body held off-frame until its cue is `sim.hold(body, t)`, never teleported every step. Groups that never touch for the whole shot are declared as `islands` in `bakeCached` and baked in parallel workers (a contact across islands throws; `engine/three/README.md`). Verified on a 16 GB M5: a 4 s shot with ten dynamic bodies in a 30k-triangle set bakes in ~2 s and renders in 31 s. The recipe, each line fixing an error a real bake showed:
   - **The whole set collides:** every visible mesh becomes a fixed triangle mesh in world space (skip transparent and shadow-catcher meshes). Hand-picked colliders let props pass through rugs, tables and stools.
   - **Colliders are the drawn shapes:** a rounded box gets a `roundCuboid` with the same corner radius (a sharp cuboid leaves ~2 mm of air under a rounded edge); a model gets the convex hull of its own vertices; a radial part (a chair's star base) is split into one hull per leg plus the column, or the hull fills the gaps between legs and shoves a whole stack instead of striking it; wheels are small balls at the model's lowest vertices, not a disk; parts of one object share a collision group so they never push each other.
@@ -77,11 +82,17 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
   - **Mechanisms are engine parts, never a custom integrator** (`engine/three/mechanism.js`): a part that slides or turns between stops is a `slide` or `hinge` with limits (the stops), its spring a `spring` (stiffness, rest or preload, damping, in N/m and N, or N·m/rad and N·m), and what holds it until a cue a `latch` (a time, or a condition read each step); the part keeps colliding while held. They bake with the rest of the set (hashed into the cache key, release times in `report.latches`), so there is no second simulation and no hand-written force, stop or restitution. Slow motion and a replay of the same event from another angle remap time on that one bake (`slow(t0, rate, rampOut)` and `replay(tEvent, tShot)` give `tau(t)`; pose with `apply(tau(t))`, `pose(i, tau(t))`, `travel(t, fps, tau)`), never a per-phase time function: a released part cannot come back to its held pose in a later shot, because every shot reads the same baked motion. The sounds of a slowed or replayed event go at the shot time whose `tau` is the impact's time. Examples: a toaster's carriage, a mousetrap, a circuit breaker, a retractable pen, a door latch, a camera shutter.
   - **Stiff solver:** 480 Hz, 16 solver iterations, `normalizedAllowedLinearError` 0.0002, `contact_natural_frequency` 60, CCD on moving bodies. Rapier's defaults let a stack of nine flat bodies sink ~3.5 mm per layer and a hard knock overlap 6–8 mm.
   - **Loose soft props settle in the simulation**: cushions, bags, clothes and the like are dynamic convex hulls at their real mass (a cushion ~0.45 kg; friction ~0.9 for cloth) in the pre-roll (then 1.2 s), started upright and tipped toward what they will lean on; check they are still before frame 0.
-  - **A 0.5 s pre-roll** lets everything settle onto its real support (a rug's thickness, a soft seat) before frame 0; report how far each body's centre of mass moved in it and how much it tilted — more than its stacking gaps means it was placed into something (measure at the centre of mass: a kit model's origin is often a corner, and a 2° turn reads as centimetres there). A body hanging on a joint is supported, not floating. A caster within a centimetre of a rug's edge is shoved sideways by it as the chair settles: keep every wheel clearly on or off.
-  - **Report and read the numbers** every bake: deepest penetration (≤ ~2 mm, under a pixel at diorama framing), bodies floating at the end, bodies still moving, pre-roll drift, and the placement audit below. Rapier aborts (wasm `unreachable`) on a flat point set and on coincident or crowded near-coplanar points: build a hull only from points that enclose a volume, one per 1 mm cell (6 mm for a whole soft object; the engine's tolerances are in metres, so they hold at any scale); a NaN vertex (a `sqrt` of a tiny negative at an edge) makes it abort too.
-  - **Hits drive sound and reactions:** an impact is a body's velocity changing ≥ 0.15 m/s within 12.5 ms (stiff contacts spread a hit over several steps; below 0.15 it is silent). A living thing reacts ~150 ms later to the loudest one ≥ 0.4 m/s (a book landing on the floor, not the first touch).
-  - **Sound on the bake, verified** (CC0 from Openverse, `look-build.md` §7): each `<audio>` starts at its impact's time and the cause's time (the push), written in the HTML with the bake value in a comment. Contacts within ~30 ms are one sound; the hardest gets the full sample, lighter ones a pitched-up variant (smaller, lighter); volume = base × (dv / 1.2 m/s)^0.6 (against a hard knock, not the shot's loudest hit: a soft bump stays soft) — a perceptual curve, so a soft landing is quieter but audible; base ≈ 0.5 so a knock sits under a narration. A hard contact is short: fade a knock from ~60 ms, a thud from ~80 ms, or its tail masks the next contact. A rolling or sliding sound lasts from the push to the bake's rest time with its level following the speed measured in the bake (sample the body every 10–40 ms: a knock takes speed off at once, Coulomb friction then takes it linearly to 0); things the push slides along (a stack shoved over the floor or over its bottom book) get their own sliding sound for as long as they move. Continuous sources run under everything (a fan's whoosh, a room's hum). Check the render: silence before the cause and after rest, a level rise at each impact time, and a null test against the same clips mixed offline with `adelay` (lag 0 ms, residual ≤ −25 dB; removing a clip must raise the residual, proving it is there).
-  - **Motion blur from the bake:** a frame where a body travels ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter; still frames render once.
+
+### 5.3 The bake: pre-roll, numbers, hits, sound, blur
+
+- **A 0.5 s pre-roll** lets everything settle onto its real support (a rug's thickness, a soft seat) before frame 0; report how far each body's centre of mass moved in it and how much it tilted — more than its stacking gaps means it was placed into something (measure at the centre of mass: a kit model's origin is often a corner, and a 2° turn reads as centimetres there). A body hanging on a joint is supported, not floating. A caster within a centimetre of a rug's edge is shoved sideways by it as the chair settles: keep every wheel clearly on or off.
+- **Report and read the numbers** every bake: deepest penetration (≤ ~2 mm, under a pixel at diorama framing), bodies floating at the end, bodies still moving, pre-roll drift, and the placement audit below. Rapier aborts (wasm `unreachable`) on a flat point set and on coincident or crowded near-coplanar points: build a hull only from points that enclose a volume, one per 1 mm cell (6 mm for a whole soft object; the engine's tolerances are in metres, so they hold at any scale); a NaN vertex (a `sqrt` of a tiny negative at an edge) makes it abort too.
+- **Hits drive sound and reactions:** an impact is a body's velocity changing ≥ 0.15 m/s within 12.5 ms (stiff contacts spread a hit over several steps; below 0.15 it is silent). A living thing reacts ~150 ms later to the loudest one ≥ 0.4 m/s (a book landing on the floor, not the first touch).
+- **Sound on the bake, verified** (CC0 from Openverse, `look-build.md` §7): each `<audio>` starts at its impact's time and the cause's time (the push), written in the HTML with the bake value in a comment. Contacts within ~30 ms are one sound; the hardest gets the full sample, lighter ones a pitched-up variant (smaller, lighter); volume = base × (dv / 1.2 m/s)^0.6 (against a hard knock, not the shot's loudest hit: a soft bump stays soft) — a perceptual curve, so a soft landing is quieter but audible; base ≈ 0.5 so a knock sits under a narration. A hard contact is short: fade a knock from ~60 ms, a thud from ~80 ms, or its tail masks the next contact. A rolling or sliding sound lasts from the push to the bake's rest time with its level following the speed measured in the bake (sample the body every 10–40 ms: a knock takes speed off at once, Coulomb friction then takes it linearly to 0); things the push slides along (a stack shoved over the floor or over its bottom book) get their own sliding sound for as long as they move. Continuous sources run under everything (a fan's whoosh, a room's hum). Check the render: silence before the cause and after rest, a level rise at each impact time, and a null test against the same clips mixed offline with `adelay` (lag 0 ms, residual ≤ −25 dB; removing a clip must raise the residual, proving it is there).
+- **Motion blur from the bake:** a frame where a body travels ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter; still frames render once.
+
+### 5.4 Air, any subject's own law, rest, groups, frames
+
 - **One air field per set** (`wind.js`): every source adds into it (fans, a breeze, a draught) and everything light reads the sum, so two things in the same air move together. Outdoors, a breeze is slower near the ground by the log law (z0 ~3 cm over grass) and its gusts are turbulence carried downwind at the mean speed, so they run across a lawn as waves. Indoors, a room draught (`draught()`, 0.05-0.2 m/s in slow eddies) is the default air: leaves and curtains barely notice it, a plume does, so steam and smoke always read the draught unless the shot has a reason for still air; and a plume is seen only against a darker ground or lit from the side or behind (`particles.js` `contrast()`, `looks.md`). Flexible things (blades, branches, stems) are damped oscillators driven by drag ∝ v² (grass ~1.5-3 Hz well damped, twigs ~4.5 Hz, a small tree's trunk ~0.8 Hz), baked; leaves flutter faster as the air quickens. Steam and smoke rise by buoyancy that fades as they cool and are tied to the air by drag (they bend downwind); dust follows the air, settles a few mm/s and shows only in strong light against dark; rain falls at its drop's terminal speed (~4.5 m/s at 1 mm, ~8 at 3 mm) already moving with the wind, and lands at its rate (light rain ~200 drops/m²/s), each landing a ring on water. Water's waves come from its wind and fetch (a 10 m pond in 5 m/s: ~8 mm, ~12 cm long; a 1 m pond in a breeze: ~1 mm), with sub-pixel ripples faded out, not drawn as glints. Rain, wind in leaves, a fan, a fire are heard.
 - **Air moves things too, by the same law.** A fan that is on is a round turbulent jet along its head's axis: core speed u₀ (desk or floor fan ~1.5–3 m/s) out to ~2 blade diameters, then ∝ 1/x, Gaussian across with half-width D/2 + 0.11·x, ±25 % gusts at a few Hz; an oscillating head sweeps it (±40°, ~10 s a cycle). Air does not pass through things: behind any object of the set between the blades and a point only ~15 % arrives (test the segment against the objects' boxes, once every prop is placed). Cloth in the air is simulated, never waved: a curtain is a particle grid hung by its top row, stretch, shear and bend constraints (the bend rest shape keeps its pleats), gravity, drag ½·ρ·C_d·A·v² across each patch (C_d ~1.2) with a little skin friction along it — still air then damps it — and the wall behind as a collider; light cotton ~120 g/m²; position-based dynamics at 240 Hz, 8 iterations, a 2 s pre-roll so it has settled into the airflow, replayed by interpolation and drawn 3× finer through a Catmull-Rom spline (the simulation grid itself shows as facets). Spinning blades are filmed as a blur: a disc whose opacity is the fraction of the exposure a blade covers it. A running fan is heard (a low steady whoosh under the hits).
 - **Any subject moves by its own law, not only things that fall.** Orbits by gravity (a planet's period² ∝ its distance³; the Moon 27.3 days), ions and molecules by drift in their field plus diffusion (spread √(2Dt)), heat by conduction, a heart at its rhythm, a crowd or a population by its equation. Take the law and its constants from a cited source, model it in real units, and check the numbers it produces against that source. When the real scale can't be seen (a lithium ion is ~0.15 nm across, Neptune 30 AU out while Earth is 1/11,700 of an AU wide, a reaction over in picoseconds), change the fewest scales needed (size, distance, time: one each at most), keep the ratios within each, and show every change on screen (a clock running slow, a scale bar, "sizes not to scale"). A sine wave or a hand-timed tween standing in for a law is a Reality fail.
@@ -156,7 +167,7 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 
 A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take **6–10** from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[F]** footage (search with the technique's name), **[3D]** three.js rig (§10), **[G]** generated clip (paid, only on request; the prompt names it), **[2.5D]** depth layers (§6.8), **[C]** compositing in HyperFrames.
 
-**Light — mood and where to look**
+### 11.1 Light — mood and where to look
 - **Contrast ratio** key:fill, `(key + fill) : fill`, each stop doubling it **[D]**: 2:1 bright and neutral (a friendly explainer), 4:1 dramatic (the photoreal default), 8:1 and up low-key (mystery, danger, the problem). Set it per section in the colour script; a ratio change is a mood change.
 - **Colour-temperature contrast:** a warm key (~3200 K) against cool ambient (~5600–6500 K) separates the subject from its world; flip it on the beat where something goes wrong.
 - **Practicals:** a lamp, screen or window inside the frame motivates the key and makes the set read as real.
@@ -164,7 +175,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Light as the event:** a shadow sweeps across, a door throws light in, a lamp switches on at the reveal, the sun moves (timelapse). It is real action without moving the camera **[F][3D][G]**.
 - **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
 
-**Lens — how the world feels**
+### 11.2 Lens — how the world feels
 - **Wide close (14–24 mm near the subject):** intimacy or unease, a huge foreground. Use it for the point of view of something small or the inside of a machine.
 - **Telephoto compression (135 mm+):** distance stacks up — crowds, traffic, rows, "so many".
 - **Macro and probe lens:** a long thin lens that travels *inside* things — between gears, along a circuit, through food or plants. It's the explainer's signature: the mechanism at its own scale **[F][3D]**.
@@ -173,7 +184,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Tilt-shift:** one sharp band makes a real system look like a model; an overview of how a whole thing works **[F][C]**.
 - Anamorphic oval bokeh is fine; its horizontal flares are banned (`visual-direction.md` §5).
 
-**Movement — beyond §2**
+### 11.3 Movement — beyond §2
 - **Reveal:** move past a foreground occluder (a wall edge, a leaf, a machine part) to uncover the subject or its scale **[F][3D][2.5D]**.
 - **Push-through:** the camera passes through a surface (a window, a mesh, a keyhole, the shell of an object) into the next space — a scene change with no cut **[3D][G]**.
 - **Crane up / down:** up lifts from the detail to the context (consequence, scale); down arrives from the context into the detail. **Top shot** (straight down) for systems, patterns, layouts **[F][3D]**.
@@ -187,13 +198,13 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Frozen moment (bullet time):** time stops and the camera orbits the instant — an impact, a splash, a reaction **[3D]**.
 - **Drone / FPV dive:** from the sky into the subject. It's the wow shot or nothing (§10).
 
-**Time**
+### 11.4 Time
 - **Slow motion** for what the eye can't see — splashes, mechanisms, breaking (≥ 50 fps source, §10; any speed in 3D).
 - **Timelapse** for slow processes (wear, growth, a day, a build); **hyperlapse** is a timelapse with a travelling camera **[F][3D]**.
 - **Freeze-frame and annotate:** stop at the key instant, draw labels and leader lines on it, then release — an explainer staple **[C]**.
 - **Reverse** to show the cause; **speed ramp** for emphasis (§10).
 
-**Editing — beyond §3**
+### 11.5 Editing — beyond §3
 - **Cross-cutting:** alternate two lines (A vs B, two processes) in the same framing, so the comparison lives in the rhythm.
 - **Collision montage:** two shots that together mean a third thing (waste next to a bin of money) — for an argument, not a fact.
 - **Graphic or morph match:** a shape becomes a similar shape in the next shot (a circle → a wheel → a gauge) to jump scale or idea.
@@ -201,7 +212,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Insert as evidence:** a macro detail cut into a wide beat to prove the claim being spoken.
 - **Split screen** only on 16:9 for things happening at the same time; on 9:16, stacked top / bottom only if both read at 360 px (`visual-direction.md` §7).
 
-**Educational signatures — the scale and the inside**
+### 11.6 Educational signatures — the scale and the inside
 - **Scale journey ("powers of ten"):** one continuous zoom from human scale down to the microscopic (or out to the cosmic), with a scale bar counting **[3D]** (layered scale planes, real micrographs at the bottom).
 - **X-ray / ghost shell:** the outer surface fades to 20–35 % with a bright fresnel edge so the inner mechanism works visibly inside it **[3D]** (`attend(...)` with `edge` for the rim, on a lit material).
 - **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]** (`engine/three/cutaway.js`: one plane on the whole assembly; the exterior shot and the section shot are the same set with `cut.off(t)` / `cut.on(t)`, and a slow `cut.set(offset, t)` slides the section through).
@@ -233,7 +244,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 
 **Structure:** establish wide, tighten as the feeling rises, keep the tightest size and the longest lens for the climax; rhyme the final image with the opening composition so the change in meaning is felt; one idea per shot (two ideas = two shots); hold a beat after the line — the reaction is often the story; keep key action off screen when sound can carry it.
 
-**Light:**
+### 12.1 Light
 - **Motivated:** every light seems to come from a source in the world (window, lamp, screen, sky).
 - **Short-side key:** light the side of the subject away from camera. Camera-side (broad) light is flat and reads as TV.
 - **Subtract to shape:** dark negative fill on one side beats adding lamps. Design colour in the set, wardrobe and practicals first; the grade only enhances.
@@ -251,7 +262,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
   | Overcast | 6500 K | `#fffefa` |
   | Shade, blue hour | 8000 K | `#dde6ff` |
 
-**Composition:**
+### 12.2 Composition
 - **Thirds:** eyes on the upper third, look room ahead of the gaze. Centre and symmetry mean order, control, unease or authority.
 - **Headroom:** tight is normal. A subject low under large headroom reads as small or oppressed.
 - **Negative space:** 60–80 % of the frame left empty reads as isolation.
@@ -259,6 +270,8 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 - **Foreground:** something in the foreground removes flatness (§4 "The loaded frame").
 - **Dialogue:** in shot / reverse shot, eyelines match and lens and distance are the same on both sides.
 - **3D camera height:** eye ~1.5–1.7 m, child ~1.0 m, low 0.3–0.6 m, all scaled to the set.
+
+### 12.3 Frame ratio inside the canvas
 
 **Frame ratio inside the canvas** (16:9 films only; 9:16 and 4:5 stay full-bleed, since platform UI covers the bars' space). The ratio is a story decision, constant unless a logged break changes it. At 1920×1080:
 
@@ -273,7 +286,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 
 Build the mask as the top layer of the root composition (two black `div`s), so bars stay pure black with no grain on them. Captions and safe areas sit inside the image area.
 
-**Finishing order, identical on every shot:**
+### 12.4 Finishing order, identical on every shot
 1. Grade or LUT.
 2. Halation: a red-orange glow around highlights; subtle; film looks only.
 3. Grain.
@@ -285,6 +298,8 @@ For footage, apply steps 1–4 through `media-treatment`. For three.js, apply th
 ```
 ffmpeg -i in.mp4 -filter_complex "[0:v]format=gbrp,split[b][h];[h]curves=all='0/0 0.75/0 1/1',gblur=sigma=12,colorchannelmixer=rr=1:gg=0.25:bb=0.1[g];[b][g]blend=all_mode=screen:all_opacity=0.35,format=yuv420p" out.mp4
 ```
+
+### 12.5 Approach presets
 
 **Approach presets.** Borrow a film's approach, never its shots. Start the rulebook from the nearest preset and adapt it:
 
@@ -299,5 +314,6 @@ ffmpeg -i in.mp4 -filter_complex "[0:v]format=gbrp,split[b][h];[h]curves=all='0/
 | landscape-awe | *Nomadland* | 2.39 | 24–35 mm, deep, slow lateral | low-sun backlight; figures small in vast space |
 | period-texture | *Carol* | 1.85 | 50 mm through glass, restrained | soft window light; Super 16 grain, muted greens and pinks |
 
----
+## Sources
+
 Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging, de-slop prompting (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots); §12's emotion table, rulebook, Kelvin, ratio and finishing practice follow award-winning indie cinematography (DP approaches of the films named, paraphrased).

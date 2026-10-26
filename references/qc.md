@@ -34,6 +34,8 @@ node <skill-dir>/scripts/strips.mjs   # 3 stills per storyboard shot, one row pe
 
 Then `npx hyperframes preview --background --no-open` (without `--no-open` it launches the user's own Chrome) and show the Studio URL **only in Claude's isolated built-in browser** (the Browser pane: `preview_start` with the URL). Never the system browser, `open <url>`, or Claude in Chrome (the user's real Chrome); no built-in browser → give the URL as text. Then **wait for approval** (changes → Steps 6–7). After approval:
 
+## Step 8 — Final render
+
 ```bash
 node <skill-dir>/scripts/state.mjs approve 4 --by <user|agent> && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
 npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output final.mp4
