@@ -36,7 +36,7 @@ function mock(o = {}) {
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv)));
 }
 const freePort = () => new Promise((ok) => { const s = http.createServer().listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => ok(p)); }); });
-const run = (args, sealDir = seal) => new Promise((ok) => execFile(process.execPath, [preflight, ...args], { env: { ...process.env, AUDIOSEAL_CACHE_DIR: sealDir }, timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+const run = (args, sealDir = seal, env = {}) => new Promise((ok) => execFile(process.execPath, [preflight, ...args], { env: { ...process.env, AUDIOSEAL_CACHE_DIR: sealDir, ...env }, timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
 // Text rows: status (11), item (22), note.
 const parse = (out) => {
   const rows = {}, lines = out.split("\n");
@@ -107,6 +107,18 @@ function fixture() {
   git(base, "clone", "-b", "main", remote, skill);
   return { seed, skill, remote };
 }
+// A remote with two releases (v1.0.0, then v1.1.0 which main also holds); pin(tag, shallow) is an install per the README.
+function tagged() {
+  const f = fixture();
+  git(f.seed, "tag", "v1.0.0"); advance(f.seed, "release work"); git(f.seed, "tag", "v1.1.0"); git(f.seed, "push", "origin", "--tags");
+  f.pin = (tag, shallow) => {
+    const s = path.join(path.dirname(f.skill), "pinned" + fx++);
+    if (shallow) git(path.dirname(f.skill), "clone", "--branch", tag, "--depth", "1", "file://" + f.remote, s);
+    else { git(path.dirname(f.skill), "clone", f.remote, s); git(s, "checkout", tag); }
+    return { ...f, skill: s };
+  };
+  return f;
+}
 const advance = (dir, subject, push = true) => { fs.appendFileSync(path.join(dir, "a.txt"), subject + "\n"); git(dir, "commit", "-am", subject); if (push) git(dir, "push", "origin", "main"); };
 const skillCases = [
   ["skill up to date", () => fixture().skill, "OK", /^up to date with origin\/main/],
@@ -117,10 +129,24 @@ const skillCases = [
   ["skill diverged", () => { const f = fixture(); advance(f.seed, "remote fix"); advance(f.skill, "local work", false); return f.skill; }, "WARN", /diverged: 1 commit behind and 1 ahead/, /pull --ff-only/],
   ["skill ahead only", () => { const f = fixture(); advance(f.skill, "local work", false); return f.skill; }, "INFO", /1 commit ahead of origin\/main/],
   ["skill not a git clone", () => { const d = path.join(tmp, "plain"); fs.mkdirSync(d); return d; }, "INFO", /not a git clone/],
+  ["skill folder inside another repo", () => { const f = fixture(), d = path.join(f.skill, "sub"); fs.mkdirSync(d); return d; }, "INFO", /not a git clone/],
+  // Unknown is never missing: a .git that git cannot read, or no git at all, is "could not check", never "clone it again".
+  ["skill .git unreadable", () => { const f = fixture(); fs.writeFileSync(path.join(f.skill, ".git", "HEAD"), "garbage\n"); return f.skill; }, "WARN", /could not check.*rerun/, /not a git clone|clone the repo again/],
+  ["skill .git is a gitfile to nowhere", () => { const d = path.join(tmp, "gitfile"); fs.mkdirSync(d); fs.writeFileSync(path.join(d, ".git"), "gitdir: " + path.join(tmp, "nowhere") + "\n"); return d; }, "WARN", /could not check.*rerun/, /not a git clone|clone the repo again/],
+  ["skill git not on PATH", () => { const f = fixture(), empty = path.join(tmp, "empty-bin"); fs.mkdirSync(empty, { recursive: true }); f.env = { PATH: empty }; return f; }, "WARN", /could not check.*rerun/, /not a git clone|clone the repo again/],
+  // A pinned install is detached: no pull from main; the note names the pinned release, the newest one and the README update.
+  ["skill pinned (shallow tag clone), newer release", () => { const f = tagged(); return f.pin("v1.0.0", true); }, "WARN", /pinned at v1\.0\.0 \(detached\).*newest release is v1\.1\.0.*git -C \S+ fetch --tags origin && git -C \S+ checkout v1\.1\.0/, /pull|could not|not a git clone/],
+  ["skill pinned (full clone, checkout of a tag), newer release", () => { const f = tagged(); return f.pin("v1.0.0", false); }, "WARN", /pinned at v1\.0\.0 \(detached\).*newest release is v1\.1\.0.*checkout v1\.1\.0/, /pull|could not/],
+  ["skill pinned at the newest release", () => { const f = tagged(); return f.pin("v1.1.0", true); }, "OK", /pinned at v1\.1\.0 \(detached\).*newest release/, /pull|could not/],
+  ["skill pinned, uncommitted changes", () => { const f = tagged(), s = f.pin("v1.0.0", false); fs.appendFileSync(path.join(s.skill, "a.txt"), "local\n"); return s; }, "WARN", /pinned at v1\.0\.0.*uncommitted.*never stash/, /pull/],
+  ["skill pinned, remote unreachable", () => { const f = tagged(), s = f.pin("v1.0.0", false); git(s.skill, "remote", "set-url", "origin", path.join(tmp, "does-not-exist.git")); return s; }, "WARN", /could not check.*rerun/, /pull|newest release is/],
+  ["skill detached at a commit that is no release", () => { const f = tagged(), s = f.pin("v1.0.0", false); advance(f.seed, "later"); git(s.skill, "fetch", "origin"); git(s.skill, "checkout", "--detach", "origin/main"); return s; }, "INFO", /detached at [0-9a-f]+ \(not a release tag\).*newest release is v1\.1\.0/, /pull --ff-only/],
+  ["skill on a branch other than main (single-branch clone)", () => { const f = tagged(); git(f.seed, "checkout", "-b", "dev"); git(f.seed, "push", "origin", "dev"); const s = path.join(path.dirname(f.skill), "dev-clone"); git(path.dirname(f.skill), "clone", "--single-branch", "-b", "dev", f.remote, s); return s; }, "INFO", /on branch dev, not main.*no update check/, /could not|pull --ff-only/],
+  ["skill shallow clone of main, behind 1", () => { const f = fixture(), s = path.join(path.dirname(f.skill), "shallow"); git(path.dirname(f.skill), "clone", "--depth", "1", "-b", "main", "file://" + f.remote, s); advance(f.seed, "fix"); return s; }, "WARN", /1 commit behind \(latest: fix\).*pull --ff-only/, /could not/],
 ];
 for (const [name, setup, status, note, not] of skillCases) {
   const f = setup(), dir = typeof f === "string" ? f : f.skill;
-  const { out } = await run(["--check-skill", "--skill-dir", dir]);
+  const { out } = await run(["--check-skill", "--skill-dir", dir], undefined, f.env);
   try {
     const row = parse(out).rows["DALANG skill"];
     assert.equal(row?.status, status, "status");
