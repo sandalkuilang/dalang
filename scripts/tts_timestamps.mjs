@@ -34,6 +34,7 @@
 //
 // --language takes an ISO 639-1 code (en, id, es, ja, ...). Omit it to let the model auto-detect.
 // --speed: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4. --vs-url defaults to http://localhost:3900.
+// --api-url (ElevenLabs, default https://api.elevenlabs.io): another base URL, for a test against a mock. The API key is sent there.
 // --seed (VoiceStudio, default 42): fixed sampling seed, so an approved sample and the full take match.
 // --align auto|off: off skips forced alignment (on by default when align.py, its Python deps and a model for
 // --language are present; else timing comes from transcribing the audio).
@@ -52,9 +53,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { voiceModel, vsModelName } from './voice_licences.mjs';
+import { voiceModel, unknownVoice, vsModelName } from './voice_licences.mjs';
 
-const API = 'https://api.elevenlabs.io';
+let API = 'https://api.elevenlabs.io'; // --api-url replaces it (a mock in tests/voice-licence.mjs)
 const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000 };
 // ISO 639-1 → Whisper language code, only where they differ.
 const WHISPER_LANG = { jv: 'jw', iw: 'he', 'zh-tw': 'zh', 'zh-cn': 'zh', 'pt-br': 'pt' };
@@ -81,6 +82,7 @@ function parseArgs(argv) {
       case '--speed': a.speed = parseFloat(next()); break;
       case '--engine': a.engine = next(); break;
       case '--vs-url': a.vsUrl = next().replace(/\/+$/, ''); break;
+      case '--api-url': API = next().replace(/\/+$/, ''); break;
       case '--instructions': a.instructions = next(); break;
       case '--sample': a.sample = true; break;
       case '--list-voices': a.listVoices = true; break;
@@ -224,7 +226,7 @@ async function vsActiveModel(a) {
 // One line per generation: which model speaks, under which licence, and where the choice came from.
 function modelLine(a, meta, from) {
   const v = voiceModel(meta);
-  const lic = v ? `${v.licence}${v.nc ? ' — non-commercial: tell the user; ASSETS.json lists the narration so' : ''}` : 'licence not in scripts/voice_licences.mjs: check its model card';
+  const lic = v ? `${v.licence}${v.nc ? ' — non-commercial: tell the user; ASSETS.json lists the narration so' : ''}` : `licence unknown (${unknownVoice(meta)})`;
   console.log(`Model      : ${meta.model}${meta.tier ? ` (plan ${meta.tier})` : ''} — ${lic} — ${from}`);
 }
 
