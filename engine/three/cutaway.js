@@ -83,11 +83,16 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
   // The render draws the clone, so a set that keeps editing its own reference (a glowing element, a fade, a colour
   // change, a map swap) would see nothing: at() carries every property the original changed since the last frame to
   // the clone (sync), and a ShaderMaterial's uniforms are the original's own object, so its updates land at once. An
-  // edit made on mesh.material (the clone) is kept until the original changes that property.
+  // edit made on mesh.material (the clone) is kept until the original changes that property. Custom keys (a preset an
+  // onBeforeCompile hook reads), which clone() does not copy, are carried from the start.
+  // put() is the ONLY write onto a clone's key, and it never writes INTO the object the key holds: that object may be
+  // the set's own (a texture, a preset colour), shared with materials outside the root. A value object (colour, vector)
+  // becomes the clone's own fresh copy; anything else (a texture) is pointed at by reference.
   const pairs = [];
   const skip = new Set(["uuid", "id", "type", "name", "userData", "version", "clippingPlanes", "clipShadows", "onBeforeCompile", "customProgramCacheKey", "uniforms", "uniformsGroups"]);
   const sig = (v) => (v && v.isColor ? v.getHex() : v && typeof v.toArray === "function" ? v.toArray().join() : v);
-  const value = (o) => o.isColor || o.isVector2 || o.isVector3 || o.isVector4 || o.isEuler || o.isMatrix3 || o.isQuaternion;
+  const value = (o) => !!o && (o.isColor || o.isVector2 || o.isVector3 || o.isVector4 || o.isEuler || o.isMatrix3 || o.isMatrix4 || o.isQuaternion);
+  const put = (clone, k, v) => { clone[k] = value(v) ? v.clone() : v; };
   const props = (m) => Object.keys(m).filter((k) => k[0] !== "_" && !skip.has(k)).concat("alphaTest");
   const snapshot = (m) => { const s = {}; for (const k of props(m)) s[k] = sig(m[k]); return s; };
   const sync = (pr) => {
@@ -97,9 +102,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
       if (snap[k] === g) continue;
       snap[k] = g;
       if (k === "side" && pr.both) continue; // a shell part's clone is double-sided
-      // A value object (colour, vector) is the clone's own: copy into it. Anything else (a texture above all) is the very
-      // object the original, the other materials and the set share: point the clone at the new one, never write into it.
-      if (v && clone[k] && clone[k] !== v && value(clone[k]) && value(v) && clone[k].constructor === v.constructor) clone[k].copy(v); else clone[k] = v;
+      put(clone, k, v);
     }
     if (orig.version !== pr.version) { pr.version = orig.version; clone.needsUpdate = true; }
   };
@@ -112,6 +115,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
       const c = m.clone();
       Object.assign(c, { onBeforeCompile: m.onBeforeCompile, customProgramCacheKey: m.customProgramCacheKey, clippingPlanes: [...(m.clippingPlanes || []), plane], clipShadows: true }); // clone() drops the surface
       if (m.uniforms) c.uniforms = m.uniforms; // clone() deep-copies them, which would cut the set's updates off
+      for (const k of props(m)) if (!(k in c)) put(c, k, m[k]); // custom keys
       if (key === "two") c.side = THREE.DoubleSide;
       clones.add(c);
       pairs.push({ orig: m, clone: c, snap: snapshot(m), version: m.version, both: key === "two" });
