@@ -5,16 +5,19 @@
 //
 // Usage: node state.mjs [dir]                     -> status (resume from here)
 //        node state.mjs approve <1-4> [dir] [--by "user"|"agent"] [--note "..."]
+//                                                 -> approve 3 also runs storyboard_lint.mjs and records its result
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
 //        node state.mjs log "<step> | <output> | <problems or ->" [dir]
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
-//                                                    starts where the day's last logged line ended
+//                                                    starts where the day's last logged line ended; refuses a
+//                                                    Step 6 line until storyboard.md exists and gate 3 is approved
 //        node state.mjs next [dir] [--step 0-8]   -> where the video stands, and the reading list of that step:
 //                                                    the exact sections to read, as ready commands
 //        node state.mjs reading [--skill <dir>] [--json]
 //                                                 -> checks the reading table: every heading exists, each section
 //                                                    is ≤ 8 KB, the main-context reading of Steps 0–8 ≤ 60 KB
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -201,11 +204,24 @@ if (cmd === 'approve') {
   const prev = [1, 2, 3].filter(k => k < g).find(k => !status(k).startsWith('approved'));
   if (prev) { console.error(`FAILED: gate ${prev} is ${status(prev)} — approve it first.`); process.exit(1); }
   // 'sv' formats local time as YYYY-MM-DD HH:MM
-  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(note && { note }) };
+  // Gate 3 records the storyboard lint's verdict; it never blocks (a heuristic must not lock a gate) and an
+  // unreadable result is "not checked", never OK.
+  let lint;
+  if (g === 3) {
+    const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'storyboard_lint.mjs'), dir], { encoding: 'utf8' });
+    lint = (r.stdout || '').match(/^\s*Result\s*:\s*(.+)$/m)?.[1].trim() || 'not checked';
+  }
+  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
+  if (lint) console.log(`Storyboard lint: ${lint}`);
 } else if (cmd === 'log') {
   if (!gateArg?.includes('|')) { console.error('FAILED: log needs "<step> | <output> | <problems or ->"'); process.exit(1); }
+  // the build starts from an approved storyboard: Step 6 cannot be logged without it
+  if (/^(step *)?(6\b|build)/i.test(gateArg.split('|')[0].trim())) {
+    if (!existsSync(path.join(dir, 'storyboard.md'))) { console.error('FAILED: Step 6 (build) cannot be logged: storyboard.md is missing — write it before the build (Step 5)'); process.exit(1); }
+    if (!approved(3)) { console.error(`FAILED: Step 6 (build) cannot be logged: gate 3 is ${status(3)} — approve it first`); process.exit(1); }
+  }
   const p = path.join(dir, 'PRODUCTION.md');
   const [day, now] = new Date().toLocaleString('sv').slice(0, 16).split(' ');
   let text = existsSync(p) ? readFileSync(p, 'utf8') : '# PRODUCTION\n';
