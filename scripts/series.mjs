@@ -85,12 +85,27 @@ const checkName = n => /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(n ?? '') ? null : `ser
 const code = e => e?.code ?? 'error';
 const tryRead = (f, enc = 'utf8') => { try { return fs.readFileSync(f, enc); } catch (e) { return { err: e }; } };
 const isErr = v => v && typeof v === 'object' && 'err' in v;
-// the deepest existing ancestor of target, resolved, must stay inside base (no symlinked directory leads out)
-const inside = (base, target) => {
-  let p = target;
-  for (;;) {
-    try { const real = fs.realpathSync(p); const b = fs.realpathSync(base); return real === b || real.startsWith(b + path.sep); } catch (e) { if (e.code !== 'ENOENT') return false; }
-    const up = path.dirname(p); if (up === p) return false; p = up;
+// p with its deepest existing ancestor resolved (symlinks followed) and the not-yet-existing tail appended.
+// A dangling symlink is not "missing": it throws code DANGLING. Any other error throws as is (the caller decides).
+const resolveDeep = p => {
+  const tail = [];
+  for (let q = p; ;) {
+    try { return path.join(fs.realpathSync(q), ...tail); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    let link = false;
+    try { fs.lstatSync(q); link = true; } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    if (link) throw Object.assign(new Error('dangling symlink'), { code: 'DANGLING' });
+    const up = path.dirname(q);
+    if (up === q) throw Object.assign(new Error('no existing ancestor'), { code: 'ENOENT' });
+    tail.unshift(path.basename(q)); q = up;
+  }
+};
+// target, resolved, must stay inside base (no symlinked folder leads out); base may not exist yet.
+// A path that cannot be read is WARN + rerun, never the verdict "outside".
+const insideOrStop = (rel, base, target) => {
+  try { const b = resolveDeep(base), t = resolveDeep(target); return t === b || t.startsWith(b + path.sep); } catch (e) {
+    if (e.code === 'DANGLING') problem(`${rel}: would land outside the project (a dangling symlinked folder)`);
+    if (e.code === 'ENOTDIR') problem(`${rel}: a folder on its path is a file`);
+    warn(`cannot read the path of ${rel} (${code(e)})`);
   }
 };
 const walk = (dir, rel = '') => {
@@ -124,7 +139,7 @@ const save = () => {
     let st; try { st = fs.lstatSync(abs); } catch (e) { problem(`${rel}: ${code(e) === 'ENOENT' ? 'not found in the project' : `cannot read (${code(e)})`}`); }
     if (st.isSymbolicLink()) problem(`${rel}: a symlink`);
     if (!st.isFile()) problem(`${rel}: not a regular file`);
-    if (!inside(proj, abs)) problem(`${rel}: leaves the project (a symlinked folder)`);
+    if (!insideOrStop(rel, proj, abs)) problem(`${rel}: leaves the project (a symlinked folder)`);
     const t = tryRead(abs); if (isErr(t)) warn(`cannot read ${rel} (${code(t.err)})`);
     const sc = isScene(rel, t); if (sc) problem(`${rel}: ${sc}`);
     picked.push({ rel, abs });
@@ -133,7 +148,9 @@ const save = () => {
   let keep = [];
   if (fs.existsSync(kit)) {
     if (!force) problem(`series ${name} exists: --force replaces its brief and files and keeps its Channel rules`);
-    const old = tryRead(path.join(kit, 'SERIES.md')); if (!isErr(old)) keep = kitRules(old);
+    const old = tryRead(path.join(kit, 'SERIES.md')); // missing: nothing to keep; unreadable: the rules must not be dropped
+    if (!isErr(old)) keep = kitRules(old);
+    else if (code(old.err) !== 'ENOENT') warn(`cannot read ${path.join(kit, 'SERIES.md')} (${code(old.err)}); nothing written, the Channel rules stay`);
   }
   try {
     fs.rmSync(path.join(kit, 'files'), { recursive: true, force: true });
@@ -165,7 +182,10 @@ const list = () => {
     if (isErr(t)) { out(`  WARN     : ${k}: ${code(t.err) === 'ENOENT' ? 'no SERIES.md' : `cannot read SERIES.md (${code(t.err)})`}`); bad = true; continue; }
     const lines = kitBrief(t);
     const v = key => { const l = lines.find(x => keyOf(x) === key); return l ? valueOf(l) : '-'; };
-    let n = 0; try { n = walk(path.join(ROOT, k, 'files')).length; } catch { /* no files/ folder: 0 files */ }
+    let n = 0;
+    try { n = walk(path.join(ROOT, k, 'files')).length; } catch (e) { // no files/ folder = 0 files; any other error is not a count
+      if (code(e) !== 'ENOENT') { out(`  WARN     : ${k}: cannot read files/ (${code(e)})`); bad = true; continue; }
+    }
     out(`  ${k}  ${v('platform')} · ${v('look')} · ${v('voice')} · ${n} file(s)`);
   }
   if (bad) { out('  WARN     : a kit above could not be read — rerun'); process.exit(2); }
@@ -175,6 +195,10 @@ const list = () => {
 const apply = () => {
   const text = readKit(name);
   const proj = path.resolve(arg3 ?? '.');
+  try { if (!fs.statSync(proj).isDirectory()) problem(`${proj} is not a folder`); } catch (e) { // missing: apply creates it
+    if (code(e) === 'ENOTDIR') problem(`${proj}: a folder on its path is a file`);
+    if (code(e) !== 'ENOENT') warn(`cannot read ${proj} (${code(e)})`);
+  }
   const kitFiles = path.join(ROOT, name, 'files');
   let found = [];
   try { found = walk(kitFiles); } catch (e) { if (code(e) !== 'ENOENT') warn(`cannot read ${kitFiles} (${code(e)})`); }
@@ -186,11 +210,13 @@ const apply = () => {
     const t = tryRead(src); if (isErr(t)) warn(`cannot read kit file ${f.rel} (${code(t.err)})`);
     const sc = isScene(f.rel, t); if (sc) problem(`kit file ${f.rel}: ${sc}`);
     const dst = path.join(proj, f.rel);
-    if (!inside(proj, dst)) problem(`${f.rel}: would land outside the project (a symlinked folder)`);
+    if (!insideOrStop(f.rel, proj, dst)) problem(`${f.rel}: would land outside the project (a symlinked folder)`);
     let st = null; try { st = fs.lstatSync(dst); } catch (e) { if (code(e) !== 'ENOENT') warn(`cannot read ${dst} (${code(e)})`); }
     if (st) {
       if (st.isSymbolicLink() || !st.isFile()) { problem(`${f.rel}: exists and is not a regular file`); }
-      if (fs.readFileSync(dst).equals(fs.readFileSync(src))) continue;
+      const dBuf = tryRead(dst, null); if (isErr(dBuf)) warn(`cannot read ${f.rel} in the project (${code(dBuf.err)})`);
+      const sBuf = tryRead(src, null); if (isErr(sBuf)) warn(`cannot read kit file ${f.rel} (${code(sBuf.err)})`);
+      if (dBuf.equals(sBuf)) continue;
       plan.push({ f, src, dst, differs: true });
     } else plan.push({ f, src, dst });
   }
