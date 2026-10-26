@@ -96,7 +96,7 @@ assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after it
 // scripted help (onStep, track and keep see only the main island), and the cache tells the two kinds of bake apart.
 async function isles(o = {}) {
   const sc = new THREE.Scene(); sc.add(floor.clone());
-  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, o.az ?? 0, 0.35], [o.bName ?? "b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
+  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, o.az ?? 0, o.flat ? 0 : 0.35], [o.bName ?? "b", o.bx ?? -0.8, o.by ?? 0.4, 0, o.flat ? 0 : -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); m.position.set(x, y, z); m.rotation.z = tilt; m.name = name; sc.add(m); return m;
   });
   sc.updateMatrixWorld(true);
@@ -157,13 +157,19 @@ await refused(preHit, preHit.s.bakeCached(1.5, preHit.step, 0.2, withIslands(pre
 // "a", both clear of the margin. With CCD the single world stops it at "a"; the proof judges the path between steps.
 const fast = await isles({ px: 0.175, pv: { x: 600, y: 0, z: 0 }, ay: 0.075 });
 await refused(fast, fast.s.bakeCached(1.5, fast.step, 0.2, withIslands(fast)), /island 1 meet/, "a body that passes a declared one between two steps fails loudly");
-// The proof takes a step's path as a straight line because Rapier's CCD ends the step at the first contact and the
-// bounce comes in the next step. Pinned: "push" (300 m/s, 0.625 m a step) starts half a step from a bouncy wall, "a"
-// stands beside the wall where it hits. Were the bounce inside the step, both poses and the chord between them would be
-// far from "a" and this bake would pass unseen.
+// A fast body stopped by a wall beside a declared one: "push" (300 m/s, 0.625 m a step) starts half a step from a
+// bouncy wall, "a" stands beside the wall where it hits.
 const bounce = await isles({ px: 0.7625, pv: { x: 300, y: 0, z: 0 }, ax: 1.075, ay: 0.075, az: 0.152 });
 bounce.s.world.createCollider(RAPIER.ColliderDesc.cuboid(0.05, 0.5, 0.5).setRestitution(1).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max), bounce.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(1.2, 0.5, 0)));
 await refused(bounce, bounce.s.bakeCached(1.5, bounce.step, 0.2, withIslands(bounce)), /main island and island 1 meet/, "a body bouncing within a step beside a declared one fails loudly");
+// A step's path is still not always straight: a body the solver sets moving inside a step (struck by another) can
+// reach a wall and bounce back before the step ends. "push" (300 m/s) strikes "b" (main island too), "b" hits the
+// bouncy wall and is back by the step's end; "a" stands beside the wall, 2 mm from where "b" touches it, and every
+// stored pose of "b" (and the chord between them) is far from it. Judged on the length the speeds allow, it is refused.
+const chain = await isles({ px: 0.5, pv: { x: 300, y: 0, z: 0 }, bx: 0.85, by: 0.075, ax: 1.075, ay: 0.075, az: 0.262, flat: true, still: true });
+[chain.push, chain.b].forEach((t) => { const c = t.body.collider(0); c.setRestitution(1); c.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max); });
+chain.s.world.createCollider(RAPIER.ColliderDesc.cuboid(0.05, 0.5, 0.5).setRestitution(1).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max), chain.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(1.2, 0.5, 0)));
+await refused(chain, chain.s.bakeCached(1.5, chain.step, 0.2, { ...chain.opts, islands: [[chain.a]] }), /main island and island 1 meet/, "a struck body bouncing within a step beside a declared one fails loudly");
 // A script's teleport is not a path: a held piece put at its cue jumps over "a" and "b" without touching them, as in the
 // single world, and the islands bake.
 const tp = await isles({ px: -3.5, still: true }); tp.s.hold(tp.push, 0.5);
