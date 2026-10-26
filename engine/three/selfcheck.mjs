@@ -153,6 +153,10 @@ await refused(mainHit, mainHit.s.bakeCached(1.5, mainHit.step, 0.2, withIslands(
 // only the pre-roll poses show that they met.
 const preHit = await isles({ px: 0.2, pv: { x: 6, y: 0, z: 0 }, ay: 0.075 });
 await refused(preHit, preHit.s.bakeCached(1.5, preHit.step, 0.2, withIslands(preHit)), /island 1 meet.*pre-roll/, "a meeting in the pre-roll fails loudly, though the bodies are far apart at t = 0");
+// A body fast enough to pass a declared one between two steps: 1.25 m a step, its stored poses 0.625 m either side of
+// "a", both clear of the margin. With CCD the single world stops it at "a"; the proof judges the path between steps.
+const fast = await isles({ px: 0.175, pv: { x: 600, y: 0, z: 0 }, ay: 0.075 });
+await refused(fast, fast.s.bakeCached(1.5, fast.step, 0.2, withIslands(fast)), /island 1 meet/, "a body that passes a declared one between two steps fails loudly");
 const preFree = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 }), preFreeSingle = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 });
 const [pf, pfs] = [await preFree.s.bakeCached(1.5, preFree.step, 0.2, withIslands(preFree)), await preFreeSingle.s.bakeCached(1.5, preFreeSingle.step, 0.2, preFreeSingle.opts)];
 for (const t of times) assert.deepEqual(ipose(pf, t), ipose(pfs, t), `a pre-roll run that never meets another island matches the single world at ${t} s`);
