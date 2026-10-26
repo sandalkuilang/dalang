@@ -33,6 +33,12 @@ that reads as:
 
 ### Added
 
+- **Preflight checks the skill's own clone** (row `DALANG skill`): a `fetch` (20 s cap, the only write, inside the
+  clone's `.git`) then behind/ahead against `origin/main`: `N commits behind (latest: …) — pull --ff-only`; dirty and
+  diverged clones are named without pull advice; a failed fetch is `could not check — rerun` (never "up to date"); a
+  copy that is not a clone is INFO. `--check-skill` runs only this row, `--skill-dir` points it at another folder. It
+  never pulls. Brief Call 0 asks the update; an unattended run pulls a clean fast-forwardable clone, logs it and
+  re-reads `SKILL.md`. Test: fixture clones and remotes in `tests/preflight-mock.mjs`.
 - **`state.mjs next` prints a step's reading list** (`node scripts/state.mjs next [dir] [--step 0-8]`): it works out
   where the video stands from its files and prints that step's sections as ready `sed` commands with absolute paths,
   from one table that mirrors `SKILL.md`'s step table, plus the headlines of the step's lessons, a "look up when needed"
