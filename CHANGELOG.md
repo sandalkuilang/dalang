@@ -33,6 +33,7 @@ that reads as:
 
 ### Added
 
+- **Engine runtime scale audit and z-fight probe** (`engine/three/audit.js`). `scaleAudit(root, { tol })` measures every object that declares `userData.real = { h, w, d }` (metres, world axes) and names those off by more than 15 %; a prop with no declared size is listed `unchecked`, never passed, and a bad declaration is reported. `zFight(root, { cameras, bits })` reports overlapping parallel faces closer than the depth step z² (far − near) / (far · near · 2^bits) at the cameras' depth (worst over all stations), with a `polygonOffset` or lift to apply; cutaway caps and offset materials are skipped, faces no camera sees are counted. Self-check: a 10x prop flagged and a correct one passing, coplanar quads flagged while a 1 mm offset passes near and fights far, back-to-back, mirrored, hidden and unseen cases.
 - **Preflight checks the skill's own clone** (row `DALANG skill`): a `fetch` (20 s cap, the only write, inside the
   clone's `.git`) then behind/ahead against `origin/main`: `N commits behind (latest: …) — pull --ff-only`; dirty and
   diverged clones are named without pull advice; a failed fetch, or a clone git cannot read (another owner, no `git`, a timeout, a `.git` git skips inside a parent repo), is `could not check — rerun` (never
