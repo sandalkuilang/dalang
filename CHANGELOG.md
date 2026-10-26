@@ -30,6 +30,14 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **A real merge gate**: `scripts/gate.sh` (`--fast`: syntax, `SKILL.md` front-matter, diagrams; full: also the
+  engine build and self-check and `tests/preflight-mock.mjs`, preflight against a mock VoiceStudio in 29 cases).
+  CI runs the full gate on every push and pull request.
+- **`CLAUDE.md`**: the rules for changing the skill (generic, docs in step, physical motion, never "unknown" read
+  as "missing", installs only with consent, personal account, no AI attribution).
+
 ## [1.3.0] - 2026-10-26
 
 ### Added
