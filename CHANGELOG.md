@@ -35,6 +35,14 @@ that reads as:
 
 - `tests/voice-licence.mjs` in the merge gate: the take's model against a mock VoiceStudio, and the narration row
   against the take's recorded model on fixture projects.
+- **Cutaway (section view)**: `engine/three/cutaway.js` cuts an assembly open with one clipping plane on every
+  material under a root (cloned, so a shared material outside stays whole), parts added later included. Solid parts get
+  a stencil cap, all caps on one transform and pulled ahead by `polygonOffset`, so none z-fights a face on the plane;
+  a part flagged `userData.cut = { shell: metres }` shows its wall ring instead of a disc, and `userData.cut = false`
+  keeps a part whole. `on(t)`, `off(t)` and `set(offset, t)` switch or slide the cut by time without swapping planes
+  (no shader recompile). It needs a renderer with a stencil buffer. `examples/flask.js` is the ready piece, and the
+  self-check asserts the plane on every part (a late one too), the caps' settings and the shell's ring.
+  Documented in `engine/three/README.md`, `looks.md` and `camera-motion.md`.
 
 ### Fixed
 

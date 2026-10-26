@@ -200,7 +200,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 **Educational signatures — the scale and the inside**
 - **Scale journey ("powers of ten"):** one continuous zoom from human scale down to the microscopic (or out to the cosmic), with a scale bar counting **[3D]** (layered scale planes, real micrographs at the bottom).
 - **X-ray / ghost shell:** the outer surface fades to 20–35 % with a bright fresnel edge so the inner mechanism works visibly inside it **[3D]**.
-- **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]**.
+- **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]** (`engine/three/cutaway.js`: one plane on the whole assembly; the exterior shot and the section shot are the same set with `cut.off(t)` / `cut.on(t)`, and a slow `cut.set(offset, t)` slides the section through).
 - **Exploded view:** parts separate along their assembly axes, get labelled, then reassemble (`/hyperframes` `types/3d.md`) **[3D]**.
 - **World-space labels:** text pinned to the object in 3D (it moves and parallaxes with the camera), with a leader line to the part — never floating UI **[3D]**.
 - **Map / terrain zoom:** from the globe down to the street for place-based topics; bake the camera move (`/hyperframes` `film.md`) **[C]**.

@@ -175,7 +175,7 @@ scripts/
   measure_reference.sh cuts, boil rate, contact sheets
   gate.sh              the repo's gate (--fast static; full adds the engine self-check and tests/)
 engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics,
-                  cloth, air, plants, particles, water, fur) with a self-check; bake.mjs caches a
+                  cloth, air, plants, particles, water, fur, cutaways) with a self-check; bake.mjs caches a
                   physics bake once for every snapshot and render; examples/ ready pieces
 tests/            preflight against a mock VoiceStudio (run by the gate)
 docs/             workflow + architecture, with diagrams

@@ -29,7 +29,7 @@ covers everything that decides the result, so a changed scene simply bakes again
 The build copies the modules and bundles `three-vendor.js` (three 0.186.1 and its add-ons, postprocessing, N8AO,
 three-subdivide) and `rapier.js` (Rapier 0.14.0) from pinned versions; the first run installs them into
 `vendor/node_modules`. The self-check fails loudly if a known trap is back (gravity not in scene units, a soft prop
-that never comes to rest, a hull build abort, NaN in cloth or maps, zero normals, a tolerance that breaks at another scale or gravity). Import everything from
+that never comes to rest, a hull build abort, NaN in cloth or maps, zero normals, a tolerance that breaks at another scale or gravity, a cut cap coplanar with a face or a part the cut plane misses). Import everything from
 `assets/` so all modules share one `THREE`.
 
 ## What it covers, and how it grows
@@ -39,7 +39,7 @@ sliding, stacking, knocking and hinges for any shape: a phone, a bottle, a rock 
 looked-up mass, friction and bounce (`dynamicHull(mesh, { mass, friction, restitution })`), no new code. The
 systems: scale and placement, procedural surfaces, rigid physics with joints, hung cloth, swept organic forms with
 fur, one shared air field (a breeze, jets from any outlet), plants that bend in it, particles in it, wind-driven
-water, the finish. `examples/` holds ready pieces built on them, proof of how to use the systems, never required.
+water, section views, the finish. `examples/` holds ready pieces built on them, proof of how to use the systems, never required.
 
 The engine is a toolbox, not the limit of what a film shows. Not here yet: sky and terrain, rigged characters,
 ropes, glass and liquids, flames, fracture, and every subject away from human-scale sets (molecules and ions,
@@ -67,6 +67,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 | `particles.js` | `particles(k, { kind: "steam" \| "smoke" \| "dust" \| "rain", at \| box, field, rate, lit, ground })`: buoyant plumes that cool, motes that follow the air and show only in light, rain at its terminal speed with the wind (and its `impacts`). `bake(duration)`, `object()`, `apply(t, camera)`. |
 | `water.js` | `water(k, { x0, x1, z0, z1, y, wind, fetch })`: a fetch-limited sea state (JONSWAP) as Gerstner waves with capillary-gravity speeds, rain rings from `rain(impacts)`, per-pixel normals with sub-pixel waves faded out; `seaState`, `dispersion`, `height(x, z, t)`. |
 | `finish.js` | `makeFinisher(canvas, { grain, edge, fps })`: `layer(gl, i)` for motion-blur sub-frames, `grade(t)` vignette and seeded grain. |
+| `cutaway.js` | `cutaway(root, { normal, offset, color, hatch })`: a section view. One clipping plane on every material under `root` (cloned, so a material shared outside stays whole), parts added later included (`cut.add(part, { shell })`, or a plain `add` into any group under the root); a stencil cap on each solid part, all caps on one transform and pulled forward (`polygonOffset`), so none fights a face lying on the plane; `userData.cut = { shell: metres }` gives an open single-surface part its wall ring instead of a disc; `userData.cut = false` keeps a part whole (listed in `uncut`); set flags before the part is added. `on(t)`, `off(t)`, `set(offset, t)` switch or slide the cut by time (off moves the plane away, never swaps it, so no shader recompiles), `at(t)` once per frame, `ready(renderer)` needs a stencil buffer: `WebGLRenderer({ stencil: true })`, `EffectComposer(renderer, { stencilBuffer: true })`. Visual only: pass `cut.group` in the `exclude` of `staticScene`. One cut per root. |
 
 ## Examples (`examples/`, installed beside the modules; import from `./examples/…`)
 
@@ -74,6 +75,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 |---|---|
 | `examples/chair.js` | `casterChair(sim, chair, seat, opts)`: an office chair on casters (star base, swivel seat on a joint, rolling resistance on the whole chair; `push`, `step`, `stopped`). |
 | `examples/fan.js` | `makeFan(k, { at, aim, height, u0 })`: a 16-inch pedestal fan modelled in metres, its head oscillating, its air an `air.js` jet. |
+| `examples/flask.js` | `makeFlask(k, { at, height, cut })`: a vacuum flask in metres, two steel shells with the vacuum gap between them, a solid stopper, a cup added after the cut; its `cutaway`. |
 | `examples/cat.js` | `makeCat({ size })`: a curled sleeping cat swept from its anatomy, in shell fur. |
 | `examples/interior.js` | American-Japandi pieces (`plaid`, `ticking`, `braidedRug`, `cushion`, `pouf`, `door`) and the presets for `makeKit`: `kits.furniture` (the CC0 furniture kits' material names) and `palettes.americanJapandi`. |
 
