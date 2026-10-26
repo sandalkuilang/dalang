@@ -179,6 +179,14 @@ that reads as:
   that keeps §5's one accent per shot (headline key term in ink; the impact numeral takes the accent, and the
   caption's active word stays in ink while it shows). The storyboard's shot
   table has an Overlay column that Step 6 builds text from; the review rubric adds Sound off and No repeat.
+- **`tts_timestamps.mjs --tempo <0.8-1.2>`** on an approved take (`--from-response`, default
+  `<out>/<name>.response.json`): ffmpeg `atempo` (pitch kept) changes the speed, the word times are scaled, nothing is
+  re-spoken. The take keeps `_meta.model` and the voice, so the licence cross-check in `check_assets.mjs` keeps
+  working, and records `_meta.tempo` (the running total; each call is relative to the take on disk, the total stays
+  0.8-1.2). `--retake` on a tempo-changed take applies the same tempo to the sentence it re-speaks. Refused with
+  `--retake`, `--sample`, `--from-audio`, `--speed` and on ElevenLabs takes. `voice.md` says: slower or faster
+  approved take = `--tempo`, regenerating = `--speed`, never ffmpeg + `--from-audio` on a TTS take. Test:
+  `tests/retake.mjs`.
 
 ### Changed
 

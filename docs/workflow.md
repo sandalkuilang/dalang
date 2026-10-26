@@ -74,6 +74,7 @@ Never hard-code seconds in a scene: change the script, regenerate, and the visua
 | Full voice generation | `--sample` first |
 | Re-synthesising | `--from-response` when only `{}` markers moved |
 | Re-recording for a small pace miss (< 10 %) | `--speed` |
+| Calmer or faster delivery of an approved take | `--tempo` on `--from-response` |
 | Full renders while iterating | snapshots at beat times, `--quality draft` until Gate 4 |
 
 ## Autonomous mode

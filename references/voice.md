@@ -26,11 +26,12 @@ Read the part you need: **Setup** when `preflight.mjs` reports a voice item as M
 
 ## Use (Step 4)
 
-`<lang>` and the engine come from `BRIEF.md`. One script serves both engines and writes the same files; it defaults to VoiceStudio, add `--engine elevenlabs` for ElevenLabs. Commands and audition rules: `script-voice.md` §4.
+`<lang>` and the engine come from `BRIEF.md`. One script serves both engines and writes the same files (default VoiceStudio; `--engine elevenlabs`). Commands: `script-voice.md` §4.
 
-- **Audition:** `--sample` speaks ~300 characters of whole sentences and prints words/s and chars/s. `--speed` ranges: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4. Accent or style tags change the pace: calibrate with the exact tags you will use.
-- **VoiceStudio voices:** `--list-voices` shows saved profiles plus `default` (OpenAI names like `alloy` are aliases for the default, not different voices). A fresh install has no voice for most languages, so **design** them: `--voice default --instructions "female, young adult, low pitch, calm"` (OmniVoice keeps its voice-design words: gender, age, pitch, accent, style). Same instructions + same `--seed` = same timbre: vary them between audition samples, never between sample and full take. In narration, `[tags]` are ElevenLabs-only and stripped; in a dialogue line a leading `[tag]` becomes that line's style.
-- **ElevenLabs voices:** stock voices; library voices, design and cloning need a paid plan over the API. If it rejects `language_code` for the model, rerun without `--language`.
+- **Audition:** `--sample` speaks ~300 characters of whole sentences, prints words/s and chars/s. `--speed`: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4. Accent or style tags change the pace: audition with the exact tags you will use.
+- **Calmer or faster approved take:** `--tempo <0.8–1.2> --from-response audio/narration.response.json` (ffmpeg `atempo`); `_meta.model` stays, `--retake` keeps the tempo. New take: `--speed`. Never ffmpeg + `--from-audio` on a TTS take: it loses the model.
+- **VoiceStudio voices:** `--list-voices` shows saved profiles plus `default` (OpenAI names like `alloy` alias it). A fresh install has no voice for most languages: **design** them: `--voice default --instructions "female, young adult, low pitch, calm"` (voice-design words: gender, age, pitch, accent, style). Same instructions + `--seed` = same timbre: vary them between samples, never between sample and full take. Narration `[tags]` are ElevenLabs-only (stripped here); a dialogue line's leading `[tag]` is its style.
+- **ElevenLabs voices:** stock voices; library voices, design and cloning need a paid plan. If it rejects `language_code`, rerun without `--language`.
 
 ### Clone (VoiceStudio, free, local)
 
