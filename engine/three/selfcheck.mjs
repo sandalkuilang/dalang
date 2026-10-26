@@ -8,7 +8,8 @@ import { pathToFileURL } from "node:url";
 const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
 const { THREE } = await use("three-vendor.js");
 const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
-const { makeSim, RAPIER } = await use("physics.js");
+const { makeSim, RAPIER, slow, replay } = await use("physics.js");
+const { slide, hinge, spring, latch } = await use("mechanism.js");
 const { bakeCurtain } = await use("cloth.js");
 const { sweep } = await use("fur.js");
 const { get } = await use("surfaces.js");
@@ -671,6 +672,120 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const sm = grains(kit, { preset: "sugar", radius: 0.005, height: 0.01 });
   assert.ok(sm.mesh && sm.counts.top > 50 && !sm.capped, "a small sugar patch builds its grains");
 }
+// Mechanisms: a part on a slide, latched, sprung toward its stop, released on cue: it reaches the stop at the analytic
+// time (within one step), stays there, and a slowed or replayed shot reads the same bake (no second one).
+{
+  const DT = 1 / 480;
+  async function plunger(o = {}) {
+    const sc = new THREE.Scene(); sc.add(floor.clone());
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.04), new THREE.MeshStandardMaterial());
+    m.position.set(0, 0.3, 0); m.name = "plunger"; sc.add(m);
+    const other = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.04), new THREE.MeshStandardMaterial());
+    other.position.set(1, 0.1, 0); other.name = "other"; if (o.other) sc.add(other);
+    sc.updateMatrixWorld(true);
+    const s = await makeSim(THREE); s.staticScene(sc, [m, other]);
+    const part = s.roundBox(m, 0.04, 0.04, 0.04, 0.002, { density: 7850 * M ** 3, name: "plunger" });
+    part.body.setLinearDamping(0); // the analytic time below has no drag
+    const free = o.other ? s.roundBox(other, 0.04, 0.04, 0.04, 0.002, { name: "other" }) : null;
+    const j = slide(s, part, { axis: { x: 1, y: 0, z: 0 }, min: 0, max: 0.05 });
+    if (!o.bare) { spring(s, j, { stiffness: o.k ?? 50, preload: 5 }); latch(s, part, 0.25); }
+    const mem = o.mem || new Map();
+    return { s, part, free, j, mem, opts: { load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v) } };
+  }
+  const P = await plunger(), b = await P.s.bakeCached(1.0, null, 0.1, P.opts);
+  const x = (t, bk = b) => bk.pose(0, t).p.x * M; // metres along the slide from the latched pose
+  // Latched: exactly in place until the cue, and the release time is in the bake.
+  for (const t of [0, 0.05, 0.1, 0.2]) assert.ok(Math.abs(x(t)) < 1e-6, "latched part stays in place at t = " + t + ": " + x(t));
+  assert.equal(b.report.latches.length, 1, "the bake reports its latch");
+  assert.equal(b.report.latches[0].name, "plunger");
+  const tr = b.report.latches[0].t;
+  assert.ok(Math.abs(tr - 0.25) <= DT / 2 + 1e-9, "released at its cue: " + tr);
+  // Released on a preloaded spring: x(t) = r (1 − cos ωt) from rest until the stop; the time it reaches the stop is analytic.
+  const kg = P.part.body.mass(), k = 50, r = 5 / k, stop = 0.05, w = Math.sqrt(k / kg), target = stop - 0.0001;
+  const tStar = Math.acos(1 - target / r) / w;
+  let lo = tr, hi = tr + 0.45;
+  assert.ok(x(lo) < target && x(hi) >= target, "the part reaches its stop after release");
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (x(mid) < target) lo = mid; else hi = mid; }
+  assert.ok(Math.abs(lo - (tr + tStar)) <= DT, "reaches its stop at the analytic time (" + (lo - tr).toFixed(4) + " s vs " + tStar.toFixed(4) + " s)");
+  // After: at the stop, never back at the latched pose.
+  const tStop = tr + tStar;
+  for (let t = tStop + 0.05; t <= 1.0; t += 1 / 60) assert.ok(Math.abs(x(t) - stop) < 0.0005, "stays at its stop at t = " + t.toFixed(3) + ": " + x(t));
+  // The cache: the same scene hits it with the same latches and poses; a stiffer spring is another bake.
+  const P2 = await plunger({ mem: P.mem }), b2 = await P2.s.bakeCached(1.0, null, 0.1, P2.opts);
+  assert.ok(b2.cached && b2.hash === b.hash, "the same sprung, latched part replays from the cache");
+  assert.deepEqual(b2.report.latches, b.report.latches, "a replay carries the release time");
+  for (const t of [0.1, 0.3, 0.5, 0.9]) assert.deepEqual(poseAt(b2, 0, t), poseAt(b, 0, t), "replayed pose at " + t);
+  const P3 = await plunger({ k: 60 }), b3 = await P3.s.bakeCached(1.0, null, 0.1, P3.opts);
+  assert.ok(b3.hash !== b.hash && !b3.cached, "a changed spring stiffness misses the cache");
+  // Time remap reads this one bake.
+  const tau = slow(0.24, 1 / 50, 0.4);
+  assert.equal(tau(0.1), 0.1, "before t0 the shot is real time");
+  assert.ok(Math.abs((tau(0.2401) - tau(0.24)) / 0.0001 - 1 / 50) < 1e-3, "slow motion starts at its rate");
+  assert.ok(Math.abs((tau(0.7001) - tau(0.7)) / 0.0001 - 1) < 1e-6, "and ends in real time");
+  assert.ok(Math.abs(tau(0.64 + 1e-9) - tau(0.64 - 1e-9)) < 1e-8 && Math.abs(tau(0.24 + 1e-9) - tau(0.24 - 1e-9)) < 1e-8, "the remap is continuous");
+  for (let t = 0; t < 1.5; t += 0.001) assert.ok(tau(t + 0.001) > tau(t), "the remap only moves forward, at t = " + t.toFixed(3));
+  const held = slow(0.24, 1 / 50, 0.4, 0.5);
+  assert.ok(Math.abs(held(0.24 + 0.5) - (0.24 + 0.01)) < 1e-9 && Math.abs(held(2) - (0.24 + 0.01 + 0.204 + (2 - 1.14))) < 1e-9, "hold keeps the rate before the ramp");
+  const replayAt = replay(0.25, 2);
+  for (const dx of [-0.05, 0, 0.1]) assert.deepEqual(poseAt(b, 0, replayAt(2 + dx)), poseAt(b, 0, 0.25 + dx), "a replay shows the event again from its time " + dx);
+  assert.ok(Math.abs(x(replayAt(2 - 0.05))) < 1e-6, "the lead-in before the event shows the latched pose");
+  assert.ok(x(replayAt(2 + 0.1)) > 0.001, "and after it the part has moved");
+  const both = (t) => replay(0.25, 2)(slow(2, 1 / 50, 0.4)(t));
+  let seenAfter = 0;
+  for (let t = 2; t < 2.9; t += 0.005) { const bt = both(t); if (bt >= tStop) { seenAfter++; assert.ok(x(bt) > 0.001, "a slow-motion replay never shows the part back at its latched pose, shot time " + t.toFixed(3)); } }
+  assert.ok(seenAfter > 20, "the slow replay reaches the stop");
+  assert.ok(b.travel(0.3, 30, slow(0.25, 1 / 50, 0.4)) < b.travel(0.3, 30) && b.travel(0.3, 30) > 0, "motion blur follows the remap: a slowed frame travels less");
+  assert.equal(P.mem.size, 1, "slow motion and replays made no second bake");
+  // A mechanism part is not an island body, and the others still bake apart.
+  const Q = await plunger({ other: true });
+  await assert.rejects(Q.s.bakeCached(0.6, null, 0.1, { ...Q.opts, islands: [[Q.part]] }), /mechanism/, "a latched, sprung part cannot be baked in an island");
+  assert.equal(Q.mem.size, 0, "nothing saved");
+  const Q2 = await plunger({ other: true }), bi = await Q2.s.bakeCached(1.0, null, 0.1, { ...Q2.opts, islands: [[Q2.free]] });
+  assert.deepEqual(bi.report.latches, b.report.latches, "with other bodies in islands the latch still releases at its cue");
+  assert.ok(Math.abs(bi.pose(0, 0.9).p.x * M - stop) < 0.0005, "and the part reaches its stop");
+  // Bad inputs.
+  const B = await plunger({ bare: true });
+  assert.throws(() => spring(B.s, B.j, { stiffness: 50, rest: 0.1, preload: 5 }), /rest|preload/, "rest and preload together");
+  assert.throws(() => spring(B.s, B.j, { stiffness: 50 }), /rest|preload/, "neither rest nor preload");
+  assert.throws(() => spring(B.s, B.j, { stiffness: 0, preload: 5 }), /stiffness/, "stiffness 0");
+  assert.throws(() => spring(B.s, B.j, { stiffness: 1e6, preload: 5 }), /stiff/, "a spring too stiff for the step");
+  assert.throws(() => latch(B.s, B.part, -1), /until/, "a negative cue");
+  assert.throws(() => latch(B.s, B.part, "x"), /until/, "a text cue");
+  assert.ok(B.part.body.isDynamic(), "a refused latch leaves the part dynamic");
+  assert.throws(() => slide(B.s, B.part, { axis: { x: 1, y: 0, z: 0 }, min: 0.01, max: 0.05 }), /min/, "the start is inside its stops");
+  assert.throws(() => slide(B.s, {}, { axis: { x: 1, y: 0, z: 0 }, min: 0, max: 0.05 }), /dynamic/, "a part not made by the sim");
+  assert.throws(() => slide(B.s, B.part, { axis: { x: 0, y: 0, z: 0 }, min: 0, max: 0.05 }), /axis/, "a zero axis");
+  assert.throws(() => slow(0, 0, 1), /rate/, "slow: rate 0");
+  assert.throws(() => slow(0, 2, 1), /rate/, "slow: faster than real time");
+  assert.throws(() => slow(0, 0.5, -1), /rampOut/, "slow: negative ramp");
+  assert.throws(() => replay(NaN, 1), /replay/, "replay: not a time");
+  // A latch released by a condition, read from t = 0: the part goes when the condition says so.
+  {
+    const C = await plunger({ bare: true });
+    spring(C.s, C.j, { stiffness: 50, preload: 5 }); const cue = latch(C.s, C.part, (t) => t >= 0.1);
+    const bc = await C.s.bakeCached(0.5, null, 0.1, C.opts);
+    assert.ok(Math.abs(bc.report.latches[0].t - 0.1) <= DT / 2 + 1e-9 && Math.abs(bc.pose(0, 0.09).p.x) < 1e-6 && bc.pose(0, 0.4).p.x * M > 0.001, "a condition releases the latch: " + JSON.stringify(bc.report.latches));
+    assert.ok(cue.released !== null, "a live bake exposes the release");
+  }
+  // A hinge from a rotated start: angle 0 at the start (the frame is the part's own start pose), a torsion spring
+  // toward a rest past the stop, the flap swings to its stop and stays.
+  {
+    const th = Math.PI / 6, sc = new THREE.Scene(); sc.add(floor.clone());
+    const flap = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.01, 0.002), new THREE.MeshStandardMaterial());
+    flap.position.set(0, 0.3, 0); flap.rotation.y = th; flap.name = "flap"; sc.add(flap); sc.updateMatrixWorld(true);
+    const s = await makeSim(THREE); s.staticScene(sc, [flap]);
+    const part = s.roundBox(flap, 0.05, 0.01, 0.002, 0.0005, { density: 7850 * M ** 3, name: "flap" });
+    const at = { x: -0.025 * Math.cos(th), y: 0.3, z: 0.025 * Math.sin(th) }, axis = { x: Math.sin(th), y: 0, z: Math.cos(th) };
+    const j = hinge(s, part, { at, axis, min: 0, max: Math.PI / 3 });
+    spring(s, j, { stiffness: 0.2, preload: 0.3, damping: 0.001 }); latch(s, part, 0.2);
+    const mem = new Map(), hb = await s.bakeCached(0.8, null, 0.1, { load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v) });
+    assert.deepEqual(poseAt(hb, 0, 0.19), poseAt(hb, 0, 0), "the latched flap is exactly in place");
+    const q0 = hb.pose(0, 0).q, ang = (t) => { const qr = hb.pose(0, t).q.clone().multiply(q0.clone().invert()); let a = 2 * Math.atan2(qr.x * axis.x + qr.y * axis.y + qr.z * axis.z, qr.w); if (a > Math.PI) a -= 2 * Math.PI; return (a * 180) / Math.PI; };
+    assert.ok(Math.abs(ang(0.19)) < 1e-3, "angle 0 at the rotated start");
+    assert.ok(Math.abs(ang(0.8) - 60) < 0.5, "the flap reaches its stop at 60°: " + ang(0.8));
+    for (let t = 0.4; t <= 0.8; t += 1 / 60) assert.ok(ang(t) > 59, "the flap stays at its stop: " + ang(t).toFixed(2) + "° at " + t.toFixed(2));
+  }
+}
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
@@ -688,4 +803,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, any scale and gravity");
