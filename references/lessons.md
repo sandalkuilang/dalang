@@ -32,6 +32,8 @@ Each line is a failure that already happened. Read this file when something goes
 - **Half a character vanished:** SVG parts inside `<template>` parse as HTML (self-closing `<path/>` is ignored, shapes nest and don't draw). Keep reusable SVG in `<defs>` and clone it with `<use>` or JS.
 - **A crossfade between two shots of the same hero showed two of it** for 0.3 s. Same hero across a seam → match cut (same screen position and size), never a crossfade.
 - **`mix-blend-mode` on an SVG `<rect>` rendered opaque** and hid the hero. Use a CSS `filter` on the shot wrapper.
+- **Text rendered in a fallback font:** the face was set with the CSS `font:` shorthand, and the render's font subsetter reads only `font-family` declarations, so the bundled face was never embedded. Set `font-family` on its own (`look-build.md` scaffold facts).
+- **An animation moved an object in another scene:** two scenes reused one scene-local `id` (`title`, `card`), and the lookup found the first scene's element. Prefix every `id` with its scene (`look-build.md` scaffold facts).
 - **A template beside `index.html` failed `check`** (`multiple_root_compositions`), and `media-treatment` patched the file `fill_times` regenerates. Template lives at `src/index.tpl.html` (SKILL.md "Project files").
 - **A licensed Commons "documentary" clip was a cartoon** (37 MB downloaded for nothing). Look at posters on a contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
 - **Missing GSAP include and a timed `<video>` inside a timed wrapper** each cost a check round (`look-build.md` §6.4).
@@ -58,6 +60,9 @@ Each line is a failure that already happened. Read this file when something goes
 - **A 30 fps draft render took 39 min** (the next took under 3): nobody stopped it. A render far slower than the last → stop and look for the cause.
 - **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
 - **The final came out at 30 fps, not the brief's 24:** `hyperframes render` defaults to 30 fps and the Step 8 command passed no `--fps`; `qc.mjs --fps` caught it, after a full re-render. The brief's fps is always passed to every render (`qc.md` §8).
+- **Every QC round rebuilt its review sheets by hand:** still times computed from the shot list, ~70 frames snapshotted, then ~10 ad-hoc ffmpeg tile commands per run (snapshot names large sets `contact-sheet-1.jpg`, so the expected name missed). `strips.mjs` does it in one call (`qc.md` Step 7).
+- **An unattended run delivered known "looks wrong" P1s** (Reality, Clarity); the user's first ask was to fix them: another polish pass and another final render. With the user away those P1s now block the final.
+- **Generic build traps went into the user's private memory**, so the skill and its other users never learned them. The hand-off's `## Skill feedback` section carries them upstream (`qc.md` Step 8).
 - **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
 - **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.
 - **VoxCPM2 timed out** (300 s compute limit) on its first call while OmniVoice and a benchmark held the memory; alone it worked at ~22× real time. Heavy model jobs run one at a time; VoxCPM2 gets ~120-character chunks.
