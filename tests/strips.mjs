@@ -168,6 +168,17 @@ try {
       assert.equal(r.code, 1, `${name}: ${r.err}`);
       assert.match(r.err, /Usage|--targets|--against/, name);
     }
+    // Round 3 after a repeated `mv` onto an existing folder: the last round sits inside it, so it is refused.
+    const old = mk("old");
+    fs.cpSync(cur, path.join(old, "frames"), { recursive: true }); // round 1: differs from every later round
+    fs.cpSync(path.join(prev, "frames"), path.join(old, "strips", "frames"), { recursive: true }); // round 2, moved in by the repeated mv
+    r = await run([sb, "--frames", cur, "--against", old, "--targets", "2"]);
+    assert.equal(r.code, 1, r.err + r.out);
+    assert.match(r.err, /older round/);
+    // The legitimate side: the nested round itself is a fine baseline.
+    r = await run([sb, "--frames", cur, "--against", path.join(old, "strips"), "--targets", "2"]);
+    assert.equal(r.code, 0, r.err);
+    expect("round 3 against round 2", "changed (targeted)", "changed (not targeted)");
     const cur2 = mk("cur2");
     fs.readdirSync(cur).filter((f) => !/at-2\.8s/.test(f)).forEach((f) => fs.copyFileSync(path.join(cur, f), path.join(cur2, f)));
     r = await run([sb, "--frames", cur2, "--against", prev, "--targets", "2"]);

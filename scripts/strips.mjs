@@ -95,7 +95,11 @@ const scan = () => { found = scanDir(framesDir); };
 const still = t => nearest(found, t);
 if (against) {
   const prevDir = path.resolve(dir, against);
-  if (prevDir === out || prevDir === framesDir) usage(`--against ${against} is this run's own output, which a capture overwrites. Keep the last round first (mv review/strips review/strips-1), or capture with --out review/strips-2.`);
+  if (prevDir === out || prevDir === framesDir) usage(`--against ${against} is this run's own output, which a capture overwrites. Keep the last round first under a name no earlier round used (mv review/strips review/strips-<n>, n = rounds done), or capture with --out review/strips-<n+1>.`);
+  // The signature of a repeat `mv` onto an existing folder: the last round landed inside it as <dir>/strips, and the
+  // folder still holds an older round. Diffing it would compare against the wrong round (false regressions).
+  const nested = path.join(prevDir, path.basename(out));
+  if (existsSync(path.join(nested, 'frames')) || (existsSync(nested) && scanDir(nested).size)) usage(`--against ${against} holds an older round, and the last round sits inside it at ${nested} (mv onto a folder that already existed). Compare against ${nested}, and name each kept round by its number (review/strips-1, review/strips-2, …).`);
 }
 
 if (!dry) {
