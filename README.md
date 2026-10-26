@@ -199,7 +199,7 @@ Not in this repo — in **your** project, one folder per video:
 
 ```
 video/<slug>/
-├── BRIEF.md          every Step 1 decision (format, language, look, energy)
+├── BRIEF.md          every Step 1 decision (format, language, look, energy, sign-off)
 ├── PRODUCTION.md     work log, one line per step — the source of every number
 ├── script.md         for humans: sections, visual notes, every number tagged with its source
 ├── narration.txt     only the spoken words + {beat|name} markers

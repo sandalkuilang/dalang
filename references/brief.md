@@ -34,6 +34,8 @@ Create `video/<topic-slug>/` and log a one-line preflight summary with `state.mj
 
 **A voice named in the request** ("narrated by <name>") → match it against preflight's `Voices` line and save it as `voice` in `BRIEF.md`. While VoiceStudio is not OK (no such line), save the name as given and match it once preflight reads OK, before Step 4; the Brief goes on. A match needs no "which voice?" question in Step 4, which still samples it for pace; the Call 0 engine question stays. Never search earlier videos' files for it. No match, or the line WARNs → rerun preflight; still none → say so and offer the saved profiles, a designed voice, or a clone only with the speaker's permission (`voice.md` "Clone").
 
+**A series sign-off** — the 2–3 words a channel says after the hook. Only from the request or the user's material, else empty; never asked or invented. Saved as `signoff`; Step 3 says it once after the hook.
+
 Then AskUserQuestion: Call 0 only when setup left a choice, then Calls 1 and 2 (4 questions each at most), and Call 3 when it applies. Ask about the platform **even if the user named one** ("YouTube" can be Shorts or landscape); put what they said first, marked "(Recommended)". Nothing named, or an answer of "no preference" → recommend / use the Autonomous-mode default for that question. Context the user should read goes in plain text before the call (the tool has no intro field): no reference video unless they have one (then Step 2); the voice is asked in Call 3 when there is more than one sensible choice, else picked by audition in Step 4 (unless named, above); the engine, when only one is ready.
 
 ### Call 0 (only when preflight left a choice; skip it otherwise)
@@ -73,6 +75,6 @@ After Call 2: its recommendation follows the Audience answer. Never fill `voice`
 
 ### Save the brief
 
-Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (from the platform, table in Call 2), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
+Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (from the platform, table in Call 2), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`), signoff (only when the user gave one, the words as given). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
 
 Step 2 (optional, measuring a reference's craft): `measure-reference.md`.
