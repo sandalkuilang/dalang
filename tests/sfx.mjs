@@ -159,6 +159,57 @@ await test("K. CLI: bake file + plan -> audio rows (exit 0); missing sample exit
   assert.equal((await run(cli, [dir, "--bake", "cut.bin", "--plan", "sfx.json"])).code, 2);
 });
 
+await test("L. a row check_assets refuses never becomes an <audio> row (same verdict as the gate, both ways)", async () => {
+  const lib = [{ file: "assets/sfx/a.wav", tags: ["wood-on-wood light"], duration: 0.4 }];
+  const imp = [{ t: 1, name: "book", dv: 0.3 }];
+  const cases = [
+    [{ licence: "CC-BY-NC-ND-4.0" }, {}], [{ licence: "CC-BY-NC-4.0" }, {}], [{ licence: "CC-BY-NC-4.0" }, { commercial: true }],
+    [{ licence: "GPL-3.0" }, {}], [{ licence: "MIT GPL-3.0" }, {}], [{ licence: "CC-BY-4.0" }, {}], [{ licence: "CC-BY-4.0", author: "A" }, {}],
+    [{ licence: "CC0-1.0" }, {}], [{ licence: "CC0 1.0 Universal" }, {}], [{ licence: "attribution" }, {}], [{ licence: "CC0-1.0", source: "generated" }, {}],
+    [{ licence: "CC0-1.0", source: "generated", model: "m (MIT)", prompt: "p" }, {}], [{ licence: "CC-BY-NC-4.0", author: "A" }, {}],
+  ];
+  for (const [extra, o] of cases) {
+    const row = { file: lib[0].file, source: "https://example.org/a", ...extra };
+    const dir = fs.mkdtempSync(path.join(tmp, "lic-"));
+    fs.mkdirSync(path.join(dir, "assets/sfx"), { recursive: true });
+    fs.writeFileSync(path.join(dir, lib[0].file), "x");
+    fs.writeFileSync(path.join(dir, "ASSETS.json"), JSON.stringify([row]));
+    const gate = await run(check, o.commercial ? [dir, "--commercial"] : [dir]);
+    const r = impactSounds(imp, { library: lib, assets: [row], materials, against: "wood", ...o });
+    const label = JSON.stringify(extra) + JSON.stringify(o);
+    if (gate.code === 0) { assert.equal(r.rows.length, 1, "gate passes, sfx must too: " + label); assert.deepEqual(r.problems, [], label); }
+    else { assert.deepEqual(r.rows, [], "gate refuses, sfx must too: " + label); assert.equal(r.problems.length, 1, label); assert.match(r.problems[0], /check_assets/, label); }
+  }
+});
+
+await test("M. a fracture without a known material, or a custom event without a tag string, is unplaced, never missing", () => {
+  for (const ev of [{ kind: "fracture", t: 1 }, { kind: "fracture", t: 1, material: "xyz" }, { kind: "fracture", t: 1, material: 5 }, { kind: "custom", t: 1 }, { kind: "custom", t: 1, tag: 7 }]) {
+    const r = impactSounds([], { ...base, events: [ev] });
+    assert.deepEqual(r.missing, [], JSON.stringify(ev));
+    assert.equal(r.unplaced.length, 1, JSON.stringify(ev));
+    assert.equal(r.unplaced[0].t, 1);
+  }
+  const ok = impactSounds([], { ...base, events: [{ kind: "fracture", t: 1, material: "ceramic" }, { kind: "custom", t: 3, tag: "latch-click" }] });
+  assert.deepEqual(ok.missing, ["ceramic-shatter"]);
+  assert.deepEqual(ok.unplaced, []);
+  assert.equal(ok.rows.length, 1);
+});
+
+await test("N. CLI: a refused licence exits 1 and --commercial reaches the plan", async () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "cli2-"));
+  let j = JSON.stringify({ format: 1, hash: "x", n: 0, dt: 0.002, counts: [], series: [], impacts: [{ t: 1, name: "book", dv: 0.3 }], report: { latches: [] } });
+  while ((8 + Buffer.byteLength(j)) % 4) j += " ";
+  const h = Buffer.alloc(8); h.write("DLB1"); h.writeUInt32LE(Buffer.byteLength(j), 4);
+  fs.writeFileSync(path.join(dir, "b.bin"), Buffer.concat([h, Buffer.from(j)]));
+  fs.writeFileSync(path.join(dir, "sfx.json"), JSON.stringify({ materials, against: "wood", library }));
+  const rowWith = (licence) => JSON.stringify(assets.map((a) => (a.file.endsWith("knock.wav") ? { ...a, licence } : a)));
+  fs.writeFileSync(path.join(dir, "ASSETS.json"), rowWith("CC-BY-NC-ND-4.0"));
+  assert.equal((await run(cli, [dir, "--bake", "b.bin", "--plan", "sfx.json"])).code, 1);
+  fs.writeFileSync(path.join(dir, "ASSETS.json"), rowWith("CC-BY-NC-4.0"));
+  assert.equal((await run(cli, [dir, "--bake", "b.bin", "--plan", "sfx.json"])).code, 0);
+  assert.equal((await run(cli, [dir, "--bake", "b.bin", "--plan", "sfx.json", "--commercial"])).code, 1);
+});
+
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
 console.log("sfx: all checks passed");
