@@ -5,6 +5,9 @@
 // ASSETS.json: [{ "file": "assets/bee.jpg", "source": "<URL, or 'generated', or 'user'>",
 //   "licence": "CC-BY-4.0", "author": "Name", "model": "<model> (<its licence>)",
 //   "prompt": "...", "seed": 42, "beat": "hook" }]
+// Files an engine build wrote are listed in its .engine.json (engine/three/build.mjs), read here from every folder
+// under assets/: never list them in ASSETS.json by hand. A manifest that cannot be read, or a row that points outside
+// its folder, is a problem (fail closed). A licence "A AND B" is checked part by part.
 // The narration's row is also checked against the model that spoke it: audio/<name>.response.json _meta, read through
 // scripts/voice_licences.mjs. A non-commercial voice listed under a commercial licence is a problem; a voice that
 // table cannot identify is a WARN (check its model card / plan), never read as commercial-OK.
@@ -24,22 +27,42 @@ const list = JSON.parse(readFileSync(manifest, 'utf8'));
 
 const walk = d => existsSync(d) ? readdirSync(d).flatMap(f => { const p = path.join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; }) : [];
 const onDisk = walk(path.join(dir, 'assets')).map(p => path.relative(dir, p)).filter(p => !path.basename(p).startsWith('.'));
-const listed = new Set(list.filter(a => a.file).map(a => path.normalize(a.file)));
+const problems = [];
+
+// Engine manifests: rows are written relative to the manifest's folder; they join the project's rows, so the same
+// checks (file exists, source, licence) apply to them.
+const engineRows = [];
+for (const p of walk(path.join(dir, 'assets')).filter(p => path.basename(p) === '.engine.json')) {
+  const rel = path.relative(dir, p), base = path.dirname(p);
+  let eng;
+  try { eng = JSON.parse(readFileSync(p, 'utf8')); if (!Array.isArray(eng)) throw new Error('not a list'); }
+  catch { problems.push(`${rel}: unreadable engine manifest — rebuild the engine (node <skill-dir>/engine/three/build.mjs <its folder>)`); continue; }
+  for (const r of eng) {
+    const abs = typeof r?.file === 'string' ? path.resolve(base, r.file) : null, up = abs && path.relative(base, abs);
+    if (!abs || up.startsWith('..') || path.isAbsolute(up)) problems.push(`${rel}: a row's file is missing or outside its folder — rebuild the engine`);
+    else engineRows.push({ ...r, file: path.relative(dir, abs) });
+  }
+}
+const rows = [...list, ...engineRows];
+const listed = new Set(rows.filter(a => a.file).map(a => path.normalize(a.file)));
 
 // Allowed for any use; NC/research licences only for non-commercial films; ND never (\b so "Licence" isn't "NC").
-const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|own|user|bundled)\b/i;
+const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)\b/i;
 const NC = /\bNC\b|non-?commercial|research/i;
 const ND = /\bND\b|no[- ]?deriv/i;
 
-const problems = [];
 for (const f of onDisk) if (!listed.has(path.normalize(f))) problems.push(`${f}: not in ASSETS.json`);
-for (const a of list) {
+for (const a of rows) {
   const tag = a.file || '(no file)';
   if (!a.file || !existsSync(path.join(dir, a.file))) problems.push(`${tag}: file missing`);
   if (!a.source) problems.push(`${tag}: no source`);
   if (!a.licence) problems.push(`${tag}: no licence`);
-  else if (ND.test(a.licence)) problems.push(`${tag}: licence "${a.licence}" forbids derivatives — a video edit is one`);
-  else if (NC.test(a.licence) ? commercial : !OK.test(a.licence)) problems.push(`${tag}: licence "${a.licence}" ${NC.test(a.licence) ? 'is non-commercial' : 'is not on the allowed list — check it'}`);
+  else {
+    const parts = String(a.licence).split(/\s+AND\s+/i), bad = parts.find(p => !NC.test(p) && !OK.test(p));
+    if (parts.some(p => ND.test(p))) problems.push(`${tag}: licence "${a.licence}" forbids derivatives — a video edit is one`);
+    else if (commercial && parts.some(p => NC.test(p))) problems.push(`${tag}: licence "${a.licence}" is non-commercial`);
+    else if (bad) problems.push(`${tag}: licence "${a.licence}" — "${bad}" is not on the allowed list — check it`);
+  }
   if (/^CC-BY/i.test(a.licence || '') && !a.author) problems.push(`${tag}: CC BY needs an author for the credit`);
   if (a.source === 'generated' && (!a.model || !a.prompt)) problems.push(`${tag}: generated asset needs model (with its licence) and prompt`);
 }
@@ -66,10 +89,10 @@ for (const f of takes) {
     if (!NC.test(a.licence)) problems.push(`${a.file}: spoken by ${v.name} (audio/${f}), whose output is ${v.licence} — listed as "${a.licence}"; list that licence`);
 }
 
-const credits = list.filter(a => a.file).filter(a => /^CC-BY/i.test(a.licence || '') || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
+const credits = rows.filter(a => a.file).filter(a => /^CC-BY/i.test(a.licence || '') || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
 if (credits.length) writeFileSync(path.join(dir, 'CREDITS.md'), `# Credits\n\n${credits.join('\n')}\n`);
 
-console.log(`Assets: ${list.length} listed, ${onDisk.length} in assets/, ${credits.length} credit line(s) → CREDITS.md`);
+console.log(`Assets: ${list.length} listed, ${engineRows.length} from engine manifest(s), ${onDisk.length} in assets/, ${credits.length} credit line(s) → CREDITS.md`);
 for (const w of warnings) console.log(`  WARN    : ${w}`);
 for (const p of problems) console.log(`  PROBLEM : ${p}`);
 console.log(`  Result  : ${problems.length ? `${problems.length} problem(s) — not ready for the final render.` : 'OK'}`);
