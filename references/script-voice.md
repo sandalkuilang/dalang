@@ -29,6 +29,8 @@ Rules:
 - **Write for the ear, not the page.** TTS reads a textbook sentence like a textbook. Use the spoken register of the narration language for this audience (how a good presenter talks to one person, not an essay): short clauses, everyday words over technical nouns, "you/we", a question now and then, contrast and rhythm (short – short – long). Punctuation is breath and emphasis: a comma where a speaker pauses, a full stop to land a point, `…` or a dash for a beat of suspense. Read each line aloud in your head; a line you would not say to a friend gets rewritten.
 - **Spoken numbers.** Round in speech, exact on screen (said "about forty", headline "$39.90"). One number per clause, each with its comparison ("not double"; Gate 1 checks it; hook answers and reframes only in arcs that have them). The viewer's case comes before the rule. A `[calc]` number is spoken in its model's `say`.
 
+- **Quiz.** Write `review/quiz.md`: 5 rows `| # | Beat | Question | Key |` (mechanism, key number with comparison, decision rule, a misconception with its correction, one more claim), each answerable from a headline or card; show it with the script.
+
 Show the script with its numbers table and an empty **Untagged numbers** list, and **wait for approval**.
 
 ### Numbers model (model.mjs → numbers.json)

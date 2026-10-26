@@ -38,7 +38,7 @@ flowchart TD
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills) | **3** |
 | 6 Build | HyperFrames composition; every time = `BEATS.<name>.start` | — |
-| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, review strips (`strips.mjs`) | **4** |
+| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, review strips (`strips.mjs`), sound-off quiz | **4** |
 | 8 Hand-off | final file + honest numbers from `PRODUCTION.md` | — |
 
 Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's

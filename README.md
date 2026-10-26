@@ -151,7 +151,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   brief.md             steps 0–2: setup, the brief questions, a reference
   script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
-  qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, final, hand-off
+  qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, sound-off quiz, final, hand-off
   visual-direction.md  realism ladder, restraint, composition, review rubric, information layers
   looks.md             the nine looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
@@ -177,7 +177,7 @@ scripts/
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
   check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
-  score_run.mjs        one project's scorecard for evals
+  score_run.mjs        one project's scorecard for evals (incl. the quiz score)
   measure_reference.sh cuts, boil rate, contact sheets, palette
   palette.mjs          dominant colours of a video (% of frame, OKLCH L); --compare for figure-ground
   gate.sh              the repo's gate (--fast static, reading budget included; full adds the engine self-check and tests/)

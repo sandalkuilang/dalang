@@ -18,8 +18,15 @@ Each brief stresses a different part. Pick fresh topics each time (never reuse a
 
 ## What to compare
 
-From `score_run.mjs`: `still_pct` (≤ 10), `lufs` (≈ −14 ± 1), `true_peak` (≤ −1), `qc_problems` (0), `timing_problems` (0), `est_words` (0 is best), `assets_ok` (true), `gates_approved` (4 at a finished draft), `review_p0` (0 open), `logged_minutes`, `logged_problems`.
+From `score_run.mjs`: `still_pct` (≤ 10), `lufs` (≈ −14 ± 1), `true_peak` (≤ −1), `qc_problems` (0), `timing_problems` (0), `est_words` (0 is best), `assets_ok` (true), `gates_approved` (4 at a finished draft), `review_p0` (0 open), `logged_minutes`, `logged_problems`, `quiz_score` / `quiz_pct` (Clarity: correct = 1, partly correct = 0.5; compare per skill version, a drop without a reason is a regression).
 
 Not measurable by script, judged on the review sheets: Realism and Reality (`visual-direction.md` §11), the people test, whether the voice sounds human (a human listens). Record these by hand next to the scorecard.
 
 Also compare the cost of the run: tool calls and tokens per step (from the session's usage), and whether any reference file was read in full when only a section was needed.
+
+## Clarity quiz by skill version
+
+Append a row per run (`quiz_score` / `quiz_questions` from `score_run.mjs`, and the beats of the wrong answers).
+
+| Skill version | Brief # | quiz_score / quiz_questions | Wrong beats |
+|---|---|---|---|
