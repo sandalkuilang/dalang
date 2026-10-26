@@ -687,8 +687,9 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     const part = s.roundBox(m, 0.04, 0.04, 0.04, 0.002, { density: 7850 * M ** 3, name: "plunger" });
     part.body.setLinearDamping(0); // the analytic time below has no drag
     const free = o.other ? s.roundBox(other, 0.04, 0.04, 0.04, 0.002, { name: "other" }) : null;
-    const j = slide(s, part, { axis: { x: 1, y: 0, z: 0 }, min: 0, max: 0.05 });
-    if (!o.bare) { spring(s, j, { stiffness: o.k ?? 50, preload: 5 }); latch(s, part, 0.25); }
+    const j = slide(s, part, { axis: o.axis ?? { x: 1, y: 0, z: 0 }, min: o.min ?? 0, max: o.max ?? 0.05 });
+    if (!o.bare) { spring(s, j, { stiffness: o.k ?? 50, preload: o.preload ?? 5, damping: o.damping ?? 0 }); latch(s, part, o.cue ?? 0.25); }
+    else if (o.cue !== undefined) latch(s, part, o.cue); // no spring: the set's own forces drive it
     const mem = o.mem || new Map();
     return { s, part, free, j, mem, opts: { load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v) } };
   }
@@ -766,6 +767,42 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     const bc = await C.s.bakeCached(0.5, null, 0.1, C.opts);
     assert.ok(Math.abs(bc.report.latches[0].t - 0.1) <= DT / 2 + 1e-9 && Math.abs(bc.pose(0, 0.09).p.x) < 1e-6 && bc.pose(0, 0.4).p.x * M > 0.001, "a condition releases the latch: " + JSON.stringify(bc.report.latches));
     assert.ok(cue.released !== null, "a live bake exposes the release");
+  }
+  // Every input that changes the result changes the hash: a stop, an axis, a cue, a spring's rest or damping each miss the
+  // cache, and the same inputs hit it. A gravity-driven part (a drawer on a slope, a drop gate): no spring at all, so only
+  // the slide's and the latch's own keys carry the stop and the release time.
+  {
+    const down = { x: 0, y: -1, z: 0 }, base = { bare: true, axis: down, min: 0, max: 0.03, cue: 1.2 };
+    const run = async (o, mem) => { const Z = await plunger({ ...base, ...o, mem }); return Z.s.bakeCached(0.3, null, 0.1, Z.opts); };
+    const mem = new Map(), g0 = await run({}, mem);
+    assert.equal(mem.size, 1, "the gravity-driven part baked once");
+    const g1 = await run({}, mem);
+    assert.ok(g1.cached && g1.hash === g0.hash && mem.size === 1, "the same stops and cue replay from the cache");
+    for (const [name, o] of [["a longer slide stop (max)", { max: 0.05 }], ["a slide stop behind the start (min)", { min: -0.01 }], ["another slide axis", { axis: { x: 0, y: -1, z: 0.2 } }], ["another release time", { cue: 1.5 }], ["a cue that is a condition", { cue: (t) => t >= 1.2 }]]) {
+      const n = mem.size, g = await run(o, mem);
+      assert.ok(g.hash !== g0.hash && !g.cached && mem.size === n + 1, name + " misses the cache");
+    }
+    const c1 = await run({ cue: (t) => t >= 1.2 }, mem), c2 = await run({ cue: (t) => t >= 1.4 }, mem);
+    assert.ok(c1.cached && c2.hash !== c1.hash && !c2.cached, "the same condition replays; another condition misses");
+    // A spring's own rest (preload) and damping are in its key.
+    const sm = new Map(), s0 = await run({ bare: false, cue: 0.25 }, sm);
+    const s1 = await run({ bare: false, cue: 0.25 }, sm);
+    assert.ok(s1.cached && s1.hash === s0.hash, "the same spring replays");
+    for (const [name, o] of [["a changed preload", { preload: 6 }], ["a changed damping", { damping: 0.5 }], ["a changed slide stop under a spring", { max: 0.04 }]]) { const g = await run({ bare: false, cue: 0.25, ...o }, sm); assert.ok(g.hash !== s0.hash && !g.cached, name + " misses the cache"); }
+    // A hinge: its stop, its axis, its pivot and its cue are in its key.
+    const hrun = async (o, hmem) => {
+      const sc = new THREE.Scene(); sc.add(floor.clone());
+      const flap = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.01, 0.002), new THREE.MeshStandardMaterial());
+      flap.position.set(0, 0.3, 0); flap.name = "flap"; sc.add(flap); sc.updateMatrixWorld(true);
+      const s = await makeSim(THREE); s.staticScene(sc, [flap]);
+      const part = s.roundBox(flap, 0.05, 0.01, 0.002, 0.0005, { density: 7850 * M ** 3, name: "flap" });
+      hinge(s, part, { at: o.at ?? { x: -0.025, y: 0.3, z: 0 }, axis: o.axis ?? { x: 0, y: 0, z: 1 }, min: o.min ?? 0, max: o.max ?? Math.PI / 3 });
+      latch(s, part, o.cue ?? 1.2);
+      return s.bakeCached(0.3, null, 0.1, { load: async (k) => (hmem.has(k) ? hmem.get(k).slice().buffer : null), save: async (k, v) => hmem.set(k, v) });
+    };
+    const hm = new Map(), h0 = await hrun({}, hm), h1 = await hrun({}, hm);
+    assert.ok(h1.cached && h1.hash === h0.hash, "the same hinge replays");
+    for (const [name, o] of [["a wider hinge stop (max)", { max: Math.PI / 2 }], ["a hinge stop behind the start (min)", { min: -0.2 }], ["another hinge pivot", { at: { x: 0.025, y: 0.3, z: 0 } }], ["another hinge axis", { axis: { x: 0, y: 1, z: 0 } }], ["another hinge release time", { cue: 1.5 }]]) { const h = await hrun(o, hm); assert.ok(h.hash !== h0.hash && !h.cached, name + " misses the cache"); }
   }
   // A hinge from a rotated start: angle 0 at the start (the frame is the part's own start pose), a torsion spring
   // toward a rest past the stop, the flap swings to its stop and stays.
