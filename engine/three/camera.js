@@ -262,3 +262,9 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
   };
   return api;
 }
+
+// Cues and shots (stubs, red).
+export function snap() { throw new Error("todo"); }
+export function shotAt() { throw new Error("todo"); }
+export function overlayWindow() { throw new Error("todo"); }
+export function windowProblems() { throw new Error("todo"); }

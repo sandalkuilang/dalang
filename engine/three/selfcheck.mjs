@@ -26,8 +26,8 @@ const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
-const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor } = await use("type.js");
-const { stations, frame, travel, route, loopEnd, place: placeCamera, attend } = await use("camera.js");
+const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor, readTime } = await use("type.js");
+const { stations, frame, travel, route, loopEnd, place: placeCamera, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { oner } = await use("examples/oner.js");
 
 const scene = new THREE.Scene();
@@ -1240,6 +1240,43 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     near(pose(travel(0, a, b, { start: 0, dur: 2, ease: (u) => u + 0.01 })), [-1, 1, 1, 0, 0, 0, 30], 0, "and starts on its own");
   }
 }
+// Cues and shots on one frame grid: a cue is snapped the way a cut is, so a raw cue never meets a snapped cut.
+{
+  const shots = [{ name: "intro", start: 0, end: 1.05 }, { name: "valve", start: 1.05, end: 3 }, { name: "outro", start: 3, end: 5 }];
+  const fps = 30, nm = (r) => r.length === 1 ? r[0] : "[" + r.join(" | ") + "]";
+  const raw = (t) => shots.findIndex((s) => Math.round(s.start * fps) / fps <= t && t < Math.round(s.end * fps) / fps);
+  assert.equal(raw(1.056 + 0.01), 0, "the raw lookup lands in the previous shot");
+  assert.equal(shotAt(1.056, shots, { fps }), 1, "a cue 10 ms before a frame-rounded cut finds the shot it belongs to");
+  const w = overlayWindow(1.056, shots, { fps });
+  assert.ok(w.index === 1 && w.name === "valve" && Math.abs(w.from - 32 / 30) < 1e-9 && Math.abs(w.to - 3) < 1e-9 && w.dur > 1.9, "overlayWindow: " + JSON.stringify(w));
+  assert.equal(snap(1.05, 30), 32 / 30, "snap rounds to a frame");
+  assert.equal(snap(0, 30), 0); assert.equal(snap(2.9999, 30), 3);
+  assert.throws(() => snap(1, 0), /fps/); assert.throws(() => snap(NaN, 30), /snap/);
+  assert.equal(shotAt(3, shots, { fps }), 2, "a cue on a cut is in the shot that starts there");
+  assert.equal(shotAt(2.99, shots, { fps }), 2, "a cue within half a frame before a cut snaps onto it");
+  assert.equal(shotAt(4.97, shots, { fps }), 2, "the last frame");
+  assert.equal(shotAt(4.99, shots, { fps }), -1, "a cue that snaps onto the end is in no shot");
+  assert.equal(shotAt(5, shots, { fps }), -1); assert.equal(shotAt(9, shots, { fps }), -1); assert.equal(shotAt(-1, shots, { fps }), -1);
+  assert.throws(() => shotAt(1, [{ start: 2, end: 2 }], { fps }), /end/); assert.throws(() => shotAt(1, shots), /fps/);
+  assert.throws(() => shotAt(1, "no", { fps }), /shots/);
+  const none = overlayWindow(9, shots, { fps });
+  assert.ok(none.index === -1 && none.dur === 0, "a cue in no shot gives an empty window");
+  assert.equal(overlayWindow(2.99, shots, { fps }).name, "outro", "overlayWindow agrees with shotAt");
+  let p = windowProblems([{ name: "key-number", cue: 4.99, end: 4.99 }], shots, { fps });
+  assert.ok(p.length === 1 && /key-number.*zero or negative/.test(p[0]), "zero window: " + nm(p));
+  p = windowProblems([{ name: "back", cue: 2, end: 1.5 }], shots, { fps });
+  assert.ok(p.length === 1 && /back.*zero or negative/.test(p[0]), "negative window: " + nm(p));
+  p = windowProblems([{ name: "lost", cue: 9 }], shots, { fps });
+  assert.ok(p.length === 1 && /lost.*in no shot/.test(p[0]), "no shot: " + nm(p));
+  assert.deepEqual(windowProblems([{ name: "tag", cue: 1.056, text: "x" }], shots, { fps }), [], "a long enough window is fine");
+  p = windowProblems([{ name: "tail", cue: 2.9, text: "a long label of seven words in all" }], shots, { fps });
+  assert.ok(p.length === 1 && /tail.*under its minimum read time/.test(p[0]), "short window: " + nm(p));
+  assert.deepEqual(windowProblems([{ name: "tail", cue: 2.9, text: "a long label of seven words in all", min: 0.05 }], shots, { fps }), [], "an explicit min overrides the text");
+  assert.deepEqual(windowProblems([{ name: "ok", cue: 0.5 }], shots, { fps }), [], "no text and no min: only an empty window fails");
+  assert.equal(readTime("42"), 1); assert.equal(readTime("2 million years"), 1.4); assert.equal(readTime("a b c d e f g"), 2.6);
+  assert.equal(readTime("十個漢字"), 1.1); assert.equal(readTime(""), 1); assert.equal(readTime("  "), 1);
+  assert.equal(readTime("x", { floor: 2 }), 2);
+}
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
@@ -1257,4 +1294,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), any scale and gravity");

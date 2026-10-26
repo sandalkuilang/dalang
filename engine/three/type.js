@@ -245,3 +245,5 @@ export function repeats(caps, labels) {
   }
   return out;
 }
+
+export function readTime() { throw new Error("todo"); }
