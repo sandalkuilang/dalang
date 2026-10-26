@@ -50,7 +50,13 @@ that reads as:
   `scripts/voice_licences.mjs`) listed under a commercial licence is a problem, and an unreadable response file fails
   closed. A voice the table cannot identify (a model not in it, an ElevenLabs plan that could not be read, a take
   made before the plan was recorded) is a `WARN` naming the response file, to check the model card / plan; never
-  read as commercial-OK. A non-commercial take with no `ASSETS.json` row of its name is a `WARN` too.
+  read as commercial-OK. A non-commercial take with no `ASSETS.json` row of its name is a `WARN` too. A commercial
+  row in that table names who spoke (a model, a plan tier, a stated origin), never the engine alone, and a field the
+  take did not record never matches; the table refuses to load otherwise.
+- `tts_timestamps.mjs --from-audio` no longer makes every file a commercial-OK "own recording": the script cannot tell
+  a human recording from TTS output. `--own-recording` states it (a recording the user may use); without it the take
+  keeps the take it was cut from (an OmniVoice take cut and retimed stays CC-BY-NC), and an origin it cannot trace is
+  a `WARN` in `check_assets.mjs`.
 - `tts_timestamps.mjs --api-url` points the ElevenLabs calls at another base URL (the tests use a mock).
 - Brief: a non-commercial voice is stated in Call 0 and at Gate 2 even when the user said not to ask.
 

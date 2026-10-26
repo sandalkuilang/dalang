@@ -46,8 +46,9 @@ for (const a of list) {
 
 // The voice's licence comes from the model that spoke (its take's response file), not from the row's own text.
 // Auditions (sample-*) are not shipped. A response file that cannot be read fails closed.
-// A voice the table cannot identify (unknown model, unreadable plan, a take from before the tier was recorded) is a
-// WARN, never silence and never commercial-OK; so is a non-commercial take whose narration has no row to check.
+// A voice the table cannot identify (unknown model, unreadable plan, a take from before the tier was recorded, a
+// --from-audio file whose origin was not stated) is a WARN, never silence and never commercial-OK; so is a
+// non-commercial take whose narration has no row to check.
 const audioDir = path.join(dir, 'audio');
 const takes = existsSync(audioDir) ? readdirSync(audioDir).filter(f => f.endsWith('.response.json') && !f.startsWith('sample-')) : [];
 const warnings = [];
