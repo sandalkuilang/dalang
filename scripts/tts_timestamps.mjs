@@ -37,6 +37,10 @@
 //   node tts_timestamps.mjs --input narration.txt --out audio --retake 3,5 [--from-response audio/narration.response.json]
 //                              -> re-speak sentences 3 and 5 of the take on disk (no full take); --retake auto with
 //                                 --from-response fixes that take instead of making a new one
+//   node tts_timestamps.mjs --input narration.txt --out audio --retake changed [--from-response audio/narration.response.json]
+//                              -> after editing narration.txt: only the sentences that differ from the text of the take on
+//                                 disk are re-spoken (an added one gets the take's median pauses, a removed one is cut out);
+//                                 the same splice, retiming and two-try limit as --retake auto. No change = no request.
 //
 // Dialogue files: every spoken line is "Speaker: text"; a line "(1.5)" is 1.5 s of silence; a leading
 // [tag] on a line becomes that line's style hint. Output adds window.LINES (speaker, text, start, end).
@@ -780,13 +784,18 @@ const XFADE = 240; // 10 ms at 24 kHz: the equal-power crossfade at each splice,
 const SENTENCE_SEP = /(?<=[.!?…。！？]["'”’)\]]*)[ \t]+|\n+/g;
 const NO_SPACES = /^(ja|zh|th|lo|km|my)(-|$)/i; // one "word" is a whole sentence there: heard-vs-script words cannot be compared
 
-// The sentences of the clean text that hold a spoken word: { n (1-based), cs, ce, text, words }.
-function sentencesOf(clean, words) {
+// The [start, end) character spans between sentence ends and line breaks.
+function splitSentences(clean) {
   const spans = []; let cs = 0;
   for (const m of clean.matchAll(SENTENCE_SEP)) { spans.push([cs, m.index]); cs = m.index + m[0].length; }
   spans.push([cs, clean.length]);
+  return spans;
+}
+
+// The sentences of the clean text that hold a spoken word: { n (1-based), cs, ce, text, words }.
+function sentencesOf(clean, words) {
   const out = [];
-  for (const [s, e] of spans) {
+  for (const [s, e] of splitSentences(clean)) {
     const ws = words.filter(w => w._s >= s && w._s < e);
     if (ws.length) out.push({ n: out.length + 1, cs: s, ce: e, text: stripTags(clean.slice(s, e)).trim(), words: ws });
   }
@@ -901,17 +910,56 @@ function assemble(take, regions, pieces) {
   return out;
 }
 
-// --retake: re-speak the flagged sentences (auto) or the numbered ones, splice them in, time the file again.
-// At most two tries per sentence (the second with seed + 1), then a WARNING that names it.
+// What --retake changed does: line the old take's sentences up with the script's (longest common run of equal
+// sentences). Between two matches, the first new sentences take the place of the old ones there (same pauses), the
+// extra new ones are added (the median pauses), the extra old ones are dropped. Plan entries, in the script's order:
+// { keep: k } (old sentence k stays) or { speak: text, like: k | null } (spoken again; like = the old one it replaces).
+function changedPlan(oldTexts, newTexts) {
+  const key = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const A = oldTexts.map(key), B = newTexts.map(key);
+  const L = Array.from({ length: A.length + 1 }, () => new Array(B.length + 1).fill(0));
+  for (let i = A.length - 1; i >= 0; i--) for (let j = B.length - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const plan = [];
+  let oldGap = [], newGap = [];
+  const flush = () => {
+    newGap.forEach((text, x) => plan.push({ speak: text, like: x < oldGap.length ? oldGap[x] : null }));
+    oldGap = []; newGap = [];
+  };
+  let i = 0, j = 0;
+  while (i < A.length || j < B.length) {
+    if (i < A.length && j < B.length && A[i] === B[j] && L[i][j] === L[i + 1][j + 1] + 1) { flush(); plan.push({ keep: i }); i++; j++; }
+    else if (j < B.length && (i === A.length || L[i][j + 1] >= L[i + 1][j])) newGap.push(newTexts[j++]);
+    else oldGap.push(i++);
+  }
+  flush();
+  return plan;
+}
+
+// --retake: re-speak the flagged sentences (auto), the numbered ones, or the ones edited since the take (changed),
+// splice them in, time the file again. At most two tries per sentence (the second with seed + 1), then a WARNING that names it.
 async function retake(a, ctx) {
   let { response, t } = ctx;
   const { clean, gaps, audioPath } = ctx;
-  if (a.retake === 'changed') die('--retake changed is not available yet.');
+  let cleanNow = clean; // the text the take on disk was made from: the script's, except for --retake changed before the first splice
+  let plan = null;
+  if (a.retake === 'changed') {
+    const oldClean = response._meta?.text;
+    if (typeof oldClean !== 'string') die('--retake changed compares the script with the text the take was made from, and this take does not record it. Use --retake <sentence numbers>, or make the take again.');
+    cleanNow = oldClean;
+    t = timeTake(a, response, oldClean, [], audioPath, 'off'); // the old take, timed on its own words and never aligned
+    const oldSents = sentencesOf(oldClean, t.words);
+    const newTexts = splitSentences(clean).map(([s, e]) => stripTags(clean.slice(s, e)).trim()).filter(x => /[\p{L}\p{N}]/u.test(x));
+    plan = changedPlan(oldSents.map(s => s.text), newTexts);
+    if (plan.length === oldSents.length && plan.every((p, k) => p.keep === k)) {
+      console.log('Retake     : the script matches the last take; nothing re-spoken.');
+      return { response, t: timeTake(a, response, clean, gaps, audioPath) };
+    }
+  }
   const dir = path.join(a.out, '_retake');
   const jsonPath = a.fromResponse || path.join(a.out, `${ctx.base}.response.json`);
   const dur = () => probeDuration(audioPath) ?? (t.words.length ? t.words[t.words.length - 1].end : 0);
   const survey = () => {
-    const sents = sentencesOf(clean, t.words);
+    const sents = sentencesOf(cleanNow, t.words);
     const regions = regionsOf(sents, silences(audioPath), dur());
     return { sents, regions, flags: flagsOf(a, sents, regions, response.transcript?.words, t.aligned) };
   };
@@ -920,6 +968,7 @@ async function retake(a, ctx) {
   console.log(`Sentences  : ${sents.length}${flagged().length ? ` (flagged: ${flagged().join(', ')})` : ''}`);
   let targets;
   if (a.retake === 'auto') targets = flagged();
+  else if (plan) targets = []; // the plan names its sentences; round 2 looks at the ones it re-spoke
   else {
     targets = [...new Set(a.retake.split(',').map(Number))].sort((x, y) => x - y);
     const bad = targets.filter(n => n < 1 || n > sents.length);
@@ -927,38 +976,57 @@ async function retake(a, ctx) {
   }
   const why = new Map(targets.map(n => [n, flags[n - 1].length ? flags[n - 1].join(', ') : 'asked for']));
   const tries = new Map();
-  const short = s => s.text.length > 40 ? `${s.text.slice(0, 40)}…` : s.text;
+  const short = s => s.length > 40 ? `${s.slice(0, 40)}…` : s;
+  // The pauses a sentence with no old counterpart gets: the median of the take's own.
+  const median = xs => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)] ?? 0;
+  const medians = { lead: median(regions.map(r => r.lead)), trail: median(regions.map(r => r.trail)) };
   mkdirSync(dir, { recursive: true });
   try {
-    for (let round = 1; round <= 2 && targets.length; round++) {
+    for (let round = 1; round <= 2 && (targets.length || plan); round++) {
       const seed = round === 1 ? a.seed : a.seed + 1;
       const old = normalisePcm(audioPath, path.join(dir, 'take.wav'));
-      const pieces = sents.map((s, k) => ({ keep: k }));
-      let spliced = 0;
-      for (const n of targets) {
-        const s = sents[n - 1], r = regions[n - 1];
-        const raw = path.join(dir, `s${n}.raw.wav`);
-        await vsSpeak(a, s.text, raw, seed);
-        tries.set(n, round);
-        const heard = await vsTranscribe(a, raw, s.text, true);
-        const ws = heard?.transcript.words;
-        if (!ws?.length) { console.log(`Retake     : sentence ${n} "${short(s)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
-        pieces[n - 1] = { clip: normalisePcm(raw, path.join(dir, `s${n}.wav`)), r0: ws[0].start, r1: ws[ws.length - 1].end, lead: r.lead, trail: r.trail };
-        spliced++;
-        console.log(`Retake     : sentence ${n} "${short(s)}" re-spoken (try ${round}, seed ${seed}) — ${why.get(n)}`);
+      // jobs: the sentences to speak, by their number in the new take, with the old pauses they inherit
+      let pieces, jobs;
+      if (plan) {
+        // new sentence n is kept, or spoken in the place of old `like` (that old audio stays if the try fails); no `like` = nothing to keep
+        pieces = plan.map(p => p.keep !== undefined ? { keep: p.keep } : p.like !== null ? { keep: p.like } : null);
+        jobs = plan.map((p, k) => p.speak === undefined ? null : { n: k + 1, text: p.speak, r: p.like !== null ? regions[p.like] : medians, k }).filter(Boolean);
+        for (const j of jobs) why.set(j.n, 'changed');
+      } else {
+        pieces = sents.map((s, k) => ({ keep: k }));
+        jobs = targets.map(n => ({ n, text: sents[n - 1].text, r: regions[n - 1], k: n - 1 }));
       }
-      if (!spliced) break;
-      writePcm(audioPath, assemble(old, regions, pieces));
+      let spliced = 0;
+      for (const { n, text, r, k } of jobs) {
+        const raw = path.join(dir, `s${n}.raw.wav`);
+        await vsSpeak(a, text, raw, seed);
+        tries.set(n, round);
+        const heard = await vsTranscribe(a, raw, text, true);
+        const ws = heard?.transcript.words;
+        if (!ws?.length) { console.log(`Retake     : sentence ${n} "${short(text)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
+        pieces[k] = { clip: normalisePcm(raw, path.join(dir, `s${n}.wav`)), r0: ws[0].start, r1: ws[ws.length - 1].end, lead: r.lead, trail: r.trail };
+        spliced++;
+        console.log(`Retake     : sentence ${n} "${short(text)}" re-spoken (try ${round}, seed ${seed}) — ${why.get(n)}`);
+      }
+      if (!spliced && !plan) break;
+      writePcm(audioPath, assemble(old, regions, pieces.filter(Boolean)));
       const meta = response._meta;
       response = await vsTranscribe(a, audioPath, stripTags(clean));
       response._meta = { ...meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
       await writeFile(jsonPath, JSON.stringify(response));
       t = timeTake(a, response, clean, gaps, audioPath);
+      cleanNow = clean;
       ({ sents, regions, flags } = survey());
-      targets = targets.filter(n => flags[n - 1].length);
+      if (plan) {
+        // round 2 looks at the sentences just spoken; the count must still be the script's, or the numbers no longer line up
+        const spoken = jobs.filter(j => tries.get(j.n) === round).map(j => j.n);
+        if (sents.length !== plan.length) { console.log(`WARNING    : the take now has ${sents.length} sentences but the script has ${plan.length}; check words.json against narration.txt.`); plan = null; targets = []; break; }
+        targets = spoken.filter(n => flags[n - 1].length);
+        plan = null;
+      } else targets = targets.filter(n => flags[n - 1].length);
     }
     for (const n of targets) {
-      if (tries.get(n) === 2) console.log(`WARNING    : sentence ${n} "${short(sents[n - 1])}" still ${flags[n - 1].join(', ')} after 2 tries — do not deliver this take: respell the sentence in narration.txt, then --retake changed.`);
+      if (tries.get(n) === 2) console.log(`WARNING    : sentence ${n} "${short(sents[n - 1].text)}" still ${flags[n - 1].join(', ')} after 2 tries — do not deliver this take: respell the sentence in narration.txt, then --retake changed.`);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
   return { response, t };
@@ -1088,7 +1156,8 @@ async function main() {
   if (!existsSync(audioPath)) die(`Audio file ${audioPath} is missing; timing needs it.`);
   if (!a.fromResponse) await writeFile(path.join(a.out, `${base}.response.json`), JSON.stringify(response));
 
-  let t = timeTake(a, response, clean, gaps, audioPath);
+  // --retake changed times the take on the text it was made from (inside retake), not on the edited script
+  let t = a.retake === 'changed' ? null : timeTake(a, response, clean, gaps, audioPath);
   if (a.retake) ({ response, t } = await retake(a, { response, clean, gaps, audioPath, base, t }));
   const { times, exact, words, missing, aligned } = t;
   const beatList = buildBeats(beats, words, times, clean);
