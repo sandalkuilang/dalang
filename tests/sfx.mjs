@@ -20,6 +20,7 @@ const test = async (name, fn) => { try { await fn(); } catch (e) { failures.push
 
 const library = [
   { file: "assets/sfx/knock.wav", tags: ["wood-on-wood light"], duration: 0.45 },
+  { file: "assets/sfx/thud.wav", tags: ["wood-on-wood medium", "wood-on-wood heavy"], duration: 0.6 },
   { file: "assets/sfx/clang.wav", tags: ["metal-on-stone heavy"], duration: 1.2 },
   { file: "assets/sfx/click.wav", tags: ["latch-click"], duration: 0.2 },
   { file: "assets/sfx/crash.wav", tags: ["glass-shatter"], duration: 1.5 },
