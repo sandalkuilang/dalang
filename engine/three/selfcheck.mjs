@@ -27,6 +27,8 @@ const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
 const { phrases, drawCaption, pinLabel, repeats, safeArea, inkFor } = await use("type.js");
+const { stations, frame, travel, route, loopEnd, place: placeCamera, attend } = await use("camera.js");
+const { oner } = await use("examples/oner.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1001,6 +1003,181 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.equal(repeats(caps, [{ text: "air" }]).length, 0, "one word of a phrase is not a repeat");
   assert.equal(repeats(caps, [{ text: "air is", from: 0, to: 100 }]).length, 1, "a label inside a phrase repeats");
   assert.equal(repeats(caps, [{ text: "The air is thinner", from: 100, to: 110 }]).length, 0, "the same words at another time are not a repeat");
+// Camera stations, attention by ghosting, loop end: one world, one camera, no cut. A small set in metres (a kept base,
+// a group with a shell and a core, a second box sharing the shell's material), run at M = 2.
+{
+  const build = () => {
+    const world = new THREE.Scene(), shared = new THREE.MeshStandardMaterial({ color: 0xc08040, roughness: 0.6 });
+    const part = (w, h, d, m, name, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w / M, h / M, d / M), m); o.name = name; o.position.set(x / M, y / M, z / M); return o; };
+    const base = part(1, 0.02, 0.6, new THREE.MeshStandardMaterial({ color: 0x777777 }), "base", 0, -0.01, 0);
+    const A = new THREE.Group(); A.name = "A";
+    const shell = part(0.3, 0.3, 0.3, shared, "shell", 0, 0.15, 0), core = part(0.08, 0.08, 0.08, new THREE.MeshStandardMaterial({ color: 0xd04030 }), "core", 0, 0.15, 0);
+    A.add(shell, core);
+    const B = part(0.2, 0.2, 0.2, shared, "B", 0.5, 0.1, 0);
+    world.add(base, A, B); world.updateMatrixWorld(true);
+    return { world, base, A, shell, core, B, shared };
+  };
+  const { world, base, A, shell, core, B, shared } = build();
+  const meshes = []; world.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const snap = meshes.map((m) => ({ m, mat: m.material, hex: m.material.color.getHex(), op: m.material.opacity, tr: m.material.transparent, dw: m.material.depthWrite }));
+  const untouched = (what) => { for (const s of snap) assert.ok(s.m.material === s.mat && s.mat.color.getHex() === s.hex && s.mat.opacity === s.op && s.mat.transparent === s.tr && s.mat.depthWrite === s.dw, what + ": " + s.m.name + " is not as it was"); };
+  const pose = (p) => [...p.position.toArray(), ...p.target.toArray(), p.fov];
+  const near = (a, b, e, what) => { for (let i = 0; i < a.length; i++) assert.ok(Math.abs(a[i] - b[i]) <= e, what + " [" + i + "]: " + a[i] + " vs " + b[i]); };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  // Determinism: the same t gives the same pose, from anywhere.
+  const sa = { position: V(-1, 0.05, 1), target: V(0, 0, 0), fov: 30 }, sb = { position: V(1, 0.05, 1), target: V(0, 0.2, 0), fov: 50 };
+  near(pose(travel(1.3, sa, sb, { start: 1, dur: 2 })), pose(travel(1.3, sa, sb, { start: 1, dur: 2 })), 0, "travel is a function of t");
+  // Units: lift is metres, speed is m/s; an eased leg is at rest at both ends.
+  {
+    const a = { position: V(0, 1, 0), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 1, 0), target: V(0, 0, 0), fov: 30 };
+    const top = travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", lift: 0.5 });
+    assert.ok(Math.abs(top.position.y - (1 + 0.25)) < 1e-9, "lift 0.5 m rises 0.25 units at M = 2: " + top.position.y);
+    const flat = travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", lift: 0 });
+    assert.ok(Math.abs(flat.position.y - 1) < 1e-12 && Math.abs(flat.speed - 2) < 1e-3, "lift 0 is a straight push at 1 unit/s = 2 m/s: " + flat.speed);
+    for (const t of [0, 1]) assert.ok(travel(t, a, b, { start: 0, dur: 1 }).speed < 1e-3, "an eased leg is at rest at t = " + t);
+    assert.equal(travel(-1, a, b, { start: 0, dur: 1 }).speed, 0, "no speed before the leg");
+    assert.equal(travel(2, a, b, { start: 0, dur: 1 }).speed, 0, "no speed after the leg");
+    const end = travel(1, a, b, { start: 0, dur: 1 });
+    near(pose(end), [...b.position.toArray(), ...b.target.toArray(), 30], 0, "u = 1 is the station itself");
+  }
+  // Arcs over the set instead of cutting through it.
+  {
+    const top = new THREE.Box3().setFromObject(world).max.y;
+    const a = { position: V(-1, 0.05, 1), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 0.05, 1), target: V(0, 0, 0), fov: 30 };
+    assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", lift: 0 }).position.y < top, "a straight push at this height crosses the set");
+    assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", over: world }).position.y >= top + 0.1 / M - 1e-9, "over: the apex clears the set by 10 cm");
+    assert.ok(travel(0.5, a, b, { start: 0, dur: 1, ease: "linear", over: new THREE.Box3().setFromObject(world), clear: 0.3 }).position.y >= top + 0.3 / M - 1e-9, "over takes a Box3 and a clearance");
+  }
+  // frame: the object's bounding sphere fits the smaller half-angle of the lens.
+  for (const aspect of [16 / 9, 9 / 16]) {
+    const r = new THREE.Box3().setFromObject(world).getBoundingSphere(new THREE.Sphere()).radius, f = frame(world, { fov: 18, aspect, azimuth: 40, elevation: 35 });
+    const half = Math.min(18 / 2, (Math.atan(Math.tan(9 * Math.PI / 180) * aspect) * 180) / Math.PI) * Math.PI / 180, d = f.position.distanceTo(f.target);
+    assert.ok(Math.asin(r / d) <= half + 1e-9, "the set fits the frame (aspect " + aspect.toFixed(2) + ")");
+    assert.ok(Math.asin(r / d) > 0.8 * half, "and fills it, not a speck (aspect " + aspect.toFixed(2) + ")");
+  }
+  assert.throws(() => frame(new THREE.Group()), /empty|no size/i, "frame of nothing says so");
+  // Refusals say how to fix the call.
+  const okSt = { home: { position: V(0, 1, 2), target: V(0, 0, 0), fov: 30 }, away: { position: V(2, 1, 2), target: V(0, 0, 0), fov: 30 } };
+  assert.throws(() => stations({}), /home/, "stations need a home");
+  assert.throws(() => stations({ home: okSt.home, bad: { ...okSt.away, fov: 0 } }), /fov/, "a bad fov");
+  assert.throws(() => stations({ home: { ...okSt.home, position: "up" } }), /position/, "a bad position");
+  assert.throws(() => travel(0, okSt.home, okSt.away, { dur: 1, ease: "bounce" }), /ease/, "an unknown ease");
+  assert.throws(() => travel(0, okSt.home, okSt.away, { dur: 0 }), /dur/, "a leg needs a duration");
+  const st = stations(okSt);
+  assert.throws(() => route(st, [{ to: "nowhere", start: 0, dur: 1 }]), /nowhere/, "a leg to an unknown station");
+  assert.throws(() => route(st, [{ to: "away", start: 0, dur: 2 }, { to: "home", start: 1, dur: 2 }]), /start|overlap|before/, "a leg that starts before the previous ends is a cut");
+  assert.throws(() => loopEnd(st, {}), /end/, "loopEnd needs the film's last time");
+  assert.throws(() => loopEnd(st, { end: 1, dur: 2 }), /end|dur/, "loopEnd longer than the film");
+  assert.throws(() => attend(world, { ghost: 2 }), /ghost/, "ghost is a fraction");
+  assert.throws(() => attend(world).focus("A", 0), /Object3D/, "a subject is an object");
+  assert.ok(Object.isFrozen(st), "stations are frozen");
+  // The route holds home before it starts and each station after its leg; a loop end brings it home exactly.
+  {
+    const r = route(st, [{ to: "away", start: 1, dur: 2 }, loopEnd(st, { end: 8, dur: 2 })]);
+    assert.equal(r.at(0).station, "home"); assert.equal(r.at(0).leg, -1);
+    assert.equal(r.at(4).station, "away"); assert.equal(r.at(2).station, null); assert.equal(r.at(2).leg, 0);
+    near(pose(r.at(8)), pose(r.at(0)), 1e-6, "the loop end meets the start");
+    near(pose(r.at(20)), pose(r.at(0)), 1e-6, "and holds home after it");
+  }
+
+  // The example: home -> dive -> inside -> home. No hard cut, every leg lands on its station, the last frame is the first.
+  const o = oner({ world, subject: A, inside: core, keep: [base], end: 12 }), fps = 30;
+  {
+    const o2 = oner({ world, subject: A, inside: core, keep: [base], end: 12 });
+    for (let i = 0; i <= 50; i++) near(pose(o.route.at(i * 12 / 50)), pose(o2.route.at(i * 12 / 50)), 0, "two routes from the same legs agree at " + i);
+    let prev = o.route.at(0), p0 = prev.position.clone();
+    for (let i = 1; i <= 12 * fps; i++) {
+      const t = i / fps, cur = o.route.at(t), mid = o.route.at(t - 0.5 / fps);
+      const step = cur.position.distanceTo(p0), cap = (1.5 * Math.max(prev.speed, mid.speed, cur.speed)) / M / fps + 1e-9;
+      assert.ok(step <= cap, "no jump at t = " + t.toFixed(3) + ": moved " + step.toFixed(5) + " units, the speeds allow " + cap.toFixed(5));
+      prev = cur; p0 = cur.position.clone();
+    }
+    assert.ok(o.route.legs.length === 3, "home -> dive -> inside -> home is three legs");
+    for (const leg of o.route.legs) {
+      for (const x of [leg.start, leg.start + leg.dur]) {
+        const a = o.route.at(x - 1e-4), b = o.route.at(x + 1e-4);
+        assert.ok(a.position.distanceTo(b.position) < 1e-3 && a.target.distanceTo(b.target) < 1e-3 && Math.abs(a.fov - b.fov) < 1e-3, "continuous at the boundary t = " + x);
+      }
+      const e = o.route.at(leg.start + leg.dur);
+      near(pose(e), [...o.stations[leg.to].position.toArray(), ...o.stations[leg.to].target.toArray(), o.stations[leg.to].fov], 1e-9, "leg to " + leg.to + " ends on its station");
+    }
+    near(pose(o.route.at(12)), pose(o.route.at(0)), 1e-6, "loop end: the last pose is the first");
+    assert.ok(Math.abs(o.end - 12) < 1e-12, "oner reports its end");
+  }
+  // Attention: everything outside the beat's subject wears a ghost, then the exact original comes back.
+  {
+    const diveAt = o.route.legs[0].start, pushAt = o.route.legs[1].start;
+    o.at(diveAt + 1, null);
+    const gb = B.material;
+    assert.ok(gb !== shared && gb.transparent && gb.opacity < 0.5 * shared.opacity && gb.userData.ghost, "B is a ghost mid-dive");
+    assert.ok(shell.material === shared, "the subject keeps its own material"); assert.ok(base.material === snap[0].mat, "a kept mesh keeps its own");
+    assert.ok(core.material === snap[2].mat, "so does the part inside the subject");
+    assert.ok(gb.color.getHSL({}).s < shared.color.getHSL({}).s && gb.color.getHSL({}).l > shared.color.getHSL({}).l, "a ghost is paler and greyer");
+    assert.equal(gb.depthWrite, false); assert.equal(gb.map, shared.map);
+    untouched("the shared material is never written (mid-dive)");
+    o.at(diveAt + 0.25, null);
+    assert.ok(Math.abs(B.material.opacity - (1 - 0.75 * 0.5)) < 1e-9, "half-way through the fade: " + B.material.opacity);
+    o.at(pushAt + 1, null);
+    assert.ok(shell.material !== shared && shell.material.userData.ghost, "the shell is ghosted once the subject is inside it");
+    assert.ok(core.material === snap[2].mat, "and the part inside is not");
+    untouched("the shared material is never written (mid-inside)");
+    o.at(12, null);
+    for (const s of snap) assert.ok(s.m.material === s.mat, s.m.name + " wears its original at the end"); untouched("after the release");
+    o.at(diveAt + 1, null); assert.ok(B.material.userData.ghost, "a seek back into the beat gives the same ghost");
+    o.at(0, null);
+    for (const s of snap) assert.ok(s.m.material === s.mat, s.m.name + " wears its original after a seek to 0"); untouched("after a seek");
+  }
+  // place: the camera ends up on the pose, looking at its target.
+  {
+    const cam = new THREE.PerspectiveCamera(50, 9 / 16), p = o.route.at(3);
+    assert.equal(placeCamera(cam, p), cam);
+    assert.equal(cam.fov, p.fov); near(cam.position.toArray(), p.position.toArray(), 1e-12, "place moves the camera");
+    const want = p.target.clone().sub(p.position).normalize();
+    assert.ok(cam.getWorldDirection(V(0, 0, 0)).dot(want) > 0.9999, "place aims at the target");
+  }
+  // Flags and special materials: a flagged mesh, the cutaway's own parts and a shader material stay as they are.
+  {
+    const w = build(), look = attend(w.world, { keep: [w.base] });
+    w.core.userData.attend = false;
+    const sm = new THREE.ShaderMaterial(), mine = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sm); w.world.add(mine);
+    look.focus(w.B, 0).at(1);
+    assert.ok(w.core.material.userData.ghost !== true && w.shell.material.userData.ghost, "userData.attend = false keeps a mesh's colour");
+    assert.ok(mine.material === sm && look.skipped.length === 1, "a shader material is left alone and listed once: " + look.skipped);
+    look.at(1.1); assert.equal(look.skipped.length, 1, "once, not every frame");
+    assert.equal(look.weight(w.base, 1), 0, "a kept mesh weighs nothing"); assert.equal(look.weight(w.shell, 1), 1);
+  }
+  // With a cutaway: cut.at() then look.at(), the order of a frame. The cut never clones a ghost, the ghost keeps the
+  // cut's own plane array, and the release hands back the cutaway's clone.
+  {
+    const w = build(), cut = cutaway(w.A); w.world.updateMatrixWorld(true); cut.at(0);
+    const look = attend(w.world, { keep: [w.base] }).focus(w.B, 0).release(2);
+    cut.at(1); const clone = w.shell.material;
+    assert.ok(clone !== w.shared && clone.clippingPlanes.includes(cut.plane), "the cut clones the shell's material");
+    const capMats = [...cut.group.children].map((c) => c.material);
+    look.at(1);
+    const g = w.shell.material;
+    assert.ok(g.userData.ghost && g !== clone && g.clippingPlanes === clone.clippingPlanes && g.clippingPlanes.includes(cut.plane), "the ghost shares the cut clone's planes");
+    cut.at(1);
+    assert.ok(w.shell.material === g, "cut.at() does not clone a ghost");
+    look.at(1);
+    assert.ok(w.shell.material === g, "and the ghost stays");
+    assert.deepEqual([...cut.group.children].map((c) => c.material), capMats, "the cut's caps keep their colour");
+    look.at(3);
+    assert.ok(w.shell.material === clone, "after the release the cutaway's clone is back");
+  }
+  // The edge: a ghost's fresnel rim, added only to a lit fragment shader, chained after the original's own hook.
+  {
+    const w = build(), hits = []; w.shared.onBeforeCompile = (s) => hits.push(s);
+    const look = attend(w.world, { keep: [w.base], edge: 0.6 }).focus(w.A, 0); look.at(1);
+    const g = w.B.material, lit = { fragmentShader: "varying vec3 vViewPosition;\nvoid main() {\n#include <opaque_fragment>\n}", uniforms: {} };
+    g.onBeforeCompile(lit, null);
+    assert.ok(/uniform float uGhostEdge/.test(lit.fragmentShader) && /uGhostEdge/.test(lit.fragmentShader.split("#include <opaque_fragment>")[0].split("void main")[1]), "the edge adds its uniform and its term before the output");
+    assert.equal(lit.uniforms.uGhostEdge.value, 0.6, "the edge strength follows the weight"); assert.equal(hits.length, 1, "the original's hook is chained");
+    const flat = { fragmentShader: "void main() {\n#include <opaque_fragment>\n}", uniforms: {} }, before = flat.fragmentShader;
+    g.onBeforeCompile(flat, null); assert.equal(flat.fragmentShader, before, "an unlit shader is left alone");
+    assert.ok(g.customProgramCacheKey().endsWith("|ghost-edge"), "the edge has its own program key");
+  }
 }
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
@@ -1020,3 +1197,4 @@ const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
 console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, camera stations and travel, attention by ghosting, loop end, any scale and gravity");
