@@ -30,7 +30,9 @@
 // those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
-// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a plain relative src, or a module it imports by a static
+// volume lane, a gain HyperFrames clamps; (3) any script (a <script> of any type a browser runs, the JavaScript MIME essences and the
+// language attribute included; script text in an attribute: an on* handler on any element, a javascript: URL, an iframe
+// srcdoc; inline, a plain relative src, or a module it imports by a static
 // quoted relative or root specifier, resolved against the folder of index.html; a file the .engine.json beside it lists is
 // the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may
 // change the mix; check the bed by ear on the draft"; no JS is parsed). SCRIPT-LOAD LIMIT: a page with a <base href> anywhere,
@@ -359,7 +361,7 @@ export function scanHtml(html) {
     if (!m[2]) continue;
     const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups);
     for (const [attr, v] of Object.entries(attrs)) {
-      const js = /^on[a-z]+$/.test(attr) ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
+      const js = /^on[a-z]+$/.test(attr) || (name === 'iframe' && attr === 'srcdoc') ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
       if (js != null) handlers.push({ tag: name, attr, text: htmlDecode(js) });
     }
     if (RAW_TAGS.has(name)) {
