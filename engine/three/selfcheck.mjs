@@ -1178,6 +1178,59 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     g.onBeforeCompile(flat, null); assert.equal(flat.fragmentShader, before, "an unlit shader is left alone");
     assert.ok(g.customProgramCacheKey().endsWith("|ghost-edge"), "the edge has its own program key");
   }
+  // Two parts on ONE material at different weights (the kit shares materials by name): each wears its own ghost, so a
+  // fade eases on the one that is leaving and holds on the one that stays.
+  {
+    const w = build(), look = attend(w.world, { keep: [w.base] }).focus(w.A, 1.5).focus(w.core, 4.5);
+    look.at(4.75);
+    assert.ok(Math.abs(look.weight(w.shell, 4.75) - 0.5) < 1e-9 && look.weight(w.B, 4.75) === 1, "the shell is half-way, B is all the way");
+    const op = (o) => o.material.opacity;
+    assert.ok(Math.abs(op(w.shell) - w.shared.opacity * (1 - 0.75 * 0.5)) < 1e-9, "the shell fades on its own weight: " + op(w.shell));
+    assert.ok(Math.abs(op(w.B) - w.shared.opacity * 0.25) < 1e-9, "B holds at the full ghost: " + op(w.B));
+    assert.ok(w.shell.material !== w.B.material, "two parts of one material never share a ghost");
+    look.at(4.75); assert.ok(Math.abs(op(w.shell) - w.shared.opacity * 0.625) < 1e-9 && Math.abs(op(w.B) - 0.25) < 1e-9, "the same t gives the same frame");
+    look.at(6); assert.ok(Math.abs(op(w.shell) - 0.25) < 1e-9 && Math.abs(op(w.B) - 0.25) < 1e-9, "both settle at the full ghost");
+    assert.ok(w.shared.opacity === 1 && w.shared.color.getHex() === 0xc08040, "the shared original is never written");
+    // The legitimate case: parts on one material at ONE weight still look alike, and an array holding it twice works.
+    const both = attend(w.world, { keep: [w.base] }).focus(w.core, 0); both.at(2);
+    assert.ok(op(w.shell) === op(w.B) && w.shell.material.color.getHex() === w.B.material.color.getHex(), "equal weights look equal");
+    const dup = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), [w.shared, w.shared]); w.world.add(dup);
+    both.at(2); assert.ok(dup.material[0].userData.ghost && dup.material[1].userData.ghost, "a material array is ghosted slot by slot");
+    both.release(3); both.at(6); assert.ok(dup.material[0] === w.shared && w.shell.material === w.shared && w.B.material === w.shared, "and restored by reference");
+  }
+  // A camera path is a pure function of t: `over` is read when the route is built, so a part that rises later (a lid
+  // opening, a ball bouncing) never moves the camera; a Box3 you pass is the envelope you chose.
+  {
+    const w = build(), lid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.1), w.shared), lo = { position: V(-1, 0.05, 1), target: V(0, 0, 0), fov: 30 }, hi = { position: V(1, 0.05, 1), target: V(0, 0, 0), fov: 30 };
+    w.world.add(lid); lid.position.set(0.25, 0.1, 0); w.world.updateMatrixWorld(true);
+    const s2 = stations({ home: lo, away: hi }), r = route(s2, [{ to: "away", start: 0, dur: 2, ease: "linear", over: w.world }]);
+    const before = pose(r.at(1)), top = new THREE.Box3().setFromObject(w.world).max.y;
+    assert.ok(before[1] >= top + 0.1 / M - 1e-9, "the arc clears the set as it stood when the route was built");
+    lid.position.y += 2; w.world.updateMatrixWorld(true);
+    near(pose(r.at(1)), before, 0, "a part that rises later does not move the camera");
+    const o = oner({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12 }), at = (t) => pose(o.route.at(t)), mid = o.route.legs[0].start + 1, back = o.route.legs[2].start + 1.25, was = [at(mid), at(back)];
+    lid.position.y += 5; w.world.updateMatrixWorld(true);
+    near(at(mid), was[0], 0, "oner's dive does not follow a prop"); near(at(back), was[1], 0, "nor does its loop leg");
+    const seek = (ts) => ts.map((t) => at(t)); const fwd = seek([3, 11, 2.5]), rev = seek([2.5, 11, 3]).reverse();
+    for (let i = 0; i < 3; i++) near(fwd[i], rev[i], 0, "seeking in a different order gives the same pose");
+    // The legitimate case: a Box3 that covers the motion lifts the arc; travel() itself takes only a Box3 (an object's
+    // box would be read live on every call).
+    const env = new THREE.Box3().setFromObject(w.world), p = travel(1, lo, hi, { start: 0, dur: 2, ease: "linear", over: env });
+    assert.ok(p.position.y >= env.max.y + 0.1 / M - 1e-9, "a Box3 envelope lifts the arc over a part's whole travel");
+    assert.throws(() => travel(1, lo, hi, { start: 0, dur: 2, over: w.world }), /Box3/, "travel() refuses an object: its box would follow the world's pose");
+  }
+  // The last frame is the first: attention is released early enough, and an ease that does not end on 1 still lands home.
+  {
+    const w = build();
+    assert.throws(() => oner({ world: w.world, subject: w.A, inside: w.core, end: 12, look: { dur: 3 } }), /dur/, "an attention that is still fading at the last frame is refused");
+    for (const dur of [0.5, 2.5]) {
+      const o = oner({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12, look: { dur } }); o.at(12, null);
+      for (const m of [w.shell, w.core, w.B, w.base]) assert.ok(o.look.weight(m, 12) === 0 && m.material.userData.ghost !== true, "the last frame is solid with a fade of " + dur + " s: " + m.name);
+    }
+    const a = { position: V(-1, 1, 1), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 1, 1), target: V(0, 0.2, 0), fov: 50 };
+    near(pose(travel(2, a, b, { start: 0, dur: 2, ease: (u) => u * 0.999 })), [1, 1, 1, 0, 0.2, 0, 50], 0, "an ease that stops short of 1 still ends on the station");
+    near(pose(travel(0, a, b, { start: 0, dur: 2, ease: (u) => u + 0.01 })), [-1, 1, 1, 0, 0, 0, 30], 0, "and starts on its own");
+  }
 }
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
