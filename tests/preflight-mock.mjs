@@ -2,7 +2,8 @@
 // node tests/preflight-mock.mjs — preflight's VoiceStudio checks against a mock backend, one per case, in parallel.
 // Each case pins the state preflight must report and the fix its `Voice:` line carries: a busy, unreadable or
 // refusing backend is never read as missing, a model selected by bare name is found, odd replies stay WARN.
-// The skill-clone check runs against fixture clones and remotes (behind, ahead, diverged, dirty, offline).
+// The skill-clone check runs against fixture clones and remotes (behind, ahead, diverged, dirty, offline, pinned), and
+// a git shim fails each of its reads in turn: a failed read is always "could not check".
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
