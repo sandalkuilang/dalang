@@ -143,7 +143,29 @@ const skillCases = [
   ["skill detached at a commit that is no release", () => { const f = tagged(), s = f.pin("v1.0.0", false); advance(f.seed, "later"); git(s.skill, "fetch", "origin"); git(s.skill, "checkout", "--detach", "origin/main"); return s; }, "INFO", /detached at [0-9a-f]+ \(not a release tag\).*newest release is v1\.1\.0/, /pull --ff-only/],
   ["skill on a branch other than main (single-branch clone)", () => { const f = tagged(); git(f.seed, "checkout", "-b", "dev"); git(f.seed, "push", "origin", "dev"); const s = path.join(path.dirname(f.skill), "dev-clone"); git(path.dirname(f.skill), "clone", "--single-branch", "-b", "dev", f.remote, s); return s; }, "INFO", /on branch dev, not main.*no update check/, /could not|pull --ff-only/],
   ["skill shallow clone of main, behind 1", () => { const f = fixture(), s = path.join(path.dirname(f.skill), "shallow"); git(path.dirname(f.skill), "clone", "--depth", "1", "-b", "main", "file://" + f.remote, s); advance(f.seed, "fix"); return s; }, "WARN", /1 commit behind \(latest: fix\).*pull --ff-only/, /could not/],
+  // A .git git skips (a corrupt HEAD) inside a repo higher up (a versioned ~/.claude): git answers the parent's
+  // toplevel, and the .git here still makes it a clone whose state is unknown, never "not a clone".
+  ["skill .git unreadable inside a parent repo", () => { const f = fixture(); git(path.dirname(f.skill), "init", "-q"); fs.writeFileSync(path.join(f.skill, ".git", "HEAD"), "garbage\n"); return f.skill; }, "WARN", /could not check.*rerun/, /not a git clone|clone the repo again/],
 ];
+// The class "unknown read as missing", for every git read the check makes: a git that fails that one read (any exit
+// or a timeout, here exit 128 from a PATH shim) is "could not check", never a known state (up to date, behind,
+// pinned, not a release tag, not a clone). Each read is matched by its argv (" -C <dir> <subcommand> …").
+const realGit = execFileSync("sh", ["-c", "command -v git"]).toString().trim(), shim = path.join(tmp, "shim-bin");
+fs.mkdirSync(shim); fs.writeFileSync(path.join(shim, "git"), `#!/bin/sh\nif printf ' %s' "$@" ' ' | grep -Eq -- "$DALANG_TEST_GIT_FAIL"; then echo "fatal: injected failure" >&2; exit 128; fi\nexec '${realGit}' "$@"\n`, { mode: 0o755 });
+const known = /up to date with|behind \(|pinned at|not a release tag|detached at|not a git clone|clone the repo again|on branch|ahead of/;
+const reads = { main: [" rev-parse --show-toplevel ", " rev-parse --abbrev-ref ", " status ", " fetch ", " rev-list ", " log "], pinned: [" rev-parse --show-toplevel ", " rev-parse --abbrev-ref ", " status ", " ls-remote ", " (describe|tag) ", " rev-parse --short "] };
+const kinds = [
+  ["main, behind 1", "main", () => { const f = fixture(); advance(f.seed, "fix"); return f; }],
+  ["pinned at v1.0.0", "pinned", () => tagged().pin("v1.0.0", false)],
+  ["detached, no release", "pinned", () => { const f = tagged(), s = f.pin("v1.0.0", false); advance(f.seed, "later"); git(s.skill, "fetch", "origin"); git(s.skill, "checkout", "--detach", "origin/main"); return s; }],
+];
+for (const [kind, path_, make] of kinds) for (const r of reads[path_])
+  skillCases.push([`skill ${kind}, git fails${r.trimEnd()}`, () => ({ ...make(), env: { PATH: shim + path.delimiter + process.env.PATH, DALANG_TEST_GIT_FAIL: r } }), "WARN", /could not check.*rerun/, known]);
+// The shim itself changes nothing when no read fails: the same clones keep their known state.
+const passthrough = { PATH: shim + path.delimiter + process.env.PATH, DALANG_TEST_GIT_FAIL: " no-such-read " };
+skillCases.push(["skill pinned at v1.0.0 through the git shim, no read fails", () => ({ ...tagged().pin("v1.0.0", false), env: passthrough }), "WARN", /pinned at v1\.0\.0 \(detached\).*newest release is v1\.1\.0/, /could not/]);
+skillCases.push(["skill detached, no release through the git shim, no read fails", () => ({ ...kinds[2][2](), env: passthrough }), "INFO", /detached at [0-9a-f]{7,} \(not a release tag\)/, /could not/]);
+skillCases.push(["skill main behind 1 through the git shim, no read fails", () => ({ ...kinds[0][2](), env: passthrough }), "WARN", /1 commit behind \(latest: fix\)/, /could not/]);
 for (const [name, setup, status, note, not] of skillCases) {
   const f = setup(), dir = typeof f === "string" ? f : f.skill;
   const { out } = await run(["--check-skill", "--skill-dir", dir], undefined, f.env);
