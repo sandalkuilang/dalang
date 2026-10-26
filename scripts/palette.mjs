@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const SIDE = 64, FIGURE_GROUND = 0.2;
+const SIDE = 64, FIGURE_GROUND = 0.2, MAX_BUFFER = 1024 ** 3;
 
 // OKLab L of an sRGB colour (Björn Ottosson, https://bottosson.github.io/posts/oklab/).
 export function oklchL([r, g, b]) {
@@ -48,6 +48,14 @@ export function top(counts, n = 6) {
 }
 export const dominant = (buf, { step = 16, top: n = 6 } = {}) => top(count(buf, step), n);
 const line = (cs) => cs.map((c) => `${c.hex} ${c.pct.toFixed(1)} % L ${c.L.toFixed(2)}`).join(' · ');
+// What a spawn error means. Only ENOENT says ffmpeg is missing; any other error is an unknown state: say what the
+// code was and to rerun (ENOBUFS: the raw frames passed the buffer, so a larger --every).
+export function spawnProblem(err, every) {
+  const code = err && err.code;
+  if (code === 'ENOENT') return 'ffmpeg not found (not on PATH)';
+  if (code === 'ENOBUFS') return `ffmpeg ran, but its frames passed the ${MAX_BUFFER / 2 ** 30} GiB buffer (ENOBUFS): rerun with a larger --every (now ${every})`;
+  return `ffmpeg could not be run (${code || 'unknown error'}), which does not mean it is missing: rerun, or with a larger --every`;
+}
 const fail = (msg) => { console.error(`FAILED: ${msg}`); process.exit(1); };
 
 function main(argv) {
@@ -71,8 +79,9 @@ function main(argv) {
   if (!existsSync(o.file)) fail(`file not found: ${o.file}`);
   const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', o.file, '-map', '0:v:0', '-vf',
     `fps=1/${o.every},scale=${SIDE}:${SIDE}:flags=area,format=rgb24`, '-f', 'rawvideo', '-'],
-    { maxBuffer: 1024 * 1024 * 1024 });
-  if (r.error) fail('ffmpeg not found');
+    { maxBuffer: MAX_BUFFER });
+  if (r.error) fail(spawnProblem(r.error, o.every));
+  if (r.status === null) fail(`ffmpeg was stopped by signal ${r.signal}; rerun`);
   if (r.status !== 0) fail(`ffmpeg could not read ${o.file}: ${String(r.stderr).trim().split('\n').pop()}`);
   const size = SIDE * SIDE * 3, frames = Math.floor(r.stdout.length / size);
   if (!frames) fail(`no frames decoded from ${o.file}; rerun, or check the file plays`);
