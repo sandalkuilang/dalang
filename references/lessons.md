@@ -63,6 +63,7 @@ Each line is a failure that already happened, tagged with the steps it belongs t
 
 ## Working speed
 - [0,1] **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.
+- [1,6,7] **A 24 fps film for a 30 fps platform looked choppy on a phone:** the platform repeats one frame in four, and rendered 3D has no natural blur, so 24 sharp frames strobe on camera moves and fast bodies. The default fps is the platform's (30); 24 is a chosen film look and then blurs those moves (`brief.md` Call 2, `camera-motion.md` §10).
 - [7] **A 30 fps draft render took 39 min** (the next took under 3): nobody stopped it. A render far slower than the last → stop and look for the cause.
 - [7] **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
 - [8] **The final came out at 30 fps, not the brief's 24:** `hyperframes render` defaults to 30 fps and the Step 8 command passed no `--fps`; `qc.mjs --fps` caught it, after a full re-render. The brief's fps is always passed to every render (`qc.md` §8).
