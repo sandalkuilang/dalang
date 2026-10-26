@@ -115,6 +115,12 @@ try {
   put(contClean, "assets/scene.js", ['const s = "a\\', 'b // c.d = 1;";', "go(); // it's fine"]);
   const kc = run(contClean);
   assert.equal(kc.code, 0, kc.out + kc.err);
+  const crlf = path.join(tmp, "crlf");
+  fs.mkdirSync(path.join(crlf, "assets"), { recursive: true });
+  fs.writeFileSync(path.join(crlf, "assets", "scene.js"), 'const s = "a\\\r\nb // c.d = 1;";\r\nconst t = 1;\r\nobj.position.y = 0.02; // lift it obj.scale.y = 0.04;\r\n');
+  const kw = run(crlf);
+  assert.equal(kw.code, 1, kw.out + kw.err);
+  assert.deepEqual(found(kw.out), ["assets/scene.js:4"], "a CRLF continuation keeps the string open and the count right");
   console.log("ok  a continued string keeps line numbers right and its second line is still string text");
 
   // 3. Nothing to lint is not "OK".
