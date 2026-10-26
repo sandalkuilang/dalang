@@ -87,6 +87,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
   const pairs = [];
   const skip = new Set(["uuid", "id", "type", "name", "userData", "version", "clippingPlanes", "clipShadows", "onBeforeCompile", "customProgramCacheKey", "uniforms", "uniformsGroups"]);
   const sig = (v) => (v && v.isColor ? v.getHex() : v && typeof v.toArray === "function" ? v.toArray().join() : v);
+  const value = (o) => o.isColor || o.isVector2 || o.isVector3 || o.isVector4 || o.isEuler || o.isMatrix3 || o.isQuaternion;
   const props = (m) => Object.keys(m).filter((k) => k[0] !== "_" && !skip.has(k)).concat("alphaTest");
   const snapshot = (m) => { const s = {}; for (const k of props(m)) s[k] = sig(m[k]); return s; };
   const sync = (pr) => {
@@ -96,7 +97,9 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
       if (snap[k] === g) continue;
       snap[k] = g;
       if (k === "side" && pr.both) continue; // a shell part's clone is double-sided
-      if (v && clone[k] && typeof clone[k].copy === "function" && !!v.isColor === !!clone[k].isColor) clone[k].copy(v); else clone[k] = v;
+      // A value object (colour, vector) is the clone's own: copy into it. Anything else (a texture above all) is the very
+      // object the original, the other materials and the set share: point the clone at the new one, never write into it.
+      if (v && clone[k] && clone[k] !== v && value(clone[k]) && value(v) && clone[k].constructor === v.constructor) clone[k].copy(v); else clone[k] = v;
     }
     if (orig.version !== pr.version) { pr.version = orig.version; clone.needsUpdate = true; }
   };
