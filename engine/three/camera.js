@@ -62,8 +62,9 @@ export function frame(target, { fov = 30, aspect = 16 / 9, azimuth = 45, elevati
 
 // travel(t, from, to, { start, dur, ease, lift, over, clear }): the pose between two stations at time t, a pure
 // function of t. The position follows a quadratic Bezier whose middle rises `h`: by default a quarter of the chord;
-// `lift` (metres) sets it (0 is a straight push); `over` (an Object3D or Box3) raises it until the middle clears the
-// object's top by `clear` metres (default 10 cm). The target and fov blend on the eased u. Returns
+// `lift` (metres) sets it (0 is a straight push); `over` (a Box3: the set's box, or the envelope of a moving part's
+// travel) raises it until the middle clears its top by `clear` metres (default 10 cm). A Box3 and not an object, so the
+// path never follows whatever posed the world last. The target and fov blend on the eased u. Returns
 // { u, position, target, fov, speed } with speed in m/s (0 outside the leg). Before `start` the pose is `from`, after
 // the leg it is `to` exactly. ease: "linear", "inOut" (default), "in", "out", or a function u -> u.
 export function travel(t, from, to, { start = 0, dur, ease = "inOut", lift, over, clear = 0.1 } = {}) {
@@ -76,14 +77,12 @@ export function travel(t, from, to, { start = 0, dur, ease = "inOut", lift, over
   const p0 = from.position, p2 = to.position, mid = p0.clone().add(p2).multiplyScalar(0.5);
   let h = lift !== undefined ? lift / M : 0.25 * p0.distanceTo(p2);
   if (over) {
-    if (!over.isBox3 && !over.isObject3D) throw new Error("travel(): over is an Object3D or a Box3");
-    if (over.isObject3D) over.updateWorldMatrix(true, true);
-    const b = over.isBox3 ? over : new THREE.Box3().setFromObject(over);
-    if (!b.isEmpty()) h = Math.max(h, b.max.y + clear / M - mid.y);
+    if (!over.isBox3) throw new Error("travel(): over is a Box3 (new THREE.Box3().setFromObject(world), or the envelope of a moving part's travel); an Object3D's box would follow the world's pose and the path would stop being a function of t. route() takes an Object3D and measures it once, when the route is built");
+    if (!over.isEmpty()) h = Math.max(h, over.max.y + clear / M - mid.y);
   }
   const p1 = mid.clone(); p1.y += 2 * h; // a quadratic Bezier's middle rises half its control point's offset
   const at = (x) => {
-    const u = f(Math.min(1, Math.max(0, (x - start) / dur)));
+    const raw = Math.min(1, Math.max(0, (x - start) / dur)), u = raw <= 0 ? 0 : raw >= 1 ? 1 : f(raw); // the ends are the stations themselves, whatever a custom ease returns at 0 and 1
     if (u === 1) return { u, position: p2.clone(), target: to.target.clone(), fov: to.fov }; // exactly the station: no drift, so a loop closes
     const a = (1 - u) ** 2, b = 2 * u * (1 - u), c = u * u;
     return { u, position: new THREE.Vector3().addScaledVector(p0, a).addScaledVector(p1, b).addScaledVector(p2, c), target: from.target.clone().lerp(to.target, u), fov: from.fov + (to.fov - from.fov) * u };
@@ -99,19 +98,28 @@ export function travel(t, from, to, { start = 0, dur, ease = "inOut", lift, over
 
 // route(st, legs): a film's whole camera path. legs: [{ to, start, dur, ease, lift, over, clear }] in time order;
 // each leg leaves from the one before's `to` (the first from `home`), and may not start before it ends (a leg cannot
-// jump: that would be a cut). Returns { legs, end, at(t) }. at(t): holds `home` before the first leg and each
+// jump: that would be a cut). A leg's `over` (an Object3D or a Box3) is measured once, when the route is built. Returns { legs, end, at(t) }. at(t): holds `home` before the first leg and each
 // station after its leg. The pose carries `leg` (the leg in flight, else the last one finished; -1 before the first)
 // and `station` (its name while holding, null in flight).
 export function route(st, legs) {
   if (!st || !st.home) throw new Error("route() needs stations() made with a home");
   if (!Array.isArray(legs)) throw new Error("route(): legs is an array of { to, start, dur }");
   const out = []; let from = "home", free = -Infinity;
+  // `over` as an Object3D is measured ONCE, here, so the path stays a function of t when a part of the set moves later
+  // (a lid opening, a ball bouncing): it is the set as it stands when the route is built (pose it first, or pass a Box3
+  // covering the motion).
+  const snap = (over) => {
+    if (!over) return over;
+    if (over.isBox3) return over.clone();
+    if (over.isObject3D) { over.updateWorldMatrix(true, true); return new THREE.Box3().setFromObject(over); }
+    throw new Error("route(): over is an Object3D or a Box3");
+  };
   legs.forEach((l, i) => {
     if (!l || !Object.hasOwn(st, l.to)) throw new Error("route(): leg " + i + ' goes to "' + l?.to + '", not a station (' + Object.keys(st).join(", ") + ")");
     if (!num(l.start)) throw new Error("route(): leg " + i + " needs a start time (seconds)");
     if (!(num(l.dur) && l.dur > 0)) throw new Error("route(): leg " + i + " needs dur > 0 seconds");
     if (l.start < free - 1e-9) throw new Error("route(): leg " + i + " starts at " + l.start + " s, before the leg before it ends at " + free + " s; a leg cannot jump (that is a cut)");
-    out.push({ ...l, from, end: l.start + l.dur });
+    out.push({ ...l, over: snap(l.over), from, end: l.start + l.dur });
     from = l.to; free = l.start + l.dur;
   });
   const opts = (l) => ({ start: l.start, dur: l.dur, ease: l.ease, lift: l.lift, over: l.over, clear: l.clear });
@@ -169,8 +177,8 @@ const objects = (s) => {
 // parts (`userData.cutaway`: caps and stencils keep their colour). A material without a `.color` (a ShaderMaterial:
 // particles, water) is left as it is and listed once in `skipped`. Ghosted meshes still cast their shadow.
 // at(t): once per frame, AFTER every other at() (cut.at(t) included: the frame order is cut, then attention) and
-// before the render. It swaps each ghosted mesh's material for a ghost of it, made once per original material and
-// repainted from the original every frame (a set that animates a colour still shows through), and, at weight 0, puts
+// before the render. It swaps each ghosted mesh's material for a ghost of it, made once per mesh and original material
+// (two parts on one shared material fade at their own weights) and repainted from the original every frame (a set that animates a colour still shows through), and, at weight 0, puts
 // the ORIGINAL object back (the same reference, never a copy). A set that swaps in a new material while a mesh is not
 // ghosted is picked up. Make a cutaway before the first at(): the cut clones the materials it finds, and a ghost it
 // finds first would be read as the part's own transparent material (no cap).
@@ -181,7 +189,7 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
   if (!(num(dur) && dur > 0)) throw new Error("attend(): dur must be greater than 0 seconds");
   if (!(num(edge) && edge >= 0)) throw new Error("attend(): edge is 0 (off) or a positive strength");
   const keepSet = new Set([].concat(keep).length ? objects(keep) : []); // nothing kept is allowed
-  const keys = [], ghosts = new Map(), origOf = new WeakMap(), skipped = [], skippedSeen = new Set(), hsl = {};
+  const keys = [], ghosts = new WeakMap(), origOf = new WeakMap(), skipped = [], skippedSeen = new Set(), hsl = {};
   const key = (k) => { const i = keys.findIndex((x) => x.t === k.t); if (i >= 0) keys[i] = k; else keys.push(k); keys.sort((a, b) => a.t - b.t); };
   const within = (o, set) => { for (let x = o; x; x = x.parent) if (set.has(x)) return true; return false; };
   const kept = (o) => { for (let x = o; x; x = x.parent) if (keepSet.has(x) || x.userData.attend === false || x.userData.cutaway) return true; return false; };
@@ -240,8 +248,9 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
             if (!skippedSeen.has(orig)) { skippedSeen.add(orig); skipped.push((o.name || o.type) + ": " + (orig.name || orig.type) + " has no .color, left as it is"); }
             return orig;
           }
-          if (!ghosts.has(orig)) ghosts.set(orig, make(orig));
-          const gm = ghosts.get(orig);
+          let mine = ghosts.get(o); if (!mine) ghosts.set(o, mine = new Map());
+          if (!mine.has(orig)) mine.set(orig, make(orig)); // one ghost per mesh and material: parts sharing a material sit at different weights
+          const gm = mine.get(orig);
           paint(gm, orig, w);
           return gm.g;
         };
