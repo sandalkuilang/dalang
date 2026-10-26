@@ -359,6 +359,35 @@ try {
     for (const code of ['tl.to("#title", { opacity: 1 }, 0)', "const volumes = 1; const mutedColor = 2; gains(); fxx();", 'fetch("https://x.test/a")']) assert.equal(scriptOf(code), null, code);
     assert.equal(q.scriptProblem([{ attrs: { type: "application/json" }, text: '{"volume": 1}' }], ".", none), null, "a JSON block is data, not a script");
     assert.match(q.scriptProblem([{ attrs: { src: "js/a.js" }, text: "" }], "/p", () => ({ text: "export const f = () => { gain(0); };" })) || "", /may change the mix/, "a local script file is read");
+    // modules the page loads in ways other than a quoted relative specifier: an import map, a template-literal or computed dynamic import
+    {
+      const files = { "/p/js/duck.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });", "/p/js/ok.js": "export const f = () => 1;", "/p/js/lib/x.js": "gain(0);" };
+      const rd = (p) => (p in files ? { text: files[p] } : { why: "not found" });
+      const imap = (o) => ({ attrs: { type: "importmap" }, text: typeof o === "string" ? o : JSON.stringify(o) });
+      const mod = (text) => ({ attrs: { type: "module" }, text });
+      const run1 = (...scripts) => q.scriptProblem(scripts, "/p", rd);
+      const mixed = /may change the mix/;
+      assert.match(run1(imap({ imports: { duck: "./js/duck.js" } }), mod('import { duck } from "duck"; duck();')) || "", mixed, "a bare specifier an import map maps to a local file is read");
+      assert.match(run1(imap({ imports: { duck: "/js/duck.js" } }), mod('import "duck";')) || "", mixed, "an import map target with a leading slash");
+      assert.match(run1(mod('import "duck";'), imap({ imports: { duck: "./js/duck.js" } })) || "", mixed, "the import map may come after the module script");
+      assert.match(run1(imap({ imports: { "lib/": "./js/lib/" } }), mod('import "lib/x.js";')) || "", mixed, "a prefix key of the import map");
+      assert.match(run1(imap({ scopes: { "./js/": { duck: "./js/duck.js" } } }), mod('import "duck";')) || "", mixed, "a scoped import map entry");
+      assert.match(run1(imap({ imports: { duck: "./js/gone.js" } }), mod('import "duck";')) || "", /could not be read/, "an import map target that cannot be read");
+      assert.match(run1(imap("{ not json"), mod('import "duck";')) || "", /import map/, "an import map that does not parse is unknown");
+      assert.match(run1(imap({ imports: { duck: "./js/duck.js" } }), mod('import "other";'), { attrs: { src: "js/x.js" }, text: "" }) || "", /could not be read/, "other scripts are still read");
+      assert.match(run1(mod("await import(`./js/duck.js`);")) || "", mixed, "a dynamic import with a template literal");
+      assert.match(run1(mod("await import( `/js/duck.js` );")) || "", mixed, "a dynamic import with a template literal and spaces");
+      assert.match(run1(mod("const n = 'duck'; await import(`./js/${n}.js`);")) || "", /import\(/, "a template literal with a substitution cannot be resolved");
+      assert.match(run1(mod("await import(name);")) || "", /import\(/, "a dynamic import with a computed specifier cannot be resolved");
+      assert.match(run1(mod("await import('./js/' + n);")) || "", /import\(/, "a concatenated specifier cannot be resolved");
+      // the other side
+      assert.equal(run1(imap({ imports: { duck: "./js/ok.js" } }), mod('import { f } from "duck"; f();')), null, "an import map to a local file with no mix word");
+      assert.equal(run1(imap({ imports: { three: "https://cdn.example.test/three.module.js", "d3/": "https://cdn.example.test/d3/" } }), mod('import * as T from "three"; import "d3/x.js";')), null, "an import map to a remote library is not read");
+      assert.equal(run1(imap({ imports: { duck: "./js/duck.js" } }), mod('import { f } from "./js/ok.js";')), null, "a mapped file that nothing imports is not read");
+      assert.equal(run1(mod('import * as T from "three";')), null, "a bare import with no import map entry is a vendor module, not read");
+      assert.equal(run1(mod("await import(`./js/ok.js`); await import('https://cdn.example.test/x.js'); await import(`https://cdn.example.test/x.js`);")), null, "dynamic imports of a clean local module and of remote ones");
+      assert.equal(run1(imap({ imports: {} }), mod("const m = import.meta.url; // important (volumes)")), null, "import.meta and a word that merely contains import");
+    }
     console.log("ok  the class rule: an attribute outside the inventory, a hidden or <template> ancestor, a lane or a script volume the check does not model = not modelled; inert ones pass");
   }
 
@@ -751,6 +780,9 @@ try {
         ["c-tween", `${music()}<script>tl.to("#music-a", { volume: 0.02 }, 1);</script>`, {}, "an inline script tweens the volume"],
         ["c-script-file", `${music()}<script src="js/duck.js"></script>`, { "js/duck.js": 'document.getElementById("music-a").volume = 0.02;\n' }, "a local script sets the volume"],
         ["c-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { duck } from "./b.js";\nduck();\n', "js/b.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "an imported module tweens the volume"],
+        ["c-importmap", `${music()}<script type="importmap">{"imports":{"duck":"./js/duck.js"}}</script><script type="module">import { duck } from "duck"; duck();</script>`, { "js/duck.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "a module an import map maps a bare name to"],
+        ["c-dyn-template", `${music()}<script type="module">await import(\`./js/duck.js\`);</script>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "a dynamic import with a template literal"],
+        ["c-dyn-computed", `${music()}<script type="module">const n = "duck"; await import(\`./js/\${n}.js\`);</script>`, { "js/duck.js": "gsap.to('#music-a', { volume: 0 });\n" }, "a dynamic import whose specifier is computed"],
         ["c-dup-volume", music('data-volume="0.01" data-volume="1"'), {}, "a duplicated data-volume (the first is read, but a duplicate is not modelled)"],
         ["c-dup-bus", `<hf-audio-group id="mb" data-volume="1" data-volume="0.01"></hf-audio-group>${music('data-audio-group="mb"')}`, {}, "a bus with a duplicated attribute"],
         ["c-shorthand", `${music()}<script>const { volume } = cfg; duck(volume);</script>`, {}, "a script that passes volume on as a shorthand"],
@@ -765,6 +797,7 @@ try {
       ok(run(make("k-bus-inert", `<hf-audio-group id="mb" data-volume="1" data-label="Music"></hf-audio-group>${music('data-audio-group="mb"')}`)), "a bus with a label");
       ok(run(make("k-script", `${music()}<script>// the lane carries the ducking\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script without a mix token (volume, muted, playbackRate, gain, fx), a JSON block, a remote library");
       ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
+      ok(run(make("k-importmap", `${music()}<script type="importmap">{"imports":{"duck":"./js/ok.js","three":"https://cdn.example.test/three.module.js"}}</script><script type="module">import { f } from "duck"; import * as T from "three"; await import(\`./js/ok.js\`);</script>`, { "js/ok.js": "export const f = () => gsap.to('#title', { y: 10 });\n" })), "an import map to a clean local module and a remote library");
       // the DALANG engine copy (listed by the .engine.json beside it) is a vendored library, like a remote script: not read; a file it does not list is read
       const engineImport = `${music()}<script type="module">import { dust } from "./assets/kit.js";</script>`, engineFile = { "assets/kit.js": "// motes fill a volume\nexport const dust = 1;\n" };
       ok(run(make("k-engine", engineImport, { ...engineFile, "assets/.engine.json": JSON.stringify([{ file: "kit.js", licence: "MIT" }]) })), "an engine file listed in .engine.json is a library, not read");
