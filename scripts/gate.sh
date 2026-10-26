@@ -24,6 +24,7 @@ if [ $fast -eq 0 ]; then
   step "preflight vs mock VoiceStudio" node tests/preflight-mock.mjs
   step "voice model + licence cross-check" node tests/voice-licence.mjs
   step "review strips (storyboard -> sheets + index)" node tests/strips.mjs
+  step "save-profile cut vs mock VoiceStudio" node tests/save-profile.mjs
 fi
 
 echo "Gate summary ($([ $fast -eq 1 ] && echo fast || echo merge))"
