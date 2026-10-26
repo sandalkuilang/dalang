@@ -322,7 +322,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         const j = jumps[i]?.get(k), before = at[i];
         at[i] = centre(i, pose(i)); from[i] = j ? centre(i, j) : before || at[i];
         const len = (run[i][k * 2] + run[i][k * 2 + 1] * lever[i]) * dt, se = Math.hypot(at[i][0] - from[i][0], at[i][1] - from[i][1], at[i][2] - from[i][2]);
-        if (k && !(Math.max(len, se) <= fast)) throw new Error(`opts.islands: "${tracked[i].name}" moves ${(Math.max(len, se) * mpu * 1000).toFixed(1)} mm in one step at ${when}: over 10 mm a step, a body can move inside a step in ways the island proof cannot see. Islands are for sets that settle slowly: bake this one as one world (drop opts.islands)`);
+        if (k && !(Math.max(len, se) <= fast)) throw new Error(`opts.islands: "${tracked[i].name}" moves ${(Math.max(len, se) * mpu * 1000).toFixed(2)} mm in one step at ${when}: over 10 mm a step, a body can move inside a step in ways the island proof cannot see. Islands are for sets that settle slowly: bake this one as one world (drop opts.islands)`);
         bend[i] = k ? Math.max(len, len > se ? Math.sqrt(len * len - se * se) / 2 : 0) : 0; // len too: a thin collider's CCD can bounce it inside even a slow step
         const ki = isle[i], r = sp[i].r + bend[i] + margin, w = from[i];
         for (let a = 0; a < 3; a++) { lo[ki][a] = Math.min(lo[ki][a], at[i][a] - r, w[a] - r); hi[ki][a] = Math.max(hi[ki][a], at[i][a] + r, w[a] + r); }

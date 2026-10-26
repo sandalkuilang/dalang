@@ -108,7 +108,7 @@ here with a line in this table. Air is one shared field: every source adds into 
    Set such a change up before the bake, or leave the bodies it touches out of `islands`. A worker that cannot start falls back
    to this thread (a warning, same result, no gain). Gain: the slowest island's time, not the sum. Islands are for sets
    that settle slowly (stacks, props, pieces dropped or nudged): a body moving over 10 mm in one step (about 4.8 m/s at
-   480 Hz, spin included) refuses the island bake, since inside a step Rapier's CCD can stop a fast body and pass a hit
+   480 Hz, spin included: a free fall of about 1.2 m, a throw, a piece dropped from above the frame) refuses the island bake, since inside a step Rapier's CCD can stop a fast body and pass a hit
    on in ways no recorded pose shows. Bake such a set as one world.
 5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
