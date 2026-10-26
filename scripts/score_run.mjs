@@ -2,6 +2,7 @@
 // Scorecard of one finished (or drafted) video project — the measurable part of an eval run.
 // Run it on each golden brief (references/evals.md) after changing the skill, and compare.
 //
+// Reads review/quiz-result.md (sound-off quiz) into quiz_score / quiz_pct.
 // Usage: node score_run.mjs <project dir> [--json]
 
 import { spawnSync } from 'node:child_process';
@@ -41,6 +42,22 @@ const review = read('QC-REVIEW.md');
 // Open items only: a line marked FIXED is done.
 const open = tag => review.split('\n').filter(l => new RegExp(`\\b${tag}\\b`).test(l) && !/FIXED/.test(l)).length;
 if (review) Object.assign(s, { review_p0: open('P0'), review_p1: open('P1') });
+// Sound-off quiz (references/review.md): one numbered row per question, the verdict the last cell. Unknown is an error, never 0 or perfect.
+const quiz = read('review/quiz-result.md');
+if (quiz) {
+  const verdicts = quiz.split('\n').filter(l => /^\|\s*\d+\s*\|/.test(l))
+    .map(l => (l.split('|').map(c => c.replace(/[*`\s]+/g, ' ').trim().toLowerCase()).filter(Boolean).pop() || ''));
+  const known = { correct: 'correct', 'partly correct': 'partly', partly: 'partly', wrong: 'wrong' };
+  const n = v => verdicts.filter(x => known[x] === v).length;
+  s.quiz_questions = verdicts.length;
+  if (!verdicts.length || verdicts.some(x => !known[x])) {
+    s.quiz_score = 'error';
+    console.error('WARN: review/quiz-result.md: no rows or an unrecognised verdict (correct / partly correct / wrong); rerun the quiz');
+  } else {
+    const score = n('correct') + 0.5 * n('partly');
+    Object.assign(s, { quiz_correct: n('correct'), quiz_partly: n('partly'), quiz_wrong: n('wrong'), quiz_score: score, quiz_pct: Math.round(score / verdicts.length * 100) });
+  }
+}
 // Wall time and logged problems from PRODUCTION.md ("HH:MM–HH:MM | step | output | problems").
 const prod = read('PRODUCTION.md');
 if (prod) {
