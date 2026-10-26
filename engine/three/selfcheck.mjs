@@ -1423,6 +1423,15 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     }
     assert.throws(() => zFight(set2(quad("decal")), { cameras: near, heightPx: 0 }), /heightPx/);
   }
+  for (const bad of [NaN, 0, Infinity, -1, "1"]) {
+    const c = cam(200, 10, 10000); c.aspect = bad;
+    assert.throws(() => zFight(set(quad("decal")), { cameras: c }), /aspect/, "a camera whose aspect is " + bad + " is refused, not read as a pass");
+  }
+  { // looked at but edge-on: the depth cannot be computed, so the pair is unseen, never passed in no bucket
+    const edge = cam(300, 10, 10000, Math.PI / 2); edge.position.set(300, 0, 0); edge.updateMatrixWorld(true);
+    const e = zFight(set(quad("decal")), { cameras: edge });
+    assert.deepEqual([e.pairs.length, e.unseen, e.mitigated], [0, 1, 0], "an edge-on view cannot decide the pair: unseen " + JSON.stringify(e));
+  }
   assert.throws(() => zFight(set(quad("d")), {}), /cameras/);
   assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
 }
