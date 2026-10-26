@@ -34,7 +34,7 @@ flowchart TD
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
 | 1 Brief | `BRIEF.md` | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
-| 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged | **1** |
+| 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md`, `style-frames/` (3 stills) | **3** |
 | 6 Build | HyperFrames composition; every time = `BEATS.<name>.start` | — |

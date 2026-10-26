@@ -67,6 +67,7 @@ const VD_CINEMA = of('visual-direction.md', '## 6. Cinematography');
 const THREEJS = of('looks.md', '### Install the engine into the project', '### Light and material per look', '### Set dressing, real scale, interior style, condition', '### True shapes and true surfaces');
 const VD_HERO = of('visual-direction.md', '## 1. The hero is real (the realism ladder)', '### 1.1 Per subject and source: machines, sourcing, stills, people, checks');
 const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
+const NUMBERS_MODEL = of('script-voice.md', '### Numbers model (model.mjs → numbers.json)');
 const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
 const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO], sub: [] },
@@ -76,7 +77,7 @@ const READING = {
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
-  3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [], sub: [] },
+  3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: NUMBERS_MODEL, sub: [] },
   4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: of('voice.md', '### Clone (VoiceStudio, free, local)'), sub: [] },
   5: {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: [],
@@ -96,7 +97,7 @@ const READING = {
   6: {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
-      ...THREEJS, ...ASSET_PASS, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS,...of('craft-rules.md', '## 6. On-screen text'),
+      ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS,...of('craft-rules.md', '## 6. On-screen text'),
       ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },
