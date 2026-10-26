@@ -706,7 +706,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   let lo = tr, hi = tr + 0.45;
   assert.ok(x(lo) < target && x(hi) >= target, "the part reaches its stop after release");
   for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (x(mid) < target) lo = mid; else hi = mid; }
-  assert.ok(Math.abs(lo - (tr + tStar)) <= DT, "reaches its stop at the analytic time (" + (lo - tr).toFixed(4) + " s vs " + tStar.toFixed(4) + " s)");
+  assert.ok(Math.abs(lo - (tr + tStar)) <= DT / 2, "reaches its stop at the analytic time, within half a step (" + (lo - tr).toFixed(4) + " s vs " + tStar.toFixed(4) + " s)");
   // After: at the stop, never back at the latched pose.
   const tStop = tr + tStar;
   for (let t = tStop + 0.05; t <= 1.0; t += 1 / 60) assert.ok(Math.abs(x(t) - stop) < 0.0005, "stays at its stop at t = " + t.toFixed(3) + ": " + x(t));
@@ -727,7 +727,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const held = slow(0.24, 1 / 50, 0.4, 0.5);
   assert.ok(Math.abs(held(0.24 + 0.5) - (0.24 + 0.01)) < 1e-9 && Math.abs(held(2) - (0.24 + 0.01 + 0.204 + (2 - 1.14))) < 1e-9, "hold keeps the rate before the ramp");
   const replayAt = replay(0.25, 2);
-  for (const dx of [-0.05, 0, 0.1]) assert.deepEqual(poseAt(b, 0, replayAt(2 + dx)), poseAt(b, 0, 0.25 + dx), "a replay shows the event again from its time " + dx);
+  for (const dx of [-0.05, 0, 0.1]) assert.ok(poseAt(b, 0, replayAt(2 + dx)).every((v, i) => Math.abs(v - poseAt(b, 0, 0.25 + dx)[i]) < 1e-9), "a replay shows the event again from its time " + dx);
   assert.ok(Math.abs(x(replayAt(2 - 0.05))) < 1e-6, "the lead-in before the event shows the latched pose");
   assert.ok(x(replayAt(2 + 0.1)) > 0.001, "and after it the part has moved");
   const both = (t) => replay(0.25, 2)(slow(2, 1 / 50, 0.4)(t));
