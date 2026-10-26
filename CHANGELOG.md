@@ -39,6 +39,14 @@ that reads as:
   over the energy's limit (Calm 10 %, Modern balanced 15 %, Punchy social 25 %; a heuristic) and an average shot over
   the energy's limit (`visual-direction.md` §3). Exit 1 = a flag, 2 = cannot check (WARN, never OK), 0 = OK. Test:
   `tests/storyboard-lint.mjs`, in the merge gate.
+- **Choice-explainer arc** (`script-voice.md` "Arc templates"): the eight beats of a "which size, plan or option to
+  pick" film (hook with an open loop, the misread unit, a unit ladder, a rule applied to the viewer's own case with
+  one adjustment per condition, both failure modes by physical cause, a payoff that answers the hook, the decision as
+  conditions, a reframe that returns to the first frame). Step 3 gains the spoken-number habits (round in speech and
+  exact on screen, one number per clause, every number with its comparison, the viewer's case before the general
+  rule) and a Gate 1 check for any arc: the hook's question is answered by a named beat, the last line restates the
+  core reframe, each number has its comparison. Brief Step 1 gains an optional series sign-off (`signoff` in
+  `BRIEF.md`: from the request, never invented), said once after the hook. `evals.md` gains a golden brief for it.
 - **Failure-explainer arc** (`script-voice.md` "Arc templates"): the seven beats of a "why does X break" film (cold
   open with a quoted verdict, follow the path, a thesis with N enemies, N enemies each built as name → mechanism →
   one tagged number → visible cause, cost asymmetry, checklist, bookend), with its Gate 1 checks (every enemy has its
