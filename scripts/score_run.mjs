@@ -43,8 +43,9 @@ const review = read('QC-REVIEW.md');
 const open = tag => review.split('\n').filter(l => new RegExp(`\\b${tag}\\b`).test(l) && !/FIXED/.test(l)).length;
 if (review) Object.assign(s, { review_p0: open('P0'), review_p1: open('P1') });
 // Sound-off quiz (references/review.md): one numbered row per question, the verdict the last cell. Unknown is an error, never 0 or perfect.
-const quiz = read('review/quiz-result.md');
-if (quiz) {
+// A file that exists but is empty or unreadable is a started quiz without a result: error, never "no quiz".
+const quiz = existsSync(path.join(dir, 'review/quiz-result.md')) ? (read('review/quiz-result.md') ?? '') : null;
+if (quiz !== null) {
   const verdicts = quiz.split('\n').filter(l => /^\|\s*\d+\s*\|/.test(l))
     .map(l => (l.split('|').map(c => c.replace(/[*`\s]+/g, ' ').trim().toLowerCase()).filter(Boolean).pop() || ''));
   const known = { correct: 'correct', 'partly correct': 'partly', partly: 'partly', wrong: 'wrong' };
