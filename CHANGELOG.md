@@ -55,7 +55,8 @@ that reads as:
   files, paths outside the project and symlinks. `apply <name> [project]` copies the files, pre-fills `BRIEF.md` (`series` plus
   the kit's lines it does not already have) and prints the Channel rules; a differing file needs `--force`, and a scene module is
   never copied, even from a hand-edited kit. `note <name> "<rule>"` records channel-level feedback in `SERIES.md`, not in the user's
-  private memory. `list` that cannot read the kit folder is WARN (exit 2), never "no series". Brief Step 1 asks "Which series?"
+  private memory. Every subcommand reads the file system through one choke point: anything it cannot read (a locked
+  folder, a file it may not open) is WARN + rerun (exit 2), never "no series", "not found", "0 files" or a refusal. Brief Step 1 asks "Which series?"
   first when kits exist; a video outside a series still carries nothing over. Test: `tests/series.mjs`, in the merge gate.
 - **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
   reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
