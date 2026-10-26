@@ -2,19 +2,35 @@
 // Scene lint: a `//` comment written in the middle of a line turns the rest of that line into comment text. The file
 // stays valid JavaScript, so `node --check` passes, and the swallowed scale, shadow setting, `add` or comma ships.
 // Scans the film's own code: assets/**/*.js|mjs, src/** and style-frames/src/** (.html: only <script> content), never a
-// folder with .engine.json (the engine copy, engine/three/build.mjs), node_modules or *.min.js.
+// file that a .engine.json lists (the engine copy, engine/three/build.mjs: it installs straight into assets/, beside
+// the film's own modules), node_modules or *.min.js.
 // Usage: node lint_scene.mjs [project|file ...]   (default: .)
 // Exit 1 when a comment swallows code (file:line + the swallowed text), 2 when nothing could be linted or a file could
 // not be read (rerun), 0 when clean.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const warns = [], problems = [];
+const warns = [], problems = [], engine = new Set();
 const isScene = p => /\.(m?js|html?)$/i.test(p) && !/\.min\.js$/i.test(p);
+// An engine build lists the files it wrote ("/" paths relative to the manifest's folder): those are not this film's
+// code. The folder is still walked: the film's own modules sit beside them. A row that leaves the folder or a manifest
+// that cannot be read hides nothing (WARN, exit 2).
+const readManifest = d => {
+  const m = path.join(d, '.engine.json');
+  try {
+    const rows = JSON.parse(readFileSync(m, 'utf8'));
+    if (!Array.isArray(rows)) throw new Error('not a list');
+    for (const r of rows) {
+      const abs = typeof r?.file === 'string' ? path.resolve(d, r.file) : null, up = abs && path.relative(d, abs);
+      if (!abs || !up || up === '..' || up.startsWith('..' + path.sep) || path.isAbsolute(up)) warns.push(`${m}: a row's file is missing or outside its folder, so it hides nothing — rebuild the engine`);
+      else engine.add(abs);
+    }
+  } catch { warns.push(`${m}: unreadable engine manifest, so its folder is linted whole — rebuild the engine`); }
+};
 const walk = d => {
   let names;
   try { names = readdirSync(d); } catch (e) { if (e.code !== 'ENOENT') warns.push(`${d}: cannot read (${e.code}) — rerun`); return []; }
-  if (names.includes('.engine.json')) return []; // an engine build: not this film's code
+  if (names.includes('.engine.json')) readManifest(d);
   return names.filter(n => n !== 'node_modules').flatMap(n => {
     const p = path.join(d, n);
     try { return statSync(p).isDirectory() ? walk(p) : isScene(p) ? [p] : []; }
@@ -37,7 +53,12 @@ function comments(src, html) {
       continue;
     }
     if (st === 'block') { if (c === '*' && n === '/') { st = 'code'; i++; } continue; }
-    if (c === '\\') { i++; continue; }                 // an escape, in a string or a regex (`/\/\//`)
+    if (c === '\\') {                                  // an escape, in a string or a regex (`/\/\//`)
+      i++;
+      if (n === '\r' && src[i + 1] === '\n') i++;      // CRLF
+      if (src[i] === '\n') { line++; lineStart = i + 1; } // a line continuation: the string goes on, the line count must too
+      continue;
+    }
     if (st !== 'code') { if (c === st) st = 'code'; continue; }
     if (html && c === '<' && /^<\/script/i.test(src.slice(i, i + 8))) { st = 'html'; continue; }
     if (c === "'" || c === '"' || c === '`') { st = c; continue; }
@@ -83,7 +104,7 @@ for (const t of targets) {
     continue;
   }
   if (st.isDirectory()) {
-    const found = ['assets', 'src', path.join('style-frames', 'src')].flatMap(r => walk(path.join(t, r)));
+    const found = ['assets', 'src', path.join('style-frames', 'src')].flatMap(r => walk(path.join(t, r))).filter(p => !engine.has(path.resolve(p)));
     if (!found.length && !warns.length) console.error(`No scene files in ${t} (assets/, src/, style-frames/src/).`);
     files.push(...found);
   } else files.push(t);
