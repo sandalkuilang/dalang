@@ -2,13 +2,14 @@
 // node tests/preflight-mock.mjs — preflight's VoiceStudio checks against a mock backend, one per case, in parallel.
 // Each case pins the state preflight must report and the fix its `Voice:` line carries: a busy, unreadable or
 // refusing backend is never read as missing, a model selected by bare name is found, odd replies stay WARN.
+// The skill-clone check runs against fixture clones and remotes (behind, ahead, diverged, dirty, offline).
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const preflight = fileURLToPath(new URL("../scripts/preflight.mjs", import.meta.url));
@@ -94,6 +95,40 @@ for (const [args, why] of [[["--vs-url"], "missing URL"], [["--vs-url=foo"], "in
   const { code, out } = await run(args);
   if (code !== 2 || !/--vs-url needs a URL/.test(out)) failures.push(`✗ --vs-url with a ${why}: exit ${code}\n    ${out.trim()}`);
 }
+// The skill's own clone: a fixture remote and clone per case; the check fetches, reads counts and never pulls.
+const git = (cwd, ...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...a], { cwd, stdio: "pipe" }).toString().trim();
+let fx = 0;
+function fixture() {
+  const base = path.join(tmp, `fx${fx++}`), remote = path.join(base, "origin.git"), seed = path.join(base, "seed"), skill = path.join(base, "skill");
+  fs.mkdirSync(seed, { recursive: true });
+  git(base, "init", "--bare", "-b", "main", remote);
+  git(seed, "init", "-b", "main"); fs.writeFileSync(path.join(seed, "a.txt"), "1\n"); git(seed, "add", "."); git(seed, "commit", "-m", "first");
+  git(seed, "remote", "add", "origin", remote); git(seed, "push", "-u", "origin", "main");
+  git(base, "clone", "-b", "main", remote, skill);
+  return { seed, skill, remote };
+}
+const advance = (dir, subject, push = true) => { fs.appendFileSync(path.join(dir, "a.txt"), subject + "\n"); git(dir, "commit", "-am", subject); if (push) git(dir, "push", "origin", "main"); };
+const skillCases = [
+  ["skill up to date", () => fixture().skill, "OK", /^up to date with origin\/main/],
+  ["skill behind 2, never pulls", () => { const f = fixture(); advance(f.seed, "first fix"); advance(f.seed, "second fix"); f.head = git(f.skill, "rev-parse", "HEAD"); return f; }, "WARN", /2 commits behind \(latest: second fix\).*pull --ff-only/],
+  ["skill behind 1", () => { const f = fixture(); advance(f.seed, "only fix"); return f.skill; }, "WARN", /1 commit behind \(latest: only fix\)/, /1 commits/],
+  ["skill remote unreachable", () => { const f = fixture(); git(f.skill, "remote", "set-url", "origin", path.join(tmp, "does-not-exist.git")); return f.skill; }, "WARN", /could not check.*rerun/],
+  ["skill dirty and behind", () => { const f = fixture(); advance(f.seed, "fix"); fs.appendFileSync(path.join(f.skill, "a.txt"), "local\n"); return f.skill; }, "WARN", /uncommitted/, /pull --ff-only/],
+  ["skill diverged", () => { const f = fixture(); advance(f.seed, "remote fix"); advance(f.skill, "local work", false); return f.skill; }, "WARN", /diverged: 1 commit behind and 1 ahead/, /pull --ff-only/],
+  ["skill ahead only", () => { const f = fixture(); advance(f.skill, "local work", false); return f.skill; }, "INFO", /1 commit ahead of origin\/main/],
+  ["skill not a git clone", () => { const d = path.join(tmp, "plain"); fs.mkdirSync(d); return d; }, "INFO", /not a git clone/],
+];
+for (const [name, setup, status, note, not] of skillCases) {
+  const f = setup(), dir = typeof f === "string" ? f : f.skill;
+  const { out } = await run(["--check-skill", "--skill-dir", dir]);
+  try {
+    const row = parse(out).rows["DALANG skill"];
+    assert.equal(row?.status, status, "status");
+    assert.match(row.note, note, "note");
+    if (not) assert.doesNotMatch(row.note, not, "note must not say");
+    if (f.head) assert.equal(git(dir, "rev-parse", "HEAD"), f.head, "the check never pulls");
+  } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
+}
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + skillCases.length} cases`);
