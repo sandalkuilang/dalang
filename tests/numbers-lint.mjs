@@ -5,6 +5,7 @@
 // rounding), that each [calc: name] in script.md is in numbers.json, and that numbers.json is not older than model.mjs.
 // An unreadable numbers.json is WARN (rerun), never "not found".
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -163,6 +164,99 @@ try {
   assert.equal(e.code, 2, e.out + e.err);
   assert.ok(!/Result\s+: OK/.test(e.out));
   console.log("ok  hand arithmetic without a model passes with INFO; a folder with no script is exit 2, never OK");
+
+  // 10. A hyphen between letters is punctuation like any other: "twenty-one" and "twenty one" are the same words
+  // (and the same audio), either way round; a word inside a hyphenated word is still not the word on its own.
+  const hy = path.join(tmp, "hy");
+  put(hy, "script.md", ["Cost [calc: cost]."]);
+  put(hy, "numbers.json", [JSON.stringify({ cost: { value: 21, say: "twenty-one dollars" } })]);
+  for (const [beat, want] of [["twenty-one dollars", 0], ["Twenty one dollars", 0], ["twenty-two dollars", 1], ["twenty dollars", 1]]) {
+    put(hy, "narration.txt", [`It costs {${beat}|cost}.`]);
+    const r = run(hy);
+    assert.equal(r.code, want, `say hyphenated, beat "${beat}": ${r.out}${r.err}`);
+  }
+  put(hy, "numbers.json", [JSON.stringify({ cost: { value: 21, say: "twenty one dollars" }, parts: { value: 1, say: "one" } })]);
+  put(hy, "script.md", ["Cost [calc: cost], parts [calc: parts]."]);
+  for (const [beat, want] of [["twenty-one dollars", 0], ["Twenty one dollars", 0], ["twenty-two dollars", 1]]) {
+    put(hy, "narration.txt", [`It costs {${beat}|cost}.`, "{Twenty-one|parts} parts."]);
+    const r = run(hy);
+    assert.equal(r.code, 1, `say spaced, beat "${beat}": ${r.out}${r.err}`); // parts: 'one' inside 'twenty-one' is never 'one'
+    assert.deepEqual(found(r.out), want ? ["narration.txt:1", "narration.txt:2"] : ["narration.txt:2"], r.out);
+  }
+  console.log("ok  a hyphen and a space are the same words, either way round; 'one' is still not inside 'twenty-one'");
+
+  // 11. A beat with a figure in it is checked in words first: the `say` decides, an unrelated figure does not
+  // matter; words that are not the `say` do not pass because a stray figure happens to equal the value.
+  const mix = path.join(tmp, "mix");
+  put(mix, "script.md", ["Cost [calc: cost]."]);
+  put(mix, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" } })]);
+  const mixed = { "about forty dollars for 8 hours": 0, "about forty dollars, 12 of them": 0, "40 dollars": 0, "40 dollars for 8 hours": 0,
+    "about twelve dollars for 8 hours": 1, "about twelve dollars, 40": 1, "about twelve dollars, 41": 1, "8 hours": 1 };
+  for (const [beat, want] of Object.entries(mixed)) {
+    put(mix, "narration.txt", [`It costs {${beat}|cost}.`]);
+    const r = run(mix);
+    assert.equal(r.code, want, `${beat}: ${r.out}${r.err}`);
+    if (want) assert.deepEqual(found(r.out), ["narration.txt:1"], r.out);
+  }
+  console.log("ok  a beat with words and a figure: the say decides; wrong words are not rescued by a stray figure");
+
+  // 12. A model number spoken more than once: the second mention is a beat named <name>__<suffix> and is checked the
+  // same way; two beats with one name, or another name that says a near miss of a model number, never pass silently.
+  const rep = path.join(tmp, "rep");
+  put(rep, "script.md", ["Cost [calc: cost], small [calc: cost_small], big [calc: cost_large]."]);
+  put(rep, "numbers.json", [JSON.stringify({ cost: { value: 40, say: "about forty dollars" }, cost_small: { value: 16, say: "about sixteen dollars" }, cost_large: { value: 18, say: "about eighteen dollars" } })]);
+  const two = (a, b) => ["{about forty dollars|cost}.", `Recap: it costs {${a}|${b}}.`];
+  const cases = [
+    [two("about forty dollars", "cost__recap"), 0, null], [two("about ninety dollars", "cost__recap"), 1, "narration.txt:2"],
+    [two("40 dollars", "cost__recap"), 0, null], [two("41 dollars", "cost__recap"), 1, "narration.txt:2"],
+    [two("about forty dollars", "cost"), 1, "narration.txt:2"], // one name twice: the voice step renames the later timing
+    [two("about ninety dollars", "cost_recap"), 2, "narration.txt:2"], // not a model name: a near miss is WARN, never OK
+    [two("about forty dollars", "cost_recap"), 0, null], [two("a quiet house", "house"), 0, null],
+    [two("about eighteen dollars", "cost_small_intro"), 0, null], // another model number's exact words
+    [two("about eighteen dollars", "cost_small__again"), 1, "narration.txt:2"], // named for cost_small: eighteen is not sixteen
+  ];
+  for (const [nar, want, at] of cases) {
+    put(rep, "narration.txt", nar);
+    const r = run(rep);
+    assert.equal(r.code, want, `${nar[1]}: ${r.out}${r.err}`);
+    if (want === 1) assert.deepEqual(found(r.out), [at], r.out);
+    if (want === 2) assert.match(msg(r.out, at), /WARN.*about ninety dollars.*cost__/, r.out);
+    if (!want) assert.match(r.out, /Result\s+: OK/);
+  }
+  put(rep, "narration.txt", two("about forty dollars", "cost__recap"));
+  assert.match(run(rep).out, /2 spoken beats/);
+  console.log("ok  a repeated model number is a beat <name>__<suffix> and is checked; a repeated name or a near miss in another beat is not silent");
+
+  // 13. Gate 1 approves the model too: an input changed in model.mjs, or a new numbers.json, makes the approval stale,
+  // even when the rounded words stay the same; a project with no model keeps its old hash.
+  const st = (cwd, ...args) => node(cwd, fileURLToPath(new URL("../scripts/state.mjs", import.meta.url)), ...args);
+  const gp = path.join(tmp, "gate1");
+  put(gp, "script.md", SCRIPT);
+  put(gp, "narration.txt", NARRATION("{about sixteen dollars|cost_small}"));
+  put(gp, "model.mjs", MODEL);
+  assert.equal(node(gp, "model.mjs").code, 0);
+  assert.equal(st(gp, "approve", "1", ".").code, 0);
+  assert.equal(st(gp, "check", "1", ".").code, 0);
+  fs.writeFileSync(path.join(gp, "model.mjs"), MODEL.join("\n").replace("pricePerKwh: 0.13", "pricePerKwh: 0.131") + "\n"); // same words, new value
+  const stale1 = st(gp, "check", "1", ".");
+  assert.equal(stale1.code, 3, stale1.out + stale1.err);
+  assert.match(stale1.out, /STALE/);
+  assert.equal(st(gp, "approve", "1", ".").code, 0);
+  assert.equal(node(gp, "model.mjs").code, 0); // the rerun writes the new numbers.json
+  assert.equal(st(gp, "check", "1", ".").code, 3, "a rerun that writes a new numbers.json is stale");
+  assert.equal(st(gp, "approve", "1", ".").code, 0);
+  assert.equal(st(gp, "check", "1", ".").code, 0);
+  assert.equal(node(gp, "model.mjs").code, 0);
+  assert.equal(st(gp, "check", "1", ".").code, 0, "a rerun with the same inputs keeps the approval");
+  const nomodel = path.join(tmp, "nomodel");
+  put(nomodel, "script.md", ["Hello."]);
+  put(nomodel, "narration.txt", ["Hello."]);
+  assert.equal(st(nomodel, "approve", "1", ".").code, 0);
+  assert.equal(st(nomodel, "check", "1", ".").code, 0);
+  const sj = JSON.parse(fs.readFileSync(path.join(nomodel, "state.json"), "utf8"));
+  const oldHash = createHash("sha1").update(fs.readFileSync(path.join(nomodel, "script.md"))).update(fs.readFileSync(path.join(nomodel, "narration.txt"))).digest("hex").slice(0, 12);
+  assert.equal(sj.approvals[1].hash, oldHash, "no model: the hash is what it was before");
+  console.log("ok  Gate 1 goes stale when model.mjs or numbers.json changes; a project with no model is unchanged");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
