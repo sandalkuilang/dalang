@@ -1,5 +1,7 @@
 import { RAPIER } from "./rapier.js";
 import { G, M } from "./kit.js";
+import { runBake } from "./bakecore.js";
+import { startPool } from "./pool.js";
 export { RAPIER };
 
 const BAKE_FORMAT = 1; // bump when the stored layout or what a bake means changes: every older cache file then misses
@@ -156,7 +158,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     };
   }
   // Everything that decides a bake's result, hashed (64-bit). Shapes are read field by field, so any collider counts.
-  async function fingerprint(duration, onStep, preroll, opts) {
+  async function fingerprint(duration, onStep, preroll, opts, isl = []) {
     const h = hasher(), v3 = (v) => { h.num(v.x); h.num(v.y); h.num(v.z); }, q4 = (q) => { v3(q); h.num(q.w); };
     const any = (x) => { if (typeof x === "number" || typeof x === "boolean") h.num(+x); else if (ArrayBuffer.isView(x)) x.forEach((e) => h.num(e)); else if (x && typeof x === "object") Object.keys(x).sort().forEach((k) => { h.str(k); any(x[k]); }); };
     h.str(`format ${BAKE_FORMAT}`); h.num(duration); h.num(preroll); h.num(world.timestep); v3(world.gravity);
@@ -166,10 +168,104 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     world.forEachCollider((c) => { h.num(c.handle); h.num(c.parent()?.handle ?? -1); any(c.shape); v3(c.translation()); q4(c.rotation()); h.num(c.friction()); h.num(c.restitution()); h.num(c.density()); h.num(c.collisionGroups()); h.num(c.isSensor()); h.num(c.isEnabled()); });
     world.impulseJoints.forEach((j) => { h.num(j.type()); h.num(j.body1().handle); h.num(j.body2().handle); v3(j.anchor1()); v3(j.anchor2()); });
     held.forEach((u, k) => { h.num(k); h.num(u); });
+    if (isl.length) { h.str("islands"); isl.forEach((hs) => { h.num(hs.length); hs.forEach((x) => h.num(x)); }); } // how a bake is split into islands is part of its key
     kin.forEach((k) => { h.str(k.pose); for (let i = 0; i <= 16; i++) { const { p, q } = k.pose(-preroll + ((duration + preroll) * i) / 16); v3(p); if (q) q4(q); } });
     h.str(onStep || ""); h.str(opts.keep || ""); Object.entries(opts.track || {}).forEach(([k, fn]) => { h.str(k); h.str(fn); });
     h.str(JSON.stringify(opts.key ?? "")); h.str(await sources());
     return h.hex();
+  }
+
+  // What a bake records for one tracked body, and the names of the objects the colliders were built from (a contact partner's name).
+  const itemOf = (b) => ({ body: b.body, name: b.name, impacts: b.impacts, soft: b.soft, until: held.get(b.body.handle) ?? -Infinity });
+  const names = () => Object.fromEntries([...owner].map(([h, r]) => [h, r.name || ""]));
+
+  // Islands: opts.islands = [[a, b], [c]] lists bodies (what roundBox and dynamicHull return) that never touch another
+  // island's bodies for the whole shot. Returns each island's body handles, empty ones dropped; everything else is the main island.
+  function islandsOf(list) {
+    if (!Array.isArray(list) || list.some((l) => !Array.isArray(l))) throw new Error("opts.islands is a list of lists of bodies: [[a, b], [c]]");
+    const seen = new Set(), out = list.map((l) => l.map((x) => {
+      const b = x?.body || x, t = tracked.find((e) => e.body === b);
+      if (!t) throw new Error("opts.islands takes bodies made by roundBox or dynamicHull");
+      if (kin.some((e) => e.body === b)) throw new Error(`"${t.name}" is kinematic: a body moved by a path stays in the main island`);
+      if (seen.has(b.handle)) throw new Error(`"${t.name}" is in two islands (or listed twice)`);
+      seen.add(b.handle);
+      return b.handle;
+    }).sort((p, q) => p - q)).filter((hs) => hs.length).sort((p, q) => p[0] - q[0]);
+    const of = new Map(); out.forEach((hs, k) => hs.forEach((h) => of.set(h, k + 1)));
+    world.impulseJoints.forEach((j) => { if ((of.get(j.body1().handle) || 0) !== (of.get(j.body2().handle) || 0)) throw new Error("a joint ties bodies of two islands: they cannot be baked apart"); });
+    const byName = new Map(); // a name shared across islands would make one island's impacts suppress the other's: the single-world bake does exactly that
+    tracked.forEach((t) => { if (!t.impacts) return; const k = of.get(t.body.handle) || 0; if (byName.has(t.name) && byName.get(t.name) !== k) throw new Error(`"${t.name}" names bodies in two islands: give each its own name (opts.name)`); byName.set(t.name, k); });
+    return out;
+  }
+
+  // A bounding sphere per tracked body, in the body's frame (the root's own frame), from the drawn geometry.
+  const sphereOf = (t) => {
+    const p = localPoints(t.root, null, 0.01 / mpu), lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[i + k]); hi[k] = Math.max(hi[k], p[i + k]); }
+    if (!p.length) return { c: [0, 0, 0], r: 0 };
+    const c = lo.map((x, k) => (x + hi[k]) / 2); let r = 0;
+    for (let i = 0; i < p.length; i += 3) r = Math.max(r, Math.hypot(p[i] - c[0], p[i + 1] - c[1], p[i + 2] - c[2]));
+    return { c, r };
+  };
+  // Proof that the islands stayed apart: at every stored step, no body came within 5 mm of a body of another island
+  // (main counts as one), judged on the drawn geometry's bounding spheres. A meeting throws: this bake is not the
+  // single-world bake. The pre-roll is not covered (it stores no poses): bodies settle where they were placed.
+  function crossing(poses, of, n, dt) {
+    const sp = tracked.map(sphereOf), margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values()), at = tracked.map(() => [0, 0, 0]);
+    const isle = tracked.map((t) => of.get(t.body.handle) || 0);
+    for (let s = 0; s < n; s++) {
+      const lo = Array.from({ length: K }, () => [Infinity, Infinity, Infinity]), hi = Array.from({ length: K }, () => [-Infinity, -Infinity, -Infinity]);
+      poses.forEach(({ s: st, p }, i) => {
+        while (cur[i] + 1 < st.length && st[cur[i] + 1] <= s) cur[i]++; // a gap between stored steps = at rest
+        const o = cur[i] * 7, [x, y, z, qx, qy, qz, qw] = [p[o], p[o + 1], p[o + 2], p[o + 3], p[o + 4], p[o + 5], p[o + 6]], [vx, vy, vz] = sp[i].c;
+        const tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx); // c rotated by q, then moved to the body
+        at[i] = [x + vx + qw * tx + (qy * tz - qz * ty), y + vy + qw * ty + (qz * tx - qx * tz), z + vz + qw * tz + (qx * ty - qy * tx)];
+        const k = isle[i], r = sp[i].r + margin;
+        for (let a = 0; a < 3; a++) { lo[k][a] = Math.min(lo[k][a], at[i][a] - r); hi[k][a] = Math.max(hi[k][a], at[i][a] + r); }
+      });
+      for (let ka = 0; ka < K; ka++) for (let kb = ka + 1; kb < K; kb++) {
+        if ([0, 1, 2].some((a) => lo[ka][a] > hi[kb][a] || lo[kb][a] > hi[ka][a])) continue; // the islands' boxes do not even overlap
+        for (let i = 0; i < tracked.length; i++) if (isle[i] === ka) for (let j = 0; j < tracked.length; j++) if (isle[j] === kb) {
+          const d = Math.hypot(at[i][0] - at[j][0], at[i][1] - at[j][1], at[i][2] - at[j][2]) - sp[i].r - sp[j].r;
+          if (d < margin) throw new Error(`${ka ? `island ${ka}` : "the main island"} and island ${kb} meet: "${tracked[i].name}" and "${tracked[j].name}" come within ${(Math.max(0, d) * mpu * 1000).toFixed(1)} mm at ${(s * dt).toFixed(3)} s — put them in one island (or drop opts.islands) and bake again`);
+        }
+      }
+    }
+  }
+
+  // The islands baked apart and merged into one result, the way bake() gives it. Each declared island is a restored copy
+  // of the world with every other body off, baked in a worker while this thread bakes the main island (every body not
+  // declared: only it runs onStep, the kinematic paths, opts.track and opts.keep). Declared bodies are trapped meanwhile,
+  // so a script that reads or pushes one fails instead of seeing a body that is switched off.
+  async function bakeIslands(isl, duration, onStep, preroll, opts) {
+    const of = new Map(); isl.forEach((hs, k) => hs.forEach((h) => of.set(h, k + 1)));
+    const idx = Array.from({ length: isl.length + 1 }, () => []); // the tracked indices of each island, main first
+    tracked.forEach((t, i) => idx[of.get(t.body.handle) || 0].push(i));
+    const nm = names(), snap = world.takeSnapshot();
+    const jobs = isl.map((hs, k) => ({ snap, handles: hs, items: idx[k + 1].map((i) => ({ h: tracked[i].body.handle, name: tracked[i].name, impacts: tracked[i].impacts, soft: tracked[i].soft, until: held.get(tracked[i].body.handle) ?? -Infinity })), duration, preroll, mpu, names: nm }));
+    const finish = await startPool(RAPIER, jobs, opts.workers); // every worker has its job before this thread is busy
+    const trapped = []; let main;
+    try {
+      isl.forEach((hs, k) => idx[k + 1].forEach((i) => {
+        const t = tracked[i], proto = Object.getPrototypeOf(t.body);
+        t.body.setEnabled(false);
+        for (const key of Object.getOwnPropertyNames(proto)) {
+          if (key === "constructor" || typeof Object.getOwnPropertyDescriptor(proto, key).value !== "function") continue;
+          Object.defineProperty(t.body, key, { configurable: true, value() { throw new Error(`"${t.name}" is in island ${k + 1}: onStep, opts.track and opts.keep see only the bodies outside opts.islands`); } });
+          trapped.push([t.body, key]);
+        }
+      }));
+      main = runBake(world, idx[0].map((i) => itemOf(tracked[i])), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: nm });
+    } finally { trapped.forEach(([b, key]) => delete b[key]); }
+    const parts = [{ res: main, idx: idx[0] }, ...(await finish()).map((res, k) => ({ res, idx: idx[k + 1] }))];
+    parts.forEach(({ res }) => { if (res.n !== main.n || res.dt !== main.dt) throw new Error("islands disagree on the number of steps"); });
+    // One result in tracked order: poses by body, the report lists by body, the impacts by time then body (a single world's order).
+    const poses = [], list = (key) => parts.flatMap(({ res, idx: ix }) => res.ord[key].map((li, e) => ({ gi: ix[li], v: res.report[key][e] }))).sort((a, b) => a.gi - b.gi).map((x) => x.v);
+    parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; }));
+    const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
+    const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
+    crossing(poses, of, main.n, main.dt);
+    return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled") } });
   }
 
   const sim = {
@@ -247,95 +343,9 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     // opts.keep = () => JSON stores what onStep built for later (a stop time, events): baked.kept.
     bake(duration, onStep, preroll = 0.5, opts = {}) {
       if (replayed && !opts.fromCache) throw new Error("bake after bakeCached: a cached replay leaves the world at its start — bake everything in one bakeCached");
-      const dt = world.timestep, n = Math.ceil(duration / dt) + 1, impacts = [], hist = [], win = Math.round(0.0125 / dt);
-      const every = Math.max(1, Math.round(0.01 / dt)); // a resting body's contacts are audited every 10 ms, a moving one's every step
-      const track = Object.entries(opts.track || {}), series = Object.fromEntries(track.map(([k]) => [k, new Float32Array(n)]));
-      let deepest = { depth: 0 };
-      const until = tracked.map((b) => held.get(b.body.handle) ?? -Infinity), on = tracked.map(() => true);
-      const gate = (t) => until.forEach((u, i) => { const v = t >= u; if (v !== on[i]) { on[i] = v; tracked[i].body.setEnabled(v); } });
-      // Sparse poses: a body's pose is stored when it moved ≥ 0.01 mm or turned ≥ ~1e-5 rad since the last stored one,
-      // as float32 so a live bake and its cached replay give the same numbers. The rest pose right before a body
-      // moves again is stored too, so a gap between two stored steps always means "at rest".
-      const eps = 1e-5 / mpu, S = tracked.map(() => ({ s: [], p: [] })), last = tracked.map(() => null), prev = tracked.map(() => null), f = new Float32Array(7);
-      const record = (s) => tracked.forEach((b, i) => {
-        const p = b.body.translation(), q = b.body.rotation();
-        f[0] = p.x; f[1] = p.y; f[2] = p.z; f[3] = q.x; f[4] = q.y; f[5] = q.z; f[6] = q.w;
-        const cur = Array.from(f), L = last[i];
-        if (!L || s === n - 1 || Math.hypot(cur[0] - L[0], cur[1] - L[1], cur[2] - L[2]) >= eps || Math.max(...[3, 4, 5, 6].map((k) => Math.abs(cur[k] - L[k]))) >= 5e-6) {
-          const st = S[i];
-          if (st.s.length && st.s[st.s.length - 1] < s - 1) { st.s.push(s - 1); st.p.push(...prev[i]); }
-          st.s.push(s); st.p.push(...cur); last[i] = cur;
-        }
-        prev[i] = cur;
-      });
-      const sample = (s) => track.forEach(([k, fn]) => { series[k][s] = fn(); });
-      tracked.forEach((b) => { b.com0 = { ...b.body.worldCom() }; b.q0 = { ...b.body.rotation() }; }); // pre-roll drift is measured at the centre of mass
-      for (let s = Math.round(preroll / dt); s > 0; s--) {
-        const t = -s * dt;
-        gate(t);
-        if (onStep) onStep(t);
-        kin.forEach((k) => { const { p, q } = k.pose(t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
-        world.step();
-      }
-      const settled = tracked.map((b) => {
-        const c = b.body.worldCom(), d = ['x', 'y', 'z'].map((k) => +((c[k] - b.com0[k]) * 1000 * mpu).toFixed(1)), q = b.body.rotation();
-        const q0 = new THREE.Quaternion(b.q0.x, b.q0.y, b.q0.z, b.q0.w), q1 = new THREE.Quaternion(q.x, q.y, q.z, q.w), up = new THREE.Vector3(0, 1, 0);
-        const tilt = new THREE.Vector3(0, 1, 0).applyQuaternion(q1).angleTo(up.clone().applyQuaternion(q0)) * 180 / Math.PI, turn = (2 * Math.acos(Math.min(1, Math.abs(q0.dot(q1)))) * 180) / Math.PI;
-        return { name: b.name, mm: +Math.hypot(...d).toFixed(1), xyz: d, deg: +turn.toFixed(2), tilt: +tilt.toFixed(2) };
-      }).filter((e) => e.mm > 1 || e.deg > 0.2);
-      gate(0); record(0); sample(0);
-      for (let s = 1; s < n; s++) {
-        const t = s * dt;
-        gate(t);
-        if (onStep) onStep(t);
-        kin.forEach((k) => { const { p, q } = k.pose(t); k.body.setNextKinematicTranslation(p); if (q) k.body.setNextKinematicRotation(q); });
-        world.step();
-        record(s); sample(s);
-        hist.push(tracked.map((b) => b.body.linvel()));
-        if (hist.length > win + 1) hist.shift();
-        tracked.forEach((b, i) => {
-          if (!b.impacts || hist.length < win + 1) return;
-          const v = hist[win][i], v0 = hist[0][i], dv = Math.hypot(v.x - v0.x, v.y - v0.y, v.z - v0.z) * mpu; // m/s, over 12.5 ms: stiff contacts spread a hit across steps
-          const last = impacts.findLast((e) => e.name === b.name);
-          if (dv >= 0.15 && !(last && t - last.t < 0.12)) impacts.push({ t: t - (win - 1) * dt, name: b.name, dv }); // ≥ 0.15 m/s is audible: a soft landing still gets its (quieter) sound
-        });
-        // Deepest penetration between any tracked body and anything else: every step for a moving body (a knock
-        // peaks within a few steps), every 10 ms for a resting one (a slow sink), and all of them at the last step.
-        const vel = hist[hist.length - 1], all = s % every === 0 || s === n - 1, turning = all ? null : tracked.map((b) => { const w = b.body.angvel(); return Math.hypot(w.x, w.y, w.z) >= 0.2; });
-        tracked.forEach((b, i) => {
-          if (b.soft || !on[i]) return; // a soft thing gives where it lands: its overlap is compression, not an error
-          if (!all && Math.hypot(vel[i].x, vel[i].y, vel[i].z) * mpu < 0.02 && !turning[i]) return; // resting: neither sliding (2 cm/s) nor turning (0.2 rad/s)
-          for (let c = 0; c < b.body.numColliders(); c++) {
-            const col = b.body.collider(c);
-            world.contactPairsWith(col, (other) => world.contactPair(col, other, (m) => {
-              for (let i = 0; i < m.numContacts(); i++) {
-                const d = -m.contactDist(i) * mpu;
-                if (d > deepest.depth) deepest = { depth: d, t, a: b.name, b: (owner.get(other.handle) || {}).name || "?" };
-              }
-            }));
-          }
-        });
-      }
-      // End state: resting bodies must touch something; anything still moving is reported. A body still held is neither.
-      const floating = [], moving = [], jointed = new Set(); // a body on a joint hangs from it, it does not float
-      world.impulseJoints.forEach((j) => { jointed.add(j.body1().handle); jointed.add(j.body2().handle); });
-      tracked.forEach((b, i) => {
-        if (!on[i]) return;
-        const v = b.body.linvel(), speed = Math.hypot(v.x, v.y, v.z) * mpu;
-        let touching = false;
-        for (let c = 0; c < b.body.numColliders(); c++) {
-          const col = b.body.collider(c);
-          world.contactPairsWith(col, (other) => world.contactPair(col, other, (m) => { for (let i = 0; i < m.numContacts(); i++) if (m.contactDist(i) * mpu <= 0.002) touching = true; }));
-        }
-        if (speed > 0.01) moving.push({ name: b.name, speed: +speed.toFixed(3) });
-        else if (!touching && b.body.isDynamic() && !jointed.has(b.body.handle)) floating.push(b.name);
-      });
-      return baked({
-        n, dt, series, impacts,
-        poses: S.map((st) => ({ s: Uint32Array.from(st.s), p: Float32Array.from(st.p) })),
-        kept: opts.keep ? JSON.parse(JSON.stringify(opts.keep())) : undefined, // what onStep built that the set reads later (a stop time)
-        report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating, moving, settled }, // settled: how far a body moved in the pre-roll (a big number = it was placed wrong)
-      });
+      if (opts.islands?.length) throw new Error("islands are baked in workers: use bakeCached");
+      const { ord, ...data } = runBake(world, tracked.map(itemOf), { duration, preroll, mpu, onStep, kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: names() });
+      return baked(data);
     },
     // bake(), stored once in assets/bake/<hash>.bin and replayed from there by every later page load (a snapshot, the
     // preview, each render worker). The hash covers everything that decides the result: every collider and body, the
@@ -346,13 +356,13 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     async bakeCached(duration, onStep, preroll = 0.5, opts = {}) {
       if (replayed) throw new Error("one bakeCached per sim: a shot that continues another is part of the same bake");
       replayed = true;
-      const hash = await fingerprint(duration, onStep, preroll, opts), t0 = Date.now();
+      const isl = opts.islands ? islandsOf(opts.islands) : [], hash = await fingerprint(duration, onStep, preroll, opts, isl), t0 = Date.now();
       const load = opts.load || ((name) => fetch(new URL(`./bake/${name}.bin`, import.meta.url)).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null));
       const save = opts.save || ((name, bytes) => fetch(`${opts.receiver || "http://127.0.0.1:47613"}/bake/${name}`, { method: "POST", mode: "no-cors", body: bytes }).catch(() => null));
       const d = decode(await load(hash), hash, tracked.length);
       if (d) { console.info(`[physics] bake ${hash} read from cache`); return baked(d, hash, true); }
-      const r = sim.bake(duration, onStep, preroll, { ...opts, fromCache: true });
-      console.info(`[physics] bake ${hash} computed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+      const r = isl.length ? await bakeIslands(isl, duration, onStep, preroll, opts) : sim.bake(duration, onStep, preroll, { ...opts, islands: undefined, fromCache: true });
+      console.info(`[physics] bake ${hash} computed in ${((Date.now() - t0) / 1000).toFixed(1)} s${isl.length ? ` (main + ${isl.length} islands)` : ""}`);
       await save(hash, encode(r.data, hash));
       return Object.assign(r, { hash });
     },
