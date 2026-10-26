@@ -59,8 +59,15 @@ that reads as:
   a stencil buffer. `examples/flask.js` is the ready piece, and the
   self-check asserts the plane on every part (a late one too), the caps' settings and the shell's ring.
   Documented in `engine/three/README.md`, `looks.md` and `camera-motion.md`.
+- **Steam and smoke on a light set**: `wind.js` `draught()` is room air (~0.1 m/s in slow eddies); `particles.js`
+  takes a `light` direction and a `shade` (a dense puff's side away from the light greys) and has
+  `contrast(kind, ground)` against `READABLE`; the rule in `looks.md` and `camera-motion.md` §5 (a darker ground or a
+  side or back light, and moving air); the self-check asserts it.
 
 ### Changed
+
+- Steam and smoke presets shade their side away from the light by default (`shade` 0.4 and 0.45; `shade: 0` keeps
+  the old flat look).
 
 - **Unattended runs: Realism, Reality and Clarity P1s block the final** like a P0 until a round fixed them or two
   rounds failed; a Realism or Reality fail stays a P0 that never ships; cosmetic P1s may ship. The hand-off lists every open P1 and why it stays (`SKILL.md`, `qc.md`,
