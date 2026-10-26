@@ -88,6 +88,7 @@ fi
   [[ -f "$OUT/stillness.txt" ]] && grep -E 'Total still|Longest still' "$OUT/stillness.txt" || true
   [[ -f "$OUT/loudness.txt" ]] && grep -E 'integrated' "$OUT/loudness.txt" || true
   [[ -f "$OUT/palette.txt" ]] && grep -A6 '^Overall' "$OUT/palette.txt" || true
+  [[ -f "$OUT/palette.txt" ]] && grep -m1 '^FAILED' "$OUT/palette.txt" | sed 's/^/palette.txt: /' || true
 } | tee "$OUT/summary.txt"
 
 echo
