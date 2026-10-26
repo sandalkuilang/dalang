@@ -287,5 +287,37 @@ if (!asRoot) {
   assert.ok(!has(tmp, "nowhere"));
 }
 
+// 14. the class "an unknown read taken as missing" is closed at one choke point: series.mjs reads the file system
+// only through fsRead, where an error that is not one of the answers its caller names (ENOENT, ENOTDIR) is WARN +
+// rerun, exit 2, and never reaches the caller as a verdict.
+{
+  if (!asRoot) {
+    // save: a named file under a folder that cannot be read is WARN + rerun, not the refusal "cannot read"
+    const p = mkdir("lockedsrc");
+    put(p, "BRIEF.md", BRIEF);
+    put(p, "src/overlays.js", OVERLAYS);
+    const nm = fresh();
+    fs.chmodSync(path.join(p, "src"), 0o000);
+    const r = run(["save", nm, "--from", p, "--file", "src/overlays.js"]);
+    fs.chmodSync(path.join(p, "src"), 0o755);
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /WARN.*src\/overlays\.js.*rerun/);
+    assert.doesNotMatch(r.out, /PROBLEM/);
+    assert.ok(!has(root, nm), "kit written");
+    // legitimate sides of the same rule: the readable folder saves; a file truly missing is still refused
+    const ok = run(["save", nm, "--from", p, "--file", "src/overlays.js"]);
+    assert.equal(ok.code, 0, ok.out);
+    const miss = run(["save", fresh(), "--from", p, "--file", "src/none.js"]);
+    assert.equal(miss.code, 1, miss.out);
+    assert.match(miss.out, /not found/);
+  }
+  // the invariant that makes the class impossible: no file-system read outside the choke point
+  const code = fs.readFileSync(script, "utf8");
+  const outside = code.replace(/\/\/ <fs-read>[\s\S]*?\/\/ <\/fs-read>/, "");
+  assert.notEqual(outside, code, "series.mjs has no // <fs-read> choke point");
+  const raw = outside.match(/\bfs\s*\.\s*(?:readFileSync|readdirSync|lstatSync|statSync|realpathSync|existsSync|accessSync|opendirSync|readlinkSync|readFile|readdir|stat|lstat|realpath|access|opendir|readlink|promises)\b|\bfs\s*\[/g) ?? [];
+  assert.deepEqual(raw, [], "a file-system read outside the fsRead choke point");
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("series: all cases pass");
