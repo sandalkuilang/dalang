@@ -46,7 +46,8 @@ that reads as:
   dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall list;
   `reference-measurements.md` gains a `## Palette` section (ground, floor, hero and its dark parts, accents with their job,
   type and caption treatment). `palette.mjs --compare <#hex> <#hex>` gives the lightness gap for figure-ground.
-  `tests/palette.mjs` joins the merge gate.
+  Only a missing video or ffmpeg (ENOENT) says "not found"; any other error (permissions, a symlink loop, a full
+  buffer) names its code and says to rerun. `tests/palette.mjs` joins the merge gate.
 - **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[assume: …]` (a stated
   assumption, only as a `[calc]` input), `[illus]` or `[unknown]`; section durations, a source's own year or page and
   visual-note specs are not numbers, so Gate 1's list can be empty, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
