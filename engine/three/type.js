@@ -58,41 +58,54 @@ const rrect = (ctx, x, y, w, h, r, color) => { ctx.fillStyle = color; ctx.beginP
 
 // Caption phrases from narration.txt (punctuation) and words.json (timing). The narration markup is read as
 // tts_timestamps.mjs reads it: # lines, (pause) lines, "Speaker:" lines, {text|name} beats and [tags] are not text.
-// Splits: at a sentence end or an ellipsis; at , : ; after at least 3 words (6 characters for CJK); a longer run into
-// near-equal parts of at most 7 words (16 characters for CJK; a CJK word is split by characters, its time spread over
-// them). A phrase stays up until the next one starts; the last one `hold` s past its last word.
+// Splits: at the end of a narration line (a speaker change, a paragraph, a (pause) line); at a sentence end or an
+// ellipsis; at , : ; after at least 3 words (6 characters for CJK); a longer run (over 7 words, 16 characters for CJK)
+// at its longest speech pause (a gap of at least `pause` s between two words of words.json, leaving at least 2 words,
+// 4 characters for CJK, on each side), and a part with no pause into near-equal parts of at most that many (a CJK word
+// is split by characters, its time spread over them). A phrase stays up until the next one starts; the last one `hold`
+// s past its last word.
 // -> [{ text, start, end, words: [{ text, start, end, gap }] }]
-export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3, hold = 0.5 } = {}) {
+export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3, hold = 0.5, pause = 0.3 } = {}) {
   const lines = String(narrationTxt).replace(/\r\n/g, "\n").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && !PAUSE.test(l));
-  const spoken = (lines.length >= 2 && lines.every((l) => SPEAKER.test(l)) ? lines.map((l) => l.match(SPEAKER)[2].trim()) : lines).join("\n")
-    .replace(/\{([^{}|]*)(?:\|[^{}]*)?\}/g, "$1").replace(/\[[^\]]*\]/g, " ");
-  const toks = []; // a token without a letter or digit ("—", "...") is not a word: it joins the one before it
-  for (const t of spoken.match(/\S+/g) || []) { if (ALNUM.test(t)) toks.push({ core: t, text: t }); else if (toks.length) toks[toks.length - 1].text += " " + t; }
+  const spoken = (lines.length >= 2 && lines.every((l) => SPEAKER.test(l)) ? lines.map((l) => l.match(SPEAKER)[2].trim()) : lines)
+    .map((l) => l.replace(/\{([^{}|]*)(?:\|[^{}]*)?\}/g, "$1").replace(/\[[^\]]*\]/g, " "));
+  const toks = []; // a token without a letter or digit ("—", "...") is not a word: it joins the one before it, on its line
+  spoken.forEach((line, ln) => { for (const t of line.match(/\S+/g) || []) { if (ALNUM.test(t)) toks.push({ core: t, text: t, ln }); else if (toks.length && toks[toks.length - 1].ln === ln) toks[toks.length - 1].text += " " + t; } });
   if (toks.length !== words.length) throw new Error(`phrases: narration words (${toks.length}) and words.json words (${words.length}) differ: pass the narration.txt this take was made from (rerun captions after every take)`);
   const units = [];
-  toks.forEach(({ core, text }, k) => {
+  toks.forEach(({ core, text, ln }, k) => {
     const w = words[k];
     if (strip(core) !== w.text) throw new Error(`phrases: narration word ${k} "${strip(core)}" is not words.json word ${k} "${w.text}": pass the narration.txt this take was made from (rerun captions after every take)`);
-    if (!CJK.test(core)) { units.push({ text, start: w.start, end: w.end, gap: true, cjk: false }); return; }
+    if (!CJK.test(core)) { units.push({ text, start: w.start, end: w.end, gap: true, cjk: false, ln }); return; }
     const chars = [...text], n = chars.filter((c) => ALNUM.test(c)).length; let i = 0, lead = "", first = true;
     for (const c of chars) {
-      if (ALNUM.test(c)) { units.push({ text: lead + c, start: w.start + ((w.end - w.start) * i) / n, end: w.start + ((w.end - w.start) * (i + 1)) / n, gap: first, cjk: true }); first = false; lead = ""; i++; }
+      if (ALNUM.test(c)) { units.push({ text: lead + c, start: w.start + ((w.end - w.start) * i) / n, end: w.start + ((w.end - w.start) * (i + 1)) / n, gap: first, cjk: true, ln }); first = false; lead = ""; i++; }
       else if (units.length && i > 0) units[units.length - 1].text += c;
       else lead += c;
     }
   });
   const segs = []; let cur = [];
-  for (const u of units) {
+  units.forEach((u, i) => {
     cur.push(u);
-    const soft = (cur[0].cjk ? 2 : 1) * minSoft;
-    if (END.test(u.text) || ELLIPSIS.test(u.text) || (SOFT.test(u.text) && cur.length >= soft)) { segs.push(cur); cur = []; }
-  }
+    const soft = (cur[0].cjk ? 2 : 1) * minSoft, lineEnd = i + 1 < units.length && units[i + 1].ln !== u.ln;
+    if (END.test(u.text) || ELLIPSIS.test(u.text) || (SOFT.test(u.text) && cur.length >= soft) || lineEnd) { segs.push(cur); cur = []; }
+  });
   if (cur.length) segs.push(cur);
-  const chunks = [];
-  for (const seg of segs) {
-    const lim = seg[0].cjk ? cjkMax : max, k = Math.ceil(seg.length / lim), base = Math.floor(seg.length / k), extra = seg.length % k; let at = 0;
-    for (let j = 0; j < k; j++) { const n = base + (j < extra ? 1 : 0); chunks.push(seg.slice(at, at + n)); at += n; }
-  }
+  const balanced = (seg, lim) => {
+    const k = Math.ceil(seg.length / lim), base = Math.floor(seg.length / k), extra = seg.length % k, out = []; let at = 0;
+    for (let j = 0; j < k; j++) { const n = base + (j < extra ? 1 : 0); out.push(seg.slice(at, at + n)); at += n; }
+    return out;
+  };
+  const split = (seg, lim, minPart) => { // a run over lim: at its longest pause with minPart units each side, then each side again; no pause: balanced
+    if (seg.length <= lim) return [seg];
+    let cutAt = -1, gap = -Infinity;
+    for (let i = minPart; i <= seg.length - minPart; i++) {
+      const g = seg[i].start - seg[i - 1].end;
+      if (g >= pause && (g > gap + 1e-9 || (Math.abs(g - gap) <= 1e-9 && Math.abs(i - seg.length / 2) < Math.abs(cutAt - seg.length / 2)))) { cutAt = i; gap = g; }
+    }
+    return cutAt < 0 ? balanced(seg, lim) : [...split(seg.slice(0, cutAt), lim, minPart), ...split(seg.slice(cutAt), lim, minPart)];
+  };
+  const chunks = segs.flatMap((seg) => split(seg, seg[0].cjk ? cjkMax : max, seg[0].cjk ? 4 : 2));
   return chunks.map((c, j) => ({
     text: c.map((u, i) => (i && u.gap ? " " : "") + u.text).join(""),
     start: ms(c[0].start), end: ms(j + 1 < chunks.length ? chunks[j + 1][0].start : c[c.length - 1].end + hold),
@@ -101,11 +114,13 @@ export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3
 }
 
 // Draws the phrase of `caps` that is on at t (none: returns null) at the bottom of the format's caption zone, one or two
-// lines, in the ink the ground under its box asks for, with a halo in the other ink. Call it after the frame is on the
+// lines (nothing outside the zone, see below), in the ink the ground under its box asks for, with a halo in the other ink. Call it after the frame is on the
 // 2D canvas (getImageData reads the ground). opts: format "shorts", font "Montserrat", weight 800, size (default 60,
 // kept in 54..64 at 1080), light "#ffffff", dark "#111111", accent (a colour: the word being spoken gets a box of it
 // with dark ink, switching on that word's start), pill (a dark backing per line, light ink, no switching).
-// -> { text, lines, box: { x0, y0, x1, y1 }, lum, ink, active, size }
+// Nothing is drawn outside the zone: a phrase that does not fit in two lines at 54 px is shrunk below 54 px until it
+// does (`shrunk: true`; split the narration into shorter phrases to keep the size). `box` is the drawn text's box.
+// -> { text, lines, box: { x0, y0, x1, y1 }, lum, ink, active, size, shrunk }
 export function drawCaption(ctx, t, caps, opts = {}) {
   const { format = "shorts", font = "Montserrat", weight = 800, light = "#ffffff", dark = "#111111", accent = null, pill = false } = opts;
   const cap = caps.find((p) => p.start <= t && t < p.end);
@@ -113,7 +128,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).caption, cx = (area.x0 + area.x1) / 2;
   const us = cap.words && cap.words.length ? cap.words : [{ text: cap.text, start: cap.start, gap: true }];
   let px = clamp(opts.size ?? 60 * s, 54 * s, 64 * s), lines, wid, sp, avail = area.x1 - area.x0 - 0.5 * px;
-  const layout = () => {
+  const layout = () => { // true when the lines fit the zone in width and in height
     ctx.font = `${weight} ${px}px "${font}"`;
     wid = us.map((u) => ctx.measureText(u.text).width); sp = ctx.measureText(" ").width; avail = area.x1 - area.x0 - 0.5 * px;
     const span = (a, b) => { let w = 0; for (let i = a; i < b; i++) w += wid[i] + (i > a && us[i].gap !== false ? sp : 0); return w; };
@@ -123,15 +138,16 @@ export function drawCaption(ctx, t, caps, opts = {}) {
       for (let b = 1; b < us.length; b++) { if (us[b].gap === false && !CJK.test(us[b].text)) continue; const m = Math.max(span(0, b), span(b, us.length)); if (m < bw) { bw = m; best = [[0, b], [b, us.length]]; } }
     }
     lines = best.map(([a, b]) => ({ a, b, w: span(a, b) }));
-    return Math.max(...lines.map((l) => l.w)) <= avail;
+    maxw = Math.max(...lines.map((l) => l.w));
+    return maxw <= avail && (1.7 + 1.2 * (lines.length - 1)) * px <= area.y1 - area.y0;
   };
-  if (!layout()) { px = 54 * s; layout(); }
+  // One line at the asked size, else two at 54 px; text that still does not fit shrinks, below 54 px, until it does:
+  // nothing is ever drawn outside the zone (`shrunk` in the result says it; shorter phrases keep the size).
+  let maxw = 0;
+  if (!layout()) { px = 54 * s; for (let i = 0; i < 80 && !layout(); i++) px = Math.min(px * 0.98, (px * avail * 0.999) / maxw); }
   const lh = 1.2 * px, pad = 0.25 * px, last = area.y1 - pad - 0.25 * px;
   lines.forEach((l, i) => { l.base = last - (lines.length - 1 - i) * lh; l.x = cx - l.w / 2; });
-  const box = {
-    x0: Math.max(area.x0, Math.min(...lines.map((l) => l.x - pad))), x1: Math.min(area.x1, Math.max(...lines.map((l) => l.x + l.w + pad))),
-    y0: Math.max(area.y0, lines[0].base - 0.95 * px - pad), y1: area.y1,
-  };
+  const box = { x0: Math.min(...lines.map((l) => l.x - pad)), x1: Math.max(...lines.map((l) => l.x + l.w + pad)), y0: lines[0].base - 0.95 * px - pad, y1: area.y1 };
   const L = groundAt(ctx, box), ink = pill ? "light" : inkFor(L), inkC = ink === "light" ? light : dark, haloC = ink === "light" ? dark : light;
   let active = -1; us.forEach((u, i) => { if (u.start <= t) active = i; });
   ctx.save();
@@ -149,7 +165,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
     }
   }
   ctx.restore();
-  return { text: cap.text, lines: lines.map((l) => us.slice(l.a, l.b).map((u, i) => (i && u.gap !== false ? " " : "") + u.text).join("")), box, lum: L, ink, active, size: px };
+  return { text: cap.text, lines: lines.map((l) => us.slice(l.a, l.b).map((u, i) => (i && u.gap !== false ? " " : "") + u.text).join("")), box, lum: L, ink, active, size: px, shrunk: px < 54 * s - 1e-9 };
 }
 
 // Pins a label to a world point: `at` is an Object3D or a Vector3 (world), `camera` a camera with its matrices current.
@@ -157,7 +173,9 @@ export function drawCaption(ctx, t, caps, opts = {}) {
 // 36 px, in the ink the ground asks for with a halo, and a leader line with a dot to the point. A point behind the camera
 // or outside the frame draws nothing and returns null. opts: format, font, weight 700, size (default 40, at least 36),
 // side "right" | "left" (preferred), offset (leader length, default 0.05 of the width), light, dark.
-// -> { x, y, w, h, side, size, anchor: { x, y }, ink }
+// A label wider than the zone wraps at its spaces (CJK between characters), keeping its size; only one word wider than
+// the zone shrinks, below 36 px (`shrunk: true`: shorten the word).
+// -> { x, y, w, h, side, size, anchor: { x, y }, ink, lines, shrunk }
 export function pinLabel(ctx, { at, camera, text }, opts = {}) {
   const { format = "shorts", font = "Montserrat", weight = 700, side = "right", light = "#ffffff", dark = "#111111" } = opts;
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).labels;
@@ -165,11 +183,17 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
   const p = typeof at.getWorldPosition === "function" ? at.getWorldPosition(at.position.clone()) : at.clone();
   p.project(camera);
   if (!(Math.abs(p.x) <= 1) || !(Math.abs(p.y) <= 1) || !(p.z >= -1 && p.z <= 1)) return null;
-  const px = Math.max(36 * s, opts.size ?? 40 * s), pad = 0.3 * px, h = 1.4 * px, off = opts.offset ?? 0.05 * W;
-  const ax = ((p.x + 1) / 2) * W, ay = ((1 - p.y) / 2) * H;
+  let px = Math.max(36 * s, opts.size ?? 40 * s), pad, h, w, lines;
+  const off = opts.offset ?? 0.05 * W, ax = ((p.x + 1) / 2) * W, ay = ((1 - p.y) / 2) * H;
   ctx.save();
-  ctx.font = `${weight} ${px}px "${font}"`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round"; ctx.lineCap = "round";
-  const w = ctx.measureText(text).width + 2 * pad;
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const fit = () => { // true when the label (wrapped at its spaces, CJK between characters) fits the zone in width and height
+    ctx.font = `${weight} ${px}px "${font}"`; pad = 0.3 * px;
+    lines = wrapText(ctx, text, area.x1 - area.x0 - 2 * pad);
+    w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 2 * pad; h = 1.4 * px + (lines.length - 1) * 1.2 * px;
+    return w <= area.x1 - area.x0 + 1e-6 && h <= area.y1 - area.y0 + 1e-6;
+  };
+  for (let i = 0; i < 80 && !fit(); i++) px *= 0.95; // only a word wider than the zone, or a label taller than it, shrinks (below 36 px: `shrunk`)
   const at0 = (sd) => (sd === "left" ? ax - off - w : ax + off), over = (x) => Math.max(0, area.x0 - x) + Math.max(0, x + w - area.x1);
   const other = side === "left" ? "right" : "left", sd = over(at0(other)) < over(at0(side)) ? other : side;
   const x = clamp(at0(sd), area.x0, Math.max(area.x0, area.x1 - w)), y = clamp(ay - h / 2, area.y0, Math.max(area.y0, area.y1 - h));
@@ -179,10 +203,28 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
     ctx.strokeStyle = col; ctx.lineWidth = 0.08 * px + extra; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ax, ay, 0.12 * px + extra / 2, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.strokeStyle = haloC; ctx.lineWidth = 0.18 * px; ctx.strokeText(text, x + pad, y + h / 2 + 0.35 * px);
-  ctx.fillStyle = inkC; ctx.fillText(text, x + pad, y + h / 2 + 0.35 * px);
+  lines.forEach((l, i) => {
+    const by = y + 0.7 * px + 0.35 * px + i * 1.2 * px;
+    ctx.strokeStyle = haloC; ctx.lineWidth = 0.18 * px; ctx.strokeText(l, x + pad, by);
+    ctx.fillStyle = inkC; ctx.fillText(l, x + pad, by);
+  });
   ctx.restore();
-  return { x, y, w, h, side: sd, size: px, anchor: { x: ax, y: ay }, ink };
+  return { x, y, w, h, side: sd, size: px, anchor: { x: ax, y: ay }, ink, lines, shrunk: px < 36 * s - 1e-9 };
+}
+
+// Greedy wrap of `text` into lines of at most maxW px (ctx.font set): at spaces, and between CJK characters. A word wider
+// than maxW stays whole on its own line (the caller shrinks the font). Text that fits is returned as it is.
+function wrapText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return [text];
+  const units = []; let gap = false;
+  for (const t of text.match(/\s+|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[^\s\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+/gu) || []) { if (/^\s+$/.test(t)) gap = true; else { units.push({ t, gap }); gap = false; } }
+  const out = []; let cur = "";
+  for (const u of units) {
+    const next = cur + (cur && u.gap ? " " : "") + u.t;
+    if (cur && ctx.measureText(next).width > maxW) { out.push(cur); cur = u.t; } else cur = next;
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : [text];
 }
 
 const norm = (s) => s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
