@@ -7,6 +7,7 @@
 //   // audio/captions.js (node scripts/captions.mjs audio/narration.txt audio/words.json, after every take) sets CAPTIONS
 //   finisher.draw(t);                                                     // the GL frame on the 2D canvas first
 //   pinLabel(ctx, { at: valveMesh, camera, text: "valve" }, { format: "shorts" });
+//   rangeBar(ctx, { value: need, max, ticks: [{ at: 5, label: "5 L" }] }, { format: "shorts", accent });
 //   drawCaption(ctx, t, CAPTIONS, { format: "shorts", accent: "#ffd400" }); // accent: the spoken word gets a box
 //
 // The ink (light or dark) is chosen every frame from the ground under the text's own box, so a render worker that draws
@@ -213,6 +214,37 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
   });
   ctx.restore();
   return { x, y, w, h, side: sd, size: px, anchor: { x: ax, y: ay }, ink, lines, shrunk: px < 36 * s - 1e-9 };
+}
+
+// A range card (visual-direction.md §13 "Formula on the set"): a bar that fills to value / max (clamped), a tick at each
+// option's capacity with its label under it, and the option that fits (the first tick at or above the value, or
+// `highlight`) in `accent`. Inside the label zone at ≥ 36 px; the ink reads the ground under its own box, as a label's.
+export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {}) {
+  const { format = "shorts", font = "Montserrat", weight = 700, accent = "#ffd400", light = "#ffffff", dark = "#111111" } = opts;
+  if (!(typeof max === "number" && Number.isFinite(max) && max > 0)) throw new Error(`rangeBar: max must be a finite number > 0, got ${max}`);
+  if (!(typeof value === "number" && Number.isFinite(value))) throw new Error(`rangeBar: value must be a finite number, got ${value}`);
+  const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).labels;
+  const px = Math.max(36 * s, opts.size ?? 40 * s), bh = 0.6 * px, zw = area.x1 - area.x0;
+  const w = clamp(opts.w ?? 0.6 * zw, Math.min(4 * px, zw), zw), h = (label ? 1.4 * px : 0) + 0.4 * px + bh + 1.4 * px;
+  const x = clamp(opts.x ?? area.x0, area.x0, area.x1 - w), y = clamp(opts.y ?? area.y0, area.y0, Math.max(area.y0, area.y1 - h));
+  const f = clamp(value / max, 0, 1), fits = opts.highlight ?? ticks.findIndex((t) => t.at >= value);
+  const ink = inkFor(groundAt(ctx, { x0: x, y0: y, x1: x + w, y1: y + h })), inkC = ink === "light" ? light : dark, haloC = ink === "light" ? dark : light;
+  ctx.save();
+  ctx.font = `${weight} ${px}px "${font}"`; ctx.textBaseline = "alphabetic";
+  let by = y + 0.2 * px;
+  if (label) { ctx.textAlign = "left"; ctx.fillStyle = inkC; ctx.fillText(label, x, y + 1.05 * px); by += 1.4 * px; }
+  rrect(ctx, x, by, w, bh, bh / 2, haloC); // the track, in the other ink
+  rrect(ctx, x, by, w * f, bh, bh / 2, inkC); // the fill
+  ctx.textAlign = "center";
+  const out = ticks.map((t, i) => {
+    const tx = x + w * clamp(t.at / max, 0, 1), text = String(t.label ?? t.at), lw = ctx.measureText(text).width;
+    ctx.fillStyle = i === fits ? accent : inkC;
+    ctx.fillRect(tx - 0.05 * px, by - 0.2 * px, 0.1 * px, bh + 0.4 * px);
+    ctx.fillText(text, clamp(tx, x + lw / 2, Math.max(x + lw / 2, x + w - lw / 2)), by + bh + 0.2 * px + 1.05 * px);
+    return { x: tx, at: t.at, label: text, fits: i === fits };
+  });
+  ctx.restore();
+  return { x, y, w, h, size: px, fill: w * f, fits, ticks: out, ink };
 }
 
 // Greedy wrap of `text` into lines of at most maxW px (ctx.font set): at spaces, and between CJK characters. A word wider
