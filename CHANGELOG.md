@@ -39,6 +39,12 @@ that reads as:
   the gate.
 - **Skill feedback in the hand-off**: the agent ends `PRODUCTION.md` with a `## Skill feedback` section of generic
   traps, their cost and a suggested rule, to report upstream; it never edits the installed skill.
+- Brief Call 3 asks the voice when more than one sensible choice exists (saved profiles, a designed narrator); the
+  recommendation follows the audience (public or brand channel → designed narrator; personal channel → the user's
+  own voice).
+- `tts_timestamps.mjs --save-profile` takes a `--sample` audition as it is: over 20 s with its `words.json` beside it,
+  it is cut at the last word end ≤ 15 s and those words become the ref text (no timing, or a `--ref-text` of its own:
+  the 20 s error stays). `tests/save-profile.mjs` in the merge gate.
 - `tests/voice-licence.mjs` in the merge gate: the take's model against a mock VoiceStudio, and the narration row
   against the take's recorded model on fixture projects.
 - **Cutaway (section view)**: `engine/three/cutaway.js` cuts an assembly open with one clipping plane on every
