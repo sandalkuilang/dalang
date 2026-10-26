@@ -609,6 +609,64 @@ assert.ok(finite(get("grains", { size: 0.005, long: 1.4 }).a.image.data), "grain
 const CN = makeCanister({ ...kit, scene: new THREE.Scene(), rest: (o) => o }, { at: new THREE.Vector3(), cut: {} });
 CN.group.updateMatrixWorld(true); CN.cut.at(0);
 assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh.userData.cut?.shell), "the canister's wall is cut and its grains stay whole");
+{
+  // The fill's cut is the cutaway's: read in WORLD space, all three components, on every frame of the timeline.
+  const m4 = new THREE.Matrix4(), v3 = new THREE.Vector3();
+  const pts = (g, i0 = 0, i1 = g.mesh ? g.mesh.count : 0) => { g.group.updateWorldMatrix(true, false); const o = []; for (let i = i0; i < i1; i++) { g.mesh.getMatrixAt(i, m4); o.push(v3.setFromMatrixPosition(m4).applyMatrix4(g.group.matrixWorld).clone()); } return o; };
+  const verts = (g) => { g.group.updateWorldMatrix(true, false); const a = g.body.geometry.attributes.position, o = []; for (let i = 0; i < a.count; i++) o.push(v3.fromBufferAttribute(a, i).applyMatrix4(g.group.matrixWorld).clone()); return o; };
+  const lens = presets.lentil, cof = presets.coffee, nrm = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
+  // (a) a horizontal cut: the fill is levelled at the plane, its face spread over the disc, not piled on the axis.
+  const gh = grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: { normal: new THREE.Vector3(0, 1, 0), offset: 0.03 } });
+  assert.ok(gh.body && gh.mesh && gh.counts.top > 0 && gh.counts.face > 100, "a horizontal cut keeps a fill: " + JSON.stringify(gh.counts));
+  const ph = pts(gh), fh = pts(gh, gh.counts.top);
+  assert.ok(ph.every((p) => p.y * M <= 0.03 + 1e-6) && verts(gh).every((p) => p.y * M <= 0.03 + 1e-6), "nothing past a horizontal cut");
+  assert.ok(Math.max(...fh.map((p) => p.x)) - Math.min(...fh.map((p) => p.x)) > 0.07 / M && Math.max(...fh.map((p) => p.z)) - Math.min(...fh.map((p) => p.z)) > 0.07 / M, "a horizontal cut face spreads over the disc, not one column");
+  assert.equal(grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: { normal: new THREE.Vector3(0, 1, 0), offset: 0.2 } }).counts.top, grains(kit, { preset: "lentil", radius: 0.05, height: 0.08 }).counts.top, "a cut above the fill removes nothing");
+  // (b) a tilted cut: the fill's cut is the wall's plane, not a vertical one.
+  const tn = nrm(0, 0.5, 1), gt = grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: { normal: tn, offset: 0.01 } });
+  assert.ok(gt.counts.top > 50 && gt.counts.face > 50, "a tilted cut keeps both: " + JSON.stringify(gt.counts));
+  assert.ok(pts(gt).every((p) => tn.dot(p) * M <= 0.01 + 0.3 * lens.w + 1e-6) && verts(gt).every((p) => tn.dot(p) * M <= 0.01 + 1e-6), "nothing past a tilted cut");
+  assert.ok(verts(gt).some((p) => tn.dot(p) * M > 0.01 - 0.5 * lens.t), "the body is cut at the tilted plane, not shorter");
+  // (c) a rotated container: the cutaway's world plane cuts the fill too.
+  const cr = makeCanister({ ...kit, scene: new THREE.Scene(), rest: (o) => o }, { at: new THREE.Vector3(), cut: {} });
+  cr.group.rotation.y = Math.PI / 2; cr.group.updateMatrixWorld(true); cr.cut.at(0);
+  const rn = cr.cut.plane.normal.clone().negate(), rc = cr.cut.plane.constant;
+  assert.ok(cr.fill.counts.top > 50 && cr.fill.counts.face > 50, "the rotated canister keeps a cut fill: " + JSON.stringify(cr.fill.counts));
+  assert.ok(pts(cr.fill).every((p) => rn.dot(p) <= rc + 0.3 * cof.w / M + 1e-6) && verts(cr.fill).every((p) => rn.dot(p) <= rc + 1e-6), "the fill is cut at the world plane of a rotated canister");
+  // The timeline: off is the whole fill, on again is cut, and a slid cut moves the fill with the wall.
+  const whole = grains(kit, { preset: "coffee", radius: 0.055 - 0.0018, height: 0.75 * 0.16 });
+  CN.cut.off(1); CN.cut.at(1);
+  assert.ok(CN.fill.counts.face === 0 && CN.fill.counts.top === whole.counts.top && pts(CN.fill).some((p) => p.z * M > 0.02), "off: the fill is whole again with the wall");
+  CN.cut.on(2).set(-0.02, 3); CN.cut.at(3);
+  const sn = CN.cut.plane.normal.clone().negate();
+  assert.ok(CN.fill.counts.face > 20 && pts(CN.fill).every((p) => sn.dot(p) <= CN.cut.plane.constant + 0.3 * cof.w / M + 1e-6) && verts(CN.fill).every((p) => sn.dot(p) <= CN.cut.plane.constant + 1e-6), "a slid cut moves the fill with the wall");
+  // A shallow fill never sinks through the floor: every grain's lowest point is at or above y = 0.
+  const low = (g, P) => { const bb = g.mesh.geometry.boundingBox || (g.mesh.geometry.computeBoundingBox(), g.mesh.geometry.boundingBox), h = [Math.max(bb.max.x, -bb.min.x), Math.max(bb.max.y, -bb.min.y), Math.max(bb.max.z, -bb.min.z)]; let lo = Infinity; for (let i = 0; i < g.mesh.count; i++) { g.mesh.getMatrixAt(i, m4); const e = m4.elements; lo = Math.min(lo, e[13] - Math.hypot(e[1] * h[0], e[5] * h[1], e[9] * h[2])); } return lo; };
+  for (const [name, args] of [["coffee", { preset: "coffee", radius: 0.05, height: 0.005 }], ["shallow with a cut", { preset: "coffee", radius: 0.05, height: 0.005, cut: { normal: new THREE.Vector3(0, 0, 1), offset: 0 } }], ["a tapered bowl", { preset: "lentil", radius: 0.05, bottom: 0.03, height: 0.002 }]]) {
+    const gs = grains(kit, args);
+    assert.ok(gs.mesh && gs.counts.top > 0, name + ": a shallow fill still has grains");
+    assert.ok(low(gs) >= -1e-9, name + ": no grain below the floor: " + (low(gs) * 1000).toFixed(2) + " mm");
+  }
+  const cg = makeCanister({ ...kit, scene: new THREE.Scene(), rest: (o) => o }, { at: new THREE.Vector3(), fill: "gravel", level: 0.05 });
+  assert.ok(low(cg.fill) >= -1e-9, "a shallow gravel fill stays out of the base: " + (low(cg.fill) * 1000).toFixed(2) + " mm");
+  assert.ok(grains(kit, { preset: "coffee", radius: 0.05, height: 0.08 }).counts.top > 100, "a deep fill is unchanged by the shallow floor");
+  // The cap: past `max` the rest are dropped with a warning, and the counts follow what is built.
+  const warns = [], warn0 = console.warn;
+  console.warn = (m) => warns.push(String(m));
+  const capA = grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: gcut, max: 100 });
+  const capB = grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: gcut, max: gr0.counts.top + 10 });
+  const nocap = grains(kit, { preset: "lentil", radius: 0.05, height: 0.08, cut: gcut });
+  console.warn = warn0;
+  assert.ok(capA.capped && capA.mesh.count === 100 && capA.counts.top === 100 && capA.counts.face === 0, "past max inside the top: only the top is kept " + JSON.stringify(capA.counts));
+  assert.ok(capB.capped && capB.counts.top === gr0.counts.top && capB.counts.face === 10 && capB.mesh.count === gr0.counts.top + 10, "past max inside the face: the face is cut short " + JSON.stringify(capB.counts));
+  assert.ok(warns.length === 2 && warns.every((w) => /past the cap of/.test(w)), "the cap warns once per capped build: " + warns.length);
+  assert.ok(!nocap.capped && nocap.counts.face === gr0.counts.face, "under max nothing is dropped and nothing warns");
+  // instances: false with a cut is the body alone, cut; with instances it still builds grains.
+  const sc = grains(kit, { preset: "sugar", radius: 0.05, height: 0.05, instances: false, cut: gcut });
+  assert.ok(!sc.mesh && sc.counts.top === 0 && sc.counts.face === 0 && verts(sc).every((p) => p.z * M <= 1e-6), "a cut fill without instances is a cut body");
+  const sm = grains(kit, { preset: "sugar", radius: 0.005, height: 0.01 });
+  assert.ok(sm.mesh && sm.counts.top > 50 && !sm.capped, "a small sugar patch builds its grains");
+}
 // Any scale and any place: a set built in centimetres on the Moon. Gravity is the place's; tolerances are metres, so
 // the audit still sees a 5 mm gap; settle lifts a prop typed 20 mm into the floor and reports one 50 mm in.
 const moon = new THREE.Scene(), mk = K.makeKit(moon, { mpu: 0.01, gravity: 1.62 });
