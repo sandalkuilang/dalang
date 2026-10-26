@@ -31,11 +31,25 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `tests/voice-licence.mjs` in the merge gate: the take's model against a mock VoiceStudio, and the narration row
+  against the take's recorded model on fixture projects.
+
 ### Fixed
 
 - **The final render ran at 30 fps, not the brief's 24**: `hyperframes render` defaults to 30 fps and the Step 8 and
   style-frame sample commands passed no `--fps`. Every render command now passes the brief's fps (`qc.md`,
   `look-build.md`, `SKILL.md`, `lessons.md`).
+- `tts_timestamps.mjs` no longer defaults VoiceStudio to OmniVoice: without `--model` it speaks with VoiceStudio's
+  active TTS model (the one preflight reports), prints `Model : <name> — <licence>` and records it; an unreadable
+  active model stops the run (rerun or pass `--model`), never a silent default. Dialogue style now reaches VoxCPM2 as
+  its `description`. The ElevenLabs take records the plan tier.
+- `check_assets.mjs` checks the narration's `ASSETS.json` row against the model its take recorded
+  (`audio/<name>.response.json`): a non-commercial voice (OmniVoice, the ElevenLabs free tier; one table in
+  `scripts/voice_licences.mjs`) listed under a commercial licence is a problem, and an unreadable response file fails
+  closed.
+- Brief: a non-commercial voice is stated in Call 0 and at Gate 2 even when the user said not to ask.
 
 ## [1.4.0] - 2026-10-26
 
