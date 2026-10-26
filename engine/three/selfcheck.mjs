@@ -90,6 +90,54 @@ assert.ok(Math.abs(held.pose(0, 0.95).p.y - 0.5) < 1e-6, "a held box stays where
 assert.ok(held.pose(0, 1.2).p.y < 0.45 && Math.abs(held.pose(0, 2.5).p.y - 0.075) * M * 1000 < 2, "released, it falls and lands");
 assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after its release it is audited like any body");
 
+// Islands: groups that never touch for the whole shot are baked as their own worlds, in parallel workers, and merge
+// into the single-world result; the engine proves the groups stayed apart (a meeting throws), declared bodies take no
+// scripted help (onStep, track and keep see only the main island), and the cache tells the two kinds of bake apart.
+async function isles(o = {}) {
+  const sc = new THREE.Scene(); sc.add(floor.clone());
+  const meshes = [["push", 0, 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, 0.35], ["b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); m.position.set(x, y, z); m.rotation.z = tilt; m.name = name; sc.add(m); return m;
+  });
+  sc.updateMatrixWorld(true);
+  const s = await makeSim(THREE); s.staticScene(sc, meshes);
+  const [push, a, b] = meshes.slice(0, 3).map((m) => s.roundBox(m, 0.15, 0.15, 0.15, 0.001, { density: 600 * M ** 3 }));
+  const arm = o.kin ? s.kinematicHull(meshes[3], (t) => ({ p: { x: 0, y: 0.3, z: -1.5 + 0.1 * t } })) : null;
+  let shoved = false;
+  const step = (t) => { if (!shoved && t >= 0.3) { shoved = true; push.body.setLinvel({ x: 0, y: 0, z: 0.5 }, true); } }; // the main island's scripted push
+  const mem = o.store || new Map();
+  return { s, a, b, push, arm, step, opts: { track: { pz: () => push.body.translation().z }, keep: () => ({ shoved }), load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v), ...(o.workers === false ? { workers: false } : {}) } };
+}
+const withIslands = (I, opts = {}) => ({ ...I.opts, islands: [[I.a], [I.b]], ...opts });
+const ipose = (r, t) => [0, 1, 2].map((i) => poseAt(r, i, t));
+const one = await isles(), single = await one.s.bakeCached(1.5, one.step, 0.2, one.opts);
+const istore = new Map(), I1 = await isles({ store: istore }), par = await I1.s.bakeCached(1.5, I1.step, 0.2, withIslands(I1));
+const I2 = await isles({ store: new Map(), workers: false }), seq = await I2.s.bakeCached(1.5, I2.step, 0.2, withIslands(I2));
+for (const t of times) assert.deepEqual(ipose(par, t), ipose(seq, t), `worker and in-thread island bakes agree at ${t} s`);
+assert.deepEqual([par.report, par.impacts, par.kept], [seq.report, seq.impacts, seq.kept], "worker and in-thread island reports agree");
+assert.ok(par.hash !== single.hash && par.hash === seq.hash, "declared islands are part of the cache key, the way they run is not");
+for (const t of times) assert.deepEqual(ipose(par, t), ipose(single, t), `islands match the single world at ${t} s`);
+assert.deepEqual(par.report, single.report, "island report matches the single world");
+assert.deepEqual(par.impacts, single.impacts, "island impacts match the single world");
+assert.ok(par.impacts.length > 0 && single.report.moving.length === 0 && par.kept.shoved && par.at("pz", 1.2) > 0.3, "the main island keeps its scripted push, series and kept values");
+assert.ok(par.data.poses[1].s.length > 20 && par.data.poses[2].s.length > 20, "island bodies fell and were recorded");
+const I3 = await isles({ store: istore }), again2 = await I3.s.bakeCached(1.5, I3.step, 0.2, withIslands(I3));
+assert.ok(again2.cached && again2.hash === par.hash, "an unchanged island scene replays its cache");
+for (const t of times) assert.deepEqual(ipose(again2, t), ipose(par, t), `cached island pose at ${t} s`);
+const cross = await isles({ ax: -0.8, ay: 0.9 }); // "a" lands on "b": declared apart, they meet
+await assert.rejects(cross.s.bakeCached(1.5, cross.step, 0.2, withIslands(cross)), /island.*meet/, "a contact across islands fails loudly");
+const spy = await isles();
+await assert.rejects(spy.s.bakeCached(1.5, (t) => { spy.a.body.translation(); }, 0.2, withIslands(spy)), /island/, "onStep cannot reach a declared body");
+const ok = await isles();
+await ok.s.bakeCached(1.2, (t) => { ok.push.body.translation(); }, 0.2, withIslands(ok));
+const sync = await isles();
+assert.throws(() => sync.s.bake(1, null, 0.2, { islands: [[sync.a]] }), /bakeCached/, "islands bake only through bakeCached");
+const kin = await isles({ kin: true });
+await assert.rejects(kin.s.bakeCached(1, null, 0.2, { ...kin.opts, islands: [[kin.arm]] }), /kinematic/, "a kinematic body stays in the main island");
+const twice = await isles();
+await assert.rejects(twice.s.bakeCached(1, null, 0.2, { ...twice.opts, islands: [[twice.a], [twice.a, twice.b]] }), /two islands/, "a body is in one island");
+const stray = await isles();
+await assert.rejects(stray.s.bakeCached(1, null, 0.2, { ...stray.opts, islands: [[{}]] }), /roundBox/, "an island holds only bodies the sim made");
+
 // Cloth hangs and stays finite; a swept tube has no zero normals (a NaN in the shader blacks out the frame).
 const c = bakeCurtain({ cx: 0, width: 0.2, top: 1, length: 0.5, z: 0, wall: -0.1, wind: (p, t, o) => o.set(0, 0, 0), duration: 1, mpu: M });
 c.apply(0.9);
@@ -163,4 +211,4 @@ mk.rest(sunk); mk.rest(deep);
 const misses = mk.settle();
 assert.ok(Math.abs(sunk.position.y - 7.5) < 0.01 && !misses.some((m) => /sunk/.test(m)), "settle lifts a prop typed a little low: " + sunk.position.y);
 assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle reports a prop placed deep inside: " + misses);
-console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), any scale and gravity");
+console.log("selfcheck ok: surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, water (M = " + M + "), any scale and gravity");
