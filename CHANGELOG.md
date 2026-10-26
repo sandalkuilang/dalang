@@ -63,6 +63,8 @@ that reads as:
 
 - **`tts_timestamps.mjs` sent VoiceStudio a profile's name**, which it does not match, so the default voice spoke
   with no error; names now resolve to their id, and an unknown voice stops the run.
+- **Preflight read an installed VoxCPM2 as `MISSING`**: VoiceStudio selects some engines by bare name (`voxcpm2`),
+  not repo id; a bare name now matches the repo's own name, case aside, and the row prints the repo id.
 
 - **Stale generator promises**: Principle 6 and the Brief's Angle and Realism options no longer offer generated
   stills or clips as a default Hyperreal source, nor do look C, the storyboard checks or the A-roll list; they
