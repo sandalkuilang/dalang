@@ -16,13 +16,13 @@
 // The starting values come from real films; tune them here only (THRESHOLDS). Every flag is a P1 (references/qc.md,
 // Step 7); the results go into PRODUCTION.md. A bed whose level the script cannot compute (index.html unreadable or
 // absent without --music, no src in the HTML, a data-volume or lane that does not parse, a data-playback-rate other than
-// 1, an <audio> not named as music that plays longer than an SFX or cannot be read, until --music names the bed) is NOT
+// 1, an <audio> not named as music that plays longer than an SFX, loops without a short data-duration or cannot be read, until --music names every bed) is NOT
 // CHECKED, never "no bed" and never OK; so is a voice check with fewer than 3 voiced sentences. The Result is made in one
 // place (verdict): OK only when the bed, clicks and voice each have an outcome. Known limits: lane
-// curves are read as straight lines between points; `loop` is ignored; a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
+// curves are read as straight lines between points; a `loop` bed is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a mix with sharp percussion can show a false click; an engine that writes digital zeros inside a word can
 // show a false dropout.
 //
-// Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>] [--text narration.txt]
+// Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]   (--music: once per bed)
 // Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun) · 1 usage / failure.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
@@ -93,13 +93,15 @@ export function laneOf(automation) {
   return pts.length ? pts.sort((a, b) => a.t - b.t) : null;
 }
 // The clip placed at `start` seconds with its gain, as `total` samples of the composition's timeline. opts.mediaStart:
-// seconds skipped at the head of the file (data-media-start); opts.dur: the clip's length on the timeline (data-duration).
+// seconds skipped at the head of the file (data-media-start); opts.dur: the clip's length on the timeline (data-duration);
+// opts.loop: the clip repeats until opts.dur, else until the end of the film.
 export function applyGain(x, rate, start, volume, lane, total, opts = {}) {
   const out = new Float32Array(total), off = Math.round(start * rate), ms = Math.max(0, Math.round((opts.mediaStart || 0) * rate));
-  const avail = Math.max(0, x.length - ms), n = opts.dur > 0 ? Math.min(avail, Math.round(opts.dur * rate)) : avail;
+  const avail = Math.max(0, x.length - ms), durN = opts.dur > 0 ? Math.round(opts.dur * rate) : null;
+  const n = opts.loop && avail > 0 ? (durN ?? Math.max(0, total - off)) : Math.min(avail, durN ?? avail);
   for (let k = 0; k < n; k++) {
     const i = off + k;
-    if (i >= 0 && i < total) out[i] = x[ms + k] * gainAt(volume, lane, k / rate);
+    if (i >= 0 && i < total) out[i] = x[ms + (opts.loop ? k % avail : k)] * gainAt(volume, lane, k / rate);
   }
   return out;
 }
@@ -253,14 +255,15 @@ export function phrasesFrom(words, gap = 0.3) {
   return out.map(({ words: t, ...p }) => ({ ...p, text: t.join(' ') }));
 }
 
-// Every <audio ...> tag: { id, src, start, volume, duration, mediaStart, rate, automation, bad } (bad: an attribute that is
-// not a number). A tag without src takes the src of its first <source> child.
+// Every <audio ...> tag: { id, src, start, volume, duration, mediaStart, rate, automation, bad, loop } (bad: an attribute that is
+// not a number; loop: the bare attribute is present). A tag without src takes the src of its first <source> child.
 export function audioTags(html) {
   const out = [];
   for (const m of html.matchAll(/<audio\b([^>]*?)(\/?)>/gi)) {
     const attrs = {};
-    for (const a of m[1].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
-      attrs[a[1].toLowerCase()] = (a[2] ?? a[3]).replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
+    // name="v", name='v', name=v and a bare name (loop): a bare attribute is present with the value ''.
+    for (const a of m[1].matchAll(/([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
+      attrs[a[1].toLowerCase()] = (a[2] ?? a[3] ?? a[4] ?? '').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
     }
     const bad = [];
     const num = (k, dflt) => {
@@ -278,6 +281,7 @@ export function audioTags(html) {
     out.push({
       id: attrs.id || '', src, start: num('data-start', 0), volume: num('data-volume', 1), duration: num('data-duration', null),
       mediaStart: num('data-media-start', 0), rate: num('data-playback-rate', 1), automation: attrs['data-automation'] || null, bad,
+      loop: Object.hasOwn(attrs, 'loop'),
     });
   }
   return out;
@@ -293,12 +297,14 @@ export function musicTags(tags) {
 }
 
 // Every <audio> tag gets exactly one role; "no bed in the film" is concluded only when none is 'unknown'.
-// narration: the narration tag. bed: a music cue by name (musicTags). sfx: plays at most THRESHOLDS.sfxMaxS (its
-// data-duration, else lengthOf(tag): the file's length in seconds, or { why } when it cannot be read, after
-// data-media-start and at its playback rate). unknown: anything else (a longer clip, a file that cannot be read, a timing
-// attribute that does not parse); it may be the bed, so the bed is NOT CHECKED until --music names it.
-export function tagRoles(tags, narrTag, lengthOf) {
-  const beds = new Set(musicTags(tags.filter((t) => t !== narrTag)));
+// narration: the narration tag. bed: a music cue by name (musicTags) or one that a --music value names by id or src.
+// sfx: plays at most THRESHOLDS.sfxMaxS (its data-duration, else lengthOf(tag): the file's length in seconds, or { why }
+// when it cannot be read, after data-media-start and at its playback rate); a `loop` tag is one only with a data-duration
+// that short. unknown: anything else (a longer clip, a looped one, a file that cannot be read, a timing attribute that
+// does not parse); it may be the bed, so the bed is NOT CHECKED until --music names it.
+export function tagRoles(tags, narrTag, lengthOf, music = []) {
+  const others = tags.filter((t) => t !== narrTag);
+  const beds = new Set([...musicTags(others), ...others.filter((t) => music.some((m) => t.id === m || t.src === m))]);
   return tags.map((t) => {
     if (t === narrTag) return { tag: t, role: 'narration' };
     if (beds.has(t)) return { tag: t, role: 'bed' };
@@ -306,6 +312,7 @@ export function tagRoles(tags, narrTag, lengthOf) {
     if (badTime.length) return { tag: t, role: 'unknown', why: `${badTime.join(', ')} is not a number` };
     if (!(t.rate > 0)) return { tag: t, role: 'unknown', why: `data-playback-rate ${t.rate}` };
     if (t.duration != null && t.duration >= 0 && t.duration <= T.sfxMaxS) return { tag: t, role: 'sfx' };
+    if (t.loop) return { tag: t, role: 'unknown', why: `loop without a data-duration of at most ${T.sfxMaxS} s` };
     const len = lengthOf(t);
     if (typeof len !== 'number' || !Number.isFinite(len)) return { tag: t, role: 'unknown', why: (len && len.why) || 'its length could not be read' };
     const plays = Math.min(t.duration ?? Infinity, Math.max(0, len - t.mediaStart) / t.rate);
@@ -357,10 +364,10 @@ function main(argv) {
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--mix') a.mix = argv[++i];
-    else if (k === '--music') a.music = argv[++i];
+    else if (k === '--music') { if (argv[i + 1] == null || argv[i + 1].startsWith('--')) { console.error('--music needs a bed: an <audio> id or a file'); process.exit(1); } (a.music ||= []).push(argv[++i]); }
     else if (k === '--text') a.text = argv[++i];
     else if (!k.startsWith('--') && !dirSet) { a.dir = k; dirSet = true; }
-    else { console.error(`Unknown option: ${k}\nUsage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>] [--text narration.txt]`); process.exit(1); }
+    else { console.error(`Unknown option: ${k}\nUsage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]`); process.exit(1); }
   }
   const at = (p) => path.resolve(a.dir, p);
   const lines = [`Audio QC: ${a.dir}`], flags = [], notChecked = [];
@@ -407,10 +414,13 @@ function main(argv) {
     if (mm) return { why: mm };
     try { return decode(f, 8000).length / 8000; } catch (e) { if (e instanceof Fatal) { console.error(e.message); process.exit(1); } return { why: e.message }; }
   };
-  const roles = a.music || html.text == null ? [] : tagRoles(tags, narrTag, lengthOf);
+  // Classification always runs: each --music value turns the tag it names into a bed, the rest keeps its role, so an
+  // unknown tag that nothing names stays unknown. A --music value that no tag has is a file, a cue of its own.
+  const music = a.music || [];
+  const roles = html.text == null ? [] : tagRoles(tags, narrTag, lengthOf, music);
   const unknown = roles.filter((r) => r.role === 'unknown');
-  const musicCues = a.music ? tags.filter((t) => t.id === a.music || t.src === a.music) : roles.filter((r) => r.role === 'bed').map((r) => r.tag);
-  if (a.music && !musicCues.length) musicCues.push({ id: '', src: a.music, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [] });
+  const musicCues = roles.filter((r) => r.role === 'bed').map((r) => r.tag);
+  for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ id: '', src: m, start: 0, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false });
   let bedLine = null;
   const bedProblem = () => {
     if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
@@ -428,7 +438,7 @@ function main(argv) {
   };
   if (unknown.length) {
     const names = unknown.slice(0, 6).map((r) => `${r.tag.id ? `<audio id="${r.tag.id}">` : r.tag.src || '<audio>'} (${r.why})`).join(', ');
-    skip('bed', `${names} is neither a music cue by name (music, bgm, bed, soundtrack, e.g. music-a) nor an SFX (at most ${T.sfxMaxS} s): if it is the bed (or one of them) name it with --music <id>, then rerun`);
+    skip('bed', `${names} is neither a music cue by name (music, bgm, bed, soundtrack, e.g. music-a) nor an SFX (at most ${T.sfxMaxS} s): if it is the bed (or one of them) name every bed with --music <id> (repeatable), then rerun`);
   } else if (!musicCues.length) {
     if (html.err) skip('bed', 'index.html could not be read, so which music plays is unknown: fix the WARN above and rerun');
     else if (html.text == null) skip('bed', 'there is no index.html to say which music plays: pass the file with --music <file>');
@@ -447,7 +457,7 @@ function main(argv) {
           const mf = at(c.src), mm = missing(mf, 'the music file');
           if (mm) throw new Error(mm);
           const lane = laneOf(c.automation);
-          const clip = applyGain(decode(mf, rate16), rate16, c.start, c.volume, lane, total, { mediaStart: c.mediaStart, dur: c.duration });
+          const clip = applyGain(decode(mf, rate16), rate16, c.start, c.volume, lane, total, { mediaStart: c.mediaStart, dur: c.duration, loop: c.loop });
           for (let i = 0; i < total; i++) bed[i] += clip[i];
           shown.push(`${rel(mf)} x ${+c.volume.toFixed(3)}${lane ? ' (volume lane)' : ''}`);
         }

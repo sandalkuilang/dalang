@@ -10,7 +10,7 @@ node <skill-dir>/scripts/lint_scene.mjs     # no code swallowed by a mid-line //
 npx hyperframes render --fps 10 --quality draft --quiet --output draft.mp4   # run in the background
 node <skill-dir>/scripts/stillness.mjs draft.mp4    # target ≤ 10 %, no still stretch > 1.5 s (planned pauses: --allow a-b)
 node <skill-dir>/scripts/loudness.mjs draft.mp4     # target ≈ −14 LUFS, true peak ≤ −1 dBTP
-node <skill-dir>/scripts/audio_qc.mjs . --mix draft.mp4   # bed 8–25 dB under the voice, no click or dropout, no off-pitch sentence; exit 2 = a check could not run (never OK); a bed with another name: --music <id>
+node <skill-dir>/scripts/audio_qc.mjs . --mix draft.mp4   # bed 8–25 dB under the voice, no click or dropout, no off-pitch sentence; exit 2 = a check could not run (never OK); other bed names or a `loop` clip: `--music <id>` per bed
 node <skill-dir>/scripts/qc.mjs draft.mp4 --size <WxH from BRIEF.md>   # black frames, clipping, silences, ends before the narration, codec and colour tags
 node <skill-dir>/scripts/timing_lint.mjs    # every picture cut between words, no scene under 1 s
 npx hyperframes snapshot --review --describe false
