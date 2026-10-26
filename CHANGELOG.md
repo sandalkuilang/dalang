@@ -33,6 +33,11 @@ that reads as:
 
 ### Added
 
+- **Number provenance in the script**: every number in `script.md` carries `[src: …]`, `[calc: …]`, `[illus]` or
+  `[unknown]`, the tag decides its on-screen form (evidence card, calculation card, illustration tag, shown
+  admission), and Gate 1 lists any untagged number (`script-voice.md` §3, `SKILL.md`, `qc.md` Step 7). The arc list
+  gains **two beliefs, tested**, with its beat map, and an uncertainty rule: never invent the missing number, say
+  what is not known, then what is certain.
 - **Free media search**: `scripts/find_media.mjs` (Node `fetch`, no dependency) searches Openverse (music, SFX,
   images), Wikimedia Commons (images) and the bundled `/media-use` SFX library, downloads previews and prints one line
   per result; `--take <file> --as assets/<path>` copies the pick into the project and appends its `ASSETS.json` row
