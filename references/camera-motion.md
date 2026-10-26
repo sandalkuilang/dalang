@@ -103,6 +103,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Motion blur [D]:** blur length per frame = displacement per frame × shutter / 360. Turn `data-motion-blur="on"` on above ~8 px/frame at 1080p; 45–90° shutter for staccato impact, 270–360° for a dreamy smear.
 - **On twos** (hold each pose 2 frames, `tq = Math.floor(t*12)/12`): stylised looks only, never the camera, no motion blur on stepped layers.
 - **Snap every cut and key** to `Math.round(t*fps)/fps`. A hold registers from ~4 frames; an accent pose holds 6–12.
+- **Never compare a raw cue with a snapped cut:** a cue up to half a frame before a cut lands in the shot before it. Look a cue's shot up with `shotAt` / `overlayWindow` (`camera.js`: they snap the cue as the cut is snapped) and run `windowProblems` over every overlay and label: a window that is empty, or shorter than its `readTime`, is an error that names the cue.
 
 ## 6. Compositing: a cut-out must look shot, not pasted
 
