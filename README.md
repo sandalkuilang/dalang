@@ -67,7 +67,7 @@ Check your machine once — one call, a few seconds, never prints secrets:
 node ~/.claude/skills/dalang/scripts/preflight.mjs
 ```
 
-It reports Node, ffmpeg, HyperFrames, both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits.
+It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/main`? update with `git -C ~/.claude/skills/dalang pull --ff-only`), both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits.
 
 <br/>
 
