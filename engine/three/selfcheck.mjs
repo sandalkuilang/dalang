@@ -1282,6 +1282,8 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.deepEqual(windowProblems([{ name: "ok", cue: 0.5 }], shots, { fps, min: 0.5 }), [], "an option min with a long enough window and no text");
   assert.ok(windowProblems([{ name: "ok", cue: 2.9 }], shots, { fps, min: 0.5 }).length === 1, "an option min applies to an item with no text");
   assert.throws(() => windowProblems([{ name: "t", cue: 1 }], shots, { fps, min: "2" }), /min/);
+  p = windowProblems([{ name: "t", cue: 2.9, min: NaN }], shots, { fps });
+  assert.ok(p.length === 1 && /t: min must be a number/.test(p[0]), "an item min that is not a number is a problem: " + nm(p));
   assert.deepEqual(windowProblems([{ name: "ok", cue: 0.5 }], shots, { fps }), [], "no text and no min: only an empty window fails");
   assert.equal(readTime("42"), 1); assert.equal(readTime("2 million years"), 1.4); assert.equal(readTime("a b c d e f g"), 2.6);
   assert.equal(readTime("十個漢字"), 1.1); assert.equal(readTime(""), 1); assert.equal(readTime("  "), 1);

@@ -319,6 +319,7 @@ export function overlayWindow(cue, shots, o) {
 export function windowProblems(items, shots, o = {}) {
   const fps = fpsOf("windowProblems", o); checkShots("windowProblems", shots);
   if (!Array.isArray(items)) throw new Error("windowProblems(): items is an array of { name, cue, text, end, min }");
+  if (o.min !== undefined && !num(o.min)) throw new Error("windowProblems(): the option min is a number of seconds, got " + JSON.stringify(o.min));
   const out = [], r3 = (x) => Math.round(x * 1000) / 1000;
   const lastEnd = shots.length ? Math.max(...shots.map((s) => fr(s.end, fps))) / fps : 0;
   items.forEach((it, i) => {
@@ -334,7 +335,8 @@ export function windowProblems(items, shots, o = {}) {
       to = w.to; dur = w.dur;
     }
     if (dur <= 0) { out.push(name + ": window is zero or negative (cue " + it.cue + " s -> " + r3(to) + " s at " + fps + " fps)"); return; }
-    const need = it.min ?? (it.text !== undefined ? readTime(it.text) : o.min ?? 0);
+    if (it.min !== undefined && !num(it.min)) { out.push(name + ": min must be a number of seconds"); return; }
+    const need = it.min ?? o.min ?? (it.text !== undefined ? readTime(it.text) : 0);
     if (dur < need) out.push(name + ": window " + r3(dur) + " s is under its minimum read time " + r3(need) + " s");
   });
   return out;
