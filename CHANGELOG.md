@@ -56,6 +56,11 @@ that reads as:
   has no line in that step's index, and when Step 5's or 6's index lacks the three.js engine install. The `looks.md`
   "three.js recipes" section is split into four `###` parts (install the engine, light and material per look, set
   dressing / scale / interior / condition, true shapes and surfaces), all in the Step 5 and 6 index.
+- **Cues and shots on one frame grid** (`camera.js`, `type.js`): `snap`, `shotAt`, `overlayWindow`, `windowProblems` and
+  `readTime`. A cue is snapped the way a cut is, so a cue just before a frame-rounded cut finds its own shot instead of the
+  one before; an overlay window that is empty, in no shot or shorter than its read time is named. The self-check covers a
+  cue 10 ms before a cut, a zero-length window and the read time. `camera-motion.md` §5.4 and `lessons.md` (this trap, and a
+  thin decal scaled flat that sinks under its surface) say so.
 - **Camera stations and attention** (`engine/three/camera.js`): `stations`, `frame`, `travel` (an arc over the set, eased,
   with `speed` in m/s for motion blur), `route` (a leg that starts before the one before ends is refused: no hard cut),
   `loopEnd` (the last pose is the first, for a Short that replays), `place`, and `attend`, attention by ghosting keyed by
