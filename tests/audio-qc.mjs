@@ -156,6 +156,49 @@ try {
     console.log("ok  audioTags / laneOf: both quote styles, the escaped lane, defaults");
   }
 
+  // 8b. <source src> children, data-duration / data-media-start / data-playback-rate are read.
+  {
+    const html = `<audio id="music"><source src="assets/m.ogg" type="audio/ogg"><source src="assets/m.mp3"></audio>
+      <audio id="sfx" src="s.wav" data-start="1" data-duration="0.3" data-media-start="0.5" data-playback-rate="2"></audio>
+      <audio id="bgm-2" src="b.wav" />`;
+    const tags = q.audioTags(html);
+    assert.equal(tags.length, 3);
+    assert.equal(tags[0].src, "assets/m.ogg", "the first <source> child gives the src when the tag has none");
+    assert.deepEqual([tags[1].duration, tags[1].mediaStart, tags[1].rate], [0.3, 0.5, 2]);
+    assert.deepEqual([tags[2].src, tags[2].duration, tags[2].mediaStart, tags[2].rate], ["b.wav", null, 0, 1], "a self-closed tag does not borrow the next tag's <source>");
+    console.log("ok  audioTags: <source> children, data-duration, data-media-start, data-playback-rate");
+  }
+
+  // 8c. Which <audio> tags are the music bed: an anchored name, every cue, never an SFX that merely contains 'bed'/'music'.
+  {
+    const t = (id, src) => ({ id, src });
+    const names = (tags) => q.musicTags(tags).map((x) => x.id || x.src);
+    assert.deepEqual(names([t("sfx-embed", "assets/embedded-hit.wav"), t("bedroom", "assets/bedroom-amb.wav"), t("creak", "assets/bed-creak.wav"), t("box", "assets/music-box.wav"), t("narration", "audio/narration.wav")]), [], "SFX that contain bed/music inside a longer word or phrase are not the bed");
+    assert.deepEqual(names([t("music", "assets/x.wav"), t("music-a", "a.wav"), t("music2", "b.wav"), t("bgm_b", "c.wav"), t("", "assets/background-music.mp3"), t("", "assets/bed.wav")]), ["music", "music-a", "music2", "bgm_b", "assets/background-music.mp3", "assets/bed.wav"], "every music cue counts");
+    assert.deepEqual(names([t("sfx-embed", "assets/embedded-hit.wav"), t("music", "assets/music.wav")]), ["music"], "the real bed after an SFX is found");
+    console.log("ok  musicTags: anchored names, all cues, SFX with 'bed' or 'music' inside a longer name are left out");
+  }
+
+  // 8d. applyGain: data-duration cuts the clip, data-media-start skips into the file.
+  {
+    const rate = 1000, x = Float32Array.from({ length: 4000 }, (_, i) => (i < 1000 ? 0.1 : 0.5));
+    const cut = q.applyGain(x, rate, 0, 1, null, 4000, { dur: 1.5 });
+    assert.equal(cut[1400], 0.5); assert.equal(cut[1600], 0, "nothing after data-duration");
+    const skip = q.applyGain(x, rate, 0, 1, null, 4000, { mediaStart: 1 });
+    assert.equal(skip[0], 0.5, "the file is entered at data-media-start");
+    assert.equal(q.applyGain(x, rate, 0, 1, null, 4000)[0], 0.1, "default: from the file start");
+    console.log("ok  applyGain: data-duration cuts, data-media-start skips in");
+  }
+
+  // 8e. voiceFlags says when it could not judge (under 3 voiced units).
+  {
+    const mk = (n, f0) => ({ n, start: n, end: n + 1, text: "t", f0, centroid: 500 });
+    assert.equal(q.voiceFlags([mk(1, 150), mk(2, 150 * 2 ** (5 / 12))]).judged, false, "two voiced sentences judge nothing");
+    assert.equal(q.voiceFlags([mk(1, 150), mk(2, 150), mk(3, null), mk(4, null)]).judged, false, "unvoiced sentences do not count");
+    assert.equal(q.voiceFlags([mk(1, 150), mk(2, 150), mk(3, 150)]).judged, true);
+    console.log("ok  voiceFlags: judged is false under 3 voiced sentences, true from 3");
+  }
+
   // 9. No interpreter anywhere in the script.
   {
     const src = fs.readFileSync(script, "utf8");
@@ -178,13 +221,13 @@ try {
       const x = concat(...parts);
       return mutate ? mutate(x) : x;
     };
-    const project = (name, { narr, bedDb, html }) => {
+    const project = (name, { narr, bedDb, html, text, nWords }) => {
       const dir = path.join(tmp, name);
       fs.mkdirSync(path.join(dir, "audio"), { recursive: true });
       fs.mkdirSync(path.join(dir, "assets"));
       fs.writeFileSync(path.join(dir, "audio", "narration.wav"), wav(narr, RATE));
-      fs.writeFileSync(path.join(dir, "audio", "words.json"), JSON.stringify(wordSpans.map(([start, end], i) => ({ i, text: "w", start, end }))));
-      fs.writeFileSync(path.join(dir, "narration.txt"), TEXT + "\n");
+      fs.writeFileSync(path.join(dir, "audio", "words.json"), JSON.stringify(wordSpans.slice(0, nWords ?? 12).map(([start, end], i) => ({ i, text: "w", start, end }))));
+      fs.writeFileSync(path.join(dir, "narration.txt"), (text ?? TEXT) + "\n");
       if (bedDb != null) fs.writeFileSync(path.join(dir, "assets", "music.wav"), wav(tone(880, 4.5, 0.3 * db(-bedDb), RATE), RATE));
       fs.writeFileSync(path.join(dir, "index.html"), html ?? `<div id="root">
   <audio id="narration" src="audio/narration.wav" data-start="0" data-volume="1"></audio>
@@ -263,6 +306,90 @@ try {
       r = run(project("bed15b", { narr: voice(steady), bedDb: 15 }), [], { ...process.env, PATH: bin });
       assert.equal(r.status, 0, "with only ffmpeg and ffprobe on PATH: " + r.stdout + r.stderr);
       console.log("ok  CLI: no music <audio> is an INFO; a PATH holding only ffmpeg and ffprobe still passes (no Python)");
+    }
+
+    // 13b. A bed the script cannot read is NOT CHECKED (exit 2), never 'no bed in the film'.
+    {
+      const bedHtml = (audio) => `<div id="root"><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${audio}</div>`;
+      // index.html unreadable (a directory: EISDIR, also for root) with a bed 40 dB under
+      let dir = project("htmlerr", { narr: voice(steady), bedDb: 40 });
+      fs.rmSync(path.join(dir, "index.html")); fs.mkdirSync(path.join(dir, "index.html"));
+      let r = run(dir);
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      assert.doesNotMatch(r.stdout, /no bed in the film|no index\.html|bed: no music/, "an unreadable index.html is never 'no bed'");
+      // no index.html at all: the bed is unknown unless --music names it
+      dir = project("nohtml", { narr: voice(steady), bedDb: 15 });
+      fs.rmSync(path.join(dir, "index.html"));
+      r = run(dir);
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      r = run(dir, ["--music", "assets/music.wav"]);
+      assert.equal(r.status, 0, "--music names the bed: " + r.stdout + r.stderr);
+      // the src on a <source> child
+      dir = project("source40", { narr: voice(steady), bedDb: 40, html: bedHtml('<audio id="music"><source src="assets/music.wav" type="audio/wav"></audio>') });
+      r = run(dir);
+      assert.equal(r.status, 3, r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      dir = project("source15", { narr: voice(steady), bedDb: 15, html: bedHtml('<audio id="music"><source src="assets/music.wav"></audio>') });
+      r = run(dir);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /bed audible/);
+      // a music tag whose src is not in the HTML at all
+      dir = project("nosrc", { narr: voice(steady), bedDb: 15, html: bedHtml('<audio id="music" data-start="0"></audio>') });
+      r = run(dir);
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/);
+      // a gain the script cannot compute: a template expression, a lane that is not JSON, a playback rate
+      for (const [name, attrs] of [["tmplvol", 'data-volume="{{vol}}"'], ["badlane", "data-automation='{not json'"], ["rate2", 'data-playback-rate="2"']]) {
+        dir = project(name, { narr: voice(steady), bedDb: 15, html: bedHtml(`<audio id="music" src="assets/music.wav" ${attrs}></audio>`) });
+        r = run(dir);
+        assert.equal(r.status, 2, name + ": " + r.stdout + r.stderr);
+        assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/, name);
+      }
+      console.log("ok  CLI: an unreadable index.html, a <source> bed with no readable src, an unreadable gain = exit 2 NOT CHECKED; a <source> bed is measured (40 dB flagged, 15 dB OK)");
+    }
+
+    // 13c. The bed is chosen by an anchored name and every cue counts.
+    {
+      const html = (tags) => `<div id="root"><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${tags}</div>`;
+      const withFiles = (name, tags, files) => {
+        const dir = project(name, { narr: voice(steady), bedDb: null, html: html(tags) });
+        for (const [f, x] of Object.entries(files)) fs.writeFileSync(path.join(dir, "assets", f), wav(x, RATE));
+        return dir;
+      };
+      const bedTone = (secs, under) => tone(880, secs, 0.3 * db(-under), RATE);
+      // an SFX whose id/src contains 'bed' or 'music' before the real bed: neither is the bed
+      let r = run(withFiles("sfxbed", `<audio id="sfx-embed" src="assets/embedded-hit.wav" data-start="1" data-duration="0.3"></audio>
+        <audio id="bedroom-amb" src="assets/bed-creak.wav" data-start="2"></audio>
+        <audio id="music" src="assets/music.wav"></audio>`, { "embedded-hit.wav": tone(300, 0.3, 0.001, RATE), "bed-creak.wav": tone(300, 0.3, 0.001, RATE), "music.wav": bedTone(4.5, 15) }));
+      assert.equal(r.status, 0, "SFX named like a bed are not measured as the bed: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /music\.wav/);
+      assert.doesNotMatch(r.stdout, /embedded-hit|bed-creak/);
+      // two cues, each 15 dB under: the whole film is covered, not only the first cue
+      const cues = `<audio id="music-a" src="assets/music-a.wav" data-start="0"></audio><audio id="music-b" src="assets/music-b.wav" data-start="1"></audio>`;
+      r = run(withFiles("cues15", cues, { "music-a.wav": bedTone(1, 15), "music-b.wav": bedTone(3.5, 15) }));
+      assert.equal(r.status, 0, "two cues 15 dB under: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /music-a\.wav/); assert.match(r.stdout, /music-b\.wav/);
+      // two cues, both 40 dB under: still flagged
+      r = run(withFiles("cues40", cues, { "music-a.wav": bedTone(1, 40), "music-b.wav": bedTone(3.5, 40) }));
+      assert.equal(r.status, 3, r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      // data-duration cuts the cue: a file cut after 0.5 s leaves the rest of the film without a bed
+      r = run(withFiles("dur", `<audio id="music" src="assets/music.wav" data-duration="0.5"></audio>`, { "music.wav": bedTone(4.5, 15) }));
+      assert.equal(r.status, 3, "data-duration is honoured: " + r.stdout + r.stderr);
+      console.log("ok  CLI: SFX named like a bed are not the bed; two cues are both measured; data-duration is honoured");
+    }
+
+    // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
+    {
+      const two = (f2) => concat(...[150, f2].flatMap((f) => [0, 1, 2].flatMap(() => [tone(f, 0.3, 0.3, RATE), silence(0.05, RATE)])));
+      const dir = project("twosent", { narr: two(150 * 2 ** (5 / 12)), bedDb: 15, text: "One two three. Four five six.", nWords: 6 });
+      const r = run(dir);
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      assert.match(r.stdout, /NOT CHECKED: [^\n]*voice/);
+      assert.doesNotMatch(r.stdout, /voice steady/);
+      console.log("ok  CLI: two sentences (one +5 st) -> the voice check is NOT CHECKED, exit 2, never 'voice steady'");
     }
 
     // 14. No ffmpeg: ENOENT is the one 'not found' (exit 1); an unreadable input is never 'not found'.
