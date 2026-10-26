@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-26
+
 ### Added
 
 - **VoiceStudio states in preflight**, each with its fix: `STOPPED` (macOS app installed, closed; "never launched"
@@ -299,7 +301,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/sandalkuilang/dalang/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sandalkuilang/dalang/releases/tag/v1.0.0
