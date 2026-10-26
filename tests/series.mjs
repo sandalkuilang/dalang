@@ -205,5 +205,87 @@ const fresh = () => `kit${++k}`;
   assert.match(u.out, /WARN/);
 }
 
+// 11. read errors that are not "missing" are WARN + rerun, never a verdict (skipped as root: chmod does not bind it).
+const asRoot = process.getuid?.() === 0;
+if (!asRoot) {
+  const r2 = path.join(tmp, "kits-perm");
+  const mk = (nm) => { const x = run(["save", nm, "--from", src, ...GOOD], { dir: r2 }); assert.equal(x.code, 0, x.out); };
+  // list: an unreadable files/ is WARN (exit 2); a kit with no files/ folder at all is 0 file(s)
+  mk("c"); mk("nofiles"); fs.rmSync(path.join(r2, "nofiles/files"), { recursive: true });
+  fs.chmodSync(path.join(r2, "c/files"), 0o000);
+  const l = run(["list"], { dir: r2 });
+  fs.chmodSync(path.join(r2, "c/files"), 0o755);
+  assert.equal(l.code, 2, l.out);
+  assert.match(l.out, /WARN.*c/);
+  assert.doesNotMatch(l.out, /^\s*c .*0 file\(s\)/m);
+  const l2 = run(["list"], { dir: r2 });
+  assert.equal(l2.code, 0, l2.out);
+  assert.match(l2.out, /nofiles.*0 file\(s\)/);
+  assert.match(l2.out, /c .*2 file\(s\)/);
+  // save --force: an unreadable SERIES.md must not lose the Channel rules
+  assert.equal(run(["note", "c", "CC0 music only"], { dir: r2 }).code, 0);
+  fs.chmodSync(path.join(r2, "c/SERIES.md"), 0o200);
+  const f = run(["save", "c", "--from", src, ...GOOD, "--force"], { dir: r2 });
+  fs.chmodSync(path.join(r2, "c/SERIES.md"), 0o644);
+  assert.equal(f.code, 2, f.out);
+  assert.match(f.out, /WARN/);
+  assert.ok(read(r2, "c/SERIES.md").includes("- CC0 music only"), "Channel rules lost");
+  // apply: an unreadable destination file is WARN (exit 2), no stack trace, nothing written
+  const dst = mkdir("dst");
+  put(dst, "src/overlays.js", OVERLAYS);
+  fs.chmodSync(path.join(dst, "src/overlays.js"), 0o000);
+  const a = run(["apply", "c", dst], { dir: r2 });
+  fs.chmodSync(path.join(dst, "src/overlays.js"), 0o644);
+  assert.equal(a.code, 2, a.out);
+  assert.match(a.out, /WARN/);
+  assert.doesNotMatch(a.out, /at .*\.mjs:\d+|node:internal/);
+  assert.ok(!has(dst, "BRIEF.md") && !has(dst, "src/palette.json"));
+  // legitimate side: the same destination, readable and identical, applies
+  assert.equal(run(["apply", "c", dst], { dir: r2 }).code, 0);
+}
+
+// 12. apply into a project folder that does not exist yet: the folder is created and the files land.
+{
+  const fresh2 = path.join(tmp, "brand", "newproj");
+  const r = run(["apply", "chan", fresh2]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(read(fresh2, "src/overlays.js"), OVERLAYS);
+  assert.ok(read(fresh2, "BRIEF.md").includes("- series: chan"));
+  // a project path that is a file is refused with its own reason
+  const asFile = path.join(tmp, "projfile");
+  fs.writeFileSync(asFile, "x");
+  const b = run(["apply", "chan", asFile]);
+  assert.equal(b.code, 1, b.out);
+  assert.doesNotMatch(b.out, /symlink/);
+}
+
+// 13. a symlinked folder inside the project (save) or the destination (apply) never leads a file out.
+{
+  const outside = mkdir("outside");
+  put(outside, "overlays.js", OVERLAYS);
+  const p = mkdir("symsrc");
+  put(p, "BRIEF.md", BRIEF);
+  fs.symlinkSync(outside, path.join(p, "src"));
+  const nm = fresh();
+  const s = run(["save", nm, "--from", p, "--file", "src/overlays.js"]);
+  assert.equal(s.code, 1, s.out);
+  assert.match(s.out, /symlinked folder/);
+  assert.ok(!has(root, nm), "kit written");
+  // (the legitimate side, the same file under a real folder, is case 1)
+  const d = mkdir("symdst");
+  fs.symlinkSync(outside, path.join(d, "src"));
+  fs.rmSync(path.join(outside, "overlays.js"));
+  const a = run(["apply", "chan", d]);
+  assert.equal(a.code, 1, a.out);
+  assert.match(a.out, /symlinked folder/);
+  assert.deepEqual(fs.readdirSync(outside), [], "a file landed outside the project");
+  assert.ok(!has(d, "BRIEF.md"));
+  // a dangling symlinked folder is refused too, and nothing is created behind it
+  const d2 = mkdir("symdst");
+  fs.symlinkSync(path.join(tmp, "nowhere"), path.join(d2, "src"));
+  assert.equal(run(["apply", "chan", d2]).code, 1);
+  assert.ok(!has(tmp, "nowhere"));
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("series: all cases pass");
