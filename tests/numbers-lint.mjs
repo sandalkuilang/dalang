@@ -225,6 +225,20 @@ try {
   }
   put(rep, "narration.txt", two("about forty dollars", "cost__recap"));
   assert.match(run(rep).out, /2 spoken beats/);
+  // the voice step trims a beat name, and a beat with no name is a beat too
+  put(rep, "narration.txt", two("about ninety dollars", " cost__recap "));
+  assert.deepEqual(found(run(rep).out), ["narration.txt:2"]);
+  put(rep, "narration.txt", ["{about forty dollars|cost}.", "Recap: it costs {about ninety dollars}."]);
+  const unnamed = run(rep);
+  assert.equal(unnamed.code, 2, unnamed.out);
+  assert.match(msg(unnamed.out, "narration.txt:2"), /WARN.*about ninety dollars.*cost__/);
+  put(rep, "narration.txt", ["{about forty dollars|cost}.", "Recap: it costs {about forty dollars}."]);
+  assert.equal(run(rep).code, 0);
+  // object property names are not model numbers
+  put(rep, "narration.txt", two("a quiet house", "constructor"));
+  assert.equal(run(rep).code, 0);
+  put(rep, "script.md", ["Cost [calc: cost], odd [calc: toString]."]);
+  assert.deepEqual(found(run(rep).out), ["script.md:1"]);
   console.log("ok  a repeated model number is a beat <name>__<suffix> and is checked; a repeated name or a near miss in another beat is not silent");
 
   // 13. Gate 1 approves the model too: an input changed in model.mjs, or a new numbers.json, makes the approval stale,
