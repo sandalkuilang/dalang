@@ -7,7 +7,7 @@
 //   "prompt": "...", "seed": 42, "beat": "hook" }]
 // Files an engine build wrote are listed in its .engine.json (engine/three/build.mjs), read here from every folder
 // under assets/: never list them in ASSETS.json by hand. A manifest that cannot be read, or a row that points outside
-// its folder, is a problem (fail closed). A licence "A AND B" is checked part by part.
+// its folder, is a problem (fail closed). A licence "A AND B" (or A + B, A / B, A, B, A OR B ...) is checked part by part.
 // The narration's row is also checked against the model that spoke it: audio/<name>.response.json _meta, read through
 // scripts/voice_licences.mjs. A non-commercial voice listed under a commercial licence is a problem; a voice that
 // table cannot identify is a WARN (check its model card / plan), never read as commercial-OK.
@@ -39,7 +39,7 @@ for (const p of walk(path.join(dir, 'assets')).filter(p => path.basename(p) === 
   catch { problems.push(`${rel}: unreadable engine manifest — rebuild the engine (node <skill-dir>/engine/three/build.mjs <its folder>)`); continue; }
   for (const r of eng) {
     const abs = typeof r?.file === 'string' ? path.resolve(base, r.file) : null, up = abs && path.relative(base, abs);
-    if (!abs || up.startsWith('..') || path.isAbsolute(up)) problems.push(`${rel}: a row's file is missing or outside its folder — rebuild the engine`);
+    if (!abs || !up || up === '..' || up.startsWith('..' + path.sep) || path.isAbsolute(up)) problems.push(`${rel}: a row's file is missing or outside its folder — rebuild the engine`);
     else engineRows.push({ ...r, file: path.relative(dir, abs) });
   }
 }
@@ -47,7 +47,12 @@ const rows = [...list, ...engineRows];
 const listed = new Set(rows.filter(a => a.file).map(a => path.normalize(a.file)));
 
 // Allowed for any use; NC/research licences only for non-commercial films; ND never (\b so "Licence" isn't "NC").
-const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)\b/i;
+// A licence is one id, optionally followed by a version or a plain word ("CC0 1.0 Universal", "MIT License", "Pexels
+// License"); anything else after it ("MIT GPL-3.0") is a second licence and fails. Matched whole, never by its start.
+const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)(\s+(v?\d[\d.]*|universal|license|licence|content|mark|dedication|only))*$/i;
+// Every way of joining licences: AND, OR, WITH, PLUS, + / , ; & | and brackets. Each part is checked on its own.
+const licParts = l => String(l ?? '').split(/\s+(?:AND|OR|WITH|PLUS)\s+|[()+\/,;&|]/i).map(s => s.trim()).filter(Boolean);
+const ccBy = l => licParts(l).some(p => /^CC-BY/i.test(p));
 const NC = /\bNC\b|non-?commercial|research/i;
 const ND = /\bND\b|no[- ]?deriv/i;
 
@@ -58,12 +63,12 @@ for (const a of rows) {
   if (!a.source) problems.push(`${tag}: no source`);
   if (!a.licence) problems.push(`${tag}: no licence`);
   else {
-    const parts = String(a.licence).split(/\s+AND\s+/i), bad = parts.find(p => !NC.test(p) && !OK.test(p));
+    const parts = licParts(a.licence), bad = parts.length ? parts.find(p => !NC.test(p) && !OK.test(p)) : String(a.licence);
     if (parts.some(p => ND.test(p))) problems.push(`${tag}: licence "${a.licence}" forbids derivatives — a video edit is one`);
     else if (commercial && parts.some(p => NC.test(p))) problems.push(`${tag}: licence "${a.licence}" is non-commercial`);
     else if (bad) problems.push(`${tag}: licence "${a.licence}" — "${bad}" is not on the allowed list — check it`);
   }
-  if (/^CC-BY/i.test(a.licence || '') && !a.author) problems.push(`${tag}: CC BY needs an author for the credit`);
+  if (ccBy(a.licence) && !a.author) problems.push(`${tag}: CC BY needs an author for the credit`);
   if (a.source === 'generated' && (!a.model || !a.prompt)) problems.push(`${tag}: generated asset needs model (with its licence) and prompt`);
 }
 
@@ -89,7 +94,7 @@ for (const f of takes) {
     if (!NC.test(a.licence)) problems.push(`${a.file}: spoken by ${v.name} (audio/${f}), whose output is ${v.licence} — listed as "${a.licence}"; list that licence`);
 }
 
-const credits = rows.filter(a => a.file).filter(a => /^CC-BY/i.test(a.licence || '') || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
+const credits = rows.filter(a => a.file).filter(a => ccBy(a.licence) || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
 if (credits.length) writeFileSync(path.join(dir, 'CREDITS.md'), `# Credits\n\n${credits.join('\n')}\n`);
 
 console.log(`Assets: ${list.length} listed, ${engineRows.length} from engine manifest(s), ${onDisk.length} in assets/, ${credits.length} credit line(s) → CREDITS.md`);
