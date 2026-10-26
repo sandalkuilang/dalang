@@ -41,6 +41,12 @@
 //                              -> after editing narration.txt: only the sentences that differ from the text of the take on
 //                                 disk are re-spoken (an added one gets the take's median pauses, a removed one is cut out);
 //                                 the same splice, retiming and two-try limit as --retake auto. No change = no request.
+//   node tts_timestamps.mjs --input narration.txt --out audio --from-response audio/narration.response.json --tempo 0.9
+//                              -> a slower (0.8-1.2; <1 slower, >1 faster) delivery of the take on disk, pitch kept: ffmpeg
+//                                 atempo on the audio, word times scaled, no new speech. The take keeps its model and voice
+//                                 (the licence check is unchanged) and records _meta.tempo (the total; the flag is relative to
+//                                 the take on disk). --retake on it applies the same tempo to the sentence it re-speaks.
+//                                 A new take: --speed. Never ffmpeg + --from-audio on a TTS take: it loses the model.
 //
 // Dialogue files: every spoken line is "Speaker: text"; a line "(1.5)" is 1.5 s of silence; a leading
 // [tag] on a line becomes that line's style hint. Output adds window.LINES (speaker, text, start, end).
@@ -52,7 +58,7 @@
 //   [excited] ElevenLabs expression tags are allowed (stripped for voicestudio; use --instructions there).
 //
 // --language takes an ISO 639-1 code (en, id, es, ja, ...). Omit it to let the model auto-detect.
-// --speed: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4. --vs-url defaults to http://localhost:3900.
+// --speed: ElevenLabs 0.7–1.2, VoiceStudio 0.25–4 (--tempo: see above). --vs-url defaults to http://localhost:3900.
 // --api-url (ElevenLabs, default https://api.elevenlabs.io): another base URL, for a test against a mock. The API key is sent there.
 // --seed (VoiceStudio, default 42): fixed sampling seed, so an approved sample and the full take match.
 // --align auto|off: off skips forced alignment (on by default when align.py, its Python deps and a model for
@@ -101,6 +107,7 @@ function parseArgs(argv) {
       case '--name': a.name = next(); break;
       case '--format': a.format = next(); break;
       case '--speed': a.speed = parseFloat(next()); break;
+      case '--tempo': a.tempo = parseFloat(next()); if (!(a.tempo >= 0.8 && a.tempo <= 1.2)) die('--tempo takes a number from 0.8 to 1.2 (below 1 slower, above 1 faster).'); break;
       case '--engine': a.engine = next(); break;
       case '--vs-url': a.vsUrl = next().replace(/\/+$/, ''); break;
       case '--api-url': API = next().replace(/\/+$/, ''); break;
@@ -124,6 +131,8 @@ function parseArgs(argv) {
   }
   if (!['elevenlabs', 'voicestudio'].includes(a.engine)) die(`Unknown --engine ${a.engine}. Use elevenlabs or voicestudio.`);
   if (a.retake && a.engine === 'elevenlabs') die('--retake re-speaks with VoiceStudio; an ElevenLabs take is regenerated whole.');
+  if (a.tempo !== undefined && a.engine === 'elevenlabs') die('--tempo works on a VoiceStudio take; for ElevenLabs regenerate with --speed (0.7-1.2).');
+  if (a.tempo !== undefined && (a.retake || a.sample || a.fromAudio || a.speed !== undefined)) die("--tempo changes the take on disk by itself: do not combine it with --retake, --sample, --from-audio or --speed. Run --tempo first; a later --retake keeps the take's tempo.");
   a.modelFrom = a.model ? '--model' : null;
   if (a.engine === 'elevenlabs') a.model ??= 'eleven_v4'; // VoiceStudio: the active model, read in main()
   if (a.engine === 'voicestudio') a.format = 'wav'; // parts are joined losslessly, then measured
@@ -876,6 +885,41 @@ function normalisePcm(src, dst) {
   catch (e) { die(`ffmpeg could not read ${src}: ${e.message}`); }
   return readPcm(dst);
 }
+// Speed of a WAV changed with ffmpeg atempo (pitch kept; the callers stay within 0.8-1.2).
+function atempoFile(src, dst, tempo) {
+  try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-filter:a', `atempo=${tempo}`, '-c:a', 'pcm_s16le', dst]); }
+  catch (e) { die(`ffmpeg could not change the tempo of ${src}: ${e.message}`); }
+}
+// --tempo: the take on disk (VoiceStudio, or a retimed recording) plays at a.tempo x its speed. Audio and response are
+// replaced together; the model and voice stay in _meta, and _meta.tempo is the running total. Returns the response.
+async function changeTempo(a, response) {
+  const m = response._meta || {};
+  if (!['voicestudio', 'user-audio'].includes(m.engine)) die(`--tempo works on a VoiceStudio take (or a retimed recording); this take was made by ${m.engine ?? 'an unknown engine'}: regenerate it with --speed.`);
+  if (!response.audio_file || !/\.wav$/i.test(response.audio_file)) die("--tempo needs the take's .wav audio_file in the response.");
+  const prev = Number.isFinite(m.tempo) && m.tempo > 0 ? m.tempo : 1;
+  const total = Math.round(prev * a.tempo * 1e4) / 1e4;
+  if (total < 0.8 || total > 1.2) die(`--tempo ${a.tempo} on a take already at x${prev} makes x${total}; the total stays 0.8-1.2. Regenerate with --speed instead.`);
+  if (a.tempo === 1) { console.log('Tempo      : x1, the take is unchanged.'); return response; }
+  const audio = path.join(path.dirname(a.fromResponse), response.audio_file);
+  if (!existsSync(audio)) die(`--tempo: the take's audio ${audio} not found.`);
+  const tmpAudio = path.join(path.dirname(audio), `.${path.parse(audio).name}.tempo.wav`), tmpJson = `${a.fromResponse}.tempo.tmp`;
+  const cleanup = () => { rmSync(tmpAudio, { force: true }); rmSync(tmpJson, { force: true }); };
+  process.once('exit', cleanup);
+  const before = probeDuration(audio);
+  atempoFile(audio, tmpAudio, a.tempo);
+  const f = 1 / a.tempo, sc = x => round(x * f);
+  for (const key of ['alignment', 'normalized_alignment']) {
+    const al = response[key];
+    if (al) response[key] = { ...al, character_start_times_seconds: al.character_start_times_seconds.map(sc), character_end_times_seconds: al.character_end_times_seconds.map(sc) };
+  }
+  if (response.transcript?.words) response.transcript = { ...response.transcript, words: response.transcript.words.map(w => ({ ...w, start: sc(w.start), end: sc(w.end) })) };
+  response._meta = { ...m, tempo: total };
+  writeFileSync(tmpJson, JSON.stringify(response));
+  renameSync(tmpAudio, audio); renameSync(tmpJson, a.fromResponse);
+  process.removeListener('exit', cleanup);
+  console.log(`Tempo      : x${a.tempo} (total x${total}) — ${before ?? '?'} s -> ${probeDuration(audio) ?? '?'} s; model and voice kept (${m.model ?? m.engine}), the audio and its response replaced together.`);
+  return response;
+}
 
 // The new take: `pieces` in order, each { keep: k } (the old take's region k) or { clip, r0, r1, lead, trail } (a re-spoken
 // sentence: its words run r0..r1 in the clip, and it gets the old region's pause before and after it, padded with silence).
@@ -1008,6 +1052,9 @@ async function retake(a, ctx) {
       for (const { n, text, r, k } of jobs) {
         const raw = path.join(dir, `s${n}.raw.wav`);
         await vsSpeak(a, text, raw, seed);
+        // the take's tempo, so a re-spoken sentence matches the rest
+        const tempo = response._meta?.tempo;
+        if (Number.isFinite(tempo) && tempo !== 1) { const slow = path.join(dir, `s${n}.tempo.wav`); atempoFile(raw, slow, tempo); renameSync(slow, raw); }
         tries.set(n, round);
         const heard = await vsTranscribe(a, raw, text, true);
         const ws = heard?.transcript.words;
@@ -1071,6 +1118,10 @@ async function main() {
     a.fromResponse ??= path.join(a.out, `${a.name}.response.json`);
     if (!existsSync(a.fromResponse)) die(`--retake ${a.retake} works on an existing take: ${a.fromResponse} not found. Make the take first (add --retake auto to fix it as it is made).`);
   }
+  if (a.tempo !== undefined) {
+    a.fromResponse ??= path.join(a.out, `${a.name}.response.json`);
+    if (!existsSync(a.fromResponse)) die(`--tempo works on an existing take: ${a.fromResponse} not found. Make the take first.`);
+  }
   const unnamed = beats.filter(b => !b.label).length;
   if (unnamed && !a.sample) console.warn(`WARNING: ${unnamed} beat(s) have no |name and get auto names (b1, b2, ...) that shift when beats are added. Use {text|name}.`);
 
@@ -1091,6 +1142,7 @@ async function main() {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
     a.language ??= response._meta?.language ?? null;
+    if (a.tempo !== undefined) response = await changeTempo(a, response);
     if (a.retake) {
       // the sentences are re-spoken by the voice and settings that made the take
       const m = response._meta || {};
