@@ -18,7 +18,9 @@ import { M } from "./kit.js";
 // Visual only: colliders and the audit see the whole assembly (pass cut.group in the `exclude` of staticScene).
 //
 // A part is a closed mesh (the stencil counts its front and back faces); an open one is flagged `shell`. A part that
-// must stay whole (a label, a hand reaching in) is `userData.cut = false` (listed in `uncut`). Instanced, skinned and
+// must stay whole (a label, a hand reaching in) is `userData.cut = false` (listed in `uncut`). A part that cuts itself
+// (a granular fill, grains.js) is `cut = false` with `userData.cutTo(plane | null)`: cutaway() calls it with its plane on
+// every frame (null when off) and when it is made, so the part follows on(), off(), set() and a moved root. Instanced, skinned and
 // fur meshes are cut but get no cap (`nocap`), as does an all-transparent part. Flags go on before the part is added.
 // The renderer needs a stencil buffer: new THREE.WebGLRenderer({ stencil: true }) and EffectComposer(renderer,
 // { stencilBuffer: true }); ready(renderer) turns clipping on and fails loudly without it (the caps would vanish).
@@ -71,7 +73,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
   const n = normal.clone().normalize(), plane = new THREE.Plane(n.clone().negate(), 0); // keeps n·p <= constant
   const group = new THREE.Group(); // the caps and their stencils; never under `root`, so its size and physics stay the assembly's
   group.name = "cutaway"; group.userData.cutaway = true;
-  const parts = [], uncut = [], nocap = [], seen = new Set(), watched = new WeakSet(), clones = new WeakSet(), made = new Map();
+  const parts = [], uncut = [], nocap = [], seen = new Set(), watched = new WeakSet(), clones = new WeakSet(), made = new Map(), followers = new Set();
   const capGeo = new THREE.PlaneGeometry(1, 1), capM = new THREE.Matrix4(), tex = hatch ? hatchTexture() : null;
   const quiet = (o) => { o.raycast = () => {}; o.castShadow = o.receiveShadow = false; o.visible = false; o.matrixAutoUpdate = false; o.matrixWorldAutoUpdate = false; o.frustumCulled = false; o.userData.cutaway = true; group.add(o); return o; };
   const keysOffset = [{ t: 0, v: offset }], keysOn = [];
@@ -126,6 +128,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
   const mats = (o) => [].concat(o.material);
 
   function take(o) {
+    if (typeof o.userData.cutTo === "function") followers.add(o); // a part that cuts itself, rebuilt per plane (grains())
     if (!o.material || o.userData.cutaway) return;
     if (o.userData.cut === false) { if (!uncut.includes(o)) uncut.push(o); return; }
     const shell = o.userData.cut?.shell || 0;
@@ -170,6 +173,8 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
 
   root.updateWorldMatrix(true, false);
   plane.constant = n.dot(root.getWorldPosition(origin)) + offset / M; // right from the first frame, before the first at()
+  const follow = (on) => { for (const f of followers) if (under(f)) f.userData.cutTo(on ? plane : null); };
+  follow(true);
   const api = {
     plane, group, parts, uncut, nocap,
     // set(offset, t): the cut slides to `offset` (metres) at t, easing from the key before it; it holds after the last
@@ -198,6 +203,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
       group.updateWorldMatrix(true, false);
       const on = stateAt(t), c = n.dot(root.getWorldPosition(origin)) + offsetAt(t) / M;
       plane.constant = on ? c : 1e9;
+      follow(on);
       box.makeEmpty();
       for (const p of parts) if (under(p.mesh)) { if (!p.mesh.geometry.boundingBox) p.mesh.geometry.computeBoundingBox(); box.union(tmp.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.matrixWorld)); }
       const r = box.isEmpty() ? 1 : box.getBoundingSphere(sphere).radius, span = 2.2 * r;

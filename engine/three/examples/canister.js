@@ -6,8 +6,9 @@ import { grains } from "../grains.js";
 // An open canister filled with grains: the top shows two jittered layers of grains at their real size, a cut shows
 // whole grains in its face. Any bulk: a jar of rice, a sack of coffee, a pot of lentils, a bin of oats. Modelled in
 // metres (16 cm tall, 11 cm across), scaled by 1/M. The wall is a single surface flagged `userData.cut = { shell }`, so
-// its cut is a thin ring; the base is a closed solid. The fill is built already cut (grains.js): the same
-// `{ normal, offset }` goes to grains() and to cutaway(), and the fill is left whole by the cutaway.
+// its cut is a thin ring; the base is a closed solid. The fill is cut by hand (grains.js, whole grains in its face) and
+// follows the cutaway: the same `{ normal, offset }` goes to grains() and to cutaway(), and cutaway() drives the fill
+// (`cut.off`, `cut.set` and a rotated canister move the fill with the wall).
 // fill: a grains() preset; level: how full (0..1) of the height; cut: options for cutaway() (normal, offset, color,
 // hatch); without it the canister is whole.
 export function makeCanister(k, { at, height = 0.16, radius = 0.055, fill = "coffee", level = 0.75, cut } = {}) {
