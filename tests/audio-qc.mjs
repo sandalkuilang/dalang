@@ -376,6 +376,8 @@ try {
       const page = q.scanHtml('<body onload="document.getElementById(&quot;m&quot;).volu&#109;e=0.02" class="x"><img src=a.png onError=\'a.muted=1\'><svg ONLOAD="g.gain=0"></svg><a href=" JavaScript:v.volume=0">x</a><div data-onload="volume" id="v" ononce="1"></div><p title="volume">t</p>');
       assert.deepEqual(page.handlers.map((h) => `${h.tag}.${h.attr}:${h.text}`), ['body.onload:document.getElementById("m").volume=0.02', "img.onerror:a.muted=1", "svg.onload:g.gain=0", "a.href:v.volume=0", "div.ononce:1"], "handlers and javascript: URLs, entities decoded");
       assert.deepEqual(q.scanHtml('<script onerror="a.volume=0"></script><audio id="m" src="m.wav" onended="x()"></audio><!-- <p onclick="volume"> -->').handlers.map((h) => `${h.tag}.${h.attr}`), ["script.onerror", "audio.onended"], "handlers on a script or media tag too; a comment holds none");
+      assert.deepEqual(q.scanHtml('<iframe srcdoc="&lt;script&gt;parent.m.volume=0&lt;/script&gt;"></iframe><iframe srcdoc="&lt;p&gt;hi&lt;/p&gt;"></iframe>').handlers.map((h) => `${h.tag}.${h.attr}`), ["iframe.srcdoc", "iframe.srcdoc"], "an iframe srcdoc is a document whose scripts run: its text is checked as script text");
+      assert.equal(hs(["iframe", "srcdoc", "<p>hello</p>"]), null, "a srcdoc without a mix token");
       assert.deepEqual(q.scanHtml('<style>a{}</style><p class="onload" title="javascript is fun">x</p><a href="https://x.test/javascript:">y</a>').handlers, [], "words that only look like a handler or a javascript: URL");
     }
     // The bounded script-load contract: only a plain relative <script src> and a static quoted relative or root import
@@ -835,6 +837,7 @@ try {
         ["c-body-onload", `<body onload="document.getElementById('music-a').volume=0.02">${music()}</body>`, {}, "a body onload handler that changes the bed"],
         ["c-img-onerror", `${music()}<img src="missing.png" onerror="document.getElementById('music-a').muted=true">`, {}, "an img onerror handler that mutes the bed"],
         ["c-svg-onload", `${music()}<svg onload="document.getElementById('music-a').volume=0.02"></svg>`, {}, "an svg onload handler"],
+        ["c-srcdoc", `${music()}<iframe srcdoc="&lt;script&gt;parent.document.getElementById('music-a').volume=0.02&lt;/script&gt;"></iframe>`, {}, "an iframe srcdoc with a script"],
         ["c-js-url", `${music()}<iframe src="javascript:parent.document.getElementById('music-a').volume=0.02"></iframe>`, {}, "a javascript: URL"],
       ]) notChecked(run(make(name, tags, files)), what);
       for (const [name, tags] of [["p-base", `<base href="js/">${music()}`], ["p-importmap", `${music()}<script type="importmap">{"imports":{}}</script>`], ["p-dynamic", `${music()}<script type="module">import(\`./x.js\`);</script>`]]) {
