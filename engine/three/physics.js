@@ -285,8 +285,8 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // and bounce it back before the step ends: motion no traced pose or speed shows. So a body moving over 10 mm in one
   // step (its speed plus spin times its lever from the centre of mass, or its actual move) refuses the island bake:
   // that set bakes as one world. Below that, each step is judged as a capsule: a path of length ℓ from S to E stays
-  // within √(ℓ² − |SE|²)/2 of the segment SE, ℓ the step's largest traced speed times dt (run), and two bodies are
-  // judged segment to segment, whenever in the step each was where. A script's teleport between two steps (jumps) is
+  // within √(ℓ² − |SE|²)/2 of the segment SE, ℓ the step's largest traced speed times dt (run; at least ℓ itself, for a
+  // bounce inside the step), and two bodies are judged segment to segment, whenever in the step each was where. A script's teleport between two steps (jumps) is
   // not a path: the step is judged from where the body was put. A NaN pose is refused.
   const segs = (p0, p1, q0, q1) => { // closest distance between segments p0p1 and q0q1
     const d1 = [0, 1, 2].map((k) => p1[k] - p0[k]), d2 = [0, 1, 2].map((k) => q1[k] - q0[k]), r = [0, 1, 2].map((k) => p0[k] - q0[k]);
@@ -323,7 +323,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         at[i] = centre(i, pose(i)); from[i] = j ? centre(i, j) : before || at[i];
         const len = (run[i][k * 2] + run[i][k * 2 + 1] * lever[i]) * dt, se = Math.hypot(at[i][0] - from[i][0], at[i][1] - from[i][1], at[i][2] - from[i][2]);
         if (k && !(Math.max(len, se) <= fast)) throw new Error(`opts.islands: "${tracked[i].name}" moves ${(Math.max(len, se) * mpu * 1000).toFixed(1)} mm in one step at ${when}: over 10 mm a step, a body can move inside a step in ways the island proof cannot see. Islands are for sets that settle slowly: bake this one as one world (drop opts.islands)`);
-        bend[i] = k && len > se ? Math.sqrt(len * len - se * se) / 2 : 0;
+        bend[i] = k ? Math.max(len, len > se ? Math.sqrt(len * len - se * se) / 2 : 0) : 0; // len too: a thin collider's CCD can bounce it inside even a slow step
         const ki = isle[i], r = sp[i].r + bend[i] + margin, w = from[i];
         for (let a = 0; a < 3; a++) { lo[ki][a] = Math.min(lo[ki][a], at[i][a] - r, w[a] - r); hi[ki][a] = Math.max(hi[ki][a], at[i][a] + r, w[a] + r); }
       });
