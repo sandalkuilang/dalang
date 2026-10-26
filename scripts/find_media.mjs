@@ -12,6 +12,8 @@
 //
 // --licence: comma list of cc0 (CC0 + public domain), by (CC BY), by-sa (CC BY-SA); default cc0,by. NC and ND results are
 //   always dropped, and so is a result that needs a credit but names no author. Share-alike is opt-in (by-sa).
+//   --bundled applies the same filters to the library's licence (from its CREDITS.md): an NC/ND or out-of-list CC licence, or a CC BY
+//   (the library names no creator), lists nothing and says why (exit 1); a custom, non-CC library licence is listed as it is.
 // Exit: 0 results; 1 every source answered and nothing matched; 2 usage; 3 a source failed and nothing was found (rerun).
 // A source that fails is a WARN with "rerun", never "nothing matched" (an unreadable answer is not an empty one).
 // 429/503 are retried after Retry-After, else with exponential backoff (FIND_MEDIA_BACKOFF_MS, default 1000), never a fixed sleep.
@@ -169,6 +171,12 @@ function bundled() {
   const m = credits.match(/\bunder the \[([^\]]+)\]\(([^)]+)\)/);
   if (!m) return warn(`${lib}: no licence readable in its CREDITS.md`);
   const [, licence, source] = m;
+  // The same licence filters as the search path: NC/ND never, CC only inside --licence, CC BY needs a creator (the library names none).
+  const refusal = bundledRefusal(licence);
+  if (refusal) {
+    console.log(`bundled /media-use SFX are under "${licence}" — refused: ${refusal}. Use another source (Openverse CC0: --type sfx --licence cc0).`);
+    process.exit(1);
+  }
   let meta = {};
   try { meta = readJSON(path.join(lib, 'manifest.json')); } catch { /* optional */ }
   const entries = Array.isArray(meta) ? meta : Object.values(meta);
@@ -183,6 +191,14 @@ function bundled() {
     copyFileSync(path.join(lib, x.f), path.join(out, x.f));
     return { file: x.f, title: x.name, licence, author: '', duration: x.e.duration ?? null, landing: source, url: path.join(lib, x.f), provider: 'bundled /media-use', query };
   }), []);
+}
+
+function bundledRefusal(lic) {
+  if (/\b(NC|ND)\b|non-?commercial|no-?deriv/i.test(lic)) return 'NC and ND licences are never used';
+  const n = normCommons(lic);
+  if (n) return !licenceOk(n) ? `outside --licence ${wanted.join(',')}` : needsCredit(n) ? 'a credit is required and the library names no creator' : null;
+  if (/\bCC\b|creative commons|attribution|share-?alike/i.test(lic)) return 'a Creative Commons licence this search cannot read exactly';
+  return null; // a custom library licence (not Creative Commons): listed as it is, check_assets.mjs decides
 }
 
 async function openverse() {
@@ -201,7 +217,9 @@ async function openverse() {
 async function commons() {
   const p = new URLSearchParams({ action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrsearch: `${query} filetype:bitmap`, gsrlimit: '20', prop: 'imageinfo', iiprop: 'url|extmetadata|mime', iiurlwidth: '1920' });
   const j = await getJSON(`${COMMONS}?${p}`);
-  if (j?.query === undefined && !j?.batchcomplete && !j?.continue) throw new Error('answer has no query block');
+  // A search that matches nothing is {"batchcomplete":""} (formatversion 1) or {"batchcomplete":true}: no query block, and an answer.
+  // Only a reply that is no MediaWiki query reply at all (an error object, {}, a list, null) is an outage.
+  if (!j || typeof j !== 'object' || Array.isArray(j) || !('query' in j || 'batchcomplete' in j || 'continue' in j)) throw new Error('answer is not a search reply');
   const pages = Object.values(j?.query?.pages ?? {}).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
   return pages.map(pg => {
     const ii = pg.imageinfo?.[0] ?? {}, x = ii.extmetadata ?? {};
