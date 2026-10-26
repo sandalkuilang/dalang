@@ -3,6 +3,7 @@ import { G, M } from "./kit.js";
 import { runBake } from "./bakecore.js";
 import { startPool } from "./pool.js";
 export { RAPIER };
+export const slow = () => { throw new Error("todo"); }, replay = slow; // stub (red)
 
 const BAKE_FORMAT = 1; // bump when the stored layout or what a bake means changes: every older cache file then misses
 
