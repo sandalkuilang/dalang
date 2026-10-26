@@ -136,10 +136,11 @@ const buildReading = skill => {
   const lp = path.join(skill, 'references', 'lessons.md');
   if (!existsSync(lp)) errors.push(`FAILED: references/lessons.md not found in ${skill}`);
   else readFileSync(lp, 'utf8').split('\n').forEach((l, i) => {
-    if (!l.startsWith('- [')) return;
-    const m = l.match(/^- \[([^\]]*)\] (\*\*.+?\*\*)/);
-    const tags = m ? m[1].split(',') : [];
-    if (!m || !tags.every(t => /^[0-8]$/.test(t))) return errors.push(`FAILED: lessons.md:${i + 1} has a bad step tag (use "- [5,6] **headline** …", steps 0–8)`);
+    if (!/^\s*[-*+] /.test(l)) return; // prose, headings and blank lines are not lessons
+    // "- [5,6] **headline** …" holds at those steps; "- **headline** …" (no tag) holds at every step.
+    const m = l.match(/^- (?:\[([^\]]*)\] )?(\*\*.+?\*\*)/);
+    const tags = m?.[1] === undefined ? Object.keys(lessons) : m[1].split(',');
+    if (!m || !tags.every(t => /^[0-8]$/.test(t))) return errors.push(`FAILED: lessons.md:${i + 1} is not a readable lesson (use "- [5,6] **headline** …" with steps 0–8, or "- **headline** …" for every step)`);
     new Set(tags).forEach(t => lessons[t].push(m[2]));
   });
   let total = 0;
