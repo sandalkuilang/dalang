@@ -834,19 +834,19 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const strip = (w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
   const toWords = (plain, step = 0.3) => plain.split(/\s+/).filter((k) => /[\p{L}\p{N}]/u.test(k)).map((k, i) => ({ i, text: strip(k), start: +(step * i).toFixed(3), end: +(step * i + 0.25).toFixed(3) }));
   const texts = (c) => c.map((p) => p.text);
-  const mockCtx = (W, H, paint) => {
+  const mockCtx = (W, H, paint, em = 0.55) => { // em: glyph advance in em (a heavy sans measures about 0.62)
     let px = 10; const log = [];
     const noop = () => {};
     const c = {
       canvas: { width: W, height: H }, log, fillStyle: "", strokeStyle: "", lineWidth: 1, lineJoin: "", textAlign: "", textBaseline: "",
       get font() { return this._f; }, set font(v) { this._f = v; px = parseFloat(/(\d+(?:\.\d+)?)px/.exec(v)[1]); },
-      measureText: (s) => ({ width: [...s].length * 0.55 * px }),
+      measureText: (s) => ({ width: [...s].length * em * px }),
       getImageData(x, y, w, h) {
         const data = new Uint8ClampedArray(w * h * 4);
         for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const [r, g, b] = paint(x + i, y + j), o = (j * w + i) * 4; data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255; }
         return { width: w, height: h, data };
       },
-      fillText(s, x, y) { log.push({ s, x, y, fill: c.fillStyle }); },
+      fillText(s, x, y) { log.push({ s, x, y, fill: c.fillStyle, w: [...s].length * em * px, px }); },
       roundRect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, rect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, fillRect(...r) { log.push({ rect: r, fill: c.fillStyle }); },
     };
     for (const k of ["save", "restore", "beginPath", "closePath", "moveTo", "lineTo", "stroke", "strokeText", "arc", "fill", "clip", "setLineDash"]) c[k] = noop;
@@ -877,6 +877,22 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.ok(jp.every((p, k) => p.start >= 0 && p.start <= 6 && (k === 0 || p.start > jp[k - 1].start)), "Japanese times are interpolated inside the word and increase");
   const kana = "あいうえおかきくけこさしすせそたちつてとなにぬねの。", kp = phrases(kana, [{ i: 0, text: strip(kana), start: 0, end: 5 }]);
   assert.deepEqual(kp.map((p) => [...p.text.replace("。", "")].length), [13, 12], "25 characters balance to 13 + 12");
+  // Speech pauses: a run longer than 7 words breaks at the pause of words.json (craft-rules §6), not by count; a pause
+  // inside a short sentence, or one below 0.3 s, breaks nothing; with no pause the run is balanced as before.
+  const eight = "one two three four five six seven eight", ew = toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: +(w.start + 1).toFixed(3), end: +(w.end + 1).toFixed(3) } : w));
+  assert.deepEqual(texts(phrases(eight, ew)), ["one two three four five six", "seven eight"], "a long run breaks at its pause: 6 + 2");
+  assert.deepEqual(texts(phrases(eight, toWords(eight))), ["one two three four", "five six seven eight"], "no pause: balanced 4 + 4");
+  assert.deepEqual(texts(phrases(eight, toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: w.start + 0.2, end: w.end + 0.2 } : w)))), ["one two three four", "five six seven eight"], "a gap under 0.3 s is not a pause");
+  const six = "one two three four five six", sw = toWords(six).map((w, i) => (i >= 3 ? { ...w, start: w.start + 1, end: w.end + 1 } : w));
+  assert.deepEqual(texts(phrases(six, sw)), [six], "a pause inside a short sentence breaks nothing");
+  const ten = "one two three four five six seven eight nine ten", shift = (i) => (i >= 1 ? 0.6 : 0) + (i >= 5 ? 1.2 : 0), tw = toWords(ten).map((w, i) => ({ ...w, start: +(w.start + shift(i)).toFixed(3), end: +(w.end + shift(i)).toFixed(3) }));
+  assert.deepEqual(texts(phrases(ten, tw)), ["one two three four five", "six seven eight nine ten"], "the longest pause wins; a one-word orphan is never cut off");
+  // A line of the narration is a boundary: a line without final punctuation, and a speaker change, never run on.
+  assert.deepEqual(texts(phrases("A: Hello there\nB: Yes indeed", toWords("Hello there Yes indeed"))), ["Hello there", "Yes indeed"], "a caption never carries two speakers");
+  assert.deepEqual(texts(phrases("first line no stop\n\n# Next\nsecond line here", toWords("first line no stop second line here"))), ["first line no stop", "second line here"], "a line end is a phrase end in a plain narration too");
+  assert.deepEqual(texts(phrases("one two\n(1.5)\nthree four five", toWords("one two three four five"))), ["one two", "three four five"], "a pause line is a boundary");
+  assert.deepEqual(texts(phrases("A: Yes.\nB: No.", toWords("Yes. No."))), ["Yes.", "No."], "lines that end in a full stop split as before");
+  assert.deepEqual(texts(phrases("日本語です\nもう一行", [{ i: 0, text: "日本語です", start: 0, end: 1 }, { i: 1, text: "もう一行", start: 1.2, end: 2 }])), ["日本語です", "もう一行"], "CJK lines are boundaries too");
   // A narration from another take is refused, never mis-timed.
   assert.throws(() => phrases(enNarr, enWords.map((w, i) => (i === 5 ? { ...w, text: "other" } : w))), /narration word 5/, "a different word is refused");
   assert.throws(() => phrases(enNarr, enWords.slice(1)), /narration word/, "a different word count is refused");
@@ -913,6 +929,28 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const lr = drawCaption(mockCtx(1920, 1080, gray), caps[0].start, caps, { format: "landscape" });
   assert.ok(lr.box.y0 >= 0.85 * 1080 - 1e-6 && lr.box.y1 <= 0.95 * 1080 + 1e-6, "landscape: the caption sits in the bottom 15 %: " + JSON.stringify(lr.box));
   assert.throws(() => safeArea("cinema", W, H), /shorts/, "an unknown format is refused");
+  // Text outside the zone is never drawn, whatever the phrase: the drawn glyphs (not the returned box) stay in it. A real
+  // 7-word Spanish phrase with 0.62 em glyphs does not fit two lines at 54 px: it shrinks to fit, and says so.
+  const drawn = (c, a) => c.log.filter((l) => l.s).every((l) => l.x >= a.x0 - 1e-6 && l.x + l.w <= a.x1 + 1e-6 && l.y <= a.y1 + 1e-6 && l.y - 0.95 * l.px >= a.y0 - 1e-6);
+  const spanish = "La temperatura disminuye considerablemente durante madrugadas invernales.", spCaps = phrases(spanish, toWords(spanish));
+  assert.equal(spCaps.length, 1, "the Spanish phrase is one caption");
+  for (const [fmt, w, h] of [["shorts", 1080, 1920], ["reels", 1080, 1920], ["feed", 1080, 1350], ["landscape", 1920, 1080]]) {
+    for (const em of [0.55, 0.62, 0.75]) {
+      const cs = mockCtx(w, h, gray, em), rr = drawCaption(cs, spCaps[0].start, spCaps, { format: fmt }), za = safeArea(fmt, w, h).caption;
+      assert.ok(drawn(cs, za), `${fmt} em ${em}: every drawn line is inside the caption zone: ${JSON.stringify(cs.log.filter((l) => l.s).map((l) => [l.s, Math.round(l.x), Math.round(l.x + l.w)]))}`);
+      assert.ok(rr.box.x0 >= za.x0 - 1e-6 && rr.box.x1 <= za.x1 + 1e-6 && rr.box.y0 >= za.y0 - 1e-6 && rr.box.y1 <= za.y1 + 1e-6, `${fmt} em ${em}: the box is the zone's`);
+      assert.ok(Math.max(...cs.log.filter((l) => l.s).map((l) => l.x + l.w)) <= rr.box.x1 + 1e-6 && Math.min(...cs.log.filter((l) => l.s).map((l) => l.x)) >= rr.box.x0 - 1e-6, `${fmt} em ${em}: the returned box covers the drawn text`);
+    }
+  }
+  const tight = mockCtx(W, H, gray, 0.62), tr = drawCaption(tight, spCaps[0].start, spCaps);
+  assert.ok(tr.shrunk === true && tr.size < 54 && tr.size >= 30 && tr.lines.length === 2, "a phrase that cannot fit at 54 px shrinks, in two lines, and says so: " + tr.size);
+  const lwText = "Pneumonoultramicroscopicsilicovolcanoconiosis" + "x".repeat(40), longWord = [{ text: lwText, start: 0, end: 2, words: [{ text: lwText, start: 0, end: 2, gap: true }] }];
+  const lw = mockCtx(W, H, gray, 0.62); drawCaption(lw, 1, longWord);
+  assert.ok(drawn(lw, area.caption), "one word wider than the zone is shrunk into it");
+  const ok1 = drawCaption(mockCtx(W, H, gray, 0.55), caps[0].start, caps);
+  assert.ok(ok1.shrunk === false && ok1.size >= 54, "a phrase that fits keeps its size, no shrink");
+  const near = [{ text: "x", start: 0, end: 1, words: [{ text: "x", start: 0, end: 1, gap: true }] }], big = drawCaption(mockCtx(W, H, gray), 0.5, near, { size: 64 });
+  assert.ok(big.size === 64 && big.box.y1 - big.box.y0 <= area.caption.y1 - area.caption.y0 + 1e-6, "an asked size of 64 px stays when it fits");
   // Active word: the accent box and dark ink move to each word on its start, within one frame.
   const hand = [{ text: "one two three", start: 1, end: 3, words: [{ text: "one", start: 1, end: 1.25 }, { text: "two", start: 1.3, end: 1.55 }, { text: "three", start: 1.6, end: 1.85 }] }];
   const dim = () => [20, 20, 20];
@@ -935,6 +973,19 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     const b = pinLabel(mockCtx(W, H, gray), { at: world(nx, ny), camera: cam, text: "valve" });
     assert.ok(b && inside(b, lab) && b.size >= 36, "label at NDC " + nx.toFixed(2) + "," + ny.toFixed(2) + " is inside the safe area: " + JSON.stringify(b));
   }
+  // A long label wraps inside the label zone, at 36 px or more; one unbreakable string shrinks into it, and says so.
+  const longLab = "Pressure relief valve on the boiler outlet pipe", jaLab = "圧力逃がし弁は蒸気配管の出口にあります。圧力逃がし弁は蒸気配管の出口にあります。";
+  for (const [text, em] of [[longLab, 0.62], [longLab + " " + longLab, 0.62], [jaLab, 1], ["x".repeat(70), 0.62]]) for (const [nx, ny] of [[0.97, 0.9], [-0.97, 0], [0, 0]]) {
+    const lc = mockCtx(W, H, gray, em), lb = pinLabel(lc, { at: world(nx, ny), camera: cam, text }), tl = lc.log.filter((l) => l.s);
+    assert.ok(lb && inside(lb, lab), "a long label is inside the label zone: " + JSON.stringify(lb));
+    assert.ok(tl.length === lb.lines.length && tl.every((l) => l.x >= lab.x0 - 1e-6 && l.x + l.w <= lab.x1 + 1e-6 && l.y <= lab.y1 + 1e-6 && l.y - l.px >= lab.y0 - 1e-6), "every drawn line of the label is inside the zone: " + JSON.stringify(tl.map((l) => [l.s, Math.round(l.x), Math.round(l.x + l.w)])));
+  }
+  const wrapped = pinLabel(mockCtx(W, H, gray, 0.62), { at: world(0, 0), camera: cam, text: longLab });
+  assert.ok(wrapped.lines.length >= 2 && wrapped.size >= 36 && wrapped.shrunk === false && wrapped.lines.join(" ") === longLab, "a long label wraps at its spaces, keeps 36 px or more: " + JSON.stringify(wrapped.lines));
+  const unbroken = pinLabel(mockCtx(W, H, gray, 0.62), { at: world(0, 0), camera: cam, text: "x".repeat(70) });
+  assert.ok(unbroken.shrunk === true && unbroken.size < 36, "an unbreakable string shrinks below 36 px and says so: " + unbroken.size);
+  const shortLab = pinLabel(mockCtx(W, H, gray, 0.62), { at: world(0, 0), camera: cam, text: "valve" });
+  assert.ok(shortLab.lines.length === 1 && shortLab.lines[0] === "valve" && shortLab.shrunk === false && shortLab.size === 40, "a short label is one line at its size");
   assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(0.97, 0), camera: cam, text: "valve" }).side, "left", "near the right edge the label flips left");
   assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(-0.97, 0), camera: cam, text: "valve" }, { side: "left" }).side, "right", "near the left edge a left label flips right");
   assert.equal(pinLabel(mockCtx(W, H, gray), { at: world(0, 0), camera: cam, text: "valve" }).side, "right", "in the middle the asked side is kept");
