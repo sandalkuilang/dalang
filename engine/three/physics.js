@@ -267,12 +267,13 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       else throw new Error(`opts.islands: "${t.name}" has a collider (shape type ${ty}) whose reach the island proof cannot bound: give it a ball, box, capsule, cylinder, cone or hull collider (or drop opts.islands)`);
       local.forEach((v) => { const w = rot(cq, v), p = rot(inv, [w[0] + cp.x - bp.x, w[1] + cp.y - bp.y, w[2] + cp.z - bp.z]); pts.push([...p, r]); });
     }
-    if (!pts.length) return { c: [0, 0, 0], r: 0 };
+    const m = t.body.localCom(), com = [m.x, m.y, m.z]; // m: the centre of mass, read with the reach (a script may change mass later)
+    if (!pts.length) return { c: [0, 0, 0], r: 0, com };
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
     for (const p of pts) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k] - p[3]); hi[k] = Math.max(hi[k], p[k] + p[3]); }
     const c = lo.map((x, k) => (x + hi[k]) / 2); let r = 0;
     for (const p of pts) r = Math.max(r, Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]) + p[3]);
-    return { c, r };
+    return { c, r, com };
   }
   // Proof that the islands stayed apart: at every pre-roll step, every stored step and on the path between two, no body came within 5 mm of a
   // body of another island (main counts as one), judged on each body's reach (reachOf: its colliders and drawn geometry). A meeting throws:
@@ -281,44 +282,58 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // declared body falls through its place and ends far from it, with nothing left to see at t = 0. pre: each body's
   // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot; sp: each body's reach.
   // Judged on the path between two steps, not only at the steps: a fast body can pass a declared one between them
-  // (CCD stops it there in the single world). Rapier's CCD ends a body's step at its first contact (the bounce comes in
-  // the next step), so over one step its centre of mass moves in a straight line, and two bodies come closest where
-  // their relative motion does (sweep). A reach centre off the centre of mass also turns about it: the chord of that arc
-  // is at most lever·(1 − cos(θ/2)), θ the turn over the step, added to the body's reach. A script's teleport between
-  // two steps (jumps) is not a path: the step is judged from where the body was put. Gravity bends a step by ~5 µm.
-  const sweep = (a0, a1, b0, b1) => {
-    const r = [0, 1, 2].map((k) => a0[k] - b0[k]), v = [0, 1, 2].map((k) => a1[k] - a0[k] - (b1[k] - b0[k]));
-    const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], t = vv > 0 ? Math.min(1, Math.max(0, -(r[0] * v[0] + r[1] * v[1] + r[2] * v[2]) / vv)) : 0;
-    return Math.hypot(r[0] + t * v[0], r[1] + t * v[1], r[2] + t * v[2]);
+  // (CCD stops it there in the single world), and the path inside a step need not be straight (a body struck inside
+  // the step can reach a wall and bounce back before it ends). So each step is judged with no assumption on its shape:
+  // a path of length ℓ from S to E stays within √(ℓ² − |SE|²)/2 of the segment SE (an ellipse with foci S and E), and ℓ
+  // is at most the step's largest speed plus spin times the lever from the centre of mass, times dt (run). Two bodies
+  // are judged as these capsules, whenever in the step each was where (segment to segment). A script's teleport between
+  // two steps (jumps) is not a path: the step is judged from where the body was put. A NaN pose is refused.
+  const segs = (p0, p1, q0, q1) => { // closest distance between segments p0p1 and q0q1
+    const d1 = [0, 1, 2].map((k) => p1[k] - p0[k]), d2 = [0, 1, 2].map((k) => q1[k] - q0[k]), r = [0, 1, 2].map((k) => p0[k] - q0[k]);
+    const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2], a = dot(d1, d1), e = dot(d2, d2), f = dot(d2, r), clamp = (x) => Math.min(1, Math.max(0, x));
+    let s = 0, t = 0;
+    if (a <= 1e-18 && e <= 1e-18) { s = t = 0; }
+    else if (a <= 1e-18) { t = clamp(f / e); }
+    else {
+      const c = dot(d1, r);
+      if (e <= 1e-18) s = clamp(-c / a);
+      else {
+        const b = dot(d1, d2), den = a * e - b * b;
+        s = den > 1e-18 ? clamp((b * f - c * e) / den) : 0;
+        t = (b * s + f) / e;
+        if (t < 0) { t = 0; s = clamp(-c / a); } else if (t > 1) { t = 1; s = clamp((b - c) / a); }
+      }
+    }
+    return Math.hypot(r[0] + s * d1[0] - t * d2[0], r[1] + s * d1[1] - t * d2[1], r[2] + s * d1[2] - t * d2[2]);
   };
-  function crossing(poses, pre, jumps, of, n, dt, sp) {
+  function crossing(poses, pre, jumps, run, of, n, dt, sp) {
     const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values());
     const isle = tracked.map((t) => of.get(t.body.handle) || 0), P = pre.length ? pre[0].length / 7 : 0;
-    const lever = tracked.map((t, i) => { const m = t.body.localCom(); return Math.hypot(sp[i].c[0] - m.x, sp[i].c[1] - m.y, sp[i].c[2] - m.z); });
+    const lever = sp.map((x) => Math.hypot(x.c[0] - x.com[0], x.c[1] - x.com[1], x.c[2] - x.com[2]));
     const centre = (i, [x, y, z, qx, qy, qz, qw]) => {
       const [vx, vy, vz] = sp[i].c, tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx); // c rotated by q, then moved to the body
       return [x + vx + qw * tx + (qy * tz - qz * ty), y + vy + qw * ty + (qz * tx - qx * tz), z + vz + qw * tz + (qx * ty - qy * tx)];
     };
-    let at = tracked.map(() => null), q = tracked.map(() => null), k = 0;
+    let at = tracked.map(() => null), k = 0;
     const frame = (pose, when) => {
-      // from: each reach centre where this step began (the step before, or where a script put it); grow: its arc's chord
-      const from = [], grow = [], wasQ = q; q = q.slice();
+      const from = [], bend = []; // from: each reach centre where this step began (the step before, or where a script put it); bend: how far its path can stray from the segment
       const lo = Array.from({ length: K }, () => [Infinity, Infinity, Infinity]), hi = Array.from({ length: K }, () => [-Infinity, -Infinity, -Infinity]);
       tracked.forEach((_, i) => {
-        const now = pose(i), j = jumps[i]?.get(k), q0 = j ? j.slice(3) : wasQ[i], before = at[i];
-        at[i] = centre(i, now); q[i] = Array.from(now.subarray(3, 7)); from[i] = j ? centre(i, j) : before || at[i];
-        grow[i] = q0 ? lever[i] * (1 - Math.min(1, Math.abs(q0[0] * q[i][0] + q0[1] * q[i][1] + q0[2] * q[i][2] + q0[3] * q[i][3]))) : 0;
-        const ki = isle[i], r = sp[i].r + grow[i] + margin, w = from[i];
+        const j = jumps[i]?.get(k), before = at[i];
+        at[i] = centre(i, pose(i)); from[i] = j ? centre(i, j) : before || at[i];
+        const len = (run[i][k * 2] + run[i][k * 2 + 1] * lever[i]) * dt, se = Math.hypot(at[i][0] - from[i][0], at[i][1] - from[i][1], at[i][2] - from[i][2]);
+        bend[i] = k && len > se ? Math.sqrt(len * len - se * se) / 2 : 0;
+        const ki = isle[i], r = sp[i].r + bend[i] + margin, w = from[i];
         for (let a = 0; a < 3; a++) { lo[ki][a] = Math.min(lo[ki][a], at[i][a] - r, w[a] - r); hi[ki][a] = Math.max(hi[ki][a], at[i][a] + r, w[a] + r); }
       });
-      k++;
       for (let ka = 0; ka < K; ka++) for (let kb = ka + 1; kb < K; kb++) {
         if ([0, 1, 2].some((a) => lo[ka][a] > hi[kb][a] || lo[kb][a] > hi[ka][a])) continue; // the islands' boxes do not even overlap
         for (let i = 0; i < tracked.length; i++) if (isle[i] === ka) for (let j = 0; j < tracked.length; j++) if (isle[j] === kb) {
-          const d = sweep(from[i], at[i], from[j], at[j]) - sp[i].r - sp[j].r - grow[i] - grow[j];
+          const d = segs(from[i], at[i], from[j], at[j]) - sp[i].r - sp[j].r - bend[i] - bend[j];
           if (!(d >= margin)) throw new Error(`${ka ? `island ${ka}` : "the main island"} and island ${kb} meet: "${tracked[i].name}" and "${tracked[j].name}" come within ${(Math.max(0, d || 0) * mpu * 1000).toFixed(1)} mm at ${when} — put them in one island (or drop opts.islands) and bake again`);
         }
       }
+      k++;
     };
     for (let f = 0; f < P; f++) frame((i) => pre[i].subarray(f * 7, f * 7 + 7), `${((f - P) * dt).toFixed(3)} s (pre-roll)`);
     for (let s = 0; s < n; s++) {
@@ -419,11 +434,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     const parts = [{ res: main, idx: idx[0] }, ...(await finish()).map((res, k) => ({ res, idx: idx[k + 1] }))];
     parts.forEach(({ res }) => { if (res.n !== main.n || res.dt !== main.dt) throw new Error("islands disagree on the number of steps"); });
     // One result in tracked order: poses by body, the report lists by body, the impacts by time then body (a single world's order).
-    const poses = [], pre = [], jumps = [], list = (key) => parts.flatMap(({ res, idx: ix }) => res.ord[key].map((li, e) => ({ gi: ix[li], v: res.report[key][e] }))).sort((a, b) => a.gi - b.gi).map((x) => x.v);
-    parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; pre[gi] = res.pre[li]; jumps[gi] = res.jumps?.[li] || new Map(); }));
+    const poses = [], pre = [], jumps = [], run = [], list = (key) => parts.flatMap(({ res, idx: ix }) => res.ord[key].map((li, e) => ({ gi: ix[li], v: res.report[key][e] }))).sort((a, b) => a.gi - b.gi).map((x) => x.v);
+    parts.forEach(({ res, idx: ix }) => ix.forEach((gi, li) => { poses[gi] = res.poses[li]; pre[gi] = res.pre[li]; jumps[gi] = res.jumps?.[li] || new Map(); run[gi] = res.run[li]; }));
     const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
     const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
-    crossing(poses, pre, jumps, of, main.n, main.dt, reach0);
+    crossing(poses, pre, jumps, run, of, main.n, main.dt, reach0);
     return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled") } });
   }
 
