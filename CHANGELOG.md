@@ -155,6 +155,13 @@ that reads as:
 - **A VoiceStudio `503` is BUSY, not FAILED**: the script waits (`DALANG_VS_BUSY_WAIT_S`, default 180 s) and retries
   once; still busy it prints `WARN … rerun in a few minutes` and exits 3. It never says to restart the app or switch
   engines. Any other error still fails with exit 1.
+- **Caption position per format** (`craft-rules.md` §6, `visual-direction.md` rubric, `review.md`, `look-build.md`,
+  `engine/three/type.js`): captions get a target, not only a keep-out, as fractions of the frame height: 9:16 Reels and
+  TikTok block top 72-76 %, bottom at most ~82 %; Shorts as low as its band allows (bottom 69 %); 4:5 bottom 92 %; 16:9
+  the bottom 15 %. The trade-off is said once: the lowest lines may brush the platform overlay, so check the phone sheet,
+  never lift captions toward the middle. A 9:16 caption above ~70 % of the height (Shorts: ~65 %) is a P1 ("captions too
+  high, compete with the hero"). The engine's Reels caption zone now ends at 82 % (was 75 %); Shorts is unchanged, and
+  TikTok moves from the Shorts line to the Reels line.
 - **VoxCPM2 chunks never exceed 120 characters**: a sentence longer than that splits at a comma, then at a space
   (a text with no spaces every 120 characters); light engines keep ~700.
 - Music source order is CC0 first, then CC BY with a plain visible-credit note at Gate 2; the upload caption the agent
