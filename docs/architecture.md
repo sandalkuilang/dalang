@@ -17,7 +17,7 @@ flowchart LR
         ST["stillness.mjs"]
         LD["loudness.mjs"]
         AL["align.py"]
-        QC["qc.mjs · timing_lint.mjs<br/>state.mjs · check_assets.mjs"]
+        QC["qc.mjs · timing_lint.mjs · lint_scene.mjs<br/>state.mjs · check_assets.mjs"]
         MR["measure_reference.sh · palette.mjs"]
     end
     SC --- SCR
@@ -46,6 +46,7 @@ flowchart LR
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
 | `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
 | `scripts/stillness.mjs`, `loudness.mjs`, `qc.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, black frames, colour tags, cuts inside words) | judge taste |
+| `scripts/lint_scene.mjs` | flags a mid-line `//` comment that swallows the code after it (`file:line`, the swallowed text) | rewrite the code |
 | `scripts/strips.mjs` | review strips: stills per storyboard shot on numbered sheets + frame index | judge the frames |
 | `scripts/find_media.mjs` | free licensed media search (Openverse, Commons, bundled SFX): previews, then `--take` copies one and writes its `ASSETS.json` row from the API | use NC / ND media, need a key, report a failed source as "nothing found" |
 | `scripts/state.mjs`, `check_assets.mjs` | gate approvals (stale on change), `next` prints each step's reading list from one table and `reading` checks it (headings, 8 KB per section, 60 KB for Steps 0–8), licence gate + `CREDITS.md`; reads the engine build's `.engine.json` so engine files are never hand-listed, checks joined licences (`A AND B`, `A + B`, `A, B` ...) part by part, a CC BY part anywhere gets its credit | approve on the user's behalf outside autonomous mode |

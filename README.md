@@ -170,6 +170,7 @@ scripts/
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
   timing_lint.mjs      every cut between words, no flicker scenes
+  lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   strips.mjs           review strips: stills per shot on numbered sheets + index
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
@@ -182,7 +183,7 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   cloth, air, plants, particles, grains, water, fur, cutaways, captions and labels,
                   camera stations and attention) with a self-check; bake.mjs caches a
                   physics bake once for every snapshot and render; examples/ ready pieces
-tests/            preflight against a mock VoiceStudio, review strips, palette (run by the gate)
+tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```

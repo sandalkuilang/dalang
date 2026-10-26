@@ -6,6 +6,7 @@ Review like someone else's code — the goal is to find bugs:
 
 ```bash
 npx hyperframes check --snapshots
+node <skill-dir>/scripts/lint_scene.mjs     # no code swallowed by a mid-line // comment (exit 1: file:line), before the draft
 npx hyperframes render --fps 10 --quality draft --quiet --output draft.mp4   # run in the background
 node <skill-dir>/scripts/stillness.mjs draft.mp4    # target ≤ 10 %, no still stretch > 1.5 s (planned pauses: --allow a-b)
 node <skill-dir>/scripts/loudness.mjs draft.mp4     # target ≈ −14 LUFS, true peak ≤ −1 dBTP
