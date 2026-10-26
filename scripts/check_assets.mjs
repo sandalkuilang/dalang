@@ -5,11 +5,14 @@
 // ASSETS.json: [{ "file": "assets/bee.jpg", "source": "<URL, or 'generated', or 'user'>",
 //   "licence": "CC-BY-4.0", "author": "Name", "model": "<model> (<its licence>)",
 //   "prompt": "...", "seed": 42, "beat": "hook" }]
+// The narration's row is also checked against the model that spoke it: audio/<name>.response.json _meta, read through
+// scripts/voice_licences.mjs. A non-commercial voice listed under a commercial licence is a problem.
 // Usage: node check_assets.mjs [project dir] [--commercial]
 //   --commercial  also fail non-commercial licences (NC, research-only). ND (no derivatives) always fails: a video edit is a derivative.
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { voiceModel } from './voice_licences.mjs';
 
 const args = process.argv.slice(2);
 const dir = args.find(a => !a.startsWith('--')) ?? '.';
@@ -40,7 +43,22 @@ for (const a of list) {
   if (a.source === 'generated' && (!a.model || !a.prompt)) problems.push(`${tag}: generated asset needs model (with its licence) and prompt`);
 }
 
-const credits = list.filter(a => a.file).filter(a => /^CC-BY/i.test(a.licence || '') || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
+// The voice's licence comes from the model that spoke (its take's response file), not from the row's own text.
+// Auditions (sample-*) are not shipped. A response file that cannot be read fails closed.
+const audioDir = path.join(dir, 'audio');
+const takes = existsSync(audioDir) ? readdirSync(audioDir).filter(f => f.endsWith('.response.json') && !f.startsWith('sample-')) : [];
+for (const f of takes) {
+  let meta;
+  try { meta = JSON.parse(readFileSync(path.join(audioDir, f), 'utf8'))._meta; }
+  catch { problems.push(`audio/${f}: unreadable — cannot tell which model spoke; regenerate the take or fix the file`); continue; }
+  const v = voiceModel(meta);
+  if (!v?.nc) continue;
+  const stem = f.slice(0, -'.response.json'.length);
+  for (const a of list.filter(r => r.file && r.licence && path.parse(r.file).name === stem))
+    if (!NC.test(a.licence)) problems.push(`${a.file}: spoken by ${v.name} (audio/${f}), whose output is ${v.licence} — listed as "${a.licence}"; list that licence`);
+}
+
+const credits =list.filter(a => a.file).filter(a => /^CC-BY/i.test(a.licence || '') || a.author).map(a => `- ${path.basename(a.file)} — ${a.author ?? 'unknown'}, ${a.licence}, ${a.source}`);
 if (credits.length) writeFileSync(path.join(dir, 'CREDITS.md'), `# Credits\n\n${credits.join('\n')}\n`);
 
 console.log(`Assets: ${list.length} listed, ${onDisk.length} in assets/, ${credits.length} credit line(s) → CREDITS.md`);
