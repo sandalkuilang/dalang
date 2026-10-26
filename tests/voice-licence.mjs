@@ -2,8 +2,10 @@
 // node tests/voice-licence.mjs — the voice that speaks is the voice the user was told about, and the licence gate checks it.
 // Part 1: tts_timestamps.mjs against a mock VoiceStudio: without --model it speaks with the backend's active TTS model,
 //   prints the model and its licence, and stops (sends nothing) when it cannot read which model is active.
+//   The same script against a mock VoiceStudio dialogue (style key per model) and a mock ElevenLabs (the plan tier it records).
 // Part 2: check_assets.mjs on fixture projects: the narration's ASSETS.json licence is checked against the model its
-//   take recorded (audio/<name>.response.json _meta), so a non-commercial voice cannot pass under a commercial licence.
+//   take recorded (audio/<name>.response.json _meta), so a non-commercial voice cannot pass under a commercial licence,
+//   and a take whose voice it cannot identify is a WARN (never silence, never "commercial-OK").
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs";
@@ -31,6 +33,10 @@ function mock(profile) {
         res.writeHead(code, { "content-type": "application/json" });
         return res.end(JSON.stringify(b));
       }
+      if (req.url === "/v1/audio/voices") {
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ voices: [{ voice_id: "va", name: "va" }, { voice_id: "vb", name: "vb" }] }));
+      }
       if (req.url === "/v1/audio/speech") {
         sent.push(JSON.parse(body));
         res.writeHead(200, { "content-type": "audio/wav" });
@@ -42,7 +48,7 @@ function mock(profile) {
   });
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok({ srv, sent })));
 }
-const run = (script, args) => new Promise((ok) => execFile(process.execPath, [script, ...args], { timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+const run = (script, args, env = {}) => new Promise((ok) => execFile(process.execPath, [script, ...args], { timeout: 60000, env: { ...process.env, ...env } }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
 
 const failures = [];
 let count = 0;
@@ -87,13 +93,83 @@ await test("C. --model given while VoxCPM2 is active: that model is sent and the
   assert.match(r.out, /Model +: omnivoice — CC-BY-NC-4\.0.*--model/);
 });
 
+// Dialogue (--voices): every line is sent in its speaker's voice, with its [style] under the key the model reads.
+const dialogue = path.join(tmp, "dialogue.txt");
+fs.writeFileSync(dialogue, "A: [warm] Hello there.\nB: [dry] Good morning to you.\n");
+const talk = async (profile, extra = []) => {
+  const { srv, sent } = await mock(profile);
+  const out = path.join(tmp, `dlg-${count}`);
+  const r = await run(tts, ["--input", dialogue, "--out", out, "--voices", "a=va,b=vb", "--align", "off", "--vs-url", `http://127.0.0.1:${srv.address().port}`, ...extra]);
+  srv.close(); srv.closeAllConnections();
+  return { ...r, sent };
+};
+await test("J. dialogue on VoxCPM2: each line's style is sent as description, with its speaker's voice", async () => {
+  const r = await talk([200, { selections: { tts: { model: "voxcpm2" } } }]);
+  assert.equal(r.sent.length, 2, r.out);
+  assert.deepEqual(r.sent.map((b) => [b.model, b.voice, b.description]), [["voxcpm2", "va", "warm"], ["voxcpm2", "vb", "dry"]]);
+  assert.ok(r.sent.every((b) => !("instructions" in b)), "instructions sent to VoxCPM2");
+});
+await test("J. dialogue on OmniVoice: the style stays under instructions", async () => {
+  const r = await talk([200, { selections: { tts: { model: "k2-fsa/OmniVoice" } } }], ["--instructions", "calm"]);
+  assert.deepEqual(r.sent.map((b) => [b.model, b.instructions]), [["omnivoice", "warm, calm"], ["omnivoice", "dry, calm"]], r.out);
+  assert.ok(r.sent.every((b) => !("description" in b)), "description sent to OmniVoice");
+});
+
+// ElevenLabs against a mock API: the take records the plan tier it read, and null (never "free", never a paid tier)
+// when it cannot read it.
+const eleven = (subscription) => {
+  const srv = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      if (req.url === "/v1/user/subscription") {
+        res.writeHead(subscription[0], { "content-type": "application/json" });
+        return res.end(JSON.stringify(subscription[1]));
+      }
+      if (req.url.startsWith("/v1/text-to-speech/")) {
+        const chars = [..."Hello there. This is a short test."];
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ audio_base64: Buffer.from("ID3x").toString("base64"), alignment: { characters: chars, character_start_times_seconds: chars.map((_, i) => i * 0.05), character_end_times_seconds: chars.map((_, i) => (i + 1) * 0.05) } }));
+      }
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end("{}");
+    });
+  });
+  return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv)));
+};
+const elevenTake = async (subscription) => {
+  const srv = await eleven(subscription);
+  const out = path.join(tmp, `el-${count}`);
+  const r = await run(tts, ["--engine", "elevenlabs", "--input", narration, "--out", out, "--voice-id", "v1", "--sample", "--api-url", `http://127.0.0.1:${srv.address().port}`], { ELEVENLABS_API_KEY: "test-key" });
+  srv.close(); srv.closeAllConnections();
+  const file = fs.existsSync(out) ? fs.readdirSync(out).find((f) => f.endsWith(".response.json")) : null;
+  return { ...r, meta: file ? JSON.parse(fs.readFileSync(path.join(out, file), "utf8"))._meta : null };
+};
+const modelLine = (out) => out.split("\n").find((l) => /^Model/.test(l)) || "";
+await test("K. ElevenLabs free plan: the take records tier free and the line says non-commercial", async () => {
+  const r = await elevenTake([200, { tier: "free" }]);
+  assert.equal(r.meta?.tier, "free", r.out);
+  assert.equal(r.meta.engine, "elevenlabs");
+  assert.match(modelLine(r.out), /eleven_v4 \(plan free\) — ElevenLabs free tier.*non-commercial/);
+});
+await test("K. ElevenLabs paid plan: the take records that tier, and the line is not marked non-commercial", async () => {
+  const r = await elevenTake([200, { tier: "creator" }]);
+  assert.equal(r.meta?.tier, "creator", r.out);
+  assert.match(modelLine(r.out), /eleven_v4 \(plan creator\)/);
+  assert.ok(!/non-commercial|unknown/.test(modelLine(r.out)), modelLine(r.out));
+});
+await test("K. ElevenLabs plan unreadable (401): tier null, the line says the licence is unknown, no 'free' guessed", async () => {
+  const r = await elevenTake([401, { detail: "missing_permissions" }]);
+  assert.equal(r.meta?.tier, null, r.out);
+  assert.match(modelLine(r.out), /eleven_v4 — .*licence unknown/);
+});
+
 // ── Part 2: check_assets.mjs ────────────────────────────────────────────────
 // A project with assets/narration.m4a listed under `licence`, and (when meta is given) the take's response file.
 let n = 0;
-const project = (licence, meta, { take = "narration.response.json", raw } = {}) => {
+const project = (licence, meta, { take = "narration.response.json", raw, noAudio } = {}) => {
   const dir = path.join(tmp, `proj-${n++}`);
   fs.mkdirSync(path.join(dir, "assets"), { recursive: true });
-  fs.mkdirSync(path.join(dir, "audio"), { recursive: true });
+  if (!noAudio) fs.mkdirSync(path.join(dir, "audio"), { recursive: true });
   fs.writeFileSync(path.join(dir, "assets", "narration.m4a"), "");
   fs.writeFileSync(path.join(dir, "ASSETS.json"), JSON.stringify([{ file: "assets/narration.m4a", source: "generated", licence, author: "VoiceStudio", model: "m", prompt: "narration.txt" }]));
   if (raw !== undefined) fs.writeFileSync(path.join(dir, "audio", take), raw);
@@ -115,8 +191,45 @@ await assets("F. ElevenLabs free tier listed as Apache-2.0: PROBLEM", project("A
 await assets("F. ElevenLabs paid tier listed as Apache-2.0: passes", project("Apache-2.0", { engine: "elevenlabs", model: "eleven_v4", tier: "creator" }), [], 0);
 await assets("G. an OmniVoice audition (sample-*) is ignored", project("Apache-2.0", omni, { take: "sample-x.response.json" }), [], 0);
 await assets("H. a corrupt response file: PROBLEM, cannot tell which model spoke", project("Apache-2.0", null, { raw: "{not json" }), [], 3, /PROBLEM.*which model spoke/);
-await assets("H. a response file without _meta.model or engine: not in the table, ignored", project("Apache-2.0", {}), [], 0);
-await assets("I. no audio/ folder at all: unchanged", project("Apache-2.0", null), [], 0);
+await assets("I. no audio/ folder at all (takes live elsewhere): no crash", project("Apache-2.0", null, { noAudio: true }), [], 0, /Result +: OK/);
+await test("I. ...and no WARN line either", async () => {
+  const r = await run(check, [project("Apache-2.0", null, { noAudio: true })]);
+  assert.ok(!/WARN/.test(r.out), r.out);
+});
+
+// A voice the table cannot identify is never read as commercial-OK. The exit stays 0 (it is not a proven mismatch),
+// but the line is there: the response file, "unknown", and what to check.
+const warnOnly = (name, dir, flags = []) => test(name, async () => {
+  const r = await run(check, [dir, ...flags]);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /WARN +: audio\/narration\.response\.json.*unknown.*(model card|plan)/s, r.out);
+  assert.ok(!/PROBLEM/.test(r.out), r.out);
+});
+const eleven4 = { engine: "elevenlabs", model: "eleven_v4" };
+await warnOnly("L. ElevenLabs take whose plan could not be read (tier null) listed as Apache-2.0: WARN", project("Apache-2.0", { ...eleven4, tier: null }));
+await warnOnly("L. ...also under --commercial", project("Apache-2.0", { ...eleven4, tier: null }), ["--commercial"]);
+await warnOnly("L. ElevenLabs take made before tiers were recorded (no tier field): WARN", project("Apache-2.0", eleven4));
+await warnOnly("L. ElevenLabs take on a plan name not in the table: WARN", project("Apache-2.0", { ...eleven4, tier: "mystery-plan" }));
+await warnOnly("L. VoiceStudio model not in the table: WARN", project("Apache-2.0", { engine: "voicestudio", model: "some-new-tts" }));
+await warnOnly("L. a response file without _meta.model or engine: WARN", project("Apache-2.0", {}));
+await test("M. identified voices raise no WARN (OmniVoice NC, VoxCPM2, ElevenLabs paid, the user's own recording)", async () => {
+  const cases = [["CC-BY-NC-4.0", omni, []], ["Apache-2.0", { engine: "voicestudio", model: "voxcpm2" }, ["--commercial"]], ["Apache-2.0", { ...eleven4, tier: "creator" }, ["--commercial"]], ["user", { engine: "user-audio", source: "me.wav" }, ["--commercial"]]];
+  for (const [licence, meta, flags] of cases) {
+    const r = await run(check, [project(licence, meta), ...flags]);
+    assert.ok(!/WARN/.test(r.out), `${JSON.stringify(meta)}: ${r.out}`);
+    assert.equal(r.code, 0, r.out);
+  }
+});
+await test("N. a non-commercial take with no ASSETS.json row of its name: WARN, the narration cannot be checked", async () => {
+  const dir = project("Apache-2.0", omni, { take: "voiceover.response.json" });
+  const r = await run(check, [dir]);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /WARN +: audio\/voiceover\.response\.json.*OmniVoice.*no ASSETS\.json row/s, r.out);
+});
+await test("N. ...a commercial take with no row of its name: no WARN", async () => {
+  const r = await run(check, [project("Apache-2.0", { engine: "voicestudio", model: "voxcpm2" }, { take: "voiceover.response.json" })]);
+  assert.ok(!/WARN/.test(r.out), r.out);
+});
 
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
