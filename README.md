@@ -172,6 +172,7 @@ scripts/
   timing_lint.mjs      every cut between words, no flicker scenes
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
+  storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   strips.mjs           review strips: stills per shot on numbered sheets + index
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row

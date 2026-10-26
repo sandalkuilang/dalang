@@ -33,6 +33,12 @@ that reads as:
 
 ### Added
 
+- **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
+  reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
+  "Camera" cell, 3 or more rows in a row with the same size and angle, the share of rows whose focal point is text only
+  over the energy's limit (Calm 10 %, Modern balanced 15 %, Punchy social 25 %; a heuristic) and an average shot over
+  the energy's limit (`visual-direction.md` §3). Exit 1 = a flag, 2 = cannot check (WARN, never OK), 0 = OK. Test:
+  `tests/storyboard-lint.mjs`, in the merge gate.
 - **Failure-explainer arc** (`script-voice.md` "Arc templates"): the seven beats of a "why does X break" film (cold
   open with a quoted verdict, follow the path, a thesis with N enemies, N enemies each built as name → mechanism →
   one tagged number → visible cause, cost asymmetry, checklist, bookend), with its Gate 1 checks (every enemy has its
@@ -236,6 +242,9 @@ that reads as:
   contacts is 40 ms (was ~30), the pitched-up variant for lighter contacts is gone (a lighter contact takes the lighter weight
   tag), and "sparingly, key beats only" now scopes to non-physical sounds (pop, whoosh); a sound with a physical cause is placed
   from the bake and may be dense.
+- **`state.mjs` and the storyboard**: `log` refuses a Step 6 (build) line while `storyboard.md` is missing or Gate 3
+  is not approved and fresh; `approve 3` runs the storyboard lint and records its result in the approval (`lint`),
+  without blocking it. `look-build.md` Step 5 runs the lint; its shot-count clause moves into the lint's average-shot check.
 - **`[calc]` names a model number** (`script-voice.md` Step 3): `[calc: name]` points into `numbers.json` and the
   calculation card shows the lines `node model.mjs` prints, instead of arithmetic written by hand in the tag; the old
   `[calc: a × b = c]` form still reads, and the numbers lint lists it as not checked. Step 3 and Step 6 index the
