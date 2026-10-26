@@ -47,6 +47,16 @@ that reads as:
   ffmpeg, changed from a score of 1 % (mean difference, or a quarter of the worst 8x9 block's, so a small local change
   counts); an unreadable or earlier-less still is never `unchanged`. A regression does not change the exit code; a
   still that cannot be compared exits 3. Each kept round gets its own number (`mv review/strips review/strips-<n>`); a `--against` folder that holds an older round with the last one nested inside (a repeated `mv` onto an existing name) is refused. `review.md` §How step 4 and `qc.md` Step 7 use it. Test: `tests/strips.mjs`.
+- **Series kit** (`scripts/series.mjs save|list|apply|note`, opt-in): a channel's look, voice and rules are saved once and each
+  new video of the series starts from them. `save <name> --from <project> [--file <rel>]...` writes
+  `~/.config/dalang/series/<name>/` (`DALANG_SERIES_DIR` overrides the root) with `SERIES.md` (the channel-level `BRIEF.md`
+  lines: platform, fps, realism, look, energy, audience, voice, sign-off; the file list; the Channel rules) and the named reusable
+  files (overlay / HUD module, caption config, tag vocabulary, palette tokens). It refuses scene modules, per-video files, env
+  files, paths outside the project and symlinks. `apply <name> [project]` copies the files, pre-fills `BRIEF.md` (`series` plus
+  the kit's lines it does not already have) and prints the Channel rules; a differing file needs `--force`, and a scene module is
+  never copied, even from a hand-edited kit. `note <name> "<rule>"` records channel-level feedback in `SERIES.md`, not in the user's
+  private memory. `list` that cannot read the kit folder is WARN (exit 2), never "no series". Brief Step 1 asks "Which series?"
+  first when kits exist; a video outside a series still carries nothing over. Test: `tests/series.mjs`, in the merge gate.
 - **Storyboard lint** (Step 5, before Gate 3): `scripts/storyboard_lint.mjs [project] [--energy calm|balanced|punchy]`
   reads the shot table of `storyboard.md` and flags, each at `storyboard.md:line row N`: an empty "Subject action" or
   "Camera" cell, 3 or more rows in a row with the same size and angle, the share of rows whose focal point is text only

@@ -6,7 +6,7 @@ Nine steps, four approval gates. Nothing renders at final quality before Gate 4.
 
 ```mermaid
 flowchart TD
-    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>setup choices, platform, language, angle, realism, duration, look, voice"]
+    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>setup choices, series kit, platform, language, angle, realism, duration, look, voice"]
     S1 --> S2{"Reference video?"}
     S2 -- yes --> M["Step 2 · Measure reference<br/>numbers only, never reuse"]
     S2 -- no --> S3
@@ -32,7 +32,7 @@ flowchart TD
 | Step | Output | Gate |
 |---|---|---|
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
-| 1 Brief | `BRIEF.md` | — |
+| 1 Brief | `BRIEF.md` (pre-filled by a series kit) | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
 | 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
