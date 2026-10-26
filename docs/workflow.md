@@ -41,6 +41,10 @@ flowchart TD
 | 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, review strips (`strips.mjs`) | **4** |
 | 8 Hand-off | final file + honest numbers from `PRODUCTION.md` | — |
 
+Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's
+files and prints only that step's reading list (sections as `sed` commands, the step's lesson headlines). Images
+(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context.
+
 ## Why timing drives everything
 
 ```mermaid

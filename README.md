@@ -147,7 +147,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 
 ```
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
-references/       loaded one § at a time, only at the step that needs it
+references/       one § at a time: `state.mjs next` prints each step's § commands; the gate keeps each ≤ 8 KB
   brief.md             steps 0–2: setup, the brief questions, a reference
   script-voice.md      steps 3–4: writing for the ear, number provenance, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
@@ -158,14 +158,14 @@ references/       loaded one § at a time, only at the step that needs it
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps
   measure-reference.md how to borrow craft from a reference — legally
-  lessons.md           every real failure, and why a rule exists
+  lessons.md           every real failure, tagged by step, and why a rule exists
   evals.md             golden briefs to run before and after changing the skill
 scripts/
   preflight.mjs        whole environment in one call
   tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
   fill_times.mjs       {{beat}} expressions in the template → index.html
-  state.mjs            gate approvals, stale when files change
+  state.mjs            gate approvals, stale when files change; `next`: the step's reading list
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
@@ -177,7 +177,7 @@ scripts/
   score_run.mjs        one project's scorecard for evals
   measure_reference.sh cuts, boil rate, contact sheets, palette
   palette.mjs          dominant colours of a video (% of frame, OKLCH L); --compare for figure-ground
-  gate.sh              the repo's gate (--fast static; full adds the engine self-check and tests/)
+  gate.sh              the repo's gate (--fast static, reading budget included; full adds the engine self-check and tests/)
 engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms,
                   cloth, air, plants, particles, grains, water, fur, cutaways, captions and labels,
                   camera stations and attention) with a self-check; bake.mjs caches a
@@ -206,7 +206,7 @@ video/<slug>/
 └── style-frames/     three stills, approved before anything is built
 ```
 
-State lives in files, so a session can die and you resume from `BRIEF.md` + the last lines of `PRODUCTION.md`.
+State lives in files, so a session can die and you resume with `node <skill-dir>/scripts/state.mjs next`, `BRIEF.md` and the last lines of `PRODUCTION.md`.
 
 </details>
 
