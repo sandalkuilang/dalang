@@ -399,17 +399,52 @@ export const masterFxChain = (html) => scanHtml(html).master;
 // than a check can parse, so any script text with one of these words may change it. No JS form is parsed.
 export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
 const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
-// Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either imports by a
-// relative path) with a MIX_TOKENS word, or a local script that cannot be read. A remote script is a library and a
-// bare import (an import map name) is a vendor module: neither is read.
+// Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either loads) with a MIX_TOKENS
+// word, a local script that cannot be read, or a module load the check cannot resolve (a dynamic import whose specifier is
+// not one plain string, a template literal with ${ included). A module is followed by a relative or root path in quotes
+// (a backtick string without ${ too), or by a bare name that a <script type="importmap"> maps to a local file (the exact
+// key, or a key ending in "/"). A remote script or import map target is a library, and a bare name the maps do not know
+// is a vendor module: neither is read.
 export function scriptProblem(scripts, dir, read) {
-  const seen = new Set();
+  const seen = new Set(), mapped = [];
+  let mapErr = null;
+  for (const s of scripts) {
+    if ((s.attrs.type || '').trim().toLowerCase() !== 'importmap') continue;
+    try {
+      const j = JSON.parse(s.text);
+      if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('not an object');
+      for (const m of [j.imports, ...Object.values(j.scopes && typeof j.scopes === 'object' ? j.scopes : {})]) {
+        if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) if (typeof v === 'string') mapped.push([k, v]);
+      }
+    } catch (e) { mapErr = `a <script type="importmap"> cannot be read (${e.message}), so which local module a bare import loads is unknown: fix the JSON and rerun`; }
+  }
+  const unresolved = (where, what) => `${where} loads a module the check cannot resolve (${what.replace(/\s+/g, ' ').slice(0, 40)}), so whether it sets a media volume is unknown: import it by a plain quoted path and rerun, or check the bed by ear on the draft`;
+  const LOCAL = /^(?:\.{1,2})?\//;
+  // The local files a specifier loads: itself when it is a relative or root path, else what the import maps give it.
+  const targets = (spec, base) => {
+    if (LOCAL.test(spec)) return [file(spec, base)].filter(Boolean);
+    if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(spec)) return [];
+    return mapped.flatMap(([k, v]) => {
+      const to = k === spec ? v : k.endsWith('/') && spec.startsWith(k) && v.endsWith('/') ? v + spec.slice(k.length) : null;
+      return to != null && LOCAL.test(to) ? [file(to, dir)].filter(Boolean) : [];
+    });
+  };
   const visit = (code, where, base) => {
     const w = code.match(MIX_TOKENS);
     if (w) return `${where} has the word "${w[0]}": script may change the mix; check the bed by ear on the draft (a ducking written as a data-automation volume lane on the tag is read by this check)`;
-    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["']((?:\.{1,2})?\/[^"']+)["']/g)) {
-      const p = file(im[1], base);
-      if (p) { const why = load(p); if (why) return why; }
+    // a script element made at run time, or importScripts(): a script the page loads whose file the check does not follow
+    const dyn = code.match(/\bimportScripts\s*\(|\bcreateElement\s*\(\s*["'`]script["'`]/i);
+    if (dyn) return unresolved(where, dyn[0]);
+    const specs = [];
+    // import( ... ): a plain string right before , or ) is a specifier; anything else (a name, a concatenation) is not resolvable
+    for (const im of code.matchAll(/\bimport\s*\(\s*(?:(["'`])((?:(?!\1)[^\\])*)\1\s*(?=[,)]))?/g)) {
+      if (im[1] == null) return unresolved(where, code.slice(im.index, im.index + 30));
+      specs.push([im[2], im[1]]);
+    }
+    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*(["'`])((?:(?!\1)[^\\])*)\1/g)) specs.push([im[2], im[1]]);
+    for (const [spec, quote] of specs) {
+      if (quote === '`' && spec.includes('${')) return unresolved(where, '`' + spec + '`');
+      for (const p of targets(spec, base)) { const why = load(p); if (why) return why; }
     }
     return null;
   };
@@ -438,6 +473,7 @@ export function scriptProblem(scripts, dir, read) {
     if (r.text == null) return `${where} could not be read (${r.why}), so whether it sets a media volume is unknown: fix the path and rerun`;
     return visit(r.text, where, path.dirname(p));
   };
+  if (mapErr) return mapErr;
   for (const s of scripts) {
     if (!JS_TYPE.test((s.attrs.type || '').trim())) continue;
     const why = s.attrs.src ? (file(s.attrs.src, dir) ? load(file(s.attrs.src, dir)) : null) : visit(s.text, 'an inline <script>', dir);
