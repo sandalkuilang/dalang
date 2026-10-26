@@ -927,6 +927,13 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   // Safe zone and size.
   assert.ok(r.box.x0 >= 0.06 * W - 1e-6 && r.box.x1 <= 950 + 1e-6 && r.box.y1 <= 1330 + 1e-6 && r.box.y0 >= area.caption.y0 - 1e-6, "the caption stays inside its safe zone: " + JSON.stringify(r.box));
   assert.ok(r.size >= 54 && r.size <= 64, "caption size 54-64 px at 1080 wide: " + r.size);
+  // Caption target position: the lower third on 9:16 Reels/TikTok, as low as the band allows on Shorts.
+  const ra = safeArea("reels", W, H), sa = safeArea("shorts", W, H);
+  assert.ok(ra.caption.y0 >= 0.72 * H - 1e-6 && ra.caption.y0 <= 0.76 * H && ra.caption.y1 <= 0.82 * H + 1e-6, "reels: the caption zone is the lower third: " + JSON.stringify(ra.caption));
+  assert.ok(ra.labels.y1 <= ra.caption.y0 - 0.02 * H + 1e-6 && ra.labels.y1 > 0.5 * H, "reels: the labels stay above the caption");
+  assert.ok(sa.caption.y1 <= (1330 / 1920) * H + 1e-6 && sa.caption.y1 > 0.68 * H, "shorts: the caption ends at its band end, as low as it may");
+  const rd = drawCaption(mockCtx(W, H, () => [128, 128, 128]), caps[4].start, caps, { format: "reels" });
+  assert.ok(rd.box.y1 <= 0.82 * H + 1e-6 && rd.box.y0 >= 0.72 * H - 1e-6, "reels: the drawn caption block sits in 72-82 %: " + JSON.stringify(rd.box));
   assert.equal(r.lines.length, 2, "a long phrase takes two lines");
   const lr = drawCaption(mockCtx(1920, 1080, gray), caps[0].start, caps, { format: "landscape" });
   assert.ok(lr.box.y0 >= 0.85 * 1080 - 1e-6 && lr.box.y1 <= 0.95 * 1080 + 1e-6, "landscape: the caption sits in the bottom 15 %: " + JSON.stringify(lr.box));
