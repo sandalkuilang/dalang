@@ -202,7 +202,7 @@ await test("N. CLI: a refused licence exits 1 and --commercial reaches the plan"
   const h = Buffer.alloc(8); h.write("DLB1"); h.writeUInt32LE(Buffer.byteLength(j), 4);
   fs.writeFileSync(path.join(dir, "b.bin"), Buffer.concat([h, Buffer.from(j)]));
   fs.writeFileSync(path.join(dir, "sfx.json"), JSON.stringify({ materials, against: "wood", library }));
-  const rowWith = (licence) => JSON.stringify(assets.map((a) => (a.file.endsWith("knock.wav") ? { ...a, licence } : a)));
+  const rowWith = (licence) => JSON.stringify(assets.map((a) => (a.file.endsWith("knock.wav") ? { ...a, licence, author: "A" } : a)));
   fs.writeFileSync(path.join(dir, "ASSETS.json"), rowWith("CC-BY-NC-ND-4.0"));
   assert.equal((await run(cli, [dir, "--bake", "b.bin", "--plan", "sfx.json"])).code, 1);
   fs.writeFileSync(path.join(dir, "ASSETS.json"), rowWith("CC-BY-NC-4.0"));
