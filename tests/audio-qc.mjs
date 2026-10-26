@@ -278,7 +278,7 @@ try {
       <video id="v3" src="c.mp4" data-has-audio="false"></video><video src="d.mp4" data-has-audio="true"></video><video id="v4" src="e.mp4"></video>
       <video id="v5" data-has-audio="true"><source src="s.mp4"></video><audio id="after" src="after.wav"></audio></div>`;
     const tags = q.audioTags(html), by = Object.fromEntries(tags.map((x) => [x.id, x]));
-    assert.deepEqual(tags.map((x) => x.id), ["m", "v1", "v5", "after"], "only an audible, unmuted, identified video is a source of sound");
+    assert.deepEqual(tags.map((x) => x.id), ["m", "v1", "", "v4", "v5", "after"], "every <video> that is neither muted nor data-has-audio other than true is a source of sound (HyperFrames compiles in its id and data-has-audio)");
     assert.deepEqual([by.m.kind, by.v1.kind, by.m.end, by.m.duration, by.m.group, by.m.fadeIn, by.m.fadeOut, by.m.hidden], ["audio", "video", 3, 9, "bus", 0.5, 0, false]);
     assert.equal(by.v5.src, "s.mp4", "a <video> takes the src of its <source> child");
     assert.equal(by.after.src, "after.wav", "the tag after a video with a <source> child is read on its own");
@@ -307,9 +307,49 @@ try {
     near(clamp[1], 0.5, 1e-9, "fades longer than the clip are scaled to fit (2 s + 2 s)");
     assert.deepEqual(Array.from(q.applyGain(ones, 1, 0, 1, null, 10, { fadeOut: 4 })), Array.from(ones), "without a clip end there is no fade-out to place");
     const roles = q.tagRoles(tags, null, () => 1, [], groups).map((r) => [r.tag.id, r.role]);
-    assert.deepEqual(roles, [["m", "skipped"], ["v1", "unknown"], ["v5", "unknown"], ["after", "sfx"]], "a video with sound is unknown, a tag on a hidden bus is skipped");
+    assert.deepEqual(roles, [["m", "skipped"], ["v1", "unknown"], ["", "unknown"], ["v4", "unknown"], ["v5", "unknown"], ["after", "sfx"]], "a video with sound is unknown, a tag on a hidden bus is skipped");
     assert.equal(q.tagRoles(tags, null, () => 1, ["v1"], groups)[1].role, "bed", "--music names a video as the bed");
     console.log("ok  audioTags / groupsOf / masterFxChain / notRendered / renderProblem / applyGain: video sound, bus, data-end, fades, fx chain, hidden");
+  }
+
+  // 8k. The class rule: every input of HyperFrames' mix is modelled, known not to change the mix, or makes the tag's level
+  // unknown. An attribute outside the inventory, an ancestor the check cannot see, a lane it does not model, all fail closed.
+  {
+    const base = { kind: "audio", id: "music", src: "m.wav", start: 0, end: null, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, group: null, fx: null, fadeIn: 0, fadeOut: 0, hidden: false, unmodelled: [], context: null };
+    const tagOf = (attrs) => q.audioTags(`<audio id="music" src="m.wav" ${attrs}></audio>`)[0];
+    for (const attrs of ['data-whatever="1"', 'data-playback-start="2"', 'data-hf-group-render-id="g"', "data-mute", 'data-volume="8"', 'data-volume="-1"']) {
+      assert.ok(q.renderProblem(tagOf(attrs)), `${attrs} is an input this check does not model`);
+      assert.equal(q.tagRoles([tagOf(attrs)].map((t) => ({ ...t, id: "lofi" })), null, () => 60)[0].role, "unknown", `${attrs}: a long clip with it is unknown, never an SFX or 'no bed'`);
+    }
+    for (const attrs of ['class="a"', 'style="x"', 'data-hf-id="h1"', 'data-track-index="2"', 'data-layer="1"', 'preload="auto"', 'crossorigin="anonymous"', 'aria-label="m"', 'data-volume="3.9"']) {
+      assert.equal(q.renderProblem(tagOf(attrs)), null, `${attrs} does not change the mix`);
+    }
+    assert.equal(q.tagRoles([{ ...tagOf('data-whatever="1"'), id: "hit", duration: 1 }], null, () => 60)[0].role, "sfx", "a clip of at most sfxMaxS is never the bed, whatever it carries");
+    // ancestors: a data-hidden one or a <template> is a state the check cannot see without a DOM; a closed one is not an ancestor
+    const ctx = (html) => q.audioTags(html).map((t) => [t.id, t.context]);
+    assert.deepEqual(ctx(`<div data-hidden><p><audio id="a" src="a.wav"></audio></p></div><audio id="b" src="b.wav"></audio>`).map(([id, c]) => [id, !!c]), [["a", true], ["b", false]]);
+    assert.ok(ctx(`<template><audio id="a" src="a.wav"></audio></template>`)[0][1], "inside a <template>");
+    assert.deepEqual(ctx(`<div data-hidden/><audio id="a" src="a.wav"></audio>`).map(([, c]) => !!c), [true], "a self-closed <div/> stays open in HTML");
+    assert.ok(q.renderProblem({ ...base, context: "is inside <div data-hidden>" }), "a hidden ancestor: NOT CHECKED, never measured");
+    assert.deepEqual(q.audioTags(`<!-- <audio id="music" src="m.wav"></audio> --><script>const s = '<audio id="x" src="x.wav">';</script><audio id="b" src="b.wav"></audio>`).map((t) => t.id), ["b"], "a comment or a script string is not a tag");
+    assert.equal(q.masterFxChain(`<!-- <div data-composition-id="old" data-fx-chain="{}"> --><div data-composition-id="main"></div>`), null, "a commented-out root is not the master");
+    // the bus has the same inventory
+    const g = q.groupsOf(`<hf-audio-group id="bus" data-volume="1" data-mystery="x"></hf-audio-group><hf-audio-group id="ok" data-label="Music" class="b"></hf-audio-group>`);
+    assert.ok(q.renderProblem({ ...base, group: "bus" }, g), "a bus with an attribute outside the inventory");
+    assert.equal(q.renderProblem({ ...base, group: "ok" }, g), null, "a bus with inert attributes");
+    // lanes: only a volume lane of straight segments in HyperFrames' format is modelled
+    const lane = (lanes, version = 1) => JSON.stringify({ version, lanes });
+    for (const [what, a] of [["a rate lane", lane([{ target: "rate", points: [{ t: 0, v: 2 }] }])], ["an fx lane", lane([{ target: "fx.carve.gain", points: [{ t: 0, v: -20 }] }])],
+      ["a curve point", lane([{ target: "volume", points: [{ t: 0, v: 1, curve: 0.5 }, { t: 2, v: 0.2 }] }])], ["a via point", lane([{ target: "volume", points: [{ t: 0, v: 1, viaX: 0.2, viaY: 0.8 }, { t: 2, v: 0.2 }] }])],
+      ["a point that is not numbers", lane([{ target: "volume", points: [{ t: 0, v: "1" }] }])], ["another version", lane([{ target: "volume", points: [{ t: 0, v: 1 }] }], 2)], ["a gain over HyperFrames' maximum", lane([{ target: "volume", points: [{ t: 0, v: 9 }] }])]]) {
+      assert.throws(() => q.laneOf(a), undefined, what);
+    }
+    assert.deepEqual(q.laneOf(lane([{ target: "volume", points: [{ t: 2, v: 0.5 }, { t: 0, v: 1, curve: 0 }] }])), [{ t: 0, v: 1, curve: 0 }, { t: 2, v: 0.5 }], "a straight lane is modelled, sorted");
+    assert.equal(q.laneOf(lane([])), null);
+    // scripts: a write to a media volume is sampled from the timeline by HyperFrames; this check does not run it
+    for (const code of ['tl.to("#music", { volume: 0.1 }, 2)', "el.volume = 0.2", "gsap.to(m, {'volume':0})", 'a.setAttribute("data-volume", "0.1")']) assert.ok(q.volumeWrite(code), code);
+    for (const code of ['tl.to("#title", { opacity: 1 }, 0)', "// the volume: set in the lane\nconst x = 1;", "/* volume: 0 */", "if (el.volume == 1) {}", 'fetch("https://x.test/a")']) assert.equal(q.volumeWrite(code), null, code);
+    console.log("ok  the class rule: an attribute outside the inventory, a hidden or <template> ancestor, a lane or a script volume the check does not model = not modelled; inert ones pass");
   }
 
   // 9. No interpreter anywhere in the script.
@@ -623,7 +663,10 @@ try {
       const vid = (attrs) => `<video id="clip" src="assets/clip.wav" data-start="0" data-duration="4" ${attrs}></video>`;
       const clip = { "assets/clip.wav": bedTone(4.5, 40) };
       notChecked(run(make("vid-audible", vid('data-has-audio="true"'), clip)), "an audible video");
-      for (const [name, attrs] of [["vid-false", 'data-has-audio="false"'], ["vid-none", ""], ["vid-muted", 'data-has-audio="true" muted']]) {
+      // HyperFrames' compile step gives every <video> an id and data-has-audio="true" unless it is muted, so these mix too
+      notChecked(run(make("vid-none", vid(""), clip)), "a video with no data-has-audio (compiled to true)");
+      notChecked(run(make("vid-noid", `<video src="assets/clip.wav" data-start="0" data-duration="4" data-has-audio="true"></video>`, clip)), "an audible video with no id (compiled in)");
+      for (const [name, attrs] of [["vid-false", 'data-has-audio="false"'], ["vid-muted", 'data-has-audio="true" muted'], ["vid-muted-only", "muted"]]) {
         r = run(make(name, vid(attrs), { ...clip, "assets/music.wav": bedTone(4.5, 15) }));
         assert.equal(r.status, 0, `${name}: a silent video is not a source of sound: ` + r.stdout + r.stderr);
       }
@@ -667,6 +710,50 @@ try {
       r = run(make("nosubcomp", `<div data-start="0"></div>`));
       assert.equal(r.status, 0, "the neighbour without a sub-composition: " + r.stdout + r.stderr);
       console.log("ok  CLI: a group bus is applied, an audible video / fx chain / a fade-out without an end = exit 2, data-end and fades are applied, nothing unknown reads OK");
+    }
+
+    // 13h. The class: whatever HyperFrames' mix reads that this check does not model is NOT CHECKED (exit 2), never OK, on
+    // the real CLI; the legitimate neighbour on the other side of each rule still passes.
+    {
+      const html = (tags) => `<div id="root" data-composition-id="main"><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${tags}</div>`;
+      const bedTone = (secs, under) => tone(880, secs, 0.3 * db(-under), RATE);
+      const make = (name, tags, files = {}) => {
+        const dir = project(name, { narr: voice(steady), bedDb: null, html: html(tags) });
+        for (const [f, x] of Object.entries({ "assets/music.wav": bedTone(4.5, 15), "assets/whoosh.wav": bedTone(1, 10), ...files })) {
+          fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
+          fs.writeFileSync(path.join(dir, f), typeof x === "string" ? x : wav(x, RATE));
+        }
+        return dir;
+      };
+      const music = (attrs = "") => `<audio id="music-a" src="assets/music.wav" ${attrs}></audio>`;
+      const notChecked = (r, what) => { assert.equal(r.status, 2, what + ": " + r.stdout + r.stderr); assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/, what); assert.doesNotMatch(r.stdout, /OK —|no bed in the film|bed audible/, what); };
+      const ok = (r, what, re = /OK — bed audible/) => { assert.equal(r.status, 0, what + ": " + r.stdout + r.stderr); assert.match(r.stdout, re, what); };
+      const lane = (lanes) => `data-automation='${JSON.stringify({ version: 1, lanes })}'`;
+      for (const [name, tags, files, what] of [
+        ["c-hidden-anc", `<div data-hidden>${music()}</div>`, {}, "a bed under a data-hidden ancestor"],
+        ["c-template", `<template>${music()}</template>`, {}, "a bed inside a <template>"],
+        ["c-unknown-attr", music('data-whatever="1"'), {}, "an attribute outside the inventory"],
+        ["c-playback-start", music('data-playback-start="2"'), {}, "data-playback-start (read before data-media-start)"],
+        ["c-rate-lane", music(lane([{ target: "rate", points: [{ t: 0, v: 2 }] }])), {}, "a rate lane"],
+        ["c-curve", music(lane([{ target: "volume", points: [{ t: 0, v: 1, curve: 0.8 }, { t: 4, v: 0.1 }] }])), {}, "a curved volume lane"],
+        ["c-over-max", music('data-volume="8"'), {}, "a gain over HyperFrames' maximum"],
+        ["c-bus-attr", `<hf-audio-group id="mb" data-volume="1" data-mystery="x"></hf-audio-group>${music('data-audio-group="mb"')}`, {}, "a bus attribute outside the inventory"],
+        ["c-tween", `${music()}<script>tl.to("#music-a", { volume: 0.02 }, 1);</script>`, {}, "an inline script tweens the volume"],
+        ["c-script-file", `${music()}<script src="js/duck.js"></script>`, { "js/duck.js": 'document.getElementById("music-a").volume = 0.02;\n' }, "a local script sets the volume"],
+        ["c-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { duck } from "./b.js";\nduck();\n', "js/b.js": "export const duck = () => gsap.to('#music-a', { volume: 0 });\n" }, "an imported module tweens the volume"],
+        ["c-script-missing", `${music()}<script src="js/gone.js"></script>`, {}, "a local script that cannot be read"],
+      ]) notChecked(run(make(name, tags, files)), what);
+      notChecked(run(project("c-narr-hidden", { narr: voice(steady), bedDb: 15, html: `<div id="root"><section data-hidden><audio id="narration" src="audio/narration.wav"></audio></section><audio id="music" src="assets/music.wav"></audio></div>` })), "the narration under a hidden ancestor");
+      // the other side of each rule
+      ok(run(make("k-hidden-sibling", `<div data-hidden></div>${music()}`)), "a closed data-hidden sibling is not an ancestor");
+      ok(run(make("k-hidden-sfx", `<div data-hidden><audio id="whoosh" src="assets/whoosh.wav" data-duration="1"></audio></div>${music()}`)), "an SFX under a hidden ancestor is never the bed");
+      ok(run(make("k-inert", music('class="a" data-hf-id="h1" data-track-index="2" data-layer="1" preload="auto"'))), "inert attributes");
+      ok(run(make("k-bus-inert", `<hf-audio-group id="mb" data-volume="1" data-label="Music"></hf-audio-group>${music('data-audio-group="mb"')}`)), "a bus with a label");
+      ok(run(make("k-script", `${music()}<script>// the volume: lives in the lane\ntl.to("#title", { opacity: 1 }, 0);</script><script type="application/json">{"volume": 1}</script><script src="https://cdn.example.test/gsap.min.js"></script>`)), "a script with no volume write, a JSON block, a remote library");
+      ok(run(make("k-import", `${music()}<script type="module">import "./js/a.js";</script>`, { "js/a.js": 'import { t } from "./b.js";\nt();\n', "js/b.js": "export const t = () => gsap.to('#title', { y: 10 });\n" })), "modules with no volume write");
+      ok(run(make("k-comment", `<!-- ${music()} -->`)), "a commented-out bed is not in the film", /OK — no bed in the film/);
+      ok(run(make("k-lane", music(lane([{ target: "volume", points: [{ t: 0, v: 1 }, { t: 4, v: 1, curve: 0 }] }])))), "a straight volume lane");
+      console.log("ok  CLI: the class rule: a hidden or <template> ancestor, an attribute or lane outside the inventory, a script volume = exit 2 NOT CHECKED; each neighbour passes");
     }
 
     // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
