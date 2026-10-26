@@ -32,11 +32,23 @@ that reads as:
 
 ### Added
 
+- **Islands baked in parallel**: `bakeCached(…, { islands: [[a, b], [c]] })` bakes groups of bodies that never touch
+  for the whole shot as separate worlds, each in a worker (Web Worker in a page, `worker_threads` in Node, in the
+  calling thread when none starts) beside the main island, which alone keeps `onStep`, kinematic paths, `track` and
+  `keep`. The result and the cache file are the same as a single world's (the self-check compares them exactly); a
+  body of one island meeting another's, a script reaching a declared body, a kinematic body or a joint across
+  islands throw instead of baking something different.
+
 - **A real merge gate**: `scripts/gate.sh` (`--fast`: syntax, `SKILL.md` front-matter, diagrams; full: also the
   engine build and self-check and `tests/preflight-mock.mjs`, preflight against a mock VoiceStudio in 29 cases).
   CI runs the full gate on every push and pull request.
 - **`CLAUDE.md`**: the rules for changing the skill (generic, docs in step, physical motion, never "unknown" read
   as "missing", installs only with consent, personal account, no AI attribution).
+
+### Changed
+
+- The step loop of a bake moved from `physics.js` to `bakecore.js` (with `pool.js` and `bake-worker.js` for the
+  workers). Same behaviour; the engine sources change, so every cached bake is computed once more.
 
 ## [1.3.0] - 2026-10-26
 
