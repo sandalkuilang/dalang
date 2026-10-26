@@ -274,28 +274,39 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     for (const p of pts) r = Math.max(r, Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]) + p[3]);
     return { c, r };
   }
-  // Proof that the islands stayed apart: at every pre-roll step and every stored step, no body came within 5 mm of a
+  // Proof that the islands stayed apart: at every pre-roll step, every stored step and on the path between two, no body came within 5 mm of a
   // body of another island (main counts as one), judged on each body's reach (reachOf: its colliders and drawn geometry). A meeting throws:
   // this bake is not the single-world bake. The pre-roll counts as much as the shot: it is where loose pieces drop and
   // settle, and each island's world bakes it without the others' bodies, so a piece that would have landed on a
   // declared body falls through its place and ends far from it, with nothing left to see at t = 0. pre: each body's
   // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot; sp: each body's reach.
+  // Judged on the path between two steps, not only at the steps: a fast body can pass a declared one between them
+  // (CCD stops it there in the single world). Each reach centre moves in a straight line over the step, and two bodies
+  // come closest where their relative motion does (sweep). ponytail: the chord of a spinning body's arc and a step of
+  // gravity stay well under the 5 mm margin at 480 Hz; a sub-step proof only if a set spins faster than ~100 rad/s.
+  const sweep = (a0, a1, b0, b1) => {
+    const r = [0, 1, 2].map((k) => a0[k] - b0[k]), v = [0, 1, 2].map((k) => a1[k] - a0[k] - (b1[k] - b0[k]));
+    const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], t = vv > 0 ? Math.min(1, Math.max(0, -(r[0] * v[0] + r[1] * v[1] + r[2] * v[2]) / vv)) : 0;
+    return Math.hypot(r[0] + t * v[0], r[1] + t * v[1], r[2] + t * v[2]);
+  };
   function crossing(poses, pre, of, n, dt, sp) {
-    const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values()), at = tracked.map(() => [0, 0, 0]);
+    const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values());
+    let at = tracked.map(() => null);
     const isle = tracked.map((t) => of.get(t.body.handle) || 0), P = pre.length ? pre[0].length / 7 : 0;
     const frame = (pose, when) => {
+      const was = at; at = at.slice(); // was: each reach centre at the step before (null before the first)
       const lo = Array.from({ length: K }, () => [Infinity, Infinity, Infinity]), hi = Array.from({ length: K }, () => [-Infinity, -Infinity, -Infinity]);
       tracked.forEach((_, i) => {
         const [x, y, z, qx, qy, qz, qw] = pose(i), [vx, vy, vz] = sp[i].c;
         const tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx); // c rotated by q, then moved to the body
         at[i] = [x + vx + qw * tx + (qy * tz - qz * ty), y + vy + qw * ty + (qz * tx - qx * tz), z + vz + qw * tz + (qx * ty - qy * tx)];
-        const k = isle[i], r = sp[i].r + margin;
-        for (let a = 0; a < 3; a++) { lo[k][a] = Math.min(lo[k][a], at[i][a] - r); hi[k][a] = Math.max(hi[k][a], at[i][a] + r); }
+        const k = isle[i], r = sp[i].r + margin, w = was[i] || at[i];
+        for (let a = 0; a < 3; a++) { lo[k][a] = Math.min(lo[k][a], at[i][a] - r, w[a] - r); hi[k][a] = Math.max(hi[k][a], at[i][a] + r, w[a] + r); }
       });
       for (let ka = 0; ka < K; ka++) for (let kb = ka + 1; kb < K; kb++) {
         if ([0, 1, 2].some((a) => lo[ka][a] > hi[kb][a] || lo[kb][a] > hi[ka][a])) continue; // the islands' boxes do not even overlap
         for (let i = 0; i < tracked.length; i++) if (isle[i] === ka) for (let j = 0; j < tracked.length; j++) if (isle[j] === kb) {
-          const d = Math.hypot(at[i][0] - at[j][0], at[i][1] - at[j][1], at[i][2] - at[j][2]) - sp[i].r - sp[j].r;
+          const d = sweep(was[i] || at[i], at[i], was[j] || at[j], at[j]) - sp[i].r - sp[j].r;
           if (d < margin) throw new Error(`${ka ? `island ${ka}` : "the main island"} and island ${kb} meet: "${tracked[i].name}" and "${tracked[j].name}" come within ${(Math.max(0, d) * mpu * 1000).toFixed(1)} mm at ${when} — put them in one island (or drop opts.islands) and bake again`);
         }
       }
