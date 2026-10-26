@@ -543,6 +543,85 @@ try {
       console.log("ok  CLI: an unknown loop clip = exit 2; a looped bed wraps across the film; --music repeats and an unnamed unknown bed stays NOT CHECKED");
     }
 
+    // 13g. Render inputs the model leaves out must never read as OK: an audio group bus, an audible <video>, data-end, an fx
+    // chain (also the master one), fades. Each is modelled or NOT CHECKED (exit 2); the legitimate neighbour still passes.
+    {
+      const html = (tags, root = "") => `<div id="root"${root}><audio id="narration" src="audio/narration.wav" data-start="0"></audio>${tags}</div>`;
+      const bedTone = (secs, under) => tone(880, secs, 0.3 * db(-under), RATE);
+      const make = (name, tags, files = {}, root = "") => {
+        const dir = project(name, { narr: voice(steady), bedDb: null, html: html(tags, root) });
+        for (const [f, x] of Object.entries({ "assets/music.wav": bedTone(4.5, 15), ...files })) fs.writeFileSync(path.join(dir, f), wav(x, RATE));
+        return dir;
+      };
+      const music = (attrs = "") => `<audio id="music-a" src="assets/music.wav" ${attrs}></audio>`;
+      const bus = (attrs = "") => `<hf-audio-group id="musicbus" ${attrs}></hf-audio-group>`;
+      const fx = `data-fx-chain='{"version":1,"nodes":[{"type":"gain","db":-40}]}'`;
+      const notChecked = (r, what) => { assert.equal(r.status, 2, what + ": " + r.stdout + r.stderr); assert.match(r.stdout, /NOT CHECKED: [^\n]*bed/, what); assert.doesNotMatch(r.stdout, /OK —|no bed in the film/, what); };
+      // (1) the group bus: its data-volume multiplies the member's
+      let r = run(make("grp-quiet", bus('data-volume="0.01"') + music('data-audio-group="musicbus"')));
+      assert.equal(r.status, 3, "a bus at 0.01 puts a 15 dB bed 55 dB under: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(make("grp-unity", bus('data-volume="1"') + music('data-audio-group="musicbus"')));
+      assert.equal(r.status, 0, "a bus at 1 changes nothing: " + r.stdout + r.stderr);
+      r = run(make("grp-half", bus('data-volume="0.5"') + music('data-audio-group="musicbus"'), { "assets/music.wav": bedTone(4.5, 12) }));
+      assert.equal(r.status, 0, "a bus at 0.5 puts a 12 dB bed 18 dB under: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /sits 18\.\d dB under/);
+      r = run(make("grp-other", bus('data-volume="0.01"') + music('data-audio-group="elsewhere"')));
+      assert.equal(r.status, 0, "a bus that does not hold the bed is not applied to it: " + r.stdout + r.stderr);
+      notChecked(run(make("grp-lane", bus(`data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0.01}]}]}'`) + music('data-audio-group="musicbus"'))), "a bus lane");
+      notChecked(run(make("grp-fx", bus(fx) + music('data-audio-group="musicbus"'))), "a bus fx chain");
+      r = run(make("grp-hidden", bus("data-hidden") + music('data-audio-group="musicbus"')));
+      assert.equal(r.status, 0, "a hidden bus is not rendered, so there is no bed: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /not rendered/);
+      r = run(project("grp-narr", { narr: voice(steady), bedDb: 15, html: `<div id="root"><hf-audio-group id="voicebus" data-volume="0.01"></hf-audio-group><audio id="narration" data-audio-group="voicebus" src="audio/narration.wav"></audio><audio id="music" src="assets/music.wav"></audio></div>` }));
+      assert.equal(r.status, 3, "the narration's bus counts too (the bed now masks the voice): " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed masks words/);
+      // (2) an audible <video>: its sound is mixed, so it is unknown until --music names it
+      const vid = (attrs) => `<video id="clip" src="assets/clip.wav" data-start="0" data-duration="4" ${attrs}></video>`;
+      const clip = { "assets/clip.wav": bedTone(4.5, 40) };
+      notChecked(run(make("vid-audible", vid('data-has-audio="true"'), clip)), "an audible video");
+      for (const [name, attrs] of [["vid-false", 'data-has-audio="false"'], ["vid-none", ""], ["vid-muted", 'data-has-audio="true" muted']]) {
+        r = run(make(name, vid(attrs), { ...clip, "assets/music.wav": bedTone(4.5, 15) }));
+        assert.equal(r.status, 0, `${name}: a silent video is not a source of sound: ` + r.stdout + r.stderr);
+      }
+      r = run(make("vid-named40", vid('data-has-audio="true"'), clip), ["--music", "clip"]);
+      assert.equal(r.status, 3, "named with --music, the video's sound is measured: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(make("vid-named15", vid('data-has-audio="true"'), { "assets/clip.wav": bedTone(4.5, 15) }), ["--music", "clip"]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      // (3) data-end cuts the clip (data-end wins over data-duration); an end at or before the start is not rendered
+      r = run(make("end03", music('data-start="0" data-end="0.3"')));
+      assert.equal(r.status, 3, "a bed that stops after 0.3 s leaves the speech without one: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(make("end45", music('data-start="0" data-end="4.5"')));
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      r = run(make("end-over-dur", music('data-start="0" data-end="4.5" data-duration="0.3"')));
+      assert.equal(r.status, 0, "data-end wins over data-duration: " + r.stdout + r.stderr);
+      r = run(make("end-before", music('data-start="1" data-end="0.5"')));
+      assert.equal(r.status, 0, "an end before the start is not rendered: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /not rendered/);
+      r = run(make("dur0", music('data-duration="0"')));
+      assert.equal(r.status, 0, "a data-duration of 0 is not rendered: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /not rendered/);
+      notChecked(run(make("end-bad", music('data-end="{{end}}"'))), "a data-end that is not a number");
+      // (4) an fx chain (a gain, a carve) is not modelled: the bed, the narration or the master bus
+      notChecked(run(make("fx-bed", music(fx))), "a bed with a data-fx-chain");
+      notChecked(run(project("fx-narr", { narr: voice(steady), bedDb: 15, html: `<div id="root"><audio id="narration" src="audio/narration.wav" ${fx}></audio><audio id="music" src="assets/music.wav"></audio></div>` })), "a narration with a data-fx-chain");
+      notChecked(run(make("fx-master", music(), {}, ` data-composition-id="main" ${fx}`)), "a master data-fx-chain");
+      r = run(make("fx-empty", music('data-fx-chain=""'), {}, ' data-composition-id="main" data-fx-chain=""'));
+      assert.equal(r.status, 0, "an empty chain is no chain: " + r.stdout + r.stderr);
+      // (5) fades: linear, clip-local; a fade-out needs the clip's end
+      r = run(make("fade-in-long", music('data-duration="4.5" data-fade-in="4.5"'), { "assets/music.wav": bedTone(4.5, 21) }));
+      assert.equal(r.status, 3, "a fade-in over the whole bed lowers the speech-time level: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed inaudible/);
+      r = run(make("nofade", music('data-duration="4.5"'), { "assets/music.wav": bedTone(4.5, 21) }));
+      assert.equal(r.status, 0, "the same bed without a fade: " + r.stdout + r.stderr);
+      r = run(make("fade-short", music('data-duration="4.5" data-fade-in="0.2" data-fade-out="0.5"')));
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      notChecked(run(make("fade-out-open", music('data-fade-out="2"'))), "a fade-out with no data-end or data-duration");
+      console.log("ok  CLI: a group bus is applied, an audible video / fx chain / a fade-out without an end = exit 2, data-end and fades are applied, nothing unknown reads OK");
+    }
+
     // 13d. A voice check that judged nothing is NOT CHECKED, never 'voice steady'.
     {
       const two = (f2) => concat(...[150, f2].flatMap((f) => [0, 1, 2].flatMap(() => [tone(f, 0.3, 0.3, RATE), silence(0.05, RATE)])));
