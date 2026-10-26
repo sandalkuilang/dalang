@@ -30,10 +30,12 @@
 // those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
-// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a local file or a module it imports, each load resolved
-// to its URL as a browser does, <base href> and import maps included, a load that is neither a project file nor a remote
-// http(s) library being unknown; a file the .engine.json beside it lists is the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may change the mix; check the bed by ear on the
-// draft"; no JS is parsed); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
+// volume lane, a gain HyperFrames clamps; (3) any <script> (inline, a plain relative src, or a module it imports by a static
+// quoted relative or root specifier, resolved against the folder of index.html; a file the .engine.json beside it lists is
+// the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may
+// change the mix; check the bed by ear on the draft"; no JS is parsed). SCRIPT-LOAD LIMIT: a page with a <base href> anywhere,
+// a <script type="importmap"> or a dynamic import( of any form loads scripts this check does not resolve, so it is NOT CHECKED
+// ("page loads scripts the check does not resolve; check the bed by ear on the draft"); (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
 // in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
 // from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
 // data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Other limits: a `loop`
@@ -339,7 +341,7 @@ const RAW_TAGS = new Set(['script', 'style', 'textarea', 'title']);
 //     unmodelled }. A member is mixed on its bus: its gain times the bus volume, then the bus's own lane and fx chain.
 //   master: the data-fx-chain of the first data-composition-id element (the master bus), or null.
 //   scripts: { attrs, text } of every <script>.
-//   base: the href of the first <base href> (the document base the scripts resolve against), or null.
+//   base: the href of the first <base href> (a page with one is NOT CHECKED, see scriptProblem), or null.
 export function scanHtml(html) {
   const media = [], groups = new Map(), scripts = [], stack = [];
   let master, base;
@@ -403,48 +405,20 @@ export const masterFxChain = (html) => scanHtml(html).master;
 export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
 const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/i;
 // Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either loads) with a MIX_TOKENS
-// word, a local script that cannot be read, or a load the check cannot resolve. The one rule for every load: a script src or
-// a module specifier becomes the URLs it may load, and locate() calls each URL a local file of the project (read), a remote
-// http(s) library (not read) or neither (NOT CHECKED); nothing else decides. A module specifier is resolved as a browser
-// does: a relative, root or absolute URL against its base (the document's, which a <base href> sets, or the importing
-// module's), then every import map entry whose key (resolved against the document) is that URL or bare name, exactly or as
-// a "/" prefix, adds its target; the URL itself is kept as well, so that a file is never missed. A bare name that no map
-// knows is a vendor module (a browser fails on it). A dynamic import whose specifier is not one plain string (a template
-// literal with ${ included), a script element made at run time and importScripts() are loads the check cannot resolve.
+// word, a local script that cannot be read, or a load the check does not resolve. THE SCRIPT-LOAD LIMIT, bounded on purpose:
+// only a plain relative <script src> and a static quoted relative or root import specifier are followed, resolved against the
+// folder of index.html (a remote http(s) library and a bare name are vendor code, not read). A page with a <base href>, a
+// <script type="importmap"> or a dynamic import( of any form loads scripts the check does not resolve: NOT CHECKED (UNRESOLVED).
+export const UNRESOLVED = 'page loads scripts the check does not resolve; check the bed by ear on the draft';
 export function scriptProblem(scripts, dir, read, { base = null } = {}) {
-  const ORIGIN = 'http://project.invalid', seen = new Set(), mapped = [];
-  const unresolved = (where, what) => `${where} loads a module the check cannot resolve (${what.replace(/\s+/g, ' ').slice(0, 40)}), so whether it sets a media volume is unknown: import it by a plain quoted path and rerun, or check the bed by ear on the draft`;
-  let doc;
-  try { doc = new URL(base ?? 'index.html', `${ORIGIN}/index.html`); } catch { return `the page's <base href="${base}"> is not a URL, so which file a script loads is unknown: fix it and rerun`; }
+  const ORIGIN = 'http://project.invalid', seen = new Set(), doc = new URL(`${ORIGIN}/index.html`);
+  const unresolved = (what) => `${UNRESOLVED} (${String(what).replace(/\s+/g, ' ').slice(0, 50)})`;
+  if (base !== null) return unresolved(`<base href="${base}">`);
+  if (scripts.some((s) => (s.attrs.type || '').trim().toLowerCase() === 'importmap')) return unresolved('a <script type="importmap">');
   // A specifier as a URL (relative, root or absolute), or null for a bare name. Throws on a relative one that is not a URL.
   const urlOf = (spec, from) => (/^(?:\.{1,2})?\//.test(spec) ? new URL(spec, from) : URL.canParse(spec) ? new URL(spec) : null);
-  for (const s of scripts) {
-    if ((s.attrs.type || '').trim().toLowerCase() !== 'importmap') continue;
-    try {
-      const j = JSON.parse(s.text);
-      if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('not an object');
-      for (const m of [j.imports, ...Object.values(j.scopes && typeof j.scopes === 'object' ? j.scopes : {})]) {
-        if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) {
-          if (k === '' || typeof v !== 'string') continue;
-          let key = k, to = null;
-          try { key = urlOf(k, doc)?.href ?? k; } catch { /* a key that is not a URL is matched as written */ }
-          try { to = urlOf(v, doc); } catch { /* a target that is not a URL loads nothing: the browser blocks the import */ }
-          if (to) mapped.push([key, to]);
-        }
-      }
-    } catch (e) { return `a <script type="importmap"> cannot be read (${e.message}), so which local module an import loads is unknown: fix the JSON and rerun`; }
-  }
-  // The URLs a module specifier may load: the URL itself (when it is one) and every import map target whose key matches it.
-  const moduleUrls = (spec, from) => {
-    const own = urlOf(spec, from), key = own ? own.href : spec, out = own ? [own] : [];
-    for (const [k, to] of mapped) {
-      if (k === key) out.push(to);
-      else if (k.endsWith('/') && key.startsWith(k) && to.href.endsWith('/')) out.push(new URL(key.slice(k.length), to));
-    }
-    return out;
-  };
-  // The one choke point: what a URL is. A local file of the project, a remote library, or null (the check cannot tell: a
-  // data: or blob: module, a server on this machine that may serve the project itself, any other scheme).
+  // What a URL is: a local file of the project, a remote library, or null (a data: or blob: module, a server on this machine
+  // that may serve the project itself, any other scheme).
   const locate = (u) => {
     if (u.origin === ORIGIN) return { file: path.join(dir, ...decodeURIComponent(u.pathname).split('/')) };
     if ((u.protocol === 'http:' || u.protocol === 'https:') && !/^(?:localhost|127\.[\d.]+|0\.0\.0\.0|\[::1?\]|.*\.localhost)$/i.test(u.hostname)) return { remote: true };
@@ -463,36 +437,24 @@ export function scriptProblem(scripts, dir, read, { base = null } = {}) {
     }
     return manifests.get(d).has(path.basename(p));
   };
-  // Every load ends here: each URL is read, skipped as a remote library, or NOT CHECKED.
-  const loadAll = (urls, where, what) => {
-    for (const u of urls) {
-      let at = null;
-      try { at = locate(u); } catch { /* a path that does not decode: unknown */ }
-      if (!at) return unresolved(where, what);
-      if (at.remote) continue;
-      const why = load(at.file);
-      if (why) return why;
-    }
-    return null;
+  // Every followed load ends here: a project file is read, a remote library is skipped, anything else is NOT CHECKED.
+  const loadUrl = (u, what) => {
+    let at = null;
+    try { at = locate(u); } catch { /* a path that does not decode: unknown */ }
+    if (!at) return unresolved(what);
+    return at.remote ? null : load(at.file);
   };
   const visit = (code, where, from) => {
     const w = code.match(MIX_TOKENS);
     if (w) return `${where} has the word "${w[0]}": script may change the mix; check the bed by ear on the draft (a ducking written as a data-automation volume lane on the tag is read by this check)`;
-    // a script element made at run time, or importScripts(): a script the page loads whose file the check does not follow
-    const dyn = code.match(/\bimportScripts\s*\(|\bcreateElement\s*\(\s*["'`]script["'`]/i);
-    if (dyn) return unresolved(where, dyn[0]);
-    const specs = [];
-    // import( ... ): a plain string right before , or ) is a specifier; anything else (a name, a concatenation) is not resolvable
-    for (const im of code.matchAll(/\bimport\s*\(\s*(?:(["'`])((?:(?!\1)[^\\])*)\1\s*(?=[,)]))?/g)) {
-      if (im[1] == null) return unresolved(where, code.slice(im.index, im.index + 30));
-      specs.push([im[2], im[1]]);
-    }
-    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*(["'`])((?:(?!\1)[^\\])*)\1/g)) specs.push([im[2], im[1]]);
-    for (const [spec, quote] of specs) {
-      if (quote === '`' && spec.includes('${')) return unresolved(where, '`' + spec + '`');
-      let urls;
-      try { urls = moduleUrls(spec, from); } catch { return unresolved(where, spec); }
-      const why = loadAll(urls, where, spec);
+    // a dynamic import( of any form (a comment may sit between the word and the paren), a script element made at run time,
+    // importScripts(): loads whose file the check does not follow
+    const dyn = code.match(/\bimport\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\n\s*)*\(|\bimportScripts\s*\(|\bcreateElement\s*\(\s*["'`]script["'`]/i);
+    if (dyn) return unresolved(`${where}: ${dyn[0]}`);
+    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*(["'])((?:(?!\1)[^\\\n])*)\1/g)) {
+      let u = null;
+      try { u = urlOf(im[2], from); } catch { return unresolved(im[2]); }
+      const why = u && loadUrl(u, im[2]);
       if (why) return why;
     }
     return null;
@@ -511,7 +473,7 @@ export function scriptProblem(scripts, dir, read, { base = null } = {}) {
     if (s.attrs.src) {
       let u = null;
       try { u = new URL(s.attrs.src, doc); } catch { /* not a URL */ }
-      why = u ? loadAll([u], 'a <script src>', s.attrs.src) : unresolved('a <script src>', s.attrs.src);
+      why = u ? loadUrl(u, s.attrs.src) : unresolved(s.attrs.src);
     } else why = visit(s.text, 'an inline <script>', doc);
     if (why) return why;
   }
