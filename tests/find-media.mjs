@@ -397,6 +397,21 @@ await test("18. a music search reads a second page when page one is all short cl
   assert.equal((await run(["--type", "music", "--query", "x", "--min-duration", "30", "--max-duration", "10", "--out", dir("u2")], env(m))).code, 2);
 }));
 
+await test("19. the implicit music --min-duration never rejects a smaller --max-duration; an explicit clash is still a usage error", async () => withMock((u, _n, base) => [200, { results: [
+  ov(base, { id: "j1", title: "Short Jingle", license: "cc0", license_version: "1.0", creator: null, duration: 5000, url: `${base}/files/j1.mp3` }),
+  ov(base, { id: "j2", title: "Long Bed", license: "cc0", license_version: "1.0", creator: null, duration: 60000, url: `${base}/files/j2.mp3` })] }], async (m) => {
+  const out = dir("implicit");
+  const r = await run(["--type", "music", "--query", "jingle", "--licence", "cc0", "--max-duration", "10", "--out", out], env(m));
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(titles(out), ["Short Jingle"]);
+  const out2 = dir("implicit2");
+  const r2 = await run(["--type", "music", "--query", "jingle", "--licence", "cc0", "--max-duration", "90", "--out", out2], env(m));
+  assert.equal(r2.code, 0, r2.out);
+  assert.deepEqual(titles(out2), ["Long Bed"]);
+  const r3 = await run(["--type", "music", "--query", "jingle", "--min-duration", "30", "--max-duration", "10", "--out", dir("implicit3")], env(m));
+  assert.equal(r3.code, 2); assert.match(r3.out, /--min-duration is longer than --max-duration/);
+}));
+
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
 console.log(`find_media ok: ${count} cases`);
