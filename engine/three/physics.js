@@ -281,13 +281,13 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // settle, and each island's world bakes it without the others' bodies, so a piece that would have landed on a
   // declared body falls through its place and ends far from it, with nothing left to see at t = 0. pre: each body's
   // pose before every pre-roll step (7 floats each); poses: the stored steps of the shot; sp: each body's reach.
-  // Judged on the path between two steps, not only at the steps: a fast body can pass a declared one between them
-  // (CCD stops it there in the single world), and the path inside a step need not be straight (a body struck inside
-  // the step can reach a wall and bounce back before it ends). So each step is judged with no assumption on its shape:
-  // a path of length ℓ from S to E stays within √(ℓ² − |SE|²)/2 of the segment SE (an ellipse with foci S and E), and ℓ
-  // is at most the step's largest speed plus spin times the lever from the centre of mass, times dt (run). Two bodies
-  // are judged as these capsules, whenever in the step each was where (segment to segment). A script's teleport between
-  // two steps (jumps) is not a path: the step is judged from where the body was put. A NaN pose is refused.
+  // Islands are for sets that settle slowly. Inside a step, Rapier's CCD can stop a fast body, pass a hit on to another
+  // and bounce it back before the step ends: motion no traced pose or speed shows. So a body moving over 10 mm in one
+  // step (its speed plus spin times its lever from the centre of mass, or its actual move) refuses the island bake:
+  // that set bakes as one world. Below that, each step is judged as a capsule: a path of length ℓ from S to E stays
+  // within √(ℓ² − |SE|²)/2 of the segment SE, ℓ the step's largest traced speed times dt (run), and two bodies are
+  // judged segment to segment, whenever in the step each was where. A script's teleport between two steps (jumps) is
+  // not a path: the step is judged from where the body was put. A NaN pose is refused.
   const segs = (p0, p1, q0, q1) => { // closest distance between segments p0p1 and q0q1
     const d1 = [0, 1, 2].map((k) => p1[k] - p0[k]), d2 = [0, 1, 2].map((k) => q1[k] - q0[k]), r = [0, 1, 2].map((k) => p0[k] - q0[k]);
     const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2], a = dot(d1, d1), e = dot(d2, d2), f = dot(d2, r), clamp = (x) => Math.min(1, Math.max(0, x));
@@ -307,7 +307,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     return Math.hypot(r[0] + s * d1[0] - t * d2[0], r[1] + s * d1[1] - t * d2[1], r[2] + s * d1[2] - t * d2[2]);
   };
   function crossing(poses, pre, jumps, run, of, n, dt, sp) {
-    const margin = 0.005 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values());
+    const margin = 0.005 / mpu, fast = 0.01 / mpu, cur = poses.map(() => 0), K = 1 + Math.max(0, ...of.values());
     const isle = tracked.map((t) => of.get(t.body.handle) || 0), P = pre.length ? pre[0].length / 7 : 0;
     const lever = sp.map((x) => Math.hypot(x.c[0] - x.com[0], x.c[1] - x.com[1], x.c[2] - x.com[2]));
     const centre = (i, [x, y, z, qx, qy, qz, qw]) => {
@@ -322,6 +322,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
         const j = jumps[i]?.get(k), before = at[i];
         at[i] = centre(i, pose(i)); from[i] = j ? centre(i, j) : before || at[i];
         const len = (run[i][k * 2] + run[i][k * 2 + 1] * lever[i]) * dt, se = Math.hypot(at[i][0] - from[i][0], at[i][1] - from[i][1], at[i][2] - from[i][2]);
+        if (k && !(Math.max(len, se) <= fast)) throw new Error(`opts.islands: "${tracked[i].name}" moves ${(Math.max(len, se) * mpu * 1000).toFixed(1)} mm in one step at ${when}: over 10 mm a step, a body can move inside a step in ways the island proof cannot see. Islands are for sets that settle slowly: bake this one as one world (drop opts.islands)`);
         bend[i] = k && len > se ? Math.sqrt(len * len - se * se) / 2 : 0;
         const ki = isle[i], r = sp[i].r + bend[i] + margin, w = from[i];
         for (let a = 0; a < 3; a++) { lo[ki][a] = Math.min(lo[ki][a], at[i][a] - r, w[a] - r); hi[ki][a] = Math.max(hi[ki][a], at[i][a] + r, w[a] + r); }

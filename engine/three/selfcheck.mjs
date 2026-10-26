@@ -96,7 +96,7 @@ assert.deepEqual([held.report.floating, held.report.moving], [[], []], "after it
 // scripted help (onStep, track and keep see only the main island), and the cache tells the two kinds of bake apart.
 async function isles(o = {}) {
   const sc = new THREE.Scene(); sc.add(floor.clone());
-  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, o.az ?? 0, o.flat ? 0 : 0.35], [o.bName ?? "b", o.bx ?? -0.8, o.by ?? 0.4, 0, o.flat ? 0 : -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
+  const meshes = [["push", o.px ?? 0, o.py ?? 0.075, 0, 0], ["a", o.ax ?? 0.8, o.ay ?? 0.5, 0, o.ay == null ? 0.35 : 0], [o.bName ?? "b", -0.8, 0.4, 0, -0.2], ...(o.kin ? [["arm", 0, 0.3, -1.5, 0]] : [])].map(([name, x, y, z, tilt]) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial()); m.position.set(x, y, z); m.rotation.z = tilt; m.name = name; sc.add(m); return m;
   });
   sc.updateMatrixWorld(true);
@@ -146,43 +146,33 @@ await refused(twice, twice.s.bakeCached(1, null, 0.2, { ...twice.opts, islands: 
 const stray = await isles();
 await refused(stray, stray.s.bakeCached(1, null, 0.2, { ...stray.opts, islands: [[{}]] }), /roundBox/, "an island holds only bodies the sim made");
 // The main island meeting a declared one (not two declared ones): "push" falls onto "a" after t = 0.
-const mainHit = await isles({ px: 0.8, py: 1.2, ay: 0.075, still: true });
+const mainHit = await isles({ px: 0.8, py: 0.6, ay: 0.075, still: true });
 await refused(mainHit, mainHit.s.bakeCached(1.5, mainHit.step, 0.2, withIslands(mainHit)), /main island and island 1 meet/, "a main-island body landing on a declared one fails loudly");
 // The pre-roll is part of the proof. "push" is already running when the pre-roll starts and, in the single world, hits
 // "a" there; in an island bake "a" is not in the main world, so "push" runs through its place and is far away by t = 0:
 // only the pre-roll poses show that they met.
-const preHit = await isles({ px: 0.2, pv: { x: 6, y: 0, z: 0 }, ay: 0.075 });
+const preHit = await isles({ px: 0.2, pv: { x: 2.2, y: 0, z: 0 }, ay: 0.075 });
 await refused(preHit, preHit.s.bakeCached(1.5, preHit.step, 0.2, withIslands(preHit)), /island 1 meet.*pre-roll/, "a meeting in the pre-roll fails loudly, though the bodies are far apart at t = 0");
-// A body fast enough to pass a declared one between two steps: 1.25 m a step, its stored poses 0.625 m either side of
-// "a", both clear of the margin. With CCD the single world stops it at "a"; the proof judges the path between steps.
+// Islands are for sets that settle slowly: inside a step CCD can stop a fast body, pass a hit on and bounce it back,
+// which no traced pose shows. A body moving over 10 mm a step (here 1.25 m: it would pass "a" between two steps)
+// refuses the island bake, wherever it is.
 const fast = await isles({ px: 0.175, pv: { x: 600, y: 0, z: 0 }, ay: 0.075 });
-await refused(fast, fast.s.bakeCached(1.5, fast.step, 0.2, withIslands(fast)), /island 1 meet/, "a body that passes a declared one between two steps fails loudly");
-// A fast body stopped by a wall beside a declared one: "push" (300 m/s, 0.625 m a step) starts half a step from a
-// bouncy wall, "a" stands beside the wall where it hits.
-const bounce = await isles({ px: 0.7625, pv: { x: 300, y: 0, z: 0 }, ax: 1.075, ay: 0.075, az: 0.152 });
-bounce.s.world.createCollider(RAPIER.ColliderDesc.cuboid(0.05, 0.5, 0.5).setRestitution(1).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max), bounce.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(1.2, 0.5, 0)));
-await refused(bounce, bounce.s.bakeCached(1.5, bounce.step, 0.2, withIslands(bounce)), /main island and island 1 meet/, "a body bouncing within a step beside a declared one fails loudly");
-// A step's path is still not always straight: a body the solver sets moving inside a step (struck by another) can
-// reach a wall and bounce back before the step ends. "push" (300 m/s) strikes "b" (main island too), "b" hits the
-// bouncy wall and is back by the step's end; "a" stands beside the wall, 2 mm from where "b" touches it, and every
-// stored pose of "b" (and the chord between them) is far from it. Judged on the length the speeds allow, it is refused.
-const chain = await isles({ px: 0.5, pv: { x: 300, y: 0, z: 0 }, bx: 0.85, by: 0.075, ax: 1.075, ay: 0.075, az: 0.262, flat: true, still: true });
-[chain.push, chain.b].forEach((t) => { const c = t.body.collider(0); c.setRestitution(1); c.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max); });
-chain.s.world.createCollider(RAPIER.ColliderDesc.cuboid(0.05, 0.5, 0.5).setRestitution(1).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max), chain.s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(1.2, 0.5, 0)));
-await refused(chain, chain.s.bakeCached(1.5, chain.step, 0.2, { ...chain.opts, islands: [[chain.a]] }), /main island and island 1 meet/, "a struck body bouncing within a step beside a declared one fails loudly");
+await refused(fast, fast.s.bakeCached(1.5, fast.step, 0.2, withIslands(fast)), /"push" moves .* mm in one step.*one world/, "a body too fast for the island proof refuses the island bake");
 // A script's teleport is not a path: a held piece put at its cue jumps over "a" and "b" without touching them, as in the
 // single world, and the islands bake.
 const tp = await isles({ px: -3.5, still: true }); tp.s.hold(tp.push, 0.5);
 let put = false; const place = (t) => { if (!put && t >= 0.5) { put = true; tp.push.body.setTranslation({ x: 1.6, y: 0.075, z: 0 }, true); } };
 await assert.doesNotReject(tp.s.bakeCached(1, place, 0.2, withIslands(tp)), "a piece a script puts in place is judged from there, not along the jump");
-const preFree = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 }), preFreeSingle = await isles({ pv: { x: 0, y: 0, z: 6 }, ay: 0.075 });
+const preFree = await isles({ pv: { x: 0, y: 0, z: 2.2 }, ay: 0.075 }), preFreeSingle = await isles({ pv: { x: 0, y: 0, z: 2.2 }, ay: 0.075 });
 const [pf, pfs] = [await preFree.s.bakeCached(1.5, preFree.step, 0.2, withIslands(preFree)), await preFreeSingle.s.bakeCached(1.5, preFreeSingle.step, 0.2, preFreeSingle.opts)];
 for (const t of times) assert.deepEqual(ipose(pf, t), ipose(pfs, t), `a pre-roll run that never meets another island matches the single world at ${t} s`);
 // A joint across islands, a name shared across islands: refused. Inside one island: baked.
 const jd = (I, dx) => RAPIER.JointData.spherical({ x: dx, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
 const tie = await isles(); tie.s.world.createImpulseJoint(jd(tie, -0.8), tie.a.body, tie.push.body, true);
 await refused(tie, tie.s.bakeCached(1, null, 0.2, withIslands(tie)), /a joint ties bodies of two islands/, "a joint across islands is refused");
-const tied = await isles(); tied.s.world.createImpulseJoint(jd(tied, -1.6), tied.a.body, tied.b.body, true);
+const tied = await isles(), ta = tied.a.body.translation(), tb = tied.b.body.translation(), qb = tied.b.body.rotation(); // anchored where they are: no snap
+const at = new THREE.Vector3(ta.x - tb.x, ta.y - tb.y, ta.z - tb.z).applyQuaternion(new THREE.Quaternion(qb.x, qb.y, qb.z, qb.w).invert());
+tied.s.world.createImpulseJoint(RAPIER.JointData.spherical({ x: 0, y: 0, z: 0 }, { x: at.x, y: at.y, z: at.z }), tied.a.body, tied.b.body, true);
 await tied.s.bakeCached(1, null, 0.2, { ...tied.opts, islands: [[tied.a, tied.b]] });
 const twin = await isles({ bName: "a" });
 await refused(twin, twin.s.bakeCached(1, null, 0.2, withIslands(twin)), /names bodies in two islands/, "one name on two islands would mix their impacts");

@@ -97,7 +97,7 @@ here with a line in this table. Air is one shared field: every source adds into 
    empty place, so they refuse; read a main-island body through its own methods), a kinematic body, one impact name on bodies of two islands or a joint across
    islands is refused, and a body of one island coming within 5 mm of another's (judged on what can touch: every
    collider of the body, with its offset and contact skin, and the drawn geometry, so a collider built wider than its
-   mesh counts; on the path between two steps too, so a fast body cannot pass a declared one unseen: each step judged as a capsule widened by how far the step's speed and spin let a body stray from it, so a path that bends or bounces inside the step counts, and from where a script put a body, never along its teleport; in the pre-roll as well as the shot: a piece that settles onto a declared body there would fall through
+   mesh counts; on the path between two steps too, so a fast body cannot pass a declared one unseen: each step judged as a capsule widened by how far the step's speed and spin let a body stray from it, and from where a script put a body, never along its teleport; in the pre-roll as well as the shot: a piece that settles onto a declared body there would fall through
    it in its own world) throws with the pair and the time, so merge those islands. While the islands bake, a script may
    change a main-island collider's friction, restitution, mass or filters, never where it can touch (shape, size, offset,
    contact skin: those calls throw, and a collider that reaches further after the bake is caught). What every island world shares with the main one
@@ -106,7 +106,10 @@ here with a line in this table. Air is one shared field: every source adds into 
    while `onStep`, `track` or `keep` run (reading them stays open, as does driving a main-island body), and a change
    that slips past is caught after the bake: nothing is saved. A dynamic body the sim did not make is refused too.
    Set such a change up before the bake, or leave the bodies it touches out of `islands`. A worker that cannot start falls back
-   to this thread (a warning, same result, no gain). Gain: the slowest island's time, not the sum.
+   to this thread (a warning, same result, no gain). Gain: the slowest island's time, not the sum. Islands are for sets
+   that settle slowly (stacks, props, pieces dropped or nudged): a body moving over 10 mm in one step (about 4.8 m/s at
+   480 Hz, spin included) refuses the island bake, since inside a step Rapier's CCD can stop a fast body and pass a hit
+   on in ways no recorded pose shows. Bake such a set as one world.
 5. Render loop: pose everything at `t`; when `travel(t, fps)` passes ~4 px of a frame, average 5 sub-frames across a
    180° shutter through `finish.layer`, then `finish.grade(t)`.
 6. Sounds on `impacts` and on the measured speeds (`camera-motion.md` §5).
