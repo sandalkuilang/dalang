@@ -178,7 +178,7 @@ try {
 
     const bin = path.join(tmp, "bin-no-node");
     fs.mkdirSync(bin);
-    for (const t of ["bash", "env", "ffmpeg", "ffprobe", "awk", "tee", "cat", "head", "ls", "wc", "tr", "grep", "cut", "mkdir", "dirname", "basename", "sed", "sort", "rm"]) {
+    for (const t of ["bash", "env", "ffmpeg", "ffprobe", "awk", "tee", "cat", "head", "ls", "wc", "tr", "grep", "cut", "mkdir", "dirname", "basename", "sed", "sort", "rm", "cp"]) {
       const w = spawnSync("sh", ["-c", `command -v ${t}`], { encoding: "utf8" }).stdout.trim();
       if (w.startsWith("/")) fs.symlinkSync(w, path.join(bin, t));
     }
