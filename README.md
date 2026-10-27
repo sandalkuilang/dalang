@@ -194,7 +194,7 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   cloth, air, plants, particles, grains, water, fur, creatures that walk and climb, fields and optics (field
                   lines, filings, rays through lenses), cutaways, captions and labels,
                   printed markings and electronics, quantities (flow arrows, tile fills, range cards), camera stations and
-                  attention) with a self-check; bake.mjs caches a physics bake once for every
+                  attention, shots from data: shots.js plays a shot list) with a self-check; bake.mjs caches a physics bake once for every
                   snapshot and render; examples/ ready pieces
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
