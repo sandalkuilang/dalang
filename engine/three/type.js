@@ -3,12 +3,13 @@
 // and the self-check all run the same code (phrases() also runs in Node, see scripts/captions.mjs). Sizes are at
 // 1080 px on the short side (craft-rules.md §6, visual-direction.md §9); zones are the platform's safe zones.
 //
-//   import { drawCaption, pinLabel, repeats } from "./assets/engine/type.js";
+//   import { drawCaption, pinLabel, repeats, layoutFrame } from "./assets/engine/type.js";
 //   // audio/captions.js (node scripts/captions.mjs audio/narration.txt audio/words.json, after every take) sets CAPTIONS
 //   finisher.draw(t);                                                     // the GL frame on the 2D canvas first
 //   pinLabel(ctx, { at: valveMesh, camera, text: "valve" }, { format: "shorts" });
 //   rangeBar(ctx, { value: need, max, ticks: [{ at: 5, label: "5 L" }] }, { format: "shorts", accent });
 //   drawCaption(ctx, t, CAPTIONS, { format: "shorts", accent: "#ffd400" }); // accent: the spoken word gets a box
+//   layoutFrame(ctx, t, { format: "shorts", hero: heroBox(camera, heroObj, W, H) }); // last in the frame: the boxes drawn, for review/strips
 //
 // The ink (light or dark) is chosen every frame from the ground under the text's own box, so a render worker that draws
 // frames alone gets the same result as a preview; a ground that crosses the threshold inside one phrase switches the
@@ -25,6 +26,9 @@ const END = new RegExp("[.!?…。！？]" + Q, "u"), ELLIPSIS = new RegExp("(�
 const SPEAKER = /^([\p{L}][\p{L}\p{N} _.'-]{0,30}):\s+(.+)$/u, PAUSE = /^\(\s*(\d+(?:\.\d+)?)\s*s?\s*\)$/;
 const ms = (x) => Math.round(x * 1000) / 1000;
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const r1 = (v) => Math.round(v * 10) / 10;
+let drawn = []; // the boxes drawn since the last layoutFrame()
+const note = (kind, text, b, size) => { drawn.push({ kind, text: String(text ?? ""), x0: r1(b.x0), y0: r1(b.y0), x1: r1(b.x1), y1: r1(b.y1), size: r1(size) }); };
 
 // The zones, in px: `text` (nothing readable outside it), `caption` (the caption's target band: the bottom of
 // the text band, under the subject; for reels, ending at 82 % of the height) and `labels` (the text band above the caption).
@@ -169,6 +173,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
     }
   }
   ctx.restore();
+  note("caption", cap.text, box, px);
   return { text: cap.text, lines: lines.map((l) => us.slice(l.a, l.b).map((u, i) => (i && u.gap !== false ? " " : "") + u.text).join("")), box, lum: L, ink, active, size: px, shrunk: px < 54 * s - 1e-9 };
 }
 
@@ -213,6 +218,7 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
     ctx.fillStyle = inkC; ctx.fillText(l, x + pad, by);
   });
   ctx.restore();
+  note("label", text, { x0: x, y0: y, x1: x + w, y1: y + h }, px);
   return { x, y, w, h, side: sd, size: px, anchor: { x: ax, y: ay }, ink, lines, shrunk: px < 36 * s - 1e-9 };
 }
 
@@ -244,7 +250,25 @@ export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {})
     return { x: tx, at: t.at, label: text, fits: i === fits };
   });
   ctx.restore();
+  note("card", label ?? "", { x0: x, y0: y, x1: x + w, y1: y + h }, px);
   return { x, y, w, h, size: px, fill: w * f, fits, ticks: out, ink };
+}
+
+// The layout of the frame just drawn, for review (scripts/strips.mjs, scripts/layout_lint.mjs): every caption, label
+// and range card drawn since the last call, in px at the canvas size, and the hero's box (camera.js heroBox) when
+// given. Call it last in the frame function; it empties the list. It sets globalThis.__dalangLayout and posts the
+// record to strips.mjs's receiver while one answers (the first failed post stops the posting for this page).
+// opts: format, hero ({ x0, y0, x1, y1 } | null), receiver, send (a function given the JSON instead of the post).
+// -> { t, W, H, format, hero?, boxes: [{ kind: "caption" | "label" | "card", text, x0, y0, x1, y1, size }] }
+let live = true;
+export function layoutFrame(ctx, t, { format = "shorts", hero, receiver = "http://127.0.0.1:47614", send } = {}) {
+  const rec = { t: ms(t), W: ctx.canvas.width, H: ctx.canvas.height, format, ...(hero === undefined ? {} : { hero }), boxes: drawn };
+  drawn = [];
+  globalThis.__dalangLayout = rec;
+  const body = JSON.stringify(rec);
+  if (send) send(body);
+  else if (live && typeof fetch === "function") fetch(`${receiver}/layout`, { method: "POST", mode: "no-cors", body }).catch(() => { live = false; });
+  return rec;
 }
 
 // Greedy wrap of `text` into lines of at most maxW px (ctx.font set): at spaces, and between CJK characters. A word wider

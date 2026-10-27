@@ -18,7 +18,8 @@
 <script type="module">
 import { THREE, EffectComposer, RenderPass, EffectPass, N8AOPostPass, SMAAEffect, DepthOfFieldEffect, ToneMappingEffect, ToneMappingMode, RoomEnvironment } from "./assets/engine/three-vendor.js";
 import { makeFinisher } from "./assets/engine/finish.js";
-import { drawCaption, pinLabel, inkFor, luminance } from "./assets/engine/type.js";
+import { drawCaption, pinLabel, layoutFrame, inkFor, luminance } from "./assets/engine/type.js";
+import { heroBox } from "./assets/engine/camera.js";
 import { CONFIG, CAPTIONS, buildScene } from "./src/scene.js";
 
 const W = CONFIG.width, H = CONFIG.height, FORMAT = CONFIG.format;
@@ -94,6 +95,8 @@ function renderAt(t) {
   if (S.dimVisible(t)) dimLine(ctx, camera, S.dim.from, S.dim.to, S.dim.text);
   for (const l of S.labelsAt(t)) pinLabel(ctx, { at: l.at, camera, text: l.text }, LABEL_OPTS);
   drawCaption(ctx, t, CAPTIONS, { format: FORMAT, font: "Montserrat" });
+  // Last: the boxes of the text just drawn and the hero's box, for review/strips (draws nothing; no receiver, no effect).
+  layoutFrame(ctx, t, { format: FORMAT, hero: heroBox(camera, S.world, W, H) });
 }
 
 // Wait for the fonts before the first frame; a missing font shows in the render (a fallback face), it does not crash.

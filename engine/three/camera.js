@@ -17,7 +17,8 @@ import { readTime } from "./type.js";
 //    subject alone keeps its colour. attend() does it on CLONED materials (kit materials are shared by name: a write
 //    on one would ghost every model that wears it) and puts back the exact original object when released, so colour,
 //    opacity, transparent and depthWrite are what they were;
-//  - a Short that replays: loopEnd() builds the closing leg back to `home`, so the last pose is the first.
+//  - a Short that replays: loopEnd() builds the closing leg back to `home`, so the last pose is the first;
+//  - text over the subject is judged by eye: heroBox() projects an object's bounding box to px, for type.js layoutFrame.
 // Units: positions and targets are scene units; lengths you type (`lift`, `clear`) are metres, `speed` is m/s, and
 // `fov` is the vertical field of view in degrees. Visual only: nothing here touches physics.
 
@@ -161,6 +162,29 @@ export function place(camera, pose) {
   camera.lookAt(pose.target);
   camera.updateMatrixWorld();
   return camera;
+}
+
+// heroBox(camera, object, W, H): the object's box on screen in px (a W x H frame), from the 8 corners of its world
+// bounding box, clamped to the frame. null: an empty box, every corner behind the camera, or off the frame.
+// clipped: true when some corner is behind the camera (the box is then from the corners in front: a lower bound).
+// Pass it to type.js layoutFrame(ctx, t, { hero }) so the review can tell whether text covers the subject.
+export function heroBox(camera, object, W, H) {
+  camera.updateMatrixWorld();
+  const b = new THREE.Box3().setFromObject(object, true);
+  if (b.isEmpty()) return null;
+  const v = new THREE.Vector3(), r1 = (x) => Math.round(x * 10) / 10, cl = (x, a, z) => Math.min(Math.max(x, a), z);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, clipped = false;
+  for (let i = 0; i < 8; i++) {
+    v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+    if (v.clone().applyMatrix4(camera.matrixWorldInverse).z > -camera.near) { clipped = true; continue; }
+    v.project(camera);
+    const x = ((v.x + 1) / 2) * W, y = ((1 - v.y) / 2) * H;
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  if (x0 === Infinity) return null;
+  const box = { x0: r1(cl(x0, 0, W)), y0: r1(cl(y0, 0, H)), x1: r1(cl(x1, 0, W)), y1: r1(cl(y1, 0, H)) };
+  if (box.x1 <= box.x0 || box.y1 <= box.y0) return null;
+  return clipped ? { ...box, clipped: true } : box;
 }
 
 const frac = (v, n) => { if (!(num(v) && v >= 0 && v <= 1)) throw new Error("attend(): " + n + " is a fraction between 0 and 1 (got " + v + ")"); return v; };

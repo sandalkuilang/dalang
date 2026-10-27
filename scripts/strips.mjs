@@ -5,9 +5,13 @@
 // The sheets replace hand-tiled contact sheets: the reviewer reads the index to name a frame by its time and shot.
 //
 // Usage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats]
-//        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--dry-run]
+//        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--layout <file>] [--dry-run]
 //        [--crops [--crop X,Y,W,H]] [--against <previous round dir> --targets <shots|beats> [--threshold 1]]
 //   --frames <dir>  tile stills already captured there (…at-<s>s.png) instead of capturing
+//   --layout <file> the layout records to index (default: the capture's own, else <out>/layout.json). The composition's
+//                   layoutFrame() (engine/three/type.js) posts the boxes of its canvas text to a receiver this script
+//                   opens on 127.0.0.1:47614 during the capture; they go to <out>/layout.json, and index.md gets a
+//                   `## Layout` section: one line per box per frame, then layout_lint.mjs's FLAG lines
 //   --dry-run       write index.md only: no capture, no ffmpeg
 //   --crops         also cut one zoomed subject crop per shot (crop-NN.jpg, 640 px wide) from the still nearest the middle
 //                   of the shot. --crop X,Y,W,H = the box as fractions of the frame (default 0.25,0.25,0.5,0.5, centre half)
@@ -19,13 +23,15 @@
 // Exit 1: usage, or no shots. Exit 2: the capture or ffmpeg failed, or no still matches any shot time (stills of an
 // earlier timing). Exit 3: some still is missing (black cell, WARN) or could not be compared. A possible regression is
 // a finding (FLAG), not a failed run: exit 0.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import http from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { lintLayout } from './layout_lint.mjs';
 
 const argv = process.argv.slice(2);
-const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames', '--against', '--targets', '--threshold', '--crop'];
+const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames', '--against', '--targets', '--threshold', '--crop', '--layout'];
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const dir = argv.find((x, i) => !x.startsWith('--') && !VAL.includes(argv[i - 1])) ?? '.';
 const perShot = Math.max(1, parseInt(opt('--per-shot', '3'), 10) || 3);
@@ -35,7 +41,7 @@ const outRel = opt('--out', path.join('review', 'strips'));
 const out = path.resolve(dir, outRel);
 const dry = argv.includes('--dry-run');
 const usage = (why) => {
-  console.error(`${why}\nUsage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats] [--audio audio] [--width 480] [--timeout ms] [--frames dir] [--dry-run] [--crops [--crop X,Y,W,H]] [--against prev-round-dir --targets shots|beats [--threshold 1]]`);
+  console.error(`${why}\nUsage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats] [--audio audio] [--width 480] [--timeout ms] [--frames dir] [--layout file] [--dry-run] [--crops [--crop X,Y,W,H]] [--against prev-round-dir --targets shots|beats [--threshold 1]]`);
   process.exit(1);
 };
 
@@ -114,16 +120,69 @@ if (against) {
   if (existsSync(path.join(nested, 'frames')) || (existsSync(nested) && scanDir(nested).size)) usage(`--against ${against} holds an older round, and the last round sits inside it at ${nested} (mv onto a folder that already existed). Compare against ${nested}, and name each kept round by its number (review/strips-1, review/strips-2, …).`);
 }
 
+// Layout numbers: the records of layoutFrame() (type.js), from this capture's receiver or from a file, one per frame time.
+const LAYOUT_PORT = 47614, cors = { 'access-control-allow-origin': '*', 'access-control-allow-private-network': 'true' };
+const layoutFile = opt('--layout', null), layoutOut = path.join(out, 'layout.json');
+if (argv.includes('--layout') && !layoutFile) usage('--layout needs a file: the layout records to index (JSON).');
+const layoutWarns = []; // printed with the other WARNs; they never change the exit code
+const listen = (recs) => new Promise((resolve) => { // the receiver, as engine/three/bake.mjs: POST /layout, 127.0.0.1 only
+  const srv = http.createServer((req, res) => {
+    if (req.method !== 'POST' || req.url !== '/layout') { res.writeHead(req.method === 'OPTIONS' ? 204 : 404, cors); return res.end(); }
+    let n = 0; const chunks = [];
+    req.on('data', (c) => { n += c.length; if (n <= 1 << 20) chunks.push(c); });
+    req.on('end', () => {
+      try { const r = JSON.parse(Buffer.concat(chunks).toString()); if (n <= 1 << 20 && r && Number.isFinite(r.t) && Array.isArray(r.boxes)) recs.push(r); } catch {}
+      res.writeHead(204, cors); res.end();
+    });
+  });
+  srv.on('error', () => resolve(null)); // busy or refused: capture without layout (WARN)
+  srv.listen(LAYOUT_PORT, '127.0.0.1', () => resolve(srv));
+});
+const snapshot = (args) => new Promise((resolve) => { // async, so the receiver answers while the snapshot runs
+  let stderr = '';
+  const c = spawn('npx', args, { cwd: dir, stdio: ['ignore', 'ignore', 'pipe'] });
+  c.stderr.on('data', (d) => { stderr += d; });
+  c.on('error', (error) => resolve({ error, stderr }));
+  c.on('close', (status) => resolve({ status, stderr }));
+});
+const matchLayout = (recs) => { // frame → the last record within 10 ms of its time
+  const m = new Map();
+  for (const f of frames) {
+    const hit = recs.filter(x => Number.isFinite(x?.t) && Math.abs(x.t - f.t) <= 0.010).at(-1);
+    if (hit) m.set(f, hit);
+  }
+  return m;
+};
+const readLayout = (file) => { // the records of a layout file, or null (+ a WARN)
+  try {
+    const J = JSON.parse(readFileSync(file, 'utf8'));
+    const list = Array.isArray(J) ? J : J?.frames;
+    if (!Array.isArray(list)) throw new Error('no frames array');
+    return list;
+  } catch (e) { layoutWarns.push(`layout not read from ${file} (${e.message}): not recorded`); return null; }
+};
+let layout = new Map(); // frame → record
+
 if (!dry) {
   mkdirSync(out, { recursive: true });
   if (!opt('--frames', null)) {
     const timeout = opt('--timeout', null);
     const args = ['--yes', 'hyperframes', 'snapshot', '--at', frames.map(f => f.t).join(','), '--no-end', '--describe', 'false', '--output', framesDir, ...(timeout ? ['--timeout', timeout] : [])];
-    const r = spawnSync('npx', args, { cwd: dir, encoding: 'utf8' });
+    const recs = [];
+    let srv = null;
+    if (!layoutFile) {
+      rmSync(layoutOut, { force: true }); // a layout of an earlier round must not be indexed as this one's
+      srv = await listen(recs);
+      if (!srv) layoutWarns.push(`layout not recorded: port ${LAYOUT_PORT} is busy (another strips.mjs?); rerun for layout numbers`);
+    }
+    const r = await snapshot(args);
+    if (srv) { srv.closeAllConnections?.(); srv.close(); }
     if (r.error || r.status !== 0) {
       console.error(`snapshot failed (${r.error?.message ?? `exit ${r.status}`}):\n${(r.stderr || '').trim().split('\n').slice(-12).join('\n')}`);
       process.exit(2);
     }
+    layout = matchLayout(recs);
+    if (layout.size) writeFileSync(layoutOut, JSON.stringify({ frames: frames.filter(f => layout.has(f)).map(f => layout.get(f)) }, null, 2) + '\n');
   }
   scan();
   if (!found.size) { console.error(`No stills named …at-<s>s.png in ${framesDir}.`); process.exit(2); }
@@ -202,6 +261,34 @@ if (against) {
   }
 }
 const num = f => frames.indexOf(f) + 1;
+if (layoutFile) { const list = readLayout(path.resolve(layoutFile)); layout = list ? matchLayout(list) : new Map(); }
+else if (!layout.size && existsSync(layoutOut)) { const list = readLayout(layoutOut); layout = list ? matchLayout(list) : new Map(); }
+const layoutFlags = [], heroUnknown = [];
+for (const [f, rec] of layout) {
+  const l = lintLayout([rec]);
+  for (const p of l.problems) layoutFlags.push({ f, text: p, tag: 'FLAG' });
+  for (const w of l.warns) layoutFlags.push({ f, text: w, tag: 'WARN' });
+  if (l.infos.length) heroUnknown.push(num(f));
+}
+const cell = (s, n = 60) => String(s ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n);
+const px = v => Number.isFinite(v) ? Math.round(v) : '?';
+const boxStr = b => `${px(b?.x0)},${px(b?.y0)}–${px(b?.x1)},${px(b?.y1)}`;
+const layoutLines = () => {
+  if (!layout.size) return ['No layout recorded (the composition does not call layoutFrame, or the receiver was busy): judge text from the stills.', ''];
+  const L = [];
+  for (const f of frames.filter(x => layout.has(x))) {
+    const rec = layout.get(f);
+    for (const b of Array.isArray(rec.boxes) ? rec.boxes : []) L.push(`- frame ${num(f)} · ${f.t} s · ${cell(b?.kind, 12)} "${cell(b?.text)}" · ${boxStr(b)} · ${Number.isFinite(b?.size) ? Math.round(b.size * 10) / 10 : '?'} px`);
+    if (rec.hero) L.push(`- frame ${num(f)} · ${f.t} s · hero · ${boxStr(rec.hero)}${rec.hero.clipped ? ' (clipped)' : ''}`);
+  }
+  if (layoutFlags.length) for (const x of layoutFlags) L.push(`- ${x.tag} frame ${num(x.f)} · ${cell(x.text, 300)}`);
+  else L.push('Lint (layout_lint.mjs): OK');
+  if (heroUnknown.length) L.push(`Hero box not recorded in frames ${heroUnknown.join(', ')}: overlap with the hero not checked.`);
+  const none = frames.filter(x => !layout.has(x)).map(num);
+  if (none.length) L.push(`Not recorded: frames ${none.join(', ')}`);
+  L.push('');
+  return L;
+};
 const regress = frames.filter(f => label.get(f)?.changed && !isTarget(f));
 const quiet = [...targets].filter(x => !frames.some(f => (f.shot === x || f.beat === x) && label.get(f)?.changed));
 const count = c => frames.filter(f => label.get(f)?.change === c).length;
@@ -218,6 +305,8 @@ writeFileSync(path.join(out, 'index.md'), [
     ...shots.map((sh, i) => cropped.includes(i) ? `${cropName(i)}: shot ${sh.shot} \`${sh.beat}\`, ${cropFrame(i).t} s, box ${cropBox.join(',')}` : null).filter(Boolean),
     'The subject may sit off the box: a crop that misses it is a doubt, so open that shot\'s full-res still in `frames/`.', '',
   ] : []),
+  '## Layout (canvas text, px at the render size)',
+  ...layoutLines(),
   ...(against ? [
     `## Against ${against} (threshold ${threshold} %)`,
     `unchanged ${count('unchanged')} · changed (targeted) ${count('changed (targeted)')} · changed (not targeted) ${count('changed (not targeted)')}${unreadable.length ? ` · unknown ${unreadable.length}` : ''}`,
@@ -229,6 +318,8 @@ writeFileSync(path.join(out, 'index.md'), [
 
 console.log(`Strips: ${shots.length} shots × ${perShot} stills → ${sheetCount} sheet${sheetCount > 1 ? 's' : ''} in ${outRel} (index.md)${crops && !dry ? `, ${cropped.length} subject crops` : ''}${dry ? ' [dry run]' : ''}`);
 for (const n of noCrop) console.log(`WARN: no crop for shot ${n} (no still)`);
+for (const w of layoutWarns) console.log(`WARN: ${w}`);
+for (const x of layoutFlags) console.log(`${x.tag}: frame ${num(x.f)} (shot ${x.f.shot}, ${x.f.t} s): ${cell(x.text, 300)}`);
 for (const f of missing) console.log(`WARN: no still at ${f.t} s (shot ${f.shot}): black cell`);
 if (against) {
   console.log(`Against ${against}: ${count('unchanged')} unchanged, ${count('changed (targeted)')} changed (targeted), ${count('changed (not targeted)')} changed (not targeted)`);

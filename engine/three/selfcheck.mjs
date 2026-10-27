@@ -26,8 +26,8 @@ const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
-const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime } = await use("type.js");
-const { stations, frame, travel, route, loopEnd, place: placeCamera, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
+const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame } = await use("type.js");
+const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
 const { flowArrow, tileFill } = await use("quantity.js");
@@ -1028,6 +1028,39 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.equal(repeats(caps, [{ text: "air" }]).length, 0, "one word of a phrase is not a repeat");
   assert.equal(repeats(caps, [{ text: "air is", from: 0, to: 100 }]).length, 1, "a label inside a phrase repeats");
   assert.equal(repeats(caps, [{ text: "The air is thinner", from: 100, to: 110 }]).length, 0, "the same words at another time are not a repeat");
+  // layoutFrame hands out the boxes drawn since its last call, for review/strips and scripts/layout_lint.mjs.
+  layoutFrame(mockCtx(W, H, gray), 0, { send() {} }); // clears what the checks above drew
+  {
+    const lc = mockCtx(W, H, gray), tc = caps[0].start;
+    const dc = drawCaption(lc, tc, caps), dl = pinLabel(lc, { at: world(0.3, 0.2), camera: cam, text: "valve" }), dr = rangeBar(lc, { ...RB, value: 6 });
+    let sent = null;
+    const rec = layoutFrame(lc, tc, { format: "shorts", hero: { x0: 1, y0: 2, x1: 3, y1: 4 }, send: (s) => { sent = s; } });
+    assert.deepEqual(rec.boxes.map((b) => b.kind), ["caption", "label", "card"], "the boxes in drawing order, by kind");
+    const near = (b, e, what) => { for (const k of ["x0", "y0", "x1", "y1"]) assert.ok(Math.abs(b[k] - e[k]) < 0.051, what + " " + k + ": " + b[k] + " vs " + e[k]); };
+    near(rec.boxes[0], dc.box, "caption box"); near(rec.boxes[1], { x0: dl.x, y0: dl.y, x1: dl.x + dl.w, y1: dl.y + dl.h }, "label box"); near(rec.boxes[2], { x0: dr.x, y0: dr.y, x1: dr.x + dr.w, y1: dr.y + dr.h }, "card box");
+    assert.deepEqual(rec.boxes.map((b) => b.text), [caps[0].text, "valve", "need"], "the text of each box");
+    assert.ok(Math.abs(rec.boxes[0].size - dc.size) < 0.051 && Math.abs(rec.boxes[1].size - dl.size) < 0.051 && Math.abs(rec.boxes[2].size - dr.size) < 0.051, "the size of each box");
+    assert.ok(rec.t === tc && rec.W === W && rec.H === H && rec.format === "shorts", "the record carries t, size and format");
+    assert.deepEqual(rec.hero, { x0: 1, y0: 2, x1: 3, y1: 4 }, "the hero box is carried as given");
+    assert.deepEqual(JSON.parse(sent), rec, "send gets the record as JSON");
+    assert.equal(globalThis.__dalangLayout, rec, "the last record is on globalThis for a page reader");
+    const next = layoutFrame(lc, tc + 1, { send() {} });
+    assert.deepEqual(next.boxes, [], "each frame starts empty: the boxes are handed out once");
+    assert.ok(!("hero" in next), "no hero given: no hero key (the lint says overlap is not checked)");
+    assert.equal(layoutFrame(lc, tc, { hero: null, send() {} }).hero, null, "a hero off the frame is null, not absent");
+  }
+  // heroBox: the object's bounding box on screen, clamped to the frame; null when not on screen; clipped when part of it is behind the camera.
+  {
+    const hb = (x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)); m.position.set(x, 0, z); m.updateMatrixWorld(true); return heroBox(cam, m, W, H); };
+    const mid = hb(0, 0);
+    assert.ok(mid && mid.x0 < W / 2 && mid.x1 > W / 2 && mid.y0 < H / 2 && mid.y1 > H / 2, "a box at the target contains the frame centre: " + JSON.stringify(mid));
+    assert.ok(Math.abs((mid.x0 + mid.x1) / 2 - W / 2) < 1 && Math.abs((mid.y0 + mid.y1) / 2 - H / 2) < 1 && !("clipped" in mid), "centred, not clipped");
+    assert.ok(Math.abs((mid.x1 - mid.x0) - (mid.y1 - mid.y0)) < 2 && mid.x1 - mid.x0 > 100 && mid.x1 - mid.x0 < W, "a cube is as wide as tall on a square-pixel frame, in px");
+    assert.equal(hb(0, 10), null, "behind the camera: null");
+    assert.equal(hb(50, 0), null, "off the frame: null");
+    assert.equal(hb(0, 4.8).clipped, true, "a corner behind the camera: clipped (a lower bound)");
+    assert.equal(heroBox(cam, new THREE.Group(), W, H), null, "an empty object: null");
+  }
 }
 // Camera stations, attention by ghosting, loop end: one world, one camera, no cut. A small set in metres (a kept base,
 // a group with a shell and a core, a second box sharing the shell's material), run at M = 2.
@@ -1496,4 +1529,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(Math.abs(tail(tw.b.userData.arrow) / tail(tw.a.userData.arrow) - 3) < 1e-9, "the twins differ only in the value, arrows in ratio");
   assert.throws(() => twinSets({ scene: new THREE.Scene() }, () => {}, { values: [1] }), /values/);
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat), camera stations and travel, attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), any scale and gravity");
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), any scale and gravity");

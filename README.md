@@ -179,7 +179,8 @@ scripts/
   beats_lint.mjs       a second-language narration keeps every named beat, in order (second-language cut)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
-  strips.mjs           review strips: stills per shot on numbered sheets + index; --crops adds a subject crop per shot; --against labels what changed since the last round
+  strips.mjs           review strips: stills per shot on numbered sheets + index + layout numbers; --crops adds a subject crop per shot; --against labels what changed since the last round
+  layout_lint.mjs      canvas text boxes per strip frame: safe area, hero overlap, minimum size, caption over label (strips.mjs runs it)
   golden.mjs           golden scene rendered per version: metrics + sheet + diff against the previous (release time)
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row

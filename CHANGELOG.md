@@ -49,6 +49,22 @@ that reads as:
   re-review of the look) and `final.<lang>.mp4` + `narration.<lang>.srt`. Described in new sections of
   `script-voice.md`, `look-build.md` and `qc.md`, which the reading list indexes (Steps 1, 6 and 8, outside the 60 KB);
   the hand-off gains one sentence.
+- **Layout numbers for canvas text** (`scripts/layout_lint.mjs`; `engine/three/type.js` `layoutFrame`, `camera.js`
+  `heroBox`; `strips.mjs` `--layout`; `references/review.md` step 2): captions, labels and range cards are drawn on the
+  film's 2D canvas, which `hyperframes check` (it reads the DOM) cannot see, so overlap, edge clipping and size were
+  judged by eye from stills. `type.js` now records the boxes it drew (kind, text, px box, font size) and `camera.js`
+  projects the hero's bounding box; the composition calls `layoutFrame(ctx, t, { format, hero })` last in its frame
+  function. During its capture `strips.mjs` receives the records on a local port (127.0.0.1:47614, as `bake.mjs`),
+  writes `review/strips/layout.json` and adds a `## Layout` section to `index.md`: one line per box per frame, then
+  the lint. The lint flags, each with its time: a box outside the format's safe area, a text box covering more than
+  10 % of the hero box (`--hero-overlap`), a label under 36 px or a caption under 54 px (at 1080 px on the short side),
+  and a caption over a label. Frames with no record are listed as not recorded, never as clean; a busy port or an
+  unreadable file is a WARN. The reviewer reads the numbers before the stills. A fixture test runs in the gate.
+  The build step (`look-build.md` Step 6 and its parallel build, `craft-rules.md` §6) tells the builder to call
+  `layoutFrame` last in the frame function, and the ready example `examples/golden/index.html` does, so a film built
+  from the skill reaches review with numbers. `--hero-overlap` with no value, and `strips.mjs --layout` with no file,
+  are usage messages (a WARN, and exit 1), not a crash or a silent fallback.
+
 - **Lean video workspace** (`scripts/workspace.mjs`; `brief.md` Step 0 "Lean workspace" and Call 0; preflight's
   `Workspace` row; `SKILL.md` "Work fast"): plugins and MCP servers a video never uses are re-read on every model call.
   `workspace.mjs init <folder>` lists what is on (a guessed job each) and proposes the video set (DALANG, HyperFrames,
