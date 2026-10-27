@@ -34,6 +34,14 @@ that reads as:
 
 ### Added
 
+- **Second-language cut** (`scripts/beats_lint.mjs`, `fill_times.mjs --lang <code>`): every animation time is a named
+  beat, so a second narration with the same beat names re-times the film from the same storyboard. `beats_lint.mjs
+  narration.txt narration.<lang>.txt` exits 1 with `file:line` when a beat is missing, renamed, extra, out of the
+  first narration's order, unnamed, has an invalid or repeated name, or a brace is unbalanced (words, sections and line
+  breaks may differ); an unreadable file is a warning (exit 2, rerun), never "not found". `fill_times.mjs --lang <code>`
+  takes the times from `audio/<code>/` and switches each local `src` / `href` to its language variant (`audio/x` →
+  `audio/<code>/x`, a missing one fails; `name.ext` → `name.<code>.ext` when it exists); without `--lang` the output is
+  unchanged. Both have a gate step (`tests/beats-lint.mjs`, `tests/fill-times.mjs`).
 - **Lean video workspace** (`scripts/workspace.mjs`; `brief.md` Step 0 "Lean workspace" and Call 0; preflight's
   `Workspace` row; `SKILL.md` "Work fast"): plugins and MCP servers a video never uses are re-read on every model call.
   `workspace.mjs init <folder>` lists what is on (a guessed job each) and proposes the video set (DALANG, HyperFrames,

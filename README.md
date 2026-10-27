@@ -166,7 +166,7 @@ scripts/
   workspace.mjs        lean video folder: plugins / MCP servers a video never uses off (project settings, undo; `measure` compares first-call tokens)
   tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
-  fill_times.mjs       {{beat}} expressions in the template → index.html
+  fill_times.mjs       {{beat}} expressions in the template → index.html; --lang for a second-language cut
   state.mjs            gate approvals, stale when files change; `next`: the step's reading list
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
@@ -176,6 +176,7 @@ scripts/
   timing_lint.mjs      every cut between words, no flicker scenes
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
+  beats_lint.mjs       a second-language narration keeps every named beat, in order (second-language cut)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
   strips.mjs           review strips: stills per shot on numbered sheets + index; --crops adds a subject crop per shot; --against labels what changed since the last round

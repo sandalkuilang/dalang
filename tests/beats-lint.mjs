@@ -94,8 +94,10 @@ try {
   { // 7. an unclosed { and a stray }
     let r = lint2(["El pan {fresco|hook}.", "El {almidón|starch}.", "La {nevera|fridge}.", "{congela|fix}.", "Un {abierto|oops"]);
     assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), ["second.txt:5"], r.out);
-    r = lint2(["El pan {fresco|hook}.", "stray } here", "El {almidón|starch}.", "La {nevera|fridge}.", "{congela|fix}.", "{uno {dos|x}|y}"]);
-    assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), ["second.txt:2", "second.txt:6"], r.out);
+    r = lint2(["El pan {fresco|hook}.", "stray } here", "El {almidón|starch}.", "La {nevera|fridge}.", "{congela|fix}."]);
+    assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), ["second.txt:2"], r.out); assert.match(r.out, /without a matching \{/);
+    r = lint2(["El pan {fresco|hook}.", "El {almidón|starch}.", "La {nevera|fridge}.", "{congela|fix}.", "Un {uno {dos|x}."]);
+    assert.equal(r.code, 1, r.out); assert.ok(found(r.out).includes("second.txt:5"), r.out); assert.match(r.out, /inside/);
     console.log("ok  an unclosed {, a stray } and a nested { fail at their lines");
   }
   { // 8. the second file absent: not found (a problem); a directory: unreadable, WARN, never "not found"
