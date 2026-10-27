@@ -125,8 +125,11 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     // its scene code into `../…` and print nothing; a transcript with no path inside the film at all (another session,
     // another film) is unknown, not clean: exit 2.
     {
-      const tr = (entries) => { const f = `${dir}/t.jsonl`; fs.writeFileSync(f, entries.map(([name, file_path]) => JSON.stringify({ isSidechain: false, message: { content: [{ type: "tool_use", name, input: { file_path } }] } })).join("\n") + "\n"); return f; };
+      let seq = 0;
+      const tr = (entries) => { const f = `${dir}/t${seq++}.jsonl`; fs.writeFileSync(f, entries.map(([name, file_path, side = false]) => JSON.stringify({ isSidechain: side, message: { content: [{ type: "tool_use", name, input: { file_path } }] } })).join("\n") + "\n"); return f; };
       const go = (entries, proj) => spawnSync("node", ["-e", cmd, tr(entries), proj], { encoding: "utf8" });
+      // Several transcripts of one run (a resumed session, a builder's own subagent file): the first, <project>, then the rest.
+      const goAll = ([first, ...rest], proj) => spawnSync("node", ["-e", cmd, tr(first), proj, ...rest.map(tr)], { encoding: "utf8" });
       const realRoot = fs.realpathSync.native(real);
       const link = `${dir}/film-link`;
       fs.symlinkSync(realRoot, link);
@@ -151,15 +154,71 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
       assert.equal(other.status, 2, "a transcript with no path inside the film must exit 2");
       assert.equal(other.stdout, "", "...and print no path");
       assert.match(other.stderr, /no path of/, "...and say why");
-      // The other side: a transcript of this film with no scene-code write is clean (exit 0, nothing printed), also by symlink.
+      // The other side: a transcript of this film whose scene code a builder wrote and the main agent did not is clean (exit 0,
+      // nothing printed), also by symlink. The builder's write is the evidence that the transcript holds the build at all.
+      const built = ["Write", `${realRoot}/src/index.tpl.html`, true];
       for (const [what, entries, proj] of [
-        ["main-agent files only", [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`]], real],
-        ["main-agent files only, through the symlink", [["Write", `${link}/BRIEF.md`], ["Write", `${link}/style-frames/src/hook.js`]], realRoot],
-        ["a read of scene code is not a write", [["Read", set], ["Write", `${realRoot}/BRIEF.md`]], link],
+        ["main-agent files only", [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`], built], real],
+        ["main-agent files only, through the symlink", [["Write", `${link}/BRIEF.md`], ["Write", `${link}/style-frames/src/hook.js`], ["Edit", `${link}/src/set.js`, true]], realRoot],
+        ["a read of scene code is not a write", [["Read", set], ["Write", `${realRoot}/BRIEF.md`], built], link],
       ]) {
         const r = go(entries, proj);
         assert.equal(r.status, 0, `${what}: a clean film transcript must exit 0`);
         assert.equal(r.stdout, "", `${what}: nothing to flag`);
+      }
+      // Finding: a transcript counts as this film's as soon as any one path of the film is in it, so another film's session
+      // that read this film's BRIEF.md, or a Steps 1-4 session whose build went on in a resumed session, read as clean.
+      for (const [what, entries] of [
+        ["another film's session that read this film's BRIEF.md", [["Read", `${realRoot}/BRIEF.md`], ["Write", "/elsewhere/film2/src/set.js"]]],
+        ["a Steps 1-4 session of this film (the build is in the next session)", [["Write", `${realRoot}/BRIEF.md`], ["Write", `${realRoot}/storyboard.md`]]],
+      ]) {
+        const r = go(entries, real);
+        assert.equal(r.status, 2, `${what}: no scene-code write of this film seen, so unknown: exit 2`);
+        assert.equal(r.stdout, "", `${what}: no path printed`);
+        assert.match(r.stderr, /usage:.*<project>/, `${what}: the usage line names what to pass`);
+      }
+      // The other side: the run's sessions given together are judged as one run, a main-thread scene write in any of them flagged.
+      const steps14 = [["Write", `${realRoot}/BRIEF.md`], ["Write", `${realRoot}/storyboard.md`]];
+      const both = goAll([steps14, [["Write", `${realRoot}/SPEC.md`]], [built]], real);
+      assert.equal(both.status, 0, "every session of a run, the builder's file included: exit 0");
+      assert.equal(both.stdout, "", "every session of a run, all scene code by builders: nothing to flag");
+      const resumed = goAll([steps14, [["Edit", set], built]], real);
+      assert.equal(resumed.stdout.trim(), set, "a main-thread scene write in the resumed session must be flagged");
+      // Finding: a symlinked src/ inside the film (shared code kept elsewhere) is still the film's src/.
+      {
+        const ext = `${dir}/ext/src`, shared = film("/p3/film");
+        fs.mkdirSync(ext, { recursive: true });
+        fs.symlinkSync(ext, `${shared}/src`);
+        const w = `${shared}/src/set.js`;
+        const r = go([["Write", `${shared}/BRIEF.md`], ["Write", w]], shared);
+        assert.equal(r.stdout.trim(), w, "a main-thread write to a symlinked src/ inside the film must be flagged");
+        const byTarget = go([["Write", `${shared}/BRIEF.md`], ["Write", `${ext}/set.js`]], shared);
+        assert.equal(byTarget.stdout.trim(), `${ext}/set.js`, "the same src/ spelled by its target is still the film's");
+        const clean = go([["Write", `${shared}/BRIEF.md`], ["Write", w, true]], shared);
+        assert.equal(clean.status, 0, "a builder's write through the symlinked src/: exit 0");
+        assert.equal(clean.stdout, "", "a builder's write through the symlinked src/: nothing to flag");
+        fs.mkdirSync(`${dir}/ext/lib`, { recursive: true });
+        const beside = go([["Write", `${dir}/ext/lib/set.js`], ["Write", w, true]], shared);
+        assert.equal(beside.stdout, "", "a folder beside the symlink's target is not the film's");
+      }
+      // The class, as one invariant: exit 0 with nothing printed is never the default. It needs evidence that the transcripts
+      // hold this film's build (a builder's write to its scene code); every transcript set without one exits 2, whatever else
+      // it holds, and the same set plus a builder's write is clean.
+      const without = [
+        [],
+        [["Read", set]],
+        [["Read", `${realRoot}/BRIEF.md`]],
+        [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`], ["Write", `${realRoot}/SPEC.md`]],
+        [["Write", `${realRoot}/style-frames/src/hook.js`], ["Write", `${realRoot}/assets/engine/physics.js`], ["Write", `${realRoot}/assets/data/curve.js`]],
+        [["Write", "/elsewhere/film2/src/set.js"], ["Write", `${link}/../film2/src/set.js`]],
+        [["Bash", set]],
+      ];
+      for (const entries of without) {
+        const label = JSON.stringify(entries.map(([n, p, sd]) => [n, p.replaceAll(dir, ""), !!sd]));
+        const r = go([["Write", "/elsewhere/film2/BRIEF.md"], ...entries], real);
+        assert.ok(r.status === 2 && r.stdout === "", `${label}: no build seen must exit 2 and print nothing (got ${r.status} "${r.stdout.trim()}")`);
+        const ok = go([...entries, built], real);
+        assert.ok(ok.status === 0 && ok.stdout === "", `${label} + a builder's write: clean (got ${ok.status} "${ok.stdout.trim()}" ${ok.stderr.trim()})`);
       }
     }
     // An empty or unreadable transcript is a loud failure too, never an empty pass.
