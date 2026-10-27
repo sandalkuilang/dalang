@@ -332,26 +332,58 @@ export function board({ at = new THREE.Vector3(), w, d, t = 0.0016, mask = "gree
       return new THREE.Vector3(mm(q[0]) / M, (t + width / 2) / M, mm(q[1]) / M);
     });
     const w2 = wire(path, { kind: "trace", radius: width / 2 });
-    w2.pins = points.filter((q) => typeof q === "string"); // the pins it joins, "REF:n", for polarityClashes()
+    w2.pins = points.filter((q) => typeof q === "string"); // the pins it names, "REF:n" (what it joins is nets()' answer)
+    w2.copper = { path: path.map((p) => [p.x * M, p.z * M]), width }; // its centre line on the board, m from the centre
     group.add(w2.group); traces.push(w2);
     return w2;
   }
-  return { group, mesh, parts, traces, marks, place, pin, polarity, trace, print, silk };
+
+  // nets(): the board's copper as nets, each an array of the "REF:n" pins it joins; every pin of every part is in exactly
+  // one net (a pin no copper reaches is a net of its own). Copper that touches is one net, whatever drew it: a trace joins
+  // every pad its copper covers, named or not, and two traces whose copper meets (a shared pin, a free point, a crossing,
+  // a run over the other's side) are one net. The one place that says what is joined: never read it from one trace.
+  function nets() {
+    const up = [], node = () => up.push(up.length) - 1;
+    const find = (i) => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+    const join = (a, b2) => { up[find(a)] = find(b2); };
+    const pads = Object.entries(pinsB).flatMap(([ref, ps]) => ps.map((p, i) => ({ pin: `${ref}:${i + 1}`, at: [p.x * M, p.z * M], id: node() })));
+    const runs = traces.map((tr) => ({ legs: tr.copper.path.slice(1).map((q, i) => [tr.copper.path[i], q]), half: tr.copper.width / 2, id: node() }));
+    for (const r of runs) for (const p of pads) if (r.legs.some(([a, c]) => pointToLeg(p.at, a, c) <= PAD_R + r.half + 1e-9)) join(r.id, p.id);
+    for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) {
+      const a = runs[i], c = runs[j];
+      if (a.legs.some(([p, q]) => c.legs.some(([s, u]) => legToLeg(p, q, s, u) <= a.half + c.half + 1e-9))) join(a.id, c.id);
+    }
+    const byRoot = new Map();
+    for (const p of pads) { const k = find(p.id); if (!byRoot.has(k)) byRoot.set(k, []); byRoot.get(k).push(p.pin); }
+    return [...byRoot.values()];
+  }
+  return { group, mesh, parts, traces, marks, place, pin, polarity, trace, nets, print, silk };
 }
+const PAD_R = 0.0009; // a pad's radius, m (padGeo)
+// 2D distances on the board, m: a point to a leg, and leg to leg (0 when they cross).
+const pointToLeg = ([px, pz], [ax, az], [bx2, bz]) => {
+  const dx = bx2 - ax, dz = bz - az, L = dx * dx + dz * dz, s = L > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L)) : 0;
+  return Math.hypot(px - ax - s * dx, pz - az - s * dz);
+};
+const legToLeg = (p, q, s, u) => {
+  const side = (a, b2, c) => Math.sign((b2[0] - a[0]) * (c[1] - a[1]) - (b2[1] - a[1]) * (c[0] - a[0]));
+  if (side(p, q, s) * side(p, q, u) < 0 && side(s, u, p) * side(s, u, q) < 0) return 0;
+  return Math.min(pointToLeg(p, s, u), pointToLeg(q, s, u), pointToLeg(s, p, q), pointToLeg(u, p, q));
+};
 
 // polarityClashes(board, cables): the polarity mistakes of a board as sentences (an empty array = none). `cables` are the
-// cable() cores with a `pin` ("REF:n", the pin each leaves from; set by the caller) or { pin, conductor }. A trace joins its
-// pins into one net: a polarised pin (an electrolytic's plus or minus) and a dc cable core ("+" / "-") on it must all be of
-// the same sign; mains cores (L, N, PE) have none.
+// cable() cores with a `pin` ("REF:n", the pin each leaves from; set by the caller) or { pin, conductor }. It reads the nets
+// from board.nets() alone (copper that touches, across every trace, and a pin no trace reaches): a polarised pin (an
+// electrolytic's plus or minus) and every dc cable core ("+" / "-") on a net must all be of one sign; mains cores (L, N, PE)
+// have none.
 export function polarityClashes(b, cables = []) {
-  const sign = (pinRef) => {
-    const [ref, n] = pinRef.split(":"), own = b.parts[ref] ? b.polarity(ref, Number(n)) : null;
-    return [own, ...cables.filter((c) => c.pin === pinRef).map((c) => (c.conductor === "+" || c.conductor === "-" ? c.conductor : null))].filter(Boolean);
-  };
+  const nets = b.nets(), net = new Map(nets.flatMap((n, i) => n.map((p) => [p, i])));
+  for (const c of cables) if (typeof c.pin === "string" && !net.has(c.pin)) { net.set(c.pin, nets.length); nets.push([c.pin]); } // a pin not on this board
+  const own = (pinRef) => { const [ref, n] = pinRef.split(":"); return b.parts[ref] ? b.polarity(ref, Number(n)) : null; };
   const out = [];
-  for (const t of b.traces) {
-    const seen = t.pins.flatMap((p) => sign(p).map((s) => [p, s]));
-    if (new Set(seen.map(([, s]) => s)).size > 1) out.push(`trace ${t.pins.join(" - ")} joins both poles: ${seen.map(([p, s]) => `${p} is ${s}`).join(", ")}`);
+  for (const pins of nets) {
+    const seen = pins.flatMap((p) => [own(p), ...cables.filter((c) => c.pin === p).map((c) => (c.conductor === "+" || c.conductor === "-" ? c.conductor : null))].filter(Boolean).map((s) => [p, s]));
+    if (new Set(seen.map(([, s]) => s)).size > 1) out.push(`net ${pins.join(" - ")} joins both poles: ${seen.map(([p, s]) => `${p} is ${s}`).join(", ")}`);
   }
   return out;
 }
