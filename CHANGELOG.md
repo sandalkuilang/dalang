@@ -34,6 +34,17 @@ that reads as:
 
 ### Added
 
+- **Machine parts** (`engine/three/parts.js`): a mechanism for look K assembled from parts at their standard
+  proportions instead of modelled: bolt (ISO 4017, ISO 261 pitch), nut (ISO 4032), washer (ISO 7089), deep-groove ball
+  bearings 608 and 6000-6204 (raceway grooves, balls rolling at the cage speed), a compression spring that compresses
+  its active coils evenly between solid and free with its rate from G d^4 / 8 D^3 n, a shaft, a control knob, a
+  housing, and `xray()`, look K's shell (its own transparent material, drawn after the parts, silhouette edges, left
+  alone by attention ghosting). A size outside the tables is refused. Self-check: table sizes at two scales, a nut
+  clearing its bolt, balls in their grooves without overlap, the spring's limits and length, a shared material never
+  turned into a shell, a rounded housing keeping its outline (RoundedBoxGeometry steps under the edge threshold lost
+  it). The builder brief orders a made thing's sources: engineering data, a found model, these parts, custom geometry
+  last.
+
 - **Look K, Technical clean** (`looks.md` row K and its recipe, `brief.md`, `SKILL.md` autonomous mode): a real mechanism
   at real proportions with its housing in x-ray instead of a cut, near-monochrome greys and one accent on the part the
   narration names, soft studio light and a contact shadow on a light sweep, no textures, wear or set dressing; one model

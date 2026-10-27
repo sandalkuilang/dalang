@@ -40,6 +40,7 @@ const { supplyChain } = await use("examples/supply.js");
 const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
 const { shots, cueTime } = await use("shots.js");
 const { TORCH_SHOTS, torchSet } = await use("examples/torch-shots.js");
+const parts = await use("parts.js");
 const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
 const { makeLizard, wallClimb } = await use("examples/lizard.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
@@ -3208,4 +3209,53 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   }
 }
 
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
+{ // Parts (parts.js): standard parts at their table sizes in metres at any scale; a nut clears its bolt; a bearing's
+  // balls sit in both grooves with a real clearance and never overlap, and roll at the cage speed; a spring compresses
+  // evenly between solid and free (never past either) and keeps its coils; the x-ray shell never touches a shared
+  // material; unknown sizes are refused with the table, never guessed.
+  for (const mpu of [2, 0.01]) {
+    K.makeKit(new THREE.Scene(), { mpu });
+    const Mq = K.M, size = (o) => { o.updateMatrixWorld(true); return new THREE.Box3().setFromObject(o, true).getSize(new THREE.Vector3()).multiplyScalar(Mq); }, near = (a, b, t = 1e-6) => Math.abs(a - b) < t;
+    const b = parts.bolt({ size: "M6", length: 0.03 }), sb = size(b);
+    assert.ok(near(sb.y, 0.034) && near(sb.x, 0.01) && near(sb.z, 0.01 / Math.cos(Math.PI / 6)), "an M6 x 30 bolt: 30 mm shank + 4 mm head, 10 mm across flats (ISO 4017), at mpu " + mpu);
+    assert.ok(near(size(parts.nut({ size: "M6" })).y, 0.0052) && near(size(parts.washer({ size: "M6" })).x, 0.012), "ISO 4032 nut height, ISO 7089 washer diameter");
+    const nb = parts.nut({ size: "M8" }), p = nb.children[0].geometry.attributes.position;
+    let bore = Infinity; for (let i = 0; i < p.count; i++) bore = Math.min(bore, Math.hypot(p.getX(i), p.getZ(i)));
+    const bb = parts.bolt({ size: "M8", length: 0.02 }), q = bb.children[0].geometry.attributes.position;
+    let crest = 0; for (let i = 0; i < q.count; i++) crest = Math.max(crest, Math.hypot(q.getX(i), q.getZ(i)));
+    assert.ok(bore >= crest - 1e-9 && near(crest, 0.004), "the nut's bore clears the bolt's thread crest (no interference)");
+    assert.throws(() => parts.bolt({ size: "M7" }), /not in the table \(M3, M4/, "an unlisted size is refused, never guessed");
+    assert.throws(() => parts.bearing({ code: 6305 }), /not in the table/);
+    const br = parts.bearing({ code: 6202 }), info = br.userData.bearing, balls = br.children.find((c) => c.isGroup).children;
+    assert.ok(balls.length === 8 && near(size(br).x, 0.035) && near(size(br).y, 0.011), "6202: 15 x 35 x 11 mm, 8 balls");
+    const clear = info.groove - info.Dw / 2;
+    assert.ok(clear > 0 && clear < 0.05 * info.Dw, "each ball sits in both grooves with a small radial clearance");
+    const gap = 2 * (info.Dpw / 2) * Math.sin(Math.PI / info.Z);
+    assert.ok(gap >= info.Dw, "neighbouring balls do not overlap on the pitch circle");
+    br.spin(1);
+    assert.ok(near(balls[0].parent.rotation.y, (1 - info.Dw / info.Dpw) / 2), "the balls roll at the cage's speed, (1 - Dw/Dpw)/2 of the inner ring");
+    const sp = parts.spring({ wire: 0.001, mean: 0.008, coils: 8, free: 0.03 }), s0 = sp.userData.spring;
+    assert.ok(near(size(sp).y, 0.03, 5e-5) && near(s0.solid, 0.009) && near(s0.rate, (79.3e9 * 1e-12) / (8 * 0.008 ** 3 * 6), 1e-6), "a spring at its free length; solid (coils + 1) x wire; rate from G d^4 / (8 D^3 n)");
+    sp.setLength(0.02);
+    assert.ok(near(size(sp).y, 0.02, 5e-5) && near(sp.force(), s0.rate * 0.01), "compressed to 20 mm it measures 20 mm and pushes rate x travel");
+    sp.setLength(s0.solid);
+    assert.ok(near(size(sp).y, s0.solid, 5e-5), "at solid the coils touch, wire on wire");
+    assert.throws(() => sp.setLength(s0.solid * 0.9), /between solid/, "never compressed through itself");
+    assert.throws(() => sp.setLength(0.031), /between solid/, "a compression spring is never stretched past free");
+    const shared = new THREE.MeshStandardMaterial(), solid = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared), shell = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared);
+    parts.xray(shell);
+    assert.ok(solid.material === shared && !shared.transparent, "x-ray never changes a material another part shares");
+    assert.ok(shell.material.transparent && !shell.material.depthWrite && shell.renderOrder > solid.renderOrder && !shell.castShadow && shell.userData.attend === false && shell.children.some((c) => c.isLineSegments), "the shell: see-through, drawn after the parts, no shadow, its edges, left alone by attention");
+    assert.throws(() => parts.xray(shell, { opacity: 1 }), /opacity/);
+    const hs = parts.housing({ w: 0.1, h: 0.07, d: 0.06, r: 0.006 }).children[0].children.find((c) => c.isLineSegments);
+    assert.ok(hs.geometry.attributes.position.count >= 24 * 2, "a rounded housing keeps its outline in x-ray (its edge steps over the threshold)");
+    assert.throws(() => parts.xray(new THREE.Group()), /no mesh/);
+    const all = new THREE.Group();
+    all.add(b, nb, bb, br, sp, parts.washer(), parts.shaft({ d: 0.008, length: 0.1 }), parts.knob(), parts.housing({ w: 0.08, h: 0.05, d: 0.06 }));
+    const audit = scaleAudit(all);
+    assert.ok(audit.ok && audit.unchecked.length === 0, "every part declares its real size and matches it: " + JSON.stringify([audit.problems, audit.unchecked]));
+  }
+  K.makeKit(new THREE.Scene(), { mpu: 2 });
+}
+
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale and gravity");
