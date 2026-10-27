@@ -39,7 +39,9 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
   (Added / Changed / Fixed / Removed). Semantic versions follow the table at the top of `CHANGELOG.md`.
 - **Motion is three.js, physical and caused.** No local image or video generation models. Things that touch, fall
   or collide are simulated (Rapier, baked once and replayed: `bakeCached` + `bake.mjs`), never keyframed; nothing
-  floats, drifts or loops without a visible cause. Real scale, real materials, real mass.
+  floats, drifts or loops without a visible cause. Real scale, real materials, real mass. Express mode (the default,
+  `references/express.md`) is the one exception: 2.5D illustration in HTML/SVG, motion still caused (gravity easing,
+  contact squash), true shapes, and a hard budget of 20 minutes of work per film.
 - **Realism is the user's choice** (hyperreal or stylized, Brief Step 1). Stylized is first-class and still true
   to how the subject looks and works.
 - **Never read "unknown" as "missing".** A tool that cannot read a state (timeout, error, odd reply) reports WARN

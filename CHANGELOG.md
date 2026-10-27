@@ -30,6 +30,16 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Express mode, the default** (`references/express.md`, Brief Call 1 "Mode", `state.mjs`): a 30–90 s film in 20
+  minutes of work at most. 2.5D illustration in HTML/SVG (layered planes, parallax, contact shadows, one key light,
+  cutaways) instead of three.js; one builder that starts while the voice records; no asset search, reference board,
+  style-frame check, benchmark, reviewer or 10 fps draft; Gates 2 and 3 are the agent's, the user sees the script
+  (Gate 1) and the film (Gate 4). Facts, provenance tags, per-word timing and true shapes stay. `BRIEF.md`
+  `mode: express` makes `state.mjs next` print express.md for Steps 5–7 and Gate 3 skip the benchmark. Studio is the
+  other answer, unchanged.
+
 ### Changed
 
 - **SKILL.md a third shorter** (18.4 → 12.8 KB, the description too): the same rules, gates and model table in fewer

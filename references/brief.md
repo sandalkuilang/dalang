@@ -51,6 +51,7 @@ Then AskUserQuestion: Call 0 only when setup left a choice, then Calls 1 and 2 (
 - **Voice engine** (only when preflight shows ElevenLabs as `PAID`: a valid key) — "VoiceStudio — free, runs locally (Recommended)"; "ElevenLabs — paid cloud" (never recommended; free tier is non-commercial and small).
 
 ### Call 1
+0. **Mode** (always first) — "Express — ready in ~20 minutes, 2.5D illustrated (Recommended)": layered flat drawings with depth, one builder, Gates 1 and 4 only (`express.md`); "Studio — three.js 3D, physics, reference boards and review (slower, hours)". Save `mode: express` or `mode: studio`. **Express** asks only Mode, Platform, Language and Duration (item 5's options) in this call, skips Call 2's look, energy and audience (2.5D look, Modern balanced, general public) and Call 3 unless the voice is unclear, then goes straight to Step 3.
 1. **Platform** — YouTube Shorts (9:16, 1080×1920, ≤ 3 min, hook in 1–2 s) · Instagram Reels (9:16, ≤ 3 min, taller bottom overlay) · YouTube landscape (16:9, 1920×1080) · Instagram feed (4:5, 1080×1350, ≤ 60 s, often muted). TikTok and 1:1 via "Other".
 2. **Language** — the user's language "(Recommended)", English, and one other likely language for this topic or audience; the rest via "Other". Store the ISO 639-1 code.
 3. **Angle** — **built from the topic**, 3 options, e.g. "Question answered with data", "Myth vs fact", "Story with a character", "Dialogue scene between characters (no narrator)", "Step by step", "A vs B", "Recommendation per type of person". Angles with people acting or speaking on screen need real footage of people (`visual-direction.md` §1 "People"; a generated clip only on paid request); without a source, say so in the option.
@@ -81,7 +82,7 @@ After Call 2: its recommendation follows the Audience answer. Never fill `voice`
 
 ### Save the brief
 
-Save everything in `BRIEF.md`: topic, platform, ratio & resolution, fps (from the platform, table in Call 2), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`), signoff (only when the user gave one, the words as given). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
+Save everything in `BRIEF.md`: mode, topic, platform, ratio & resolution, fps (from the platform, table in Call 2), duration, narration language (ISO code), angle, realism, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless the user picks another), voice (a named profile id, `design: <description>`, or `audition`), signoff (only when the user gave one, the words as given). Every later step reads format and language from it, not from memory; a mid-way change updates `BRIEF.md` first.
 
 Step 2 (optional, measuring a reference's craft): `measure-reference.md`.
 

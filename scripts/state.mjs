@@ -61,6 +61,8 @@ const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
 // Gate 3's benchmark (review.md "Benchmark review"): the fresh reviewer's table, written by the main agent to
 // review/benchmark.md as `| Row | Reference | Style frames | … |`, scores 1–5. A row more than 1 point behind the board
 // blocks the gate; so does a verdict that is missing, unreadable or older than the style frames (never read as passed).
+// Express (BRIEF.md "mode: express", references/express.md): Steps 5–7 read express.md and Gate 3 needs no benchmark.
+const express = cmd !== 'reading' && existsSync(path.join(dir, 'BRIEF.md')) && /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(dir, 'BRIEF.md'), 'utf8'));
 const BENCH = 'review/benchmark.md';
 const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'text system', 'overlays caused by physics', 'framing', 'macro quality'];
 const newest = p => statSync(p).isDirectory() ? Math.max(0, ...readdirSync(p).map(f => newest(path.join(p, f)))) : statSync(p).mtimeMs;
@@ -114,7 +116,7 @@ const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO, ...LEAN_WORKSPACE], sub: [] },
   1: {
     name: 'Brief', sub: [],
-    refs: [...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
+    refs: [...of('express.md', '# Express mode (the default)'), ...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
@@ -144,6 +146,12 @@ const READING = {
   },
   7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', '# Fresh-eyes review (Step 7)', '## How', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)', '## Model per job', '## Autonomous mode'),...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)'), ...VD_LAYERS, ...VD_QUANTITY] },
   8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: [...of('qc.md', '### Post description (POST.md)'), ...SECOND_CUT,...of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)')], sub: [] },
+};
+const EXPRESS = {
+  3: of('express.md', '# Express mode (the default)', '## Express Steps 3–4 — Script and voice'),   // read with Step 3's own sections
+  5: of('express.md', '## Express Step 5 — Look in one frame'),
+  6: of('express.md', '## Express Step 6 — Build (one builder)'),
+  7: of('express.md', '## Express Step 7 — Render → GATE 4'),
 };
 const isFence = l => /^\s*```/.test(l);
 const kb = b => (b / KB).toFixed(1);
@@ -211,6 +219,7 @@ const buildReading = skill => {
     total += s.read.reduce((a, e) => a + e.bytes, 0) + s.lessonsBytes;
     steps[n] = s;
   }
+  for (const entry of Object.values(EXPRESS).flat()) { const e = locate(skill, entry); if (e.error) errors.push(`FAILED: ${e.error}`); else if (e.bytes > SECTION_MAX) errors.push(`FAILED: express.md "${label(e.heading)}" is over the 8 KB section budget`); }
   if (total > TOTAL_MAX) errors.push(`FAILED: Steps 0–8 read ${kb(total)} KB in the main context, over the 60 KB budget`);
   return { steps, total, errors };
 };
@@ -243,7 +252,7 @@ if (cmd === 'approve') {
   // unreadable result is "not checked", never OK.
   let lint, bench;
   if (g === 3) {
-    bench = benchmarkOf();
+    bench = express ? { summary: 'none (express)' } : benchmarkOf();
     if (bench.error) { console.error(`FAILED: gate 3 (look) ${bench.error}`); process.exit(1); }
     const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'storyboard_lint.mjs'), dir], { encoding: 'utf8' });
     lint = (r.stdout || '').match(/^\s*Result\s*:\s*(.+)$/m)?.[1].trim() || 'not checked';
@@ -293,7 +302,11 @@ if (cmd === 'approve') {
   if (stepGiven && !/^[0-8]$/.test(picked ?? '')) { console.error('FAILED: --step must be 0–8'); process.exit(1); }
   const [now, why] = picked === null ? standing() : [Number(picked), 'chosen with --step'];
   const r = buildReading(SKILL), s = r.steps[now];
-  console.log(`Step ${now} ${s.name} — ${why}`);
+  if (express && EXPRESS[now]) {   // Express: express.md replaces Steps 5–7 (no Studio look-ups) and joins Step 3's own sections
+    const found = [...(now === 3 ? s.read.map(e => locate(SKILL, [e.file, e.heading])) : []), ...EXPRESS[now].map(e => locate(SKILL, e))].filter(e => !e.error);
+    Object.assign(s, { read: found, lessons: now === 3 ? s.lessons : [], sub: [] }, { commands: { read: commandsOf(found), refs: now === 3 ? s.commands.refs : [], sub: [] } });
+  }
+  console.log(`Step ${now} ${s.name}${express ? ' (express)' : ''} — ${why}`);
   if (now === 3 && !existsSync(path.join(dir, 'script.md'))) console.log(`Optional Step 2 (a reference video): node ${shq(path.join(SKILL, 'scripts', 'state.mjs'))} next ${shq(dir)} --step 2`);
   // an entry that cannot be found means this skill copy is out of date: say so, print the rest
   r.errors.filter(e => !/over the \d+ KB|budget/.test(e)).forEach(e => console.log(`WARN: ${e.replace(/^FAILED: /, '')} — the skill copy may be out of date; rerun scripts/gate.sh --fast in the skill repo`));

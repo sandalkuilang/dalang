@@ -357,6 +357,30 @@ try {
     assert.deepEqual(joined(fs.readFileSync(path.join(root, "references", f), "utf8")), [], `${f}: a list item joined to the previous one on a single line`);
   }
 
+  // Express (BRIEF.md "mode: express"): Steps 5–7 read express.md only, Step 3 adds it, and Gate 3 needs no benchmark.
+  {
+    const p = mk("express");
+    fs.writeFileSync(path.join(p, "PRODUCTION.md"), "# P\n");
+    fs.writeFileSync(path.join(p, "BRIEF.md"), "topic: any\nmode: express\n");
+    for (const st of ["5", "6", "7"]) {
+      const r = run("next", p, "--step", st);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out, /\(express\)/);
+      assert.match(r.out, /express\.md/);
+      assert.doesNotMatch(r.out, /look-build\.md|qc\.md|Look up when needed/, `express Step ${st} lists no Studio section`);
+    }
+    assert.match(run("next", p, "--step", "3").out, /script-voice\.md[\s\S]*express\.md/, "express Step 3 keeps its own sections and adds express.md");
+    for (const f of ["script.md", "narration.txt", "SPEC.md", "storyboard.md"]) fs.writeFileSync(path.join(p, f), "x\n");
+    fs.mkdirSync(path.join(p, "audio"), { recursive: true }); fs.writeFileSync(path.join(p, "audio", "beats.json"), "{}");
+    fs.mkdirSync(path.join(p, "style-frames"), { recursive: true }); fs.writeFileSync(path.join(p, "style-frames", "a.png"), "x");
+    for (const g of ["1", "2"]) assert.equal(run("approve", g, p, "--by", "agent").code, 0);
+    const g3 = run("approve", "3", p, "--by", "agent");
+    assert.equal(g3.code, 0, g3.err);
+    assert.match(g3.out, /Benchmark: none \(express\)/);
+    fs.writeFileSync(path.join(p, "BRIEF.md"), "topic: any\n");
+    assert.match(run("next", p, "--step", "5").out, /look-build\.md/, "without mode: express, Step 5 is Studio");
+  }
+
   console.log("reading: ok");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
