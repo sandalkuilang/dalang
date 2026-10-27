@@ -5,8 +5,11 @@
 // dozen commands. Never prints secrets.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
+//                           [--check-workspace] [--workspace-dir PATH]
 //   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
 //                  --skill-dir points it at another folder.
+//   --check-workspace  only the Workspace row (is the videos folder lean? workspace.mjs status); --workspace-dir
+//                  points it at a folder other than the current one.
 //   --start  VoiceStudio STOPPED (macOS app installed, not running): open it and wait ≤ 60 s for the backend.
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
@@ -29,6 +32,11 @@ const sdArg = args.indexOf('--skill-dir'), sdEq = args.find(a => a.startsWith('-
 const sdRaw = sdEq ? sdEq.slice('--skill-dir='.length) : sdArg >= 0 ? args[sdArg + 1] : fileURLToPath(new URL('..', import.meta.url));
 if (!sdRaw) { console.error('--skill-dir needs a path'); process.exit(2); }
 const skillDir = path.resolve(sdRaw);
+const checkWorkspace = args.includes('--check-workspace');
+const wdArg = args.indexOf('--workspace-dir'), wdEq = args.find(a => a.startsWith('--workspace-dir='));
+const wdRaw = wdEq ? wdEq.slice('--workspace-dir='.length) : wdArg >= 0 ? args[wdArg + 1] : process.cwd();
+if (!wdRaw) { console.error('--workspace-dir needs a path'); process.exit(2); }
+const wsDir = path.resolve(wdRaw);
 
 const run = (cmd, argv, timeout = 60000, env) => new Promise(res =>
   execFile(cmd, argv, { timeout, maxBuffer: 8 << 20, env: { ...process.env, ...env } }, (err, stdout, stderr) => res({ ok: !err, killed: !!err?.killed, out: String(stdout || ''), err: String(stderr || err?.message || '') })));
@@ -268,11 +276,25 @@ async function pinnedClone(g, item, q, dirty) {
   return [[item, 'WARN', `pinned at ${tag} (detached), newest release is ${newest} — asked in Brief Call 0: ${fix}, then re-read SKILL.md; a pinned clone moves by release, not by a pull from main`]];
 }
 
-const groups = await Promise.all(checkSkill ? [skillClone()] : start ? [voicestudio()] : [skillClone(), tools(), voicestudio(), elevenlabs(), media()]);
+// The videos folder: plugins and MCP servers a video never uses cost every model call (~a fifth of a long run's tokens).
+// Read through workspace.mjs status; an exit, a timeout or an odd reply is "could not read", never "nothing enabled".
+async function workspace() {
+  const item = 'Workspace', ws = fileURLToPath(new URL('./workspace.mjs', import.meta.url));
+  const q = s => /[^\w@%+=:,./-]/.test(s) ? `'${s.replace(/'/g, `'\\''`)}'` : s;
+  const r = await run(process.execPath, [ws, 'status', wsDir, '--json'], 15000);
+  let j; try { j = JSON.parse(r.out); } catch { j = null; }
+  if (!r.ok || !j || typeof j.lean !== 'boolean' || !Array.isArray(j.items))
+    return [[item, 'WARN', `could not read the settings (${clean(j?.error || (r.killed ? 'timeout' : r.err.split('\n')[0]) || 'odd reply')}) — rerun preflight; this is not "nothing enabled"`]];
+  const on = j.items.filter(i => i.on && !i.video).length;
+  if (j.lean) return [[item, 'OK', `lean: nothing a video never uses is on in ${clean(wsDir)}`]];
+  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (~a fifth of a run's tokens) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}`]];
+}
+
+const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
-if (checkSkill) process.exit(0);
+if (checkSkill || checkWorkspace) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
 // The summary repeats the fix that matters, so a filtered read still gets it.
