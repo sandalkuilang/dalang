@@ -947,6 +947,28 @@ try {
       ok(run(make("k-engine-svg", `${music()}<svg><script href="assets/kit.js"></script></svg>`, ENGINE)), "the engine loaded by an SVG <script href>");
       ok(run(make("k-frames", `${music()}<iframe src="https://www.example.test/embed/1"></iframe><iframe srcdoc="&lt;script src=&quot;assets/kit.js&quot;&gt;&lt;/script&gt;&lt;p&gt;hi&lt;/p&gt;"></iframe><iframe></iframe><img src="a.svg"><a href="widget.html">w</a>`, ENGINE)), "a remote frame, a srcdoc that loads only the engine, an empty frame, an image, a link");
       ok(run(make("k-comment", `<!-- ${music()} -->`)), "a commented-out bed is not in the film", /OK — no bed in the film/);
+      // the script rule also guards "no bed in the film": a script, a handler or a frame can make an <audio> at run time or
+      // change an SFX's src or duration, so a page with only short SFX tags and such code is NOT CHECKED, never OK
+      const SFX = `<audio id="whoosh" src="assets/whoosh.wav" data-duration="1"></audio>`;
+      for (const [name, tags, files, what] of [
+        ["n-script-creates", `${SFX}<script>const a=document.createElement('audio');a.id='music-a';a.src='assets/music.wav';document.getElementById('root').append(a);</script>`, { "assets/music.wav": bedTone(4.5, 40) }, "a script that makes the bed at run time"],
+        ["n-script-swaps", `<audio id="whoosh" src="assets/whoosh.wav"></audio><script>const w=document.getElementById('whoosh');w.src='assets/music.wav';w.removeAttribute('data-duration');</script>`, { "assets/music.wav": bedTone(4.5, 40) }, "a script that swaps an SFX's src to the music file"],
+        ["n-body-onload", `<body onload="x()">${SFX}</body>`, {}, "a body onload handler next to an SFX"],
+        ["n-iframe-local", `${SFX}<iframe src="widget.html"></iframe>`, { "widget.html": "<script>parent.document.getElementById('whoosh').src='assets/music.wav'</script>\n" }, "a local iframe next to an SFX"],
+        ["n-remote-script", `${SFX}<script src="https://cdn.example.test/gsap.min.js"></script>`, {}, "a CDN script next to an SFX"],
+        ["n-script-no-tag", `<script>x()</script>`, {}, "a script on a page with no tag but the narration"],
+        ["n-base", `<base href="js/">${SFX}`, {}, "a <base href> next to an SFX"],
+        ["n-srcdoc", `${SFX}<iframe srcdoc="&lt;script&gt;1&lt;/script&gt;"></iframe>`, {}, "an iframe srcdoc with a script next to an SFX"],
+      ]) {
+        const r = run(make(name, tags, files));
+        notChecked(r, what);
+        assert.match(r.stdout, /with nobody to listen, name "bed level not checked" in the hand-off as a known bug/, what + ": the hand-off advice");
+      }
+      assert.match(run(make("n-script-advice", `${SFX}<script>x()</script>`)).stdout, /page runs a script that is not the engine library/, "the script rule's advice on the no-bed side");
+      // the other side: no code on the page, or only the engine library and data blocks, is still a film without a bed
+      ok(run(make("n-plain", `${SFX}<p id="title">hi</p>`)), "short SFX and no script: no bed in the film", /OK — no bed in the film/);
+      ok(run(make("n-engine", `${SFX}<script src="assets/kit.js"></script>`, ENGINE)), "short SFX and the engine library: no bed in the film", /OK — no bed in the film/);
+      ok(run(make("n-data", `${SFX}<script type="application/json">{"a":1}</script><iframe src="https://www.example.test/embed/1"></iframe><a href="widget.html">w</a>`)), "short SFX, a data block, a remote frame and a link: no bed in the film", /OK — no bed in the film/);
       ok(run(make("k-lane", music(lane([{ target: "volume", points: [{ t: 0, v: 1 }, { t: 4, v: 1, curve: 0 }] }])))), "a straight volume lane");
       console.log("ok  CLI: the class rule: a hidden or <template> ancestor, an attribute or lane outside the inventory, any script that is not the engine library = exit 2 NOT CHECKED; each neighbour passes");
     }
