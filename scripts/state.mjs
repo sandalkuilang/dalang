@@ -75,13 +75,14 @@ const VD_HERO = of('visual-direction.md', '## 1. The hero is real (the realism l
 const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
 const VD_QUANTITY = of('visual-direction.md', '## 13. Showing a quantity: twin sets, flow arrows, the formula on the set, tags, sound words, gauges');
 const NUMBERS_MODEL = of('script-voice.md', '### Numbers model (model.mjs → numbers.json)');
+const SECOND_CUT = [...of('script-voice.md', '### Second-language cut (offered once at the hand-off; Steps 3b and 4)'), ...of('look-build.md', '### Second-language cut: build (Step 6 again, same storyboard)'), ...of('qc.md', '### Second-language cut: QC and delivery')];
 const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
 const LEAN_WORKSPACE = of('brief.md', '### Lean workspace (workspace.mjs)');
 const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO, ...LEAN_WORKSPACE], sub: [] },
   1: {
     name: 'Brief', sub: [],
-    refs: [...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE],
+    refs: [...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
@@ -105,12 +106,12 @@ const READING = {
   6: {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
-      ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
+      ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), SECOND_CUT[1], ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
       ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },
   7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', '# Fresh-eyes review (Step 7)', '## How', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)', '## Model per job', '## Autonomous mode'),...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)'), ...VD_LAYERS, ...VD_QUANTITY] },
-  8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: [...of('qc.md', '### Post description (POST.md)'), ...of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)')], sub: [] },
+  8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: [...of('qc.md', '### Post description (POST.md)'), ...SECOND_CUT,...of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)')], sub: [] },
 };
 const isFence = l => /^\s*```/.test(l);
 const kb = b => (b / KB).toFixed(1);
