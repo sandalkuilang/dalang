@@ -33,7 +33,7 @@ Then get the hero assets (resolve, ingest, cut out every OBJECTS item; free sour
 
 ### Parallel build: pilot, then shot groups (Step 6, item 2)
 
-Every film. The main agent never writes, patches or reads the film's scene code (`src/`, `assets/*.js` other than generated data; not the Step 5 style frames in `style-frames/src/`, which it writes itself): it holds the gates, `BRIEF.md`, `storyboard.md`, `SPEC.md`, the beat map and the verdicts, and gives each job to a builder subagent, which returns only a short text. Log each delegation and its report with `state.mjs log` (`"6 | pilot builder: <report> | -"`), so a resumed session needs nothing from chat.
+Every film. The main agent never writes, patches or reads the film's scene code (`src/`, `assets/*.js` other than generated data; not the Step 5 style frames in `style-frames/src/`, which it writes itself): it holds the gates, `BRIEF.md`, `storyboard.md`, `SPEC.md`, the beat map and the verdicts, and gives each job to a builder subagent, which returns only a short text. Log each delegation and its report with `state.mjs log` (`"6 | pilot builder: <report> | -"`), for a resumed session.
 
 | Job | Who | Returns to the main agent |
 |---|---|---|
