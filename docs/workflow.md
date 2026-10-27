@@ -36,7 +36,7 @@ flowchart TD
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
 | 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
-| 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills) | **3** |
+| 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills), built from `review/refs-board-*.jpg` | **3** |
 | 6 Build | HyperFrames composition: builder subagents only: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
 | 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
 | 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md`; optional second-language cut: `final.<lang>.mp4` + `narration.<lang>.srt` (same storyboard, `beats_lint.mjs`) | — |
@@ -47,7 +47,7 @@ files and prints only that step's reading list (sections as `sed` commands, the 
 what is printed to read (sections and lesson headlines) against 60 KB for Steps 0–8; every indexed section still has
 to exist and fit 8 KB, and `tests/reading.mjs` fails when any section of a reference is over 8 KB or a pointer in the
 step's text has no index line. Images
-(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context. The film's scene code is too (the Step 5 style frames excepted): builder subagents write the pilot, the groups, the assembly and each QC fix round, and return a short report (`look-build.md` "Parallel build"). Each subagent job has a model: the strongest for the jobs that judge the film, a mid tier for fix checks, asset pair checks, media screening and research (`SKILL.md` "Work fast").
+(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context. The film's scene code is too (the Step 5 style frames excepted): builder subagents write the pilot, the groups, the assembly and each QC fix round, and return a short report (`look-build.md` "Parallel build"). Each subagent job has a model: the strongest for the jobs that judge the film, a mid tier for fix checks, asset pair checks, media screening (and the Step 5 reference boards the style frames are built from) and research (`SKILL.md` "Work fast").
 
 ## Why timing drives everything
 
