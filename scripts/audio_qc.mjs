@@ -47,7 +47,8 @@
 // zeros inside a word can show a false dropout.
 //
 // Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]   (--music: once per bed)
-// Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun) · 1 usage / failure.
+// Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun; a cause
+// the film cannot fix, such as a page script, is named in the hand-off when nobody can listen: never a pass) · 1 usage / failure.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -451,8 +452,11 @@ export function isJsScript(attrs) {
 // the inline code is the scene's own), an on* handler or javascript: URL on any element (non-blank). A <script> of a data type
 // (json, a template, speculationrules) is data and never runs. A page with a <base href> or a <script type="importmap"> changes
 // what a name loads, so even an engine name is unknown: NOT CHECKED (UNRESOLVED).
-export const NON_ENGINE = 'page runs a script that is not the engine library; check the bed by ear on the draft';
-export const UNRESOLVED = 'page loads scripts the check does not resolve; check the bed by ear on the draft';
+// What follows every "by ear": an agent cannot listen, and almost every film loads a script (the GSAP library and its own
+// timeline), so an unattended run meets this advice in nearly every film and must not read it as a pass.
+export const BY_EAR = 'check the bed by ear on the draft; with nobody to listen, name "bed level not checked" in the hand-off as a known bug';
+export const NON_ENGINE = `page runs a script that is not the engine library; ${BY_EAR}`;
+export const UNRESOLVED = `page loads scripts the check does not resolve; ${BY_EAR}`;
 // A NESTED DOCUMENT is judged the same way: an iframe srcdoc is read as a document like index.html (pageProblem); any other
 // document an element opens (FRAMES) that is not a remote http(s) page (another origin cannot reach this page) is a load
 // the check does not resolve; an empty one or about:blank is none.
@@ -519,7 +523,7 @@ export const SCAN_FIELDS = { code: ['scripts', 'handlers', 'frames', 'base'], mi
 export function pageProblem(page, dir, read, { nested = null } = {}) {
   const unjudged = Object.keys(page).filter((k) => !SCAN_FIELDS.code.includes(k) && !SCAN_FIELDS.mix.includes(k));
   if (unjudged.length) throw new Error(`pageProblem: the scan field ${unjudged.join(', ')} is not judged`);
-  if (nested && (page.media.length || page.master !== null)) return `${nested} has its own <audio>, <video> or mix, which this check does not read; check the bed by ear on the draft`;
+  if (nested && (page.media.length || page.master !== null)) return `${nested} has its own <audio>, <video> or mix, which this check does not read; ${BY_EAR}`;
   return scriptProblem(page.scripts, dir, read, { base: page.base, handlers: page.handlers, frames: page.frames });
 }
 // The clip's length on the timeline: data-end (absolute, wins) minus data-start, else data-duration, else null (to the end of the film).
@@ -603,8 +607,9 @@ export function tagRoles(tags, narrTag, lengthOf, music = [], groups = new Map()
 export const CHECKS = ['bed', 'clicks', 'voice'];
 export function verdict({ flags, notChecked, done, absent }) {
   const open = [...new Set([...CHECKS.filter((c) => !done.includes(c) && !(c === 'bed' && absent.includes('bed'))), ...notChecked])];
-  if (flags.length) return { exit: 3, text: `${flags.length} flag(s) — each is a P1: fix and rerun.${open.length ? ` NOT CHECKED: ${open.join(', ')}.` : ''}` };
-  if (open.length) return { exit: 2, text: `NOT CHECKED: ${open.join(', ')} — rerun after fixing the WARN above.` };
+  const AWAY = ' Away from the user, name each NOT CHECKED item in the hand-off as a known bug: it is never a pass.';
+  if (flags.length) return { exit: 3, text: `${flags.length} flag(s) — each is a P1: fix and rerun.${open.length ? ` NOT CHECKED: ${open.join(', ')}.${AWAY}` : ''}` };
+  if (open.length) return { exit: 2, text: `NOT CHECKED: ${open.join(', ')} — rerun after fixing the WARN above.${AWAY}` };
   return { exit: 0, text: `OK — ${done.includes('bed') ? 'bed audible' : 'no bed in the film'}, no clicks or dropouts, voice steady.` };
 }
 
