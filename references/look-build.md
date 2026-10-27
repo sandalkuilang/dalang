@@ -50,6 +50,7 @@ Every job gets a new builder, briefed with the files and the last report; never 
 - **At most 3 snapshot rounds per job.** Then return the report with what is still open; a new builder takes the rest.
 - **Stills as one sheet.** Tile a round's stills with `node <skill-dir>/scripts/strips.mjs --frames <dir> --width 480` and read that sheet once, never each still.
 - **Read a file once.** Never re-read a file already in context; `grep -n` and `sed -n` for the lines needed.
+- **Assemble, then model.** The set starts from the engine's set library (`assets/engine/examples/sets.js`, its header) and the hero from a found model (`looks.md` "Set dressing"); write code only for what neither gives.
 
 `state.mjs approve` records the token report at every gate (`scripts/tokens.mjs`: turns, tokens and largest context per agent, `review/tokens.json`); a WARN row is a builder over budget, and the rest of its job goes to a new one.
 

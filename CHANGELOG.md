@@ -40,6 +40,17 @@ that reads as:
   120 turns or 250K context) is a WARN row and exit 3; a main context over it says /compact is safe. A session run in a
   parent folder counts only the subagents that name this project. No transcript, or none readable, is NOT CHECKED
   (exit 2), never "no tokens"; it never blocks a gate.
+- **Set library** (`engine/three/examples/sets.js`): ready sets per subject class, so a film assembles its set instead
+  of modelling it: `desk`, `workbench`, `counter`, `plinth`, `room`, each modelled in metres at its cited real height,
+  with true surfaces and dressing at a real density, and a clear area kept for the hero. `place(hero, { u, v })` stands
+  a found model or an example by its footprint on the top and refuses one that leaves the clear area; every part
+  declares its real size and is rested; the desk lamp's light is set in metres, so it lights the same at any scale.
+  Self-check: real heights at two scales, every part landed, dressing out of the clear area, nothing unchecked by
+  `scaleAudit`, refusals, seeded. The build steps (`looks.md` "Set dressing", the builder budget, the engine README)
+  now start a set from the library and the hero from a found CC0 / CC BY model (`find_media.mjs --type model`); no
+  model binary is ever committed to the skill, a model is fetched per film into its own `assets/`.
+- **Series kit `Sets` line** (`scripts/series.mjs`, `tests/series.mjs`): a kit carries the channel's choice of library
+  sets as a Brief line; a module that builds a set from the library is scene code and stays refused.
 
 ### Changed
 
