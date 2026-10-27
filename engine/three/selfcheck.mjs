@@ -38,6 +38,8 @@ const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { supplyChain } = await use("examples/supply.js");
 const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
+const { shots, cueTime } = await use("shots.js");
+const { TORCH_SHOTS, torchSet } = await use("examples/torch-shots.js");
 const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
 const { makeLizard, wallClimb } = await use("examples/lizard.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
@@ -2849,6 +2851,47 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     for (const b of [l1, l2]) assert.ok(b.y >= band.box.y1 - 1e-6, k + ": a pill label stays under the text band");
   }
 
+  // shots.js: the same three style frames from data. The camera and every drawn call match the hand-written frame above;
+  // a shot list with a missing beat, an overshooting key, a label off the frame or a shot with no action is refused.
+  { const BEATS = { hook: { start: 0.2, end: 1.4 }, inside: { start: 3.1, end: 4.0 }, detail: { start: 6.0, end: 7.1 } };
+    const WORDS = Array.from({ length: 30 }, (_, i) => ({ start: i * 0.3, end: i * 0.3 + 0.25 }));
+    assert.ok(cueTime("inside", { beats: BEATS }) === 3.1 && cueTime("inside.end", { beats: BEATS }) === 4.0 && cueTime("w3.end", { words: WORDS }) === 1.15, "cues: a beat's start or end, a word's start or end");
+    assert.ok(cueTime("hook", { beats: [{ name: "hook", start: 0.2, end: 1.4 }] }) === 0.2, "beats.json's array works as well as BEATS");
+    const T = { beats: BEATS, words: WORDS, end: 9.5, fps: 30, W, H, set: torchSet(tc, { W, H }), pill: LOOK.accents.label };
+    const run = shots(TORCH_SHOTS, T);
+    assert.deepEqual(run.shots.map((s) => [s.start, s.end]), [[0.2, 3.1], [3.1, 6], [6, 9.5]], "each shot runs from its beat to the next one's");
+    const hand = { wide: [["cell", "cell"], ["driver", "driver"], "cell"], medium: [["driver", "driver"], ["star", "star board"], "gap"], macro: [["led", "LED"], ["reflector", "reflector"], "reflector"] };
+    const near = (x, y) => x.every((v, i) => Math.abs(v - y[i]) < 1e-9);
+    for (const [i, k] of ["wide", "medium", "macro"].entries()) {
+      const s = run.shots[i], t = (s.start + s.end) / 2, st = fr[k];
+      const a = new THREE.PerspectiveCamera(30, W / H, 1e-4, 100), b = new THREE.PerspectiveCamera(st.fov, W / H, 1e-4, 100);
+      run.at(t, a); tc.place(b, st, W, H);
+      assert.ok(near(a.matrixWorld.elements, b.matrixWorld.elements) && near(a.projectionMatrix.elements, b.projectionMatrix.elements), k + ": the runner's camera is the hand-placed station");
+      const ca = mockCtx(bright); run.draw(ca, t, a); const ra = layoutFrame(ca, t, { send: () => {} });
+      const cb = mockCtx(bright), band = textBand(cb, { kicker: "How it works", headline: "The cell drives the LED through the driver", tag: "Illustration" }, { format: "shorts" });
+      for (const [part, text] of hand[k].slice(0, 2)) pinLabel(cb, { at: tc.parts[part], camera: b, text }, { format: "shorts", pill: LOOK.accents.label, top: band.box.y1 });
+      const d = tc.dims[hand[k][2]];
+      dimension(cb, d.a, d.b, { camera: b, text: Math.round(d.m * 1000) + " mm", dir: up, top: band.box.y1 });
+      const rb = layoutFrame(cb, t, { send: () => {} });
+      assert.ok(ra.boxes.length === 6, k + ": band (3), two labels and the dimension are drawn: " + ra.boxes.length);
+      assert.deepEqual(ra.boxes, rb.boxes, k + ": the same boxes as the hand-written frame");
+      assert.deepEqual(ca.log, cb.log, k + ": the same draw calls as the hand-written frame");
+    }
+    // travel: the camera leaves the previous pose on the shot's beat and arrives on the station at the end of its beat, never past it
+    const moved = structuredClone(TORCH_SHOTS); moved[1].transition = "travel";
+    const tr = shots(moved, T), wide = fr.wide, med = fr.medium, dist = (t) => tr.pose(t).position.distanceTo(med.position);
+    assert.ok(tr.pose(3.0).position.equals(wide.position) && tr.pose(4.0).position.equals(med.position) && tr.pose(5).position.equals(med.position), "travel: wide until the beat, medium from its end");
+    for (let t = 3.1, prev = Infinity; t <= 4.0; t += 1 / 30) { const x = dist(t); assert.ok(x <= prev + 1e-9, "travel: the camera only closes on the station (no overshoot) at " + t.toFixed(3)); prev = x; }
+    const bad = (edit, rx, why) => { const l = structuredClone(TORCH_SHOTS); edit(l); assert.throws(() => shots(l, T), rx, why); };
+    bad((l) => { l[1].beat = "nowhere"; }, /no beat "nowhere"/, "a shot on a beat that is not in beats.json");
+    bad((l) => { l[0].camera.push({ station: "medium", at: "hook", ease: (u) => 1 + 2.70158 * (u - 1) ** 3 + 1.70158 * (u - 1) ** 2 }); }, /overshoots/, "a key whose ease goes past its station");
+    bad((l) => { l[2].labels.push({ part: "cell", text: "cell" }); }, /label "cell" on "cell" is off the frame/, "a label on a part the macro does not frame");
+    bad((l) => { l[0].action = null; }, /no action/, "a 2.9 s shot where the subject does nothing");
+    bad((l) => { l[0].action = "spin"; }, /not one of set.actions/, "an action the set does not have");
+    bad((l) => { l[0].camera.push({ station: "medium", at: "w2" }); }, /arrive cue/, "a move that leaves on a word needs its arrival cue");
+    bad((l) => { l[0].labels.push({ part: "cell", text: "cell", at: "w9" }); }, /read time/, "a label cued 0.4 s before its shot ends");
+  }
+
   // dimension(): drafting style, kept in the safe area, or nothing and the reason.
   { const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 100); cam.position.set(0, 0, 5); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
     const lab = safeArea("shorts", W, H).labels, atY = (y) => y * 5 * Math.tan(Math.PI / 12); // NDC y to world y on the plane z = 0, 5 units from the camera
@@ -3165,4 +3208,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   }
 }
 
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");

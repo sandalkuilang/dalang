@@ -37,7 +37,7 @@ flowchart TD
 | 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills), built from `review/refs-board-*.jpg` | **3** |
-| 6 Build | HyperFrames composition: builder subagents only: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
+| 6 Build | HyperFrames composition: builder subagents only, writing the set and its shot data (`shots.js`) rather than per-shot code: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
 | 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
 | 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md`; optional second-language cut: `final.<lang>.mp4` + `narration.<lang>.srt` (same storyboard, `beats_lint.mjs`) | — |
 
