@@ -8,7 +8,8 @@
 //                                                 -> approve 3 also runs storyboard_lint.mjs and records its result;
 //                                                    it refuses without review/benchmark.md, with a row there more
 //                                                    than 1 point behind the reference board, or with a verdict older
-//                                                    than the style frames
+//                                                    than the style frames; every approval also records the
+//                                                    token report (tokens.mjs → review/tokens.json)
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
 //        node state.mjs log "<step> | <output> | <problems or ->" [dir]
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
@@ -246,9 +247,14 @@ if (cmd === 'approve') {
     const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'storyboard_lint.mjs'), dir], { encoding: 'utf8' });
     lint = (r.stdout || '').match(/^\s*Result\s*:\s*(.+)$/m)?.[1].trim() || 'not checked';
   }
-  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }),...(note && { note }) };
+  // Every gate records the token report (tokens.mjs, review/tokens.json); like the lint it never blocks, and an
+  // unreadable transcript is "not checked".
+  const t = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'tokens.mjs'), dir], { encoding: 'utf8' });
+  const tokens = (t.stdout || '').match(/^Result: (.+)$/m)?.[1].trim() || 'not checked';
+  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }), tokens, ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
+  console.log(`Tokens: ${tokens}${t.status === 3 ? ' — WARN rows: node <skill-dir>/scripts/tokens.mjs' : ''}`);
   if (lint) console.log(`Storyboard lint: ${lint}`);
   if (bench) console.log(`Benchmark: ${bench.summary}`);
 } else if (cmd === 'log') {
