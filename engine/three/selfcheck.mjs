@@ -2643,9 +2643,10 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       p.group.position.x -= 0.5 / Mk; p.group.updateMatrixWorld(true);
       assert.ok(glyphPx(m, cam, 1080) >= READ_PX && legible(m, cam, 1080), "moved into the frame, its print reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
     }
-    // a print outside the frame is not read: the macro station on C3 does not show C2's rating, 17 mm away
-    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C3);
-      assert.equal(glyphPx(m, cam, 1080), 0, "C2's print is outside the frame framed on C3"); assert.ok(!legible(m, cam, 1080));
+    // a print outside the frame is not read: the macro station on the film capacitor C1 does not show C2's rating, 28 mm to the side
+    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C1);
+      assert.equal(glyphPx(m, cam, 1080), 0, "C2's print is outside the frame framed on C1"); assert.ok(!legible(m, cam, 1080));
+      placeCamera(cam, frame(p.parts.C3.body, { fov: 15.19 })); assert.ok(!legible(m, cam, 1080), "nor does the default three-quarter station on C3");
       macro(cam, p.parts.C2); assert.ok(legible(m, cam, 1080), "framed on C2 it reads");
     }
     // a print half out of the frame is not readable, the whole of it in the frame is

@@ -102,7 +102,8 @@ function electrolytic(sz, o) {
   const ls = lines(o.print ?? o.value), prints = printOn(body, ls, [0, h / 2, r], Z, 0.8 * d, 0.6 * h, 0.002, "pad");
   prints.push(...printOn(body, ["−", "−"], [r, h / 2, 0], [1, 0, 0], 0.8 * d, 0.6 * h, 0.0015, "pad")); // the polarity stripe on the side of the minus lead
   if (d >= 0.0063) prints.push({ target: body, icon: "vent", size: 0.6 * d, h: 0.0003, at: [0, h, 0], n: Y, style: "pad", ink: 0x44484c }); // the vent cross scored in the top
-  return { group: g, body, pins: [[-pitch / 2, 0], [pitch / 2, 0]], fp: [-r, r, -r, r], prints };
+  // pin 1 is the plus lead (-x), pin 2 the minus lead (+x): the stripe above is on the +x side
+  return { group: g, body, pins: [[-pitch / 2, 0], [pitch / 2, 0]], polarity: ["+", "-"], fp: [-r, r, -r, r], prints };
 }
 
 function film(sz, o) {
@@ -297,8 +298,15 @@ export function board({ at = new THREE.Vector3(), w, d, t = 0.0016, mask = "gree
     }
     marks.push(...partMarks);
     if (o.silk !== false) { const s = refText(ref, r, ax, az); if (s) partMarks.push(s); }
-    parts[ref] = { ref, group: g, body: part.body, extra: part.extra, type, size, value: o.value, rot, pins: local.map((p) => group.localToWorld(p.clone())), marks: partMarks, rings: part.rings, footprint: r };
+    parts[ref] = { ref, group: g, body: part.body, extra: part.extra, type, size, value: o.value, rot, get pins() { group.updateWorldMatrix(true, false); return local.map((p) => group.localToWorld(p.clone())); }, polarity: part.polarity ?? null, marks: partMarks, rings: part.rings, footprint: r };
     return parts[ref];
+  }
+
+  // polarity(ref, n): "+" or "-" for a pin of a polarised part (an electrolytic: pin 1 is plus, pin 2 minus, the stripe on
+  // the minus side), null for a part without polarity.
+  function polarity(ref, n) {
+    pin(ref, n);
+    return parts[ref].polarity?.[n - 1] ?? null;
   }
 
   // pin(ref, n): the world position of pin n (1-based) on the board's top.
@@ -324,10 +332,28 @@ export function board({ at = new THREE.Vector3(), w, d, t = 0.0016, mask = "gree
       return new THREE.Vector3(mm(q[0]) / M, (t + width / 2) / M, mm(q[1]) / M);
     });
     const w2 = wire(path, { kind: "trace", radius: width / 2 });
+    w2.pins = points.filter((q) => typeof q === "string"); // the pins it joins, "REF:n", for polarityClashes()
     group.add(w2.group); traces.push(w2);
     return w2;
   }
-  return { group, mesh, parts, traces, marks, place, pin, trace, print, silk };
+  return { group, mesh, parts, traces, marks, place, pin, polarity, trace, print, silk };
+}
+
+// polarityClashes(board, cables): the polarity mistakes of a board as sentences (an empty array = none). `cables` are the
+// cable() cores with a `pin` ("REF:n", the pin each leaves from; set by the caller) or { pin, conductor }. A trace joins its
+// pins into one net: a polarised pin (an electrolytic's plus or minus) and a dc cable core ("+" / "-") on it must all be of
+// the same sign; mains cores (L, N, PE) have none.
+export function polarityClashes(b, cables = []) {
+  const sign = (pinRef) => {
+    const [ref, n] = pinRef.split(":"), own = b.parts[ref] ? b.polarity(ref, Number(n)) : null;
+    return [own, ...cables.filter((c) => c.pin === pinRef).map((c) => (c.conductor === "+" || c.conductor === "-" ? c.conductor : null))].filter(Boolean);
+  };
+  const out = [];
+  for (const t of b.traces) {
+    const seen = t.pins.flatMap((p) => sign(p).map((s) => [p, s]));
+    if (new Set(seen.map(([, s]) => s)).size > 1) out.push(`trace ${t.pins.join(" - ")} joins both poles: ${seen.map(([p, s]) => `${p} is ${s}`).join(", ")}`);
+  }
+  return out;
 }
 const STYLE_PAD = 0.1; // the silkscreen margin (markings.js STYLES.silkscreen.pad)
 

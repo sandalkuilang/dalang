@@ -38,7 +38,8 @@ export function openPsu(k, { at = new THREE.Vector3(), mask = "green", prints = 
   // The warning sticker (ISO 7010 W012) in the free patch between the fuse and the film capacitor.
   b.print({ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, style: "sticker", at: [2.5, -6.5] });
 
-  // Copper traces along the layout, from pin to pin (the first leg runs on the board, a free point makes the corner).
+  // Copper traces along the layout, from pin to pin (the first leg runs on the board, a free point makes the corner). An
+  // electrolytic's pin 1 is its plus lead and pin 2 its minus (the stripe side): C3's plus goes to the dc plus terminal.
   const traces = [b.trace(["J1:1", [-31.5, -8], "F1:1"]), b.trace(["F1:2", "RV1:1"]), b.trace(["C2:1", [20, -3], "R1:2"]), b.trace(["C3:1", "J2:1"])];
 
   // Cables: out of the back of each terminal block, over the board edge, never lower than the board's top.
@@ -48,8 +49,10 @@ export function openPsu(k, { at = new THREE.Vector3(), mask = "green", prints = 
     const local = b.group.worldToLocal(pin.clone()), x = local.x * M * 1000, z = p.z0 * 1000;
     const curve = new THREE.CatmullRomCurve3([v(x, 5, z), v(x, 6, z - 6), v(x + run * 0.4, 9, z - 15), v(x + run, 12, z - 26)]);
     const c = cable(curve, { conductor }); b.group.add(c.group);
+    c.pin = `${ref}:${n}`; // for polarityClashes()
     return c;
   };
-  const cables = [lead("J1", 1, "L", -16), lead("J1", 2, "N", -6), lead("J2", 1, "-", 6), lead("J2", 2, "+", 16)];
+  // J2 pin 1 is the dc plus, the pin C3's plus lead (pin 1) is traced to above; pin 2 the dc minus.
+  const cables = [lead("J1", 1, "L", -16), lead("J1", 2, "N", -6), lead("J2", 1, "+", 6), lead("J2", 2, "-", 16)];
   return { group: b.group, board: b, parts: b.parts, marks: b.marks, cables, traces };
 }

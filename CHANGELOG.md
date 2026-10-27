@@ -468,17 +468,17 @@ that reads as:
   surface, lifted along the surface normal by the print's thickness (pad print, silkscreen, laser etch, paper sticker with
   a curled corner, never above 1.5 mm), so it follows a cylinder and is never flattened by the target's non-uniform scale;
   a print that overhangs the surface or wraps round an edge is refused; `wear` 0..1 rubs and chips it. `glyphPx(item,
-  camera, H)` is the on-screen cap height in px (0 for a print facing away) and `READ_PX` (12) the floor under which text
+  camera, H)` is the on-screen cap height in px (0 for a print facing away, or not wholly inside the frame; read where its mesh is now) and `READ_PX` (12) the floor under which text
   does not read; every print declares `userData.marking` for the detail check. `electronics.js`: `board()` (FR-4
   1.6 mm, a solder-mask colour, copper pads and traces built with `wire()`, silkscreen references), a `PARTS` catalogue at
   real dimensions with its source (radial electrolytic and film capacitors, resistors with `bands(ohms)` per IEC 60062,
   DIP-8 and TO-220 with its heatsink, a relay, a fuse in its holder, a disc varistor, screw terminals), parts placed by
   reference designator on the board (off the board, overlapping and a bad rotation refused), `pin()`, `trace()` through
   pins, `cable()` with the IEC 60445 conductor colours. `examples/psu.js` (`openPsu`): an opened small power supply.
-  `scaleAudit` measures a part without the ink printed on it. The self-check asserts a 2 mm print reads 85 px tall at a
-  macro station at 1080 px and not from 2 m, the size under a non-uniform parent scale, the lift, the wrap on a cylinder,
+  `scaleAudit` measures a part without the ink printed on it. The self-check asserts a 2 mm print reads at least 12 px tall at a
+  macro station at 1080 px and not from 2 m, not when it is out of the frame or on a board flipped or moved after it was printed, the size under a non-uniform parent scale, the lift, the wrap on a cylinder,
   every refusal, the icons and wear drawing through a recording canvas, every catalogue size within 1 % upright and
-  turned, the colour codes, placement, pins and traces, and the opened supply's references, sticker and cable colours.
+  turned, the colour codes, placement, pins and traces, the capacitor polarity (pin 1 plus, the stripe on the minus lead, `polarityClashes`), and the opened supply's references, sticker and cable colours.
   The reading floor and the proportions of a sans font are decisions, not standards.
 
 ### Changed
