@@ -2,6 +2,7 @@
 export * as THREE from "three";
 export { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 export { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+export { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 export { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 export { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 export { mergeVertices, toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";

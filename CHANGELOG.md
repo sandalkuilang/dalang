@@ -47,6 +47,25 @@ that reads as:
   three style frames and the view offset that sets the subject low. The self-check proves every text of the three
   frames is inside the safe area.
 
+- **A CC0 3D-model source rung** (`find_media.mjs --type model`): real anatomy fast instead of modelling a made object
+  part by part. It searches Poly Haven, Smithsonian Open Access 3D (CC0 items only, joined by exact title to the Open
+  Access record, and only when that title is one-to-one: several scans or several records sharing a title are dropped
+  and counted apart, never licensed by another object's record; the join is one check, and it holds only in an answer
+  that states its full match count as the rows it sent, so an answer with no count, or a count it cannot read, is a WARN
+  to rerun, never a listed CC0), NASA 3D Resources (public domain, read from the repo's own README) and Kenney (CC0, read from the pack
+  page; the `.glb` entries are read out of the pack's zip by name, nothing is extracted to disk). Each licence is read
+  from its source, never assumed: NC, ND, "usage conditions" and unknown are dropped, an unreadable source is a WARN to
+  rerun (exit 3), never "nothing matched"; a missing `unzip` (Kenney) is said as a missing tool that a rerun will not fix
+  (exit 3 when nothing else was found), with use another source or ask the user before installing, never "did not answer".
+  It prints the size on disk, the triangle count and the size the source
+  states, and makes a contact sheet from the sources' thumbnails; an included file with an unsafe path, or one that is not texture data (jpg, png, webp, bin, ktx2, mtl), skips its model,
+  and `--take` refuses an include that would replace a different file already in the project.
+  `--take ... --as assets/models/<name>.glb` writes the `ASSETS.json` rows (a `.gltf`'s textures each get one) and
+  prints the `kit.model` line. `kit.model(path, { palette, kinds, real })` gives a found model its own palette and
+  surface kinds, merged over the kit's, and its stated size, which `scaleAudit` checks (none: listed unchecked);
+  Draco-compressed glTF loads (Smithsonian ships only that; the decoder is copied by `build.mjs` and listed in
+  `.engine.json`, Apache-2.0). `visual-direction.md` sourcing ladder: a made object with internal anatomy tries a CC0
+  model before modelling by hand. Cases 20-27 of `tests/find-media.mjs`; a self-check case for the engine side.
 - **Gate 3 benchmark** (`review.md` "Benchmark review", `measure_reference.sh` reference board, `state.mjs approve 3`):
   the style frames are scored side by side against a reference board by a fresh subagent, 1-5 on seven rows (detail
   density, material truth, light and shadow, text system, overlays caused by physics, framing, macro quality), text

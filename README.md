@@ -183,7 +183,7 @@ scripts/
   layout_lint.mjs      canvas text boxes per strip frame: safe area, hero overlap, minimum size, caption over label (strips.mjs runs it)
   golden.mjs           golden scene rendered per version: metrics + sheet + diff against the previous (release time)
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
-  find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
+  find_media.mjs       free media search (Openverse, Commons, bundled SFX, CC0 3D models) → previews + ASSETS.json row
   check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
   score_run.mjs        one project's scorecard for evals (incl. the quiz score)
   measure_reference.sh cuts, boil rate, contact sheets, palette, reference board

@@ -9,7 +9,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const find = fileURLToPath(new URL("../scripts/find_media.mjs", import.meta.url));
@@ -25,7 +25,7 @@ function mock(routes) {
     seen.push(req.url);
     const [code, body, headers = {}] = routes(u, seen.filter((s) => s.startsWith(u.pathname)).length, `http://127.0.0.1:${srv.address().port}`);
     res.writeHead(code, { "content-type": "application/json", ...headers });
-    res.end(typeof body === "string" ? body : JSON.stringify(body));
+    res.end(Buffer.isBuffer(body) || typeof body === "string" ? body : JSON.stringify(body));
   });
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok({ srv, seen, base: `http://127.0.0.1:${srv.address().port}` })));
 }
@@ -411,6 +411,363 @@ await test("19. the implicit music --min-duration never rejects a smaller --max-
   const r3 = await run(["--type", "music", "--query", "jingle", "--min-duration", "30", "--max-duration", "10", "--out", dir("implicit3")], env(m));
   assert.equal(r3.code, 2); assert.match(r3.out, /--min-duration is longer than --max-duration/);
 }));
+
+// ── 3D models (--type model): Poly Haven (CC0), Smithsonian Open Access 3D (CC0 items only) ───────────────────────────────
+// Two triangles, materials "Body" and "Trim"; one triangle per primitive; 1 unit tall.
+function glb() {
+  const pos = new Float32Array([0,0,0, 1,0,0, 0,1,0,  0,0,1, 1,0,1, 0,1,1]), idx = new Uint16Array([0,1,2, 0,0,0]);
+  const bin = Buffer.concat([Buffer.from(pos.buffer), Buffer.from(idx.buffer, 0, 6), Buffer.alloc(2)]);
+  const acc = (o, c, min, max) => ({ bufferView: 0, byteOffset: o, componentType: 5126, count: c, type: "VEC3", min, max });
+  const json = { asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0, 1] }],
+    nodes: [{ mesh: 0, name: "body" }, { mesh: 1, name: "trim" }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 2, material: 0 }] },
+             { primitives: [{ attributes: { POSITION: 1 }, indices: 2, material: 1 }] }],
+    materials: [{ name: "Body", pbrMetallicRoughness: { baseColorFactor: [1, 0, 0, 1] } }, { name: "Trim" }],
+    buffers: [{ byteLength: bin.length }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: bin.length }],
+    accessors: [acc(0, 3, [0,0,0], [1,1,0]), acc(36, 3, [0,0,1], [1,1,1]),
+                { bufferView: 0, byteOffset: 72, componentType: 5123, count: 3, type: "SCALAR" }] };
+  let j = Buffer.from(JSON.stringify(json)); j = Buffer.concat([j, Buffer.alloc((4 - (j.length % 4)) % 4, 0x20)]);
+  const head = Buffer.alloc(12); head.write("glTF", 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + j.length + 8 + bin.length, 8);
+  const ch = (b, t) => { const h = Buffer.alloc(8); h.writeUInt32LE(b.length, 0); h.write(t, 4); return Buffer.concat([h, b]); };
+  return Buffer.concat([head, ch(j, "JSON"), ch(bin, "BIN\0")]);
+}
+const GLTF_JSON = JSON.stringify({ asset: { version: "2.0" }, meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
+  accessors: [{ componentType: 5126, count: 3, type: "VEC3", min: [0, 0, 0], max: [1, 1, 0] }, { componentType: 5123, count: 3, type: "SCALAR" }] });
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+const ffmpegOk = await new Promise((ok) => execFile("ffmpeg", ["-version"], (e) => ok(!e)));
+// Poly Haven: /ph/assets, /ph/files/<id>, /ph/license; the model files /m/*; Smithsonian 3D: /si3d/..., Open Access: /sioa/search.
+const modelRoutes = (o = {}) => (u, _n, base) => {
+  const p = u.pathname;
+  if (p === "/ph/license") return [200, o.license ?? "<html><body>All assets are CC0 (public domain)</body></html>", { "content-type": "text/html" }];
+  if (p === "/ph/assets") return [200, {
+    coffee_table: { name: "Coffee Table", tags: ["table", "wood"], categories: ["furniture"], authors: { "Jane Doe": "All" }, polycount: 1000, dimensions: [1540, 973, 523], thumbnail_url: `${base}/thumbs/t1.png` },
+    rubber_duck: { name: "Rubber Duck", tags: ["toy"], categories: ["props"], authors: { Joe: "All" }, polycount: 500, dimensions: [100, 100, 100], thumbnail_url: `${base}/thumbs/t2.png` } }];
+  if (p === "/ph/files/coffee_table") return [200, { gltf: { "1k": { gltf: { url: `${base}/m/a.gltf`, include: { [o.rel ?? "textures/a_diff_1k.jpg"]: { url: `${base}/files/a_diff.jpg` } } } } } }];
+  if (p === "/m/a.gltf") return [200, Buffer.from(GLTF_JSON), { "content-type": "model/gltf+json" }];
+  if (p === "/m/b.glb") return [200, glb(), { "content-type": "model/gltf-binary" }];
+  if (p.startsWith("/thumbs/")) return [200, PNG, { "content-type": "image/png" }];
+  if (p === "/si3d/content/file/search") {
+    const row = (title, file, quality, url, drc = false) => ({ title, content: { uri: `${base}${url}`, quality, file_type: "glb", draco_compressed: drc, model_url: `https://3d.si.edu/object/3d/${file}` } });
+    if (o.si3dRows) return [200, { rows: o.si3dRows(row) }];
+    return [200, { rows: [
+      row("Steam Engine Model", "steam-engine", "High", "/m/b-high.glb", true), row("Steam Engine Model", "steam-engine", "Medium", "/m/b.glb", true), row("Steam Engine Model", "steam-engine", "Thumb", "/m/b-thumb.glb"),
+      row("Steam Pump", "steam-pump", "Medium", "/m/b.glb"), row("Steam Gauge", "steam-gauge", "Medium", "/m/b.glb")] }];
+  }
+  if (p === "/sioa/search") {
+    if (o.oa500) return [500, {}];
+    const q = (u.searchParams.get("q") ?? "").replace(/"/g, "");
+    const oa = (title, access, rec = "steam-engine:nmah_1") => ({ title, content: { descriptiveNonRepeating: { title: { content: title }, metadata_usage: { access }, record_link: `https://www.si.edu/object/${rec}`, online_media: { media: [{ thumbnail: `${base}/thumbs/t1.png` }] } }, freetext: { dataSource: [{ label: "Data Source", content: "National Museum of American History" }] } } });
+    // the real API states its full match count (rowCount); a route gives "rowCount" to override it (undefined = the field is left out)
+    const answer = (rows) => [200, { response: { rows, rowCount: "rowCount" in o ? o.rowCount : rows.length } }];
+    if (o.oaRows) return answer(o.oaRows(oa, q));
+    return answer(q === "Steam Engine Model" ? [oa("Steam Engine Model", "CC0")] : q === "Steam Pump" ? [oa("Steam Pump", "Usage conditions apply")] : q === "Steam Gauge" ? [oa("Steam Gauge Large", "CC0")] : []);
+  }
+  return [404, {}];
+};
+const menv = (m) => ({ ...env(m), POLYHAVEN_API: `${m.base}/ph`, POLYHAVEN_LICENSE_URL: `${m.base}/ph/license`, SI_3D_API: `${m.base}/si3d`, SI_OA_API: `${m.base}/sioa` });
+const readRes = (d) => JSON.parse(fs.readFileSync(path.join(d, "results.json"), "utf8"));
+
+await test("20. --type model, Poly Haven: the licence is read from its page; line shows CC0, author, triangles, stated size; the gltf's texture is downloaded; contact sheet", async () => withMock(modelRoutes(), async (m) => {
+  const out = dir("ph");
+  const r = await run(["--type", "model", "--query", "coffee table", "--source", "polyhaven", "--out", out], menv(m));
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /01-coffee-table\.gltf · Coffee Table · CC0 · Jane Doe · /);
+  assert.match(r.out, /1 tris/); assert.match(r.out, /size 1\.54×0\.523×0\.973 m \(stated\)/);
+  assert.doesNotMatch(r.out, /Rubber Duck/);
+  const res = readRes(out);
+  assert.equal(res.length, 1); assert.equal(res[0].kind, "model"); assert.deepEqual(res[0].includes, ["textures/a_diff_1k.jpg"]);
+  assert.deepEqual(res[0].size, { w: 1.54, d: 0.973, h: 0.523 });
+  assert.ok(fs.existsSync(path.join(out, "textures", "a_diff_1k.jpg")));
+  assert.ok(m.seen.some((s) => /\/ph\/license/.test(s)), "licence page not read");
+  if (ffmpegOk) { assert.ok(fs.existsSync(path.join(out, "contact.jpg")), r.out); assert.match(r.out, /contact sheet: .*contact\.jpg/); }
+}));
+
+await test("21. --type model, Smithsonian: only an item whose Open Access record says CC0 is listed (Draco noted); a 'Usage conditions' item and one with no exact record are dropped and counted; the Medium file is the one fetched", async () => withMock(modelRoutes(), async (m) => {
+  const out = dir("si");
+  const r = await run(["--type", "model", "--query", "steam", "--source", "smithsonian", "--out", out], menv(m));
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(titles(out), ["Steam Engine Model"]);
+  assert.match(r.out, /Steam Engine Model · CC0 · National Museum of American History · .* · 2 tris · size unchecked \(no stated size\)/);
+  assert.match(r.out, /Draco/); assert.match(r.out, /2 Smithsonian item\(s\) dropped: licence not CC0 or not readable/);
+  assert.doesNotMatch(r.out, /Steam Pump|Steam Gauge/);
+  assert.ok(m.seen.every((s) => !/b-high|b-thumb/.test(s)), m.seen.join(" "));
+  const res = readRes(out);
+  assert.equal(res[0].file, "01-steam-engine-model.glb"); assert.equal(res[0].landing, "https://www.si.edu/object/steam-engine:nmah_1");
+  assert.deepEqual(res[0].includes, []);
+}));
+
+await test("21b. Smithsonian: the licence is joined to a scan only through ONE record of that title; two records (or two scans) with one title, or a result window too short to prove it, drop the item and never list the other object's CC0 record", async () => {
+  const bowl = (row) => [row("Bowl", "scanned-bowl", "Medium", "/m/b.glb")];
+  const run1 = async (routes, label) => withMock(routes, async (m) => {
+    const out = dir("si-" + label);
+    return { out, r: await run(["--type", "model", "--query", "bowl", "--source", "smithsonian", "--out", out], menv(m)) };
+  });
+  // two Open Access rows titled "Bowl": a CC0 one of ANOTHER object first, the scan's own record (usage conditions) second
+  let x = await run1(modelRoutes({ si3dRows: bowl, oaRows: (oa) => [oa("Bowl", "CC0", "OTHER-bowl"), oa("Bowl", "Usage conditions apply", "SCANNED-bowl")] }), "dup");
+  assert.equal(x.r.code, 1, x.r.out); assert.doesNotMatch(x.r.out, /OTHER-bowl|01-bowl|· CC0 ·/);
+  assert.match(x.r.out, /1 Smithsonian item\(s\) dropped: .*share a title/); assert.ok(!fs.existsSync(path.join(x.out, "results.json")));
+  // the same two records the other way round must drop it as well (order never decides a licence)
+  x = await run1(modelRoutes({ si3dRows: bowl, oaRows: (oa) => [oa("Bowl", "Usage conditions apply", "SCANNED-bowl"), oa("Bowl", "CC0", "OTHER-bowl")] }), "dup2");
+  assert.equal(x.r.code, 1, x.r.out); assert.doesNotMatch(x.r.out, /OTHER-bowl|· CC0 ·/);
+  // two scans with one title against ONE CC0 record: neither is proven to be that record's object
+  x = await run1(modelRoutes({ si3dRows: (row) => [row("Bowl", "bowl-a", "Medium", "/m/b.glb"), row("Bowl", "bowl-b", "Medium", "/m/b.glb")], oaRows: (oa) => [oa("Bowl", "CC0", "bowl-rec")] }), "twoscans");
+  assert.equal(x.r.code, 1, x.r.out); assert.doesNotMatch(x.r.out, /· CC0 ·/);
+  // a result window shorter than the match count cannot prove the title is unique
+  x = await run1(modelRoutes({ si3dRows: bowl, rowCount: 400, oaRows: (oa) => [oa("Bowl", "CC0", "SCANNED-bowl")] }), "window");
+  assert.equal(x.r.code, 1, x.r.out); assert.doesNotMatch(x.r.out, /· CC0 ·/);
+  // legitimate: one exact-title record among other, longer titles (a phrase match) is the item's record and is listed with its own link
+  x = await run1(modelRoutes({ si3dRows: bowl, rowCount: 2, oaRows: (oa) => [oa("Bowl, Sugar", "CC0", "sugar-bowl"), oa("Bowl", "CC0", "SCANNED-bowl")] }), "ok");
+  assert.equal(x.r.code, 0, x.r.out);
+  assert.match(x.r.out, /01-bowl\.glb · Bowl · CC0 · .* · https:\/\/www\.si\.edu\/object\/SCANNED-bowl/); assert.doesNotMatch(x.r.out, /sugar-bowl|dropped/);
+  // a FULL window (the 100 rows asked for) with no stated count: the scan's own record could be row 101, so the CC0 row of
+  // another object at row 0 proves nothing - unknown completeness is a WARN + rerun, never a listed CC0
+  const full = (oa) => [oa("Bowl", "CC0", "OTHER-bowl"), ...Array.from({ length: 99 }, (_, i) => oa(`Bowl, ${i + 1}`, "CC0", `bowl-${i + 1}`))];
+  x = await run1(modelRoutes({ si3dRows: bowl, rowCount: undefined, oaRows: full }), "nocount");
+  assert.equal(x.r.code, 3, x.r.out); assert.doesNotMatch(x.r.out, /OTHER-bowl|01-bowl|· CC0 ·|nothing matched/);
+  assert.match(x.r.out, /WARN: Smithsonian Open Access stated no full result count .*rerun/i); assert.ok(!fs.existsSync(path.join(x.out, "results.json")));
+  // legitimate on the other side: the same full window with its count stated (100 = all of it) proves the one "Bowl" row unique
+  x = await run1(modelRoutes({ si3dRows: bowl, rowCount: 100, oaRows: full }), "fullcount");
+  assert.equal(x.r.code, 0, x.r.out); assert.match(x.r.out, /01-bowl\.glb · Bowl · CC0 · .* · https:\/\/www\.si\.edu\/object\/OTHER-bowl/);
+});
+
+await test("21c. Smithsonian, the class: a licence joins by title only through ONE check, and only a whole-number count equal to the rows sent proves the window - a missing, text, fractional, negative or too-small count never lists a CC0", async () => {
+  const bowl = (row) => [row("Bowl", "scanned-bowl", "Medium", "/m/b.glb")];
+  const one = (oa) => [oa("Bowl", "CC0", "OTHER-bowl")];
+  for (const [label, rowCount] of [["missing", undefined], ["null", null], ["text", "1"], ["frac", 1.5], ["neg", -1], ["zero", 0], ["nan", "NaN"], ["obj", { n: 1 }]]) {
+    await withMock(modelRoutes({ si3dRows: bowl, rowCount, oaRows: one }), async (m) => {
+      const out = dir("si-cls-" + label);
+      const r = await run(["--type", "model", "--query", "bowl", "--source", "smithsonian", "--out", out], menv(m));
+      assert.equal(r.code, 3, `${label}: ${r.out}`); assert.doesNotMatch(r.out, /OTHER-bowl|· CC0 ·|nothing matched/, label);
+      assert.match(r.out, /WARN: Smithsonian Open Access stated no full result count/, label);
+    });
+  }
+  // legitimate: the count stated as the number of rows sent lists the one record, with its own link
+  await withMock(modelRoutes({ si3dRows: bowl, rowCount: 1, oaRows: one }), async (m) => {
+    const out = dir("si-cls-ok");
+    const r = await run(["--type", "model", "--query", "bowl", "--source", "smithsonian", "--out", out], menv(m));
+    assert.equal(r.code, 0, r.out); assert.match(r.out, /01-bowl\.glb · Bowl · CC0 · .* · https:\/\/www\.si\.edu\/object\/OTHER-bowl/);
+  });
+  // the one choke point: the licence join is written once, and every Smithsonian listing passes through it
+  const src = fs.readFileSync(find, "utf8");
+  assert.equal((src.match(/function joinOneToOne\(/g) ?? []).length, 1, "joinOneToOne must be defined once");
+  assert.equal((src.match(/rowCount/g) ?? []).length, 1, "rowCount must be read in one place only (inside joinOneToOne)");
+  assert.doesNotMatch(src, /rows\.find\(/, "a licence row is never picked by find(): first match wins");
+});
+
+await test("22. a licence that cannot be read is a WARN + rerun (exit 3), never 'nothing matched' and never a guessed CC0", async () => {
+  await withMock(modelRoutes({ license: "<html>Licences vary</html>" }), async (m) => {
+    const out = dir("ph-nolic");
+    const r = await run(["--type", "model", "--query", "coffee table", "--source", "polyhaven", "--out", out], menv(m));
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: polyhaven did not answer .*rerun/); assert.doesNotMatch(r.out, /nothing matched/);
+    assert.ok(!fs.existsSync(path.join(out, "results.json")));
+  });
+  await withMock(modelRoutes({ oa500: true }), async (m) => {
+    const out = dir("si-500");
+    const r = await run(["--type", "model", "--query", "steam", "--source", "smithsonian", "--out", out], menv(m));
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: smithsonian did not answer .*rerun/); assert.doesNotMatch(r.out, /nothing matched|CC0/);
+    assert.ok(!fs.existsSync(path.join(out, "results.json")));
+  });
+});
+
+await test("23. an included file with an unsafe path (.., absolute, backslash) skips that model with a WARN and writes nothing outside --out", async () => {
+  for (const rel of ["../evil.jpg", "/abs-evil.jpg", "a\\b.jpg", "textures/../../evil.jpg"]) {
+    await withMock(modelRoutes({ rel }), async (m) => {
+      const out = dir("unsafe");
+      const r = await run(["--type", "model", "--query", "coffee table", "--source", "polyhaven", "--out", out], menv(m));
+      assert.equal(r.code, 3, `${rel}: ${r.out}`); assert.match(r.out, /WARN: "Coffee Table": an included file has an unsafe path/);
+      assert.ok(!fs.existsSync(path.join(out, "..", "evil.jpg")), rel); assert.ok(!fs.existsSync("/abs-evil.jpg"));
+      assert.deepEqual(fs.readdirSync(out), [], `${rel}: ${fs.readdirSync(out)}`);
+    });
+  }
+});
+
+await test("24. --take of a model: a .gltf brings its textures, one ASSETS.json row each, check_assets passes; the kit.model hint carries the stated size; no size says to declare real; a missing texture is exit 2 with no row", async () => withMock(modelRoutes(), async (m) => {
+  const out = dir("take-ph"), proj = dir("proj");
+  assert.equal((await run(["--type", "model", "--query", "coffee table", "--source", "polyhaven", "--out", out], menv(m))).code, 0);
+  const t = await run(["--take", path.join(out, "01-coffee-table.gltf"), "--as", "assets/models/a.gltf", "--project", proj]);
+  assert.equal(t.code, 0, t.out);
+  const rows = JSON.parse(fs.readFileSync(path.join(proj, "ASSETS.json"), "utf8"));
+  assert.deepEqual(rows.map((x) => x.file).sort(), ["assets/models/a.gltf", "assets/models/textures/a_diff_1k.jpg"]);
+  for (const x of rows) { assert.equal(x.licence, "CC0"); assert.equal(x.source, "https://polyhaven.com/a/coffee_table"); }
+  assert.ok(fs.existsSync(path.join(proj, "assets/models/textures/a_diff_1k.jpg")));
+  assert.match(t.out, /kit\.model\("assets\/models\/a\.gltf", \{ palette, kinds, real: \{ h: 0\.523, w: 1\.54, d: 0\.973 \} \}\)/);
+  const c = await runCheck(proj); assert.equal(c.code, 0, c.out);
+  // Smithsonian: no stated size
+  const out2 = dir("take-si"), proj2 = dir("proj2");
+  assert.equal((await run(["--type", "model", "--query", "steam", "--source", "smithsonian", "--out", out2], menv(m))).code, 0);
+  const t2 = await run(["--take", path.join(out2, "01-steam-engine-model.glb"), "--as", "assets/models/engine.glb", "--project", proj2]);
+  assert.equal(t2.code, 0, t2.out); assert.match(t2.out, /kit\.model\("assets\/models\/engine\.glb", \{ palette, kinds \}\)/); assert.match(t2.out, /no stated size/);
+  assert.equal((await runCheck(proj2)).code, 0);
+  // a texture deleted from the review folder: refuse before any copy
+  fs.rmSync(path.join(out, "textures", "a_diff_1k.jpg"));
+  const proj3 = dir("proj3");
+  const t3 = await run(["--take", path.join(out, "01-coffee-table.gltf"), "--as", "assets/models/a.gltf", "--project", proj3]);
+  assert.equal(t3.code, 2, t3.out); assert.match(t3.out, /re-download/);
+  assert.ok(!fs.existsSync(path.join(proj3, "ASSETS.json")) && !fs.existsSync(path.join(proj3, "assets/models/a.gltf")));
+  // an included file that is not texture data, or that would replace a different file already there: refused, nothing written
+  const rj = path.join(out, "results.json"), rows0 = JSON.parse(fs.readFileSync(rj, "utf8"));
+  fs.writeFileSync(path.join(out, "textures", "a_diff_1k.jpg"), "tex");
+  const t5dir = dir("proj5"); fs.mkdirSync(path.join(t5dir, "assets/models/textures"), { recursive: true });
+  fs.writeFileSync(path.join(t5dir, "assets/models/textures/a_diff_1k.jpg"), "someone else's texture");
+  const t5 = await run(["--take", path.join(out, "01-coffee-table.gltf"), "--as", "assets/models/a.gltf", "--project", t5dir]);
+  assert.equal(t5.code, 2, t5.out); assert.match(t5.out, /would replace a different file/);
+  assert.ok(!fs.existsSync(path.join(t5dir, "ASSETS.json")) && !fs.existsSync(path.join(t5dir, "assets/models/a.gltf")));
+  fs.writeFileSync(path.join(out, "kit.js"), "export {}");
+  for (const r of rows0) if (r.kind === "model") r.includes = [...r.includes, "kit.js"];
+  fs.writeFileSync(rj, JSON.stringify(rows0));
+  const t6 = await run(["--take", path.join(out, "01-coffee-table.gltf"), "--as", "assets/models/a.gltf", "--project", dir("proj6")]);
+  assert.equal(t6.code, 2, t6.out); assert.match(t6.out, /not texture data/);
+  assert.ok(!fs.existsSync(path.join(dir("proj6"), "assets")), "nothing copied");
+  // the same file already there (a second take) still passes
+  fs.writeFileSync(rj, JSON.stringify(rows0.map((r) => r.kind === "model" ? { ...r, includes: r.includes.filter((i) => i !== "kit.js") } : r)));
+  const t7dir = dir("proj7"); fs.mkdirSync(path.join(t7dir, "assets/models/textures"), { recursive: true });
+  fs.writeFileSync(path.join(t7dir, "assets/models/textures/a_diff_1k.jpg"), "tex");
+  assert.equal((await run(["--take", path.join(out, "01-coffee-table.gltf"), "--as", "assets/models/a.gltf", "--project", t7dir])).code, 0);
+  // a different extension than the file's is refused
+  const t4 = await run(["--take", path.join(out2, "01-steam-engine-model.glb"), "--as", "assets/models/engine.gltf", "--project", dir("proj4")]);
+  assert.equal(t4.code, 2, t4.out); assert.match(t4.out, /extension/);
+}));
+
+await test("25. usage: a model source is refused for other types and the other way round", async () => withMock(modelRoutes(), async (m) => {
+  assert.equal((await run(["--type", "model", "--query", "x", "--source", "openverse", "--out", dir("u3")], menv(m))).code, 2);
+  assert.equal((await run(["--type", "image", "--query", "x", "--source", "polyhaven", "--out", dir("u4")], menv(m))).code, 2);
+  assert.equal((await run(["--type", "model", "--query", "x", "--source", "nope", "--out", dir("u5")], menv(m))).code, 2);
+}));
+
+// ── NASA 3D Resources (public domain by the repo README) and Kenney (CC0 by the pack page; zip read by entry name) ───────────
+const crc32 = (b) => { let c, crc = 0xffffffff; for (let i = 0; i < b.length; i++) { c = (crc ^ b[i]) & 0xff; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1; crc = (crc >>> 8) ^ c; } return (crc ^ 0xffffffff) >>> 0; };
+// A stored (uncompressed) zip: [{ name, data }] -> Buffer.
+function zip(entries) {
+  const loc = [], cen = []; let off = 0;
+  for (const { name, data } of entries) {
+    const n = Buffer.from(name), crc = crc32(data);
+    const l = Buffer.alloc(30); l.writeUInt32LE(0x04034b50, 0); l.writeUInt16LE(20, 4); l.writeUInt32LE(crc, 14); l.writeUInt32LE(data.length, 18); l.writeUInt32LE(data.length, 22); l.writeUInt16LE(n.length, 26);
+    const c = Buffer.alloc(46); c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6); c.writeUInt32LE(crc, 16); c.writeUInt32LE(data.length, 20); c.writeUInt32LE(data.length, 24); c.writeUInt16LE(n.length, 28); c.writeUInt32LE(off, 42);
+    loc.push(l, n, data); cen.push(c, n); off += 30 + n.length + data.length;
+  }
+  const cd = Buffer.concat(cen), e = Buffer.alloc(22); e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(entries.length, 8); e.writeUInt16LE(entries.length, 10); e.writeUInt32LE(cd.length, 12); e.writeUInt32LE(off, 16);
+  return Buffer.concat([...loc, cd, e]);
+}
+const unzipOk = !spawnSync("unzip", ["-v"]).error;
+const nasaRoutes = (o = {}) => (u) => {
+  const p = decodeURIComponent(u.pathname);
+  if (p === "/nasa/README.md") return [200, o.readme ?? "# NASA 3D Resources\nThese assets are free and without copyright.", { "content-type": "text/plain" }];
+  if (p === "/nasa-tree") {
+    const b = (x) => ({ path: x, type: "blob", size: 100 });
+    return [200, { truncated: !!o.truncated, tree: [{ path: "3D Models", type: "tree" }, b("3D Models/Pump Station/pump.glb"), b("3D Models/Pump Station/pump.obj"), b("3D Models/Pump Station/pump.png"),
+      b("3D Models/Rocket/rocket.stl"), b("3D Models/Saturn V/saturn.glb"), b("docs/pump.glb"), b("3D Models/../pump-evil/pump.glb")] }];
+  }
+  if (p === "/nasa/3D Models/Pump Station/pump.glb") return [200, glb(), { "content-type": "model/gltf-binary" }];
+  if (p === "/nasa/3D Models/Pump Station/pump.png") return [200, PNG, { "content-type": "image/png" }];
+  return [404, {}];
+};
+const nenv = (m) => ({ ...env(m), NASA_RAW: `${m.base}/nasa`, NASA_TREE_API: `${m.base}/nasa-tree` });
+
+await test("26. --type model, NASA: the licence is the repo README's statement (PD, author NASA, the .glb and its folder thumbnail); other folders and files outside '3D Models/' are not hits; a README without the statement is a WARN + rerun, never a guessed licence; --take row passes check_assets; the endorsement note prints", async () => {
+  await withMock(nasaRoutes(), async (m) => {
+    const out = dir("nasa");
+    const r = await run(["--type", "model", "--query", "pump", "--source", "nasa", "--out", out], nenv(m));
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /01-pump-station\.glb · Pump Station · PD · NASA · .* · 2 tris · size unchecked/);
+    assert.match(r.out, /NASA: no NASA logo or insignia may imply endorsement/);
+    assert.doesNotMatch(r.out, /Saturn|Rocket|evil/);   // "3D Models/../pump-evil/..." starts with '3D Models/' and matches the query: only the unsafe-path filter drops it
+    const res = readRes(out);
+    assert.equal(res.length, 1); assert.equal(res[0].licence, "PD"); assert.equal(res[0].landing, "https://github.com/nasa/NASA-3D-Resources/tree/master/3D%20Models/Pump%20Station");
+    if (ffmpegOk) assert.ok(fs.existsSync(path.join(out, "contact.jpg")), r.out);
+    const proj = dir("proj-nasa");
+    const t = await run(["--take", path.join(out, "01-pump-station.glb"), "--as", "assets/models/pump.glb", "--project", proj]);
+    assert.equal(t.code, 0, t.out);
+    const rows = JSON.parse(fs.readFileSync(path.join(proj, "ASSETS.json"), "utf8"));
+    assert.equal(rows.length, 1); assert.equal(rows[0].licence, "PD"); assert.equal(rows[0].author, "NASA");
+    assert.equal((await runCheck(proj)).code, 0);
+  });
+  await withMock(nasaRoutes({ readme: "# NASA 3D Resources\nSee the licence file." }), async (m) => {
+    const out = dir("nasa-nolic");
+    const r = await run(["--type", "model", "--query", "pump", "--source", "nasa", "--out", out], nenv(m));
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: nasa did not answer .*rerun/); assert.doesNotMatch(r.out, /nothing matched|NASA: no NASA logo/);
+    assert.ok(!fs.existsSync(path.join(out, "results.json")));
+  });
+  await withMock(nasaRoutes({ truncated: true }), async (m) => {
+    const r = await run(["--type", "model", "--query", "pump", "--source", "nasa", "--out", dir("nasa-trunc")], nenv(m));
+    assert.equal(r.code, 0, r.out); assert.match(r.out, /WARN: NASA list truncated/);
+  });
+  await withMock(() => [403, {}], async (m) => {
+    const r = await run(["--type", "model", "--query", "pump", "--source", "nasa", "--out", dir("nasa-403")], nenv(m));
+    assert.equal(r.code, 3, r.out); assert.doesNotMatch(r.out, /nothing matched/);
+  });
+});
+
+const kenneyRoutes = (o = {}) => (u, _n, base) => {
+  const p = u.pathname;
+  const asset = (slug, title) => `<div class='asset'><a href='${base}/k/assets/${slug}'><div class='cover'></div></a><h2><a href='${base}/k/assets/${slug}'>${title}</a></h2></div>`;
+  if (p === "/k/assets/category:3D") return [200, o.listing ?? `<html><a href='${base}/k/assets/category:3D/page:2'>2</a>${asset("pump-kit", "Pump Kit")}${asset("tree-kit", "Tree Kit")}</html>`, { "content-type": "text/html" }];
+  if (p === "/k/assets/category:3D/page:2") return [200, `<html>${asset("pump-parts", "Pump Parts")}</html>`, { "content-type": "text/html" }];
+  if (p === "/k/assets/pump-kit") return [200, `<html><meta property='og:image'\tcontent='${base}/thumbs/k.png' /><table><tr><td>License:</td><td><a href='https://creativecommons.org/publicdomain/zero/1.0/'>Creative Commons CC0</a></td></tr></table><a href='${base}/k/media/pages/assets/pump-kit/abc/kenney_pump-kit.zip'>Download</a></html>`, { "content-type": "text/html" }];
+  if (p === "/k/assets/tree-kit") return [200, `<html>License: <a href='https://creativecommons.org/licenses/by-nc/4.0/'>CC BY-NC</a></html>`, { "content-type": "text/html" }];
+  if (p === "/k/assets/pump-parts") return [200, `<html>License: <a href='https://creativecommons.org/licenses/by-nc/4.0/'>CC BY-NC</a><a href='${base}/k/media/pages/assets/pump-parts/abc/kenney_pump-parts.zip'>Download</a></html>`, { "content-type": "text/html" }];
+  if (p === "/k/media/pages/assets/pump-kit/abc/kenney_pump-kit.zip") return [200, zip([{ name: "Models/GLB format/pump.glb", data: glb() }, { name: "Models/GLB format/valve.glb", data: glb() }, { name: "../evil.glb", data: glb() }, { name: "../pump-evil.glb", data: glb() }, { name: "License.txt", data: Buffer.from("CC0") }]), { "content-type": "application/zip" }];
+  if (p === "/thumbs/k.png") return [200, PNG, { "content-type": "image/png" }];
+  return [404, {}];
+};
+const kenv = (m) => ({ ...env(m), KENNEY_SITE: `${m.base}/k` });
+
+await test("27. --type model, Kenney: a pack is a hit by name, its CC0 licence is read from the pack page (a pack without the CC0 link is counted, never downloaded or listed); the .glb entry is picked by name from the zip and read to stdout, an entry with '..' is never read; --take row passes check_assets", async () => {
+  if (!unzipOk) { console.log("27. skipped: unzip is not on PATH"); return; }
+  await withMock(kenneyRoutes(), async (m) => {
+    const out = dir("kenney");
+    const r = await run(["--type", "model", "--query", "pump", "--source", "kenney", "--out", out], kenv(m));
+    assert.equal(r.code, 0, r.out);
+    assert.deepEqual(titles(out), ["Pump Kit: pump"]);
+    assert.match(r.out, /01-pump-kit-pump\.glb · Pump Kit: pump · CC0 · Kenney \(kenney\.nl\) · .* · 2 tris · size unchecked/);
+    assert.match(r.out, /1 Kenney pack\(s\) dropped: licence not CC0 or not readable/);
+    assert.doesNotMatch(r.out, /valve|evil|Tree/);   // "../pump-evil.glb" matches the query by name: only the unsafe-path filter keeps it out
+    assert.deepEqual(fs.readdirSync(out).filter((f) => !["thumbs", "contact.jpg"].includes(f)).sort(), ["01-pump-kit-pump.glb", "results.json"]);
+    assert.ok(!fs.existsSync(path.join(out, "..", "evil.glb"))); assert.ok(!fs.existsSync(path.join(out, "..", "pump-evil.glb")));
+    assert.ok(!m.seen.some((s) => /pump-parts\/abc/.test(s)), "the non-CC0 pack's zip was downloaded");
+    const proj = dir("proj-kenney");
+    const t = await run(["--take", path.join(out, "01-pump-kit-pump.glb"), "--as", "assets/models/pump.glb", "--project", proj]);
+    assert.equal(t.code, 0, t.out);
+    const rows = JSON.parse(fs.readFileSync(path.join(proj, "ASSETS.json"), "utf8"));
+    assert.equal(rows[0].licence, "CC0"); assert.equal(rows[0].author, "Kenney (kenney.nl)"); assert.equal(rows[0].source, `${m.base}/k/assets/pump-kit`);
+    assert.equal((await runCheck(proj)).code, 0);
+  });
+  // no entry name matches the query (the pack matched by its title): the first entries are read, and an unsafe one is never among them
+  await withMock(kenneyRoutes(), async (m) => {
+    const out = dir("kenney-first");
+    const r = await run(["--type", "model", "--query", "kit", "--source", "kenney", "--out", out], kenv(m));
+    assert.equal(r.code, 0, r.out);
+    assert.deepEqual(titles(out), ["Pump Kit: pump", "Pump Kit: valve"]);
+    assert.doesNotMatch(r.out, /evil/); assert.ok(!fs.existsSync(path.join(out, "..", "evil.glb")));
+  });
+  // a listing that cannot be read, or that names no pack, is a WARN + rerun, never "nothing matched"
+  await withMock(() => [500, "boom"], async (m) => {
+    const r = await run(["--type", "model", "--query", "pump", "--source", "kenney", "--out", dir("kenney-500")], kenv(m));
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: kenney did not answer .*rerun/); assert.doesNotMatch(r.out, /nothing matched/);
+  });
+  await withMock(kenneyRoutes({ listing: "<html>no packs here</html>" }), async (m) => {
+    const r = await run(["--type", "model", "--query", "pump", "--source", "kenney", "--out", dir("kenney-layout")], kenv(m));
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: kenney did not answer/);
+  });
+});
+
+await test("28. --type model, Kenney, unzip not on PATH: said as a missing local tool (WARN, exit 3), never 'did not answer' or 'rerun'; the agent is told to ask the user before any install", async () => {
+  const bare = dir("nopath");   // an empty PATH folder: node runs by its absolute path, unzip is nowhere
+  await withMock(kenneyRoutes(), async (m) => {
+    const out = dir("kenney-nounzip");
+    const r = await run(["--type", "model", "--query", "pump", "--source", "kenney", "--out", out], { ...kenv(m), PATH: bare });
+    assert.equal(r.code, 3, r.out);
+    assert.match(r.out, /WARN: .*unzip.* not on PATH/i);
+    assert.match(r.out, /rerunning will not help/i); assert.match(r.out, /ask the user before installing/i);
+    assert.doesNotMatch(r.out, /did not answer|Rerun in a minute|nothing matched|, then rerun|— rerun\b/);
+    assert.doesNotMatch(r.out, /install unzip/i);
+    assert.ok(!fs.existsSync(path.join(out, "results.json")));
+  });
+  // a source that did not answer is still the rerun case beside it
+  await withMock(() => [500, "boom"], async (m) => {
+    const r = await run(["--type", "model", "--query", "pump", "--source", "kenney", "--out", dir("kenney-500b")], { ...kenv(m), PATH: bare });
+    assert.equal(r.code, 3, r.out); assert.match(r.out, /WARN: kenney did not answer .*rerun/); assert.match(r.out, /Rerun in a minute/);
+  });
+});
 
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }

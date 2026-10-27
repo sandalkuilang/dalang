@@ -1,4 +1,4 @@
-import { THREE, GLTFLoader, OBJLoader, RoundedBoxGeometry, toCreasedNormals, LoopSubdivision } from "./three-vendor.js";
+import { THREE, GLTFLoader, DRACOLoader, OBJLoader, RoundedBoxGeometry, toCreasedNormals, LoopSubdivision } from "./three-vendor.js";
 import { surface } from "./surfaces.js";
 
 export const deg = Math.PI / 180;
@@ -21,8 +21,11 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
   const is = (re, name) => !!re && re.test(name);
   M = mpu; G = gravity / mpu;
   const glow = new THREE.MeshStandardMaterial({ color: 0xfff4e4, emissive: 0xffdcae, emissiveIntensity: 1.9, roughness: 0.6 }); // a lit shade at 2700 K reads warm white; a saturated orange blooms toward pink
-  const shared = {};
-  function tune(m) {
+  // A look is the maps a model is dressed by and the materials built from them (shared by name, so a set's parts
+  // match). The kit has one; a found model may bring its own (model(path, { palette, kinds })), which never leaks
+  // into the kit's.
+  const base = { palette, kinds, shared: {} };
+  function tune(m, { palette, kinds, shared }) {
     if (is(kinds.glow, m.name)) return glow;
     if (is(kinds.glass, m.name)) return new THREE.MeshStandardMaterial({ color: 0xd4e6e4, transparent: true, opacity: 0.25, roughness: 0.05 });
     const key = palette[m.name] !== undefined ? m.name : m.name.replace(/\.\d+$/, "");
@@ -42,19 +45,22 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
   // leaves) get two Loop subdivisions, coplanar faces split first so they stay flat: a sofa turns plump, a leaf
   // curved. Hard furniture keeps its crisp corners (a Loop pass melts a desk into clay); round hard things
   // (pots, vases) take one pass. smooth: the passes, by default from the materials.
-  function dress(g, s, smooth, crease = true) {
+  function dress(g, s, smooth, crease = true, look = base) {
     g.traverse((o) => {
       if (!o.isMesh) return;
-      const n = smooth ?? ([].concat(o.material).every((m) => is(kinds.soft, m.name)) ? 2 : 0);
+      const n = smooth ?? ([].concat(o.material).every((m) => is(look.kinds.soft, m.name)) ? 2 : 0);
       if (n) o.geometry = LoopSubdivision.modify(o.geometry, n, { split: true, maxTriangles: 40000 });
       if (n || crease) o.geometry = toCreasedNormals(o.geometry, (n ? 60 : 32) * deg); // soft shading on bevels, crisp on real corners (crease: false keeps a detailed model's own normals)
-      o.material = Array.isArray(o.material) ? o.material.map(tune) : tune(o.material);
+      o.material = Array.isArray(o.material) ? o.material.map((m) => tune(m, look)) : tune(o.material, look);
       o.castShadow = o.receiveShadow = !(o.material.transparent); // glass lets the sun through
     });
     if (s) g.scale.multiplyScalar(s);
     return g;
   }
-  const gltf = new GLTFLoader(), obj = new OBJLoader(), cache = {}, resting = [];
+  // Draco-compressed glTF (a museum scan, a CC0 scan library) decodes with the wasm decoder build.mjs copies to draco/;
+  // a worker starts only when a model carries KHR_draco_mesh_compression.
+  const draco = new DRACOLoader().setDecoderPath(new URL("./draco/", import.meta.url).href); // wasm unless the browser has none
+  const gltf = new GLTFLoader().setDRACOLoader(draco), obj = new OBJLoader(), cache = {}, resting = [];
   // rest(o): o stands on whatever is under it. settle() then drops every resting object onto the real surface
   // under it, as gravity would from any height (a ball dropped in a bin lands on its bottom), lowest first so supports land before what they carry.
   // Placement by hand-typed heights left props floating or sunk by millimetres; this makes contact exact.
@@ -111,9 +117,14 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
   // model(path, opts): a kit model (.glb or .obj), dressed. at: "origin" places it by its own origin (Kenney),
   // "footprint" by the centre of its footprint (Quaternius); x, y, z, ry, scale; smooth: Loop passes (default from
   // the materials); crease: false keeps the model's own normals (a detailed PBR scan); rest: false for things that are not set down (walls). Every model is rested by default.
-  async function model(path, { x = 0, y = 0, z = 0, ry = 0, scale, smooth, crease, at = "origin", rest: r = true } = {}) {
-    const g = dress(await load(path), scale, smooth, crease);
+  // palette, kinds: this model's own look, merged over the kit's (a found model's material names are its author's, not
+  // the set's). real: { h, w, d } in metres, the size its source states (find_media prints it); scaleAudit then checks
+  // the box against it, and a model with none is listed unchecked, never passed.
+  async function model(path, { x = 0, y = 0, z = 0, ry = 0, scale, smooth, crease, at = "origin", rest: r = true, palette: P, kinds: Kd, real } = {}) {
+    const look = P || Kd ? { palette: { ...palette, ...P }, kinds: { ...kinds, ...Kd }, shared: {} } : base;
+    const g = dress(await load(path), scale, smooth, crease, look);
     g.name = path.split("/").pop().replace(/\.\w+$/, "");
+    if (real) g.userData.real = real;
     if (r) resting.push(g);
     g.rotation.y = ry;
     if (at === "footprint") return footprint(g, x, y, z);
