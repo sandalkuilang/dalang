@@ -32,6 +32,9 @@ const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
 const { flowArrow, tileFill } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
+const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
+const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
+const { supplyChain } = await use("examples/supply.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1529,4 +1532,257 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(Math.abs(tail(tw.b.userData.arrow) / tail(tw.a.userData.arrow) - 3) < 1e-9, "the twins differ only in the value, arrows in ratio");
   assert.throws(() => twinSets({ scene: new THREE.Scene() }, () => {}, { values: [1] }), /values/);
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), any scale and gravity");
+{ // Electricity (circuit.js): a flow's SHAPE is its waveform, drawn at a stated visualisation speed with the mains
+  // frequency slowed on purpose (30 fps cannot show 50 Hz); a lamp's light falls with its voltage by its curve; an arc
+  // lights the scene only for its frames; a hot part glows by black-body colour and never writes a shared material.
+  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const wire1 = () => wire([V(0, 0, 0), V(1 / Mq, 0, 0)]); // 1 m
+  const ac = (o = {}) => flow(wire1(), { current: () => 2, waveform: "ac", freq: 50, speed: 0.5, timeScale: 0.1, ...o });
+  const w1 = wire1();
+  assert.ok(Math.abs(w1.length - 1) < 1e-9, "a wire's length is in metres at any scale: " + w1.length);
+  const bent = wire([V(0, 0, 0), V(0.3 / Mq, 0, 0), V(0.3 / Mq, 0, 0.7 / Mq)]);
+  assert.ok(Math.abs(bent.length - 1) < 1e-9 && bent.pointAt(0.3).distanceTo(V(0.3 / Mq, 0, 0)) < 1e-3 && bent.pointAt(99).distanceTo(V(0.3 / Mq, 0, 0.7 / Mq)) < 1e-9, "pointAt follows the corners and is clamped to the end");
+  for (const bad of [[V(0, 0, 0)], [V(0, 0, 0), V(0, 0, 0)], []]) assert.throws(() => wire(bad), /wire/, "a wire needs two distinct points");
+  assert.throws(() => wire([V(0, 0, 0), V(1, 0, 0)], { kind: "pipe" }), /wire/);
+
+  // A period in the pulse shape: 50 Hz shown at 1/10 speed, travelling at 0.5 m/s, has a wavelength of 0.1 m.
+  const f = ac();
+  assert.ok(f.shownFreq === 5 && Math.abs(f.lambda - 0.1) < 1e-12, "shown frequency and wavelength: " + f.shownFreq + " Hz, " + f.lambda + " m");
+  assert.ok(/50 Hz/.test(f.label) && /1\/10/.test(f.label) && /visuali[sz]ation/.test(f.label), "the on-screen label states frequency, time scale and speed: " + f.label);
+  const row = f.sample(0.013, 401)[0], ds = 1 / 400, ups = [];
+  for (let i = 1; i < row.length; i++) if (row[i - 1].y < 0 && row[i].y >= 0) ups.push(row[i - 1].s + ds * (-row[i - 1].y / (row[i].y - row[i - 1].y)));
+  assert.ok(ups.length >= 9, "ten periods fit in 1 m: " + ups.length);
+  for (let i = 1; i < ups.length; i++) assert.ok(Math.abs(ups[i] - ups[i - 1] - 0.1) < ds, "zero crossings are one wavelength apart: " + (ups[i] - ups[i - 1]));
+  const y0 = row[100].y;
+  assert.ok(Math.abs(f.sample(0.013 + 1 / 5, 401)[0][100].y - y0) < 1e-9, "the shape repeats after one shown period");
+  assert.ok(Math.abs(f.sample(0.013 + 1 / 10, 401)[0][100].y + y0) < 1e-9, "and is mirrored after half of it");
+  assert.ok(Math.abs(Math.max(...row.map((p) => p.y)) - 0.004) < 1e-4, "the wiggle's height is the amplitude, in metres");
+  assert.throws(() => ac({ timeScale: 1 }), /alias/, "50 Hz at 30 fps is refused, not drawn as a standing wave");
+  assert.doesNotThrow(() => ac({ timeScale: 1, fps: 400, speed: 5 }), "a frame rate that can show it is allowed");
+  assert.throws(() => ac({ speed: undefined }), /speed/);
+  assert.throws(() => ac({ freq: NaN }), /freq/);
+  assert.throws(() => ac({ waveform: "x" }), /waveform/);
+  assert.throws(() => ac({ current: 2 }), /current/);
+
+  // The other shapes: dc is a straight line, pwm is chopped blocks, three phases lag 120 degrees.
+  const dc = flow(wire1(), { current: () => 1, waveform: "dc", speed: 0.5 });
+  assert.ok(dc.sample(0.3)[0].every((p) => p.y === 0 && p.on), "dc is a straight line");
+  const pw = flow(wire1(), { current: () => 1, waveform: "pwm", freq: 50, speed: 0.5, timeScale: 0.1, duty: 0.3 }).sample(0.2, 401)[0];
+  assert.ok(Math.abs(pw.filter((p) => p.on).length / pw.length - 0.3) < 0.02, "pwm blocks are on for the duty share: " + pw.filter((p) => p.on).length / pw.length);
+  const p3 = flow(wire1(), { current: () => 3, waveform: "3phase", freq: 50, speed: 0.5, timeScale: 0.1 }).sample(0.02, 401);
+  assert.equal(p3.length, 3, "three phases are three ribbons");
+  for (const i of [40, 123, 300]) {
+    const ph = p3.map((r, k) => (r[i].y - (k - 1) * 3 * 0.004) / 0.004), phi = 2 * Math.PI * 5 * (0.02 - p3[0][i].s / 0.5);
+    assert.ok(Math.abs(ph[0] + ph[1] + ph[2]) < 1e-9, "three phases sum to zero");
+    ph.forEach((v, k) => assert.ok(Math.abs(v - Math.sin(phi - 2 * Math.PI * k / 3)) < 1e-9, "phase " + k + " lags " + k * 120 + " degrees"));
+  }
+
+  // Width and brightness follow |current|; none, none drawn.
+  const wd = flow(wire1(), { current: (t) => (t < 1 ? 2 : t < 2 ? 1 : 0), waveform: "dc", speed: 0.5, width: 0.002, perAmp: 0.001, full: 2 });
+  const hw1 = wd.at(0.5).halfWidth, hw2 = wd.at(1.5).halfWidth, pos = wd.ribbons[0].mesh.geometry.attributes.position;
+  assert.ok(Math.abs(hw1 - 0.002) < 1e-12 && Math.abs(hw2 - 0.0015) < 1e-12 && hw1 > hw2, "half width = (width + perAmp x |I|) / 2: " + hw1 + ", " + hw2);
+  wd.at(0.5);
+  assert.ok(Math.abs(new THREE.Vector3().fromBufferAttribute(pos, 0).distanceTo(new THREE.Vector3().fromBufferAttribute(pos, 1)) * Mq - 2 * hw1) < 1e-6, "the drawn ribbon has that width in metres");
+  assert.ok(wd.at(0.5).brightness === 1 && Math.abs(wd.at(1.5).brightness - 0.5) < 1e-12 && wd.ribbons[0].mesh.visible, "brightness = |I| / full, capped at 1");
+  wd.at(2.5);
+  assert.equal(wd.ribbons[0].mesh.visible, false, "no current draws no ribbon");
+
+  // A lamp: light output falls with voltage by the lamp type's cited curve (incandescent flux goes as V^3.4).
+  assert.ok(LAMPS.incandescent.exponent === 3.4 && /^https:/.test(LAMPS.incandescent.src), "the curve carries its source");
+  const bulb = new THREE.PointLight(), lp = lamp(bulb, { rated: { V: 230, lm: 800 }, voltage: (t) => 230 - 23 * t });
+  lp.at(0);
+  const i0 = bulb.intensity;
+  assert.ok(Math.abs(i0 - 800 / (4 * Math.PI)) < 1e-9, "rated voltage gives rated lumens, as candela: " + i0);
+  lp.at(1);
+  assert.ok(Math.abs(lp.output(207) - 800 * 0.9 ** 3.4) < 0.5 && Math.abs(lp.output(207) - 559.1) < 0.5 && bulb.intensity < i0, "10 % less voltage, 30 % less light: " + lp.output(207));
+  let prev = Infinity;
+  for (let t = 0; t <= 10; t += 0.5) { lp.at(t); assert.ok(bulb.intensity <= prev, "the lamp only dims as voltage falls"); prev = bulb.intensity; }
+  lp.at(10);
+  assert.equal(bulb.intensity, 0, "no voltage, no light");
+  const led = lamp(new THREE.PointLight(), { curve: [[0, 0], [100, 400], [200, 1000]], voltage: () => 150 });
+  assert.ok(Math.abs(led.output(150) - 700) < 1e-9 && led.output(300) === 1000 && led.output(-5) === 0, "a datasheet table is interpolated and held past its end");
+  assert.throws(() => lamp(new THREE.PointLight(), { voltage: () => 1 }), /rated|curve/, "a lamp needs its rating or its curve");
+  assert.throws(() => lamp(new THREE.PointLight(), { type: "led", rated: { V: 12, lm: 800 }, voltage: () => 1 }), /type|curve/, "a type with no cited curve is refused");
+  assert.throws(() => lamp(new THREE.PointLight(), { rated: { V: 230, lm: 800 } }), /voltage/);
+
+  // An arc: light only in its frames; shorter than a frame is refused; the same seed draws the same flash.
+  const A = { from: V(0, 0.1, 0), to: V(0.03 / Mq, 0.1, 0), t0: 2, dur: 0.005, timeScale: 0.05, energy: 50, efficacy: 20 };
+  const a = arc(null, A);
+  a.at(1.99);
+  assert.ok(a.light.intensity === 0 && a.channel.visible === false && !a.on(1.99), "no light before the flash");
+  a.at(2.05);
+  assert.ok(Math.abs(a.light.intensity - 20 * 50 / 0.005 / (4 * Math.PI)) < 1e-6 && a.channel.visible && a.on(2.05), "light = efficacy x energy / duration while it lasts: " + a.light.intensity);
+  a.at(2.11);
+  assert.ok(a.light.intensity === 0 && a.channel.visible === false && !a.on(2.11), "no light after the flash (shown 0.1 s)");
+  assert.throws(() => arc(null, { ...A, timeScale: 1 }), /frame/, "a flash shorter than a frame is never seen: slow it");
+  assert.throws(() => arc(null, { ...A, efficacy: undefined }), /efficacy/, "efficacy has no default");
+  assert.throws(() => arc(null, { ...A, energy: 0 }), /energy/);
+  const pa = (x) => Array.from(x.channel.geometry.attributes.position.array);
+  assert.deepEqual(pa(arc(null, A)), pa(arc(null, A)), "the same seed gives the same channel");
+  assert.notDeepEqual(pa(arc(null, A)), pa(arc(null, { ...A, seed: 7 })), "another seed gives another");
+  assert.ok(pa(a).every(Number.isFinite) && a.channel.geometry.attributes.position.count >= 64, "the channel is a jagged path with branches");
+  assert.ok(a.events[0].kind === "custom" && a.events[0].tag === "arc-flash" && a.events[0].t === 2, "an sfx event row at the flash");
+  // sparks fly by gravity only: the second difference of height over equal time steps is -g dt^2 (real time)
+  const spark = (t) => { a.at(t); return Array.from(a.sparks.points.geometry.attributes.position.array); };
+  const [s1, s2, s3] = [2.2, 2.4, 2.6].map(spark), dtau = 0.01;
+  for (let i = 1; i < s1.length; i += 3) assert.ok(Math.abs(s1[i] - 2 * s2[i] + s3[i] + K.G * dtau * dtau) < 1e-6, "a spark's height follows its ballistic path: " + (s1[i] - 2 * s2[i] + s3[i]));
+  assert.ok(s2.every(Number.isFinite) && a.at(2.4).sparksLit > 0 && a.at(1.99).sparksLit === 0 && a.at(9).sparksLit === 0, "sparks appear at the flash and cool out of sight");
+
+  // Heat glow: black-body colour, red before white; nothing visible under the Draper point; the material is the part's own.
+  const c1 = blackbody(1000).color, c3 = blackbody(3000).color;
+  assert.ok(c1.r / c1.b > c3.r / c3.b && c1.r === 1 && c3.b > c1.b, "a hotter part is bluer");
+  assert.ok(blackbody(3000).Y > blackbody(1000).Y * 10, "and far brighter");
+  assert.ok(DRAPER > 780 && DRAPER < 820, "the Draper point");
+  const shared = new THREE.MeshStandardMaterial({ color: 0x777777 }), bar = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared);
+  const g = glow(bar, { power: (t) => [0, 10, 50, 150][t], area: 0.001 });
+  const Ts = [0, 1, 2, 3].map((t) => g.at(t).T), ints = [0, 1, 2, 3].map((t) => g.at(t).intensity);
+  assert.ok(Ts[0] === 293.15 && ints[0] === 0, "no power: ambient, no glow");
+  assert.ok(Ts[1] > Ts[0] && Ts[2] > Ts[1] && Ts[3] > Ts[2], "more power, hotter: " + Ts);
+  assert.ok(ints[1] === 0 && ints[3] > 0 && ints[3] < 4, "below the Draper point it does not glow, above it does: " + ints);
+  assert.ok(bar.material !== shared && shared.emissiveIntensity === 1 && shared.emissive.getHex() === 0, "a shared material is never written");
+  assert.throws(() => glow(bar, { power: () => 1 }), /area/);
+  assert.throws(() => glow(bar, { area: 0.001 }), /power|temperature/);
+  // A bad model value is refused with its field named, never read as zero power (the part drawn cold): power(t) that is
+  // NaN, undefined, a string or Infinity (a misspelt state key), and an unvalidated h or emissivity (a NaN coefficient
+  // would end the solve at ambient). Zero power, h = 0 and emissivity = 1 are legitimate and stay.
+  for (const [name, bad] of [["NaN", NaN], ["undefined", undefined], ["a string", "150"], ["Infinity", Infinity]]) assert.throws(() => glow(bar, { power: () => bad, area: 0.001 }).at(0), /power/, "glow refuses power " + name);
+  assert.throws(() => glow(bar, { power: () => ({ P: 150 }).Pw, area: 0.001 }).at(0), /power/, "a misspelt state key is refused, not drawn cold");
+  { let calls = 0; const g2 = glow(bar, { power: () => (calls++ ? NaN : 150), area: 0.001 }); g2.at(0); assert.throws(() => g2.at(1), /power/, "a model that fails for one frame is refused on that frame"); }
+  for (const bad of [NaN, Infinity, -1, "10", null]) assert.throws(() => glow(bar, { power: () => 150, area: 0.001, h: bad }), /\bh\b/, "glow refuses h " + bad);
+  for (const bad of [NaN, 0, -0.1, 1.5, "0.9", null]) assert.throws(() => glow(bar, { power: () => 150, area: 0.001, emissivity: bad }), /emissivity/, "glow refuses emissivity " + bad);
+  assert.ok(glow(bar, { power: () => 150, area: 0.001, h: 0 }).at(0).T > 1000 && glow(bar, { power: () => 150, area: 0.001, emissivity: 1 }).at(0).T > 600, "h = 0 (radiation only) and emissivity 1 are legitimate");
+  assert.equal(glow(bar, { power: () => 0, area: 0.001 }).at(0).T, 293.15, "zero power is ambient, still");
+  // A lamp's colour temperature is checked when the lamp is made, not when a voltage first lights it.
+  for (const bad of [NaN, 0, -2700, "2700", null]) assert.throws(() => lamp(new THREE.PointLight(), { rated: { V: 230, lm: 800 }, voltage: () => 0, cct: bad }), /cct/, "lamp refuses cct " + bad);
+}
+{ // Failure states, instrument widgets and the supply chain (circuit.js, instruments.js, examples/supply.js): a part fails
+  // at the model's event time and only then (the original is hidden, never rewritten); a widget draws the number its
+  // model signal gives, with units and a label, and prints "--" for a value it cannot read, never 0; the chain is one
+  // film's parts, every value from state(t).
+  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, box = (o) => new THREE.Box3().setFromObject(o);
+  const part = (geo, color = 0x8899aa) => { const g = new THREE.Group(), m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8 })); g.add(m); return { g, m }; };
+  const geos = {
+    bulge: () => new THREE.CylinderGeometry(0.01, 0.01, 0.03, 24, 4), blown: () => new THREE.BoxGeometry(0.03, 0.001, 0.001, 8, 1, 1),
+    char: () => new THREE.BoxGeometry(0.01, 0.003, 0.003), melt: () => new THREE.BoxGeometry(0.02, 0.01, 0.02, 4, 6, 4),
+  };
+  for (const kind of Object.keys(geos)) {
+    const { g, m } = part(geos[kind]()), hex = m.material.color.getHex(), f = failure(m, { kind, at: 5 });
+    f.at(4.9);
+    assert.ok(m.visible && !f.failed.visible, kind + ": the part shows before the event");
+    f.at(5);
+    assert.ok(!m.visible && f.failed.visible, kind + ": the failed variant shows from the event");
+    f.at(4.9);
+    assert.ok(m.visible && !f.failed.visible, kind + ": pure of t, a seek back shows the part again");
+    assert.ok(f.failed.parent === g && f.normal === m, kind + ": the variant sits beside the part");
+    assert.ok(m.material.color.getHex() === hex && m.material.roughness === 0.3 && m.material.metalness === 0.8, kind + ": the part's own material is never written");
+    assert.ok(f.failed !== m && (f.failed.material ? f.failed.material !== m.material : true), kind + ": the variant has its own material");
+    assert.throws(() => failure(m, { kind, at: NaN }), /failure/, "the event time must be a number");
+    assert.throws(() => failure(m, { kind }), /failure/);
+  }
+  assert.throws(() => failure(part(geos.char()).m, { kind: "rust", at: 1 }), /failure/, "an unknown kind is refused");
+  assert.throws(() => failure(new THREE.Group(), { kind: "char", at: 1 }), /failure/, "a part is a Mesh");
+  { const { m } = part(geos.char()), c = failure(m, { kind: "char", at: 1 }).failed.material;
+    assert.ok(lum(c.color) < lum(m.material.color) * 0.5 && c.roughness === 1 && c.metalness === 0, "a charred part is darker, dull and not metallic"); }
+  { const { m } = part(geos.bulge()), f = failure(m, { kind: "bulge", at: 1 });
+    assert.ok(box(f.failed).max.y > box(m).max.y + 0.0005 && box(f.failed).min.y === box(m).min.y, "a bulged capacitor domes at the top only");
+    const v = failure(part(geos.bulge()).m, { kind: "bulge", at: 1, vent: true }).failed;
+    assert.ok(v.children.length === 2 && f.failed.children.length === 0, "a vented top has a dark cross"); }
+  { const { m } = part(geos.blown()), f = failure(m, { kind: "blown", at: 1, amount: 1 }), p = f.failed.userData.pieces;
+    const a = box(p[0]), b = box(p[1]), L = 0.03;
+    assert.ok(p.length === 2 && a.max.x < b.min.x - 1e-9, "a blown fuse wire is two pieces with a gap");
+    assert.ok(Math.abs(b.min.x - a.max.x - 0.3 * L) < 1e-9 && Math.abs(a.min.x + L / 2) < 1e-9 && Math.abs(b.max.x - L / 2) < 1e-9, "the gap is 30 % of the length and the ends stay: " + (b.min.x - a.max.x));
+    const s = f.failed.userData.soot;
+    assert.ok(s && s.material.opacity === 0.6 && s.material.color.getHex() === 0x1b1a18 && Math.abs(s.position.x) < 1e-9, "a soot mark at the gap");
+    const half = failure(part(geos.blown()).m, { kind: "blown", at: 1, amount: 0.5 }).failed.userData.pieces.map(box);
+    assert.ok(Math.abs(half[1].min.x - half[0].max.x - 0.15 * L) < 1e-9, "a smaller amount is a smaller gap"); }
+  { const { m } = part(geos.melt()), f = failure(m, { kind: "melt", at: 1 });
+    assert.ok(box(f.failed).max.y < box(m).max.y - 0.001 && box(f.failed).min.y > box(m).min.y - 1e-9, "a melted connector sags at the top");
+    assert.ok(lum(f.failed.material.color) < lum(m.material.color), "and darkens");
+    assert.ok(Array.from(f.failed.geometry.attributes.position.array).every(Number.isFinite) && Array.from(f.failed.geometry.attributes.normal.array).every(Number.isFinite), "no NaN in the melted shape"); }
+  { const m = new THREE.Mesh(geos.char(), new THREE.MeshStandardMaterial()), f = failure(m, { kind: "char", at: 1 });
+    assert.ok(f.failed.parent === null, "a part with no parent: the caller adds the variant"); }
+
+  // Instruments: drawn on a 2D canvas, they return the numbers they drew.
+  const rec = () => {
+    const calls = [], st = {};
+    const ctx = new Proxy(st, {
+      get: (o, k) => (k === "measureText" ? (s) => ({ width: String(s).length * 20 }) : k in o ? o[k] : (...a) => { calls.push([k, ...a]); }),
+      set: (o, k, v) => { o[k] = v; return true; },
+    });
+    return { ctx, calls, texts: () => calls.filter((c) => c[0] === "fillText").map((c) => c[1]) };
+  };
+  { const r = rec(), sine = (tau) => Math.sin(2 * Math.PI * 50 * tau);
+    const s = scope(r.ctx, { signal: sine, t: 0.0013, window: 0.04, range: [-1.2, 1.2], units: "V", label: "mains", x: 100, y: 200, w: 800, h: 400 });
+    const mid = 200 + 200;
+    let ups = 0;
+    for (let i = 1; i < s.points.length; i++) if (s.points[i - 1] && s.points[i] && s.points[i - 1][1] > mid && s.points[i][1] <= mid) ups++;
+    assert.equal(ups, 2, "40 ms of 50 Hz shows two periods");
+    assert.ok(s.points.every(([x, y]) => x >= 100 && x <= 900 && y >= 200 && y <= 600), "the trace stays in its box");
+    assert.ok(Math.abs(s.perDiv - 0.004) < 1e-12, "4 ms per division");
+    assert.ok(r.texts().some((x) => /mains/.test(x)) && r.texts().some((x) => /4 ms\/div/.test(x)) && r.texts().some((x) => /V/.test(x)), "label, range units and time base are written: " + r.texts());
+    const slow = scope(rec().ctx, { signal: sine, t: 0.13, timeScale: 0.1, window: 0.04, range: [-1.2, 1.2], units: "V", label: "mains", x: 0, y: 0, w: 800, h: 400 });
+    let up2 = 0;
+    for (let i = 1; i < slow.points.length; i++) if (slow.points[i - 1][1] > 200 && slow.points[i][1] <= 200) up2++;
+    assert.equal(up2, 2, "a film slowed by a time scale still shows the signal's real waveform (real seconds)");
+    for (const bad of [{ units: undefined }, { units: "" }, { label: undefined }]) assert.throws(() => scope(rec().ctx, { signal: sine, t: 0, range: [-1, 1], units: "V", label: "x", x: 0, y: 0, w: 10, h: 10, ...bad }), /units|label/, "units and a label are required");
+    assert.throws(() => scope(rec().ctx, { signal: sine, t: 0, range: [1, 1], units: "V", label: "x", x: 0, y: 0, w: 10, h: 10 }), /range/);
+    const nan = scope(rec().ctx, { signal: (tau) => (tau > 0 ? NaN : 0), t: 0.01, range: [-1, 1], units: "V", label: "x", x: 0, y: 0, w: 100, h: 100 });
+    assert.ok(nan.points.some((p) => p === null) && !nan.points.some((p) => p && !Number.isFinite(p[1])), "a sample the signal cannot give is a gap, never a point at 0"); }
+  { const r = rec(), m = meter(r.ctx, { value: 12, units: "V", label: "dc rail", x: 50, y: 50 });
+    assert.equal(m.text, "12.0 V", "a readout with its units");
+    assert.ok(r.texts().includes("12.0 V") && r.texts().includes("dc rail"), "drawn: " + r.texts());
+    assert.equal(meter(rec().ctx, { value: 230.456, units: "V", label: "x", digits: 0, x: 0, y: 0 }).text, "230 V");
+    assert.equal(meter(rec().ctx, { value: NaN, units: "V", label: "x", x: 0, y: 0 }).text, "--", "an unreadable value prints --, never 0");
+    assert.throws(() => meter(rec().ctx, { value: 1, label: "x", x: 0, y: 0 }), /units/);
+    assert.throws(() => meter(rec().ctx, { value: 1, units: "V", x: 0, y: 0 }), /label/); }
+  { const mk = (value) => gauge(rec().ctx, { value, min: 0, max: 100, units: "rpm", label: "motor", x: 300, y: 300, r: 150 });
+    const lo = mk(0), mid = mk(50), hi = mk(100), over = mk(250), under = mk(-5);
+    assert.ok(lo.angle < mid.angle && mid.angle < hi.angle && Math.abs(mid.angle - (lo.angle + hi.angle) / 2) < 1e-9, "the needle angle is linear in the value");
+    assert.ok(over.clamped && over.angle === hi.angle && under.clamped && under.angle === lo.angle && !hi.clamped, "clamped to the dial, and said");
+    assert.ok(Math.abs(hi.angle - lo.angle - 4.71) < 1e-9, "the sweep");
+    assert.equal(mk(NaN).angle, null, "no needle for an unreadable value");
+    assert.throws(() => gauge(rec().ctx, { value: 1, min: 0, max: 10, label: "x", x: 0, y: 0, r: 10 }), /units/);
+    assert.throws(() => gauge(rec().ctx, { value: 1, min: 5, max: 5, units: "V", label: "x", x: 0, y: 0, r: 10 }), /min|max/); }
+  { const mk = (value) => barMeter(rec().ctx, { value, max: 20, units: "A", label: "load", x: 0, y: 0, w: 400, h: 60 });
+    assert.ok(mk(5).fill === 0.25 && mk(40).fill === 1 && mk(-1).fill === 0 && mk(NaN).fill === null, "fill = value / max, clamped, null when unreadable");
+    assert.throws(() => barMeter(rec().ctx, { value: 1, max: 20, units: "A", x: 0, y: 0, w: 1, h: 1 }), /label/);
+    assert.throws(() => barMeter(rec().ctx, { value: 1, max: 0, units: "A", label: "x", x: 0, y: 0, w: 1, h: 1 }), /max/); }
+
+  // The supply chain: plug, cord, fuse, rectifier, dc trace, motor and lamp, every value from the model's state(t).
+  { const FUSE = 3, st = (t) => ({ Vac: 230, Iac: t < FUSE ? 0.8 : 0, Vdc: 12, Idc: t < FUSE ? 2 : 0, rpm: Math.min(3000, 1500 * t), V: t < FUSE ? 230 : 0 });
+    const O = { state: st, events: { fuseBlown: FUSE }, arc: { dur: 0.005, energy: 50, efficacy: 20 }, lamp: { lm: 800 }, timeScale: 0.1, speed: 0.5 };
+    const c = supplyChain(null, O);
+    assert.ok(c.group.isGroup && c.flows.ac.length >= 1 && c.flows.ac.every((f) => f.waveform === "ac") && c.flows.dc.waveform === "dc", "ac upstream, dc downstream");
+    assert.ok(c.flows.ac[0].shownFreq === 5 && /50 Hz/.test(c.labels.ac) && /visuali[sz]ation/.test(c.labels.ac), "the mains frequency is slowed and said: " + c.labels.ac);
+    const r1 = c.at(1);
+    assert.ok(r1.Vdc === 12 && r1.rpm === 1500 && c.fuse.normal.visible && !c.fuse.failed.visible, "before the event: the fuse is whole and at(t) gives the model's numbers");
+    assert.ok(c.arc.light.intensity === 0 && c.arc.channel.visible === false, "no arc before the blow");
+    c.at(FUSE + 0.02);
+    assert.ok(!c.fuse.normal.visible && c.fuse.failed.visible, "the fuse is blown from the event");
+    assert.ok(c.arc.light.intensity > 0 && c.arc.channel.visible, "the arc lights the board at the event");
+    c.at(FUSE + 0.2);
+    assert.ok(c.arc.light.intensity === 0, "and only for its frames");
+    assert.ok(!c.flows.ac[0].ribbons[0].mesh.visible && !c.flows.dc.ribbons[0].mesh.visible, "no current, no flow drawn");
+    c.at(0.5); const lit = c.lamp.light.intensity;
+    c.at(FUSE + 1);
+    assert.ok(lit > 0 && c.lamp.light.intensity === 0, "the lamp follows state(t).V");
+    // the shaft: its angle is the integral of the speed, the same for any order of frames
+    const ang = (cc, t) => { cc.at(t); return cc.shaft.rotation.x; };
+    const c2 = supplyChain(null, { ...O, events: {}, arc: undefined, state: () => ({ ...st(0), rpm: 600 }) });
+    assert.ok(Math.abs(ang(c2, 2) - 600 / 60 * 2 * Math.PI * 0.1 * 2) < 1e-6, "angle = integral of rpm x time scale: " + ang(c2, 2));
+    const fwd = [0.5, 1, 1.5].map((t) => ang(c, t)), back = [1.5, 1, 0.5].map((t) => ang(supplyChain(null, O), t)).reverse();
+    assert.ok(fwd.every((v, i) => Math.abs(v - back[i]) < 1e-9), "pure of t: seeking gives the same shaft angle");
+    assert.throws(() => supplyChain(null, { ...O, state: () => ({ ...st(0), rpm: 6000 }) }).at(1), /alias/, "a shaft turning too fast for the frame rate is refused");
+    assert.throws(() => supplyChain(null, { ...O, state: () => ({ ...st(0), Vdc: NaN }) }).at(1), /Vdc/, "a bad model value is named");
+    assert.throws(() => supplyChain(null, { ...O, state: undefined }), /state/);
+    assert.throws(() => supplyChain(null, { ...O, arc: undefined }), /arc/, "an arc needs its energy and efficacy from the model");
+    assert.throws(() => supplyChain(null, { ...O, lamp: undefined }), /lamp/);
+    const na = supplyChain(null, { ...O, events: {}, arc: undefined }); na.at(10);
+    assert.ok(na.arc === null && na.fuse.normal.visible, "no event, no arc and a whole fuse");
+    const aud = scaleAudit(c.group);
+    assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 8, "every part is its real size at this scale: " + aud.problems.join("; ") + " checked " + aud.checked);
+    const big = supplyChain(null, { ...O, at: V(1 / Mq, 0, 0) });
+    assert.ok(Math.abs(big.group.position.x * Mq - 1) < 1e-9, "placed at `at`"); }
+}
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), any scale and gravity");
