@@ -47,7 +47,7 @@ files and prints only that step's reading list (sections as `sed` commands, the 
 what is printed to read (sections and lesson headlines) against 60 KB for Steps 0–8; every indexed section still has
 to exist and fit 8 KB, and `tests/reading.mjs` fails when any section of a reference is over 8 KB or a pointer in the
 step's text has no index line. Images
-(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context. The film's scene code is too (the Step 5 style frames excepted): builder subagents write the pilot, the groups, the assembly and each QC fix round, and return a short report (`look-build.md` "Parallel build"). Each subagent job has a model: the strongest for the jobs that judge the film, a mid tier for fix checks, asset pair checks, media screening (and the Step 5 reference boards the style frames are built from) and research (`SKILL.md` "Work fast").
+(stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context (the one exception: the author of `style-frames/src/`, the main agent or a builder, opens each Step 5 `review/refs-board-<frame>.jpg` once before its first write). The film's scene code is too (the Step 5 style frames excepted): builder subagents write the pilot, the groups, the assembly and each QC fix round, and return a short report (`look-build.md` "Parallel build"). Each subagent job has a model: the strongest for the jobs that judge the film, a mid tier for fix checks, asset pair checks, media screening (and the Step 5 reference boards the style frames are built from) and research (`SKILL.md` "Work fast").
 
 ## Why timing drives everything
 

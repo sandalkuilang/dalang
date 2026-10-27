@@ -473,8 +473,10 @@ that reads as:
   before its first write, and fix rounds reuse it. Full-size stills stay with the reviewer, who grades the parts lines.
   Hyperreal assets stay "check after". A transcript check in `evals.md` (tested in `tests/build-docs.mjs`) flags a
   style-frame write before a board read and a builder started before the board existed; every call counts only once its
-  own result came back without error (a failed read, write, edit or board command counts as no call; a style-frame builder is judged when it starts, whatever its result), and a
-  missing or half-written transcript exits 2 (unknown), never 1. Step 5's reading does not grow
+  own result came back without error (a failed read, write, edit or board command counts as no call; a style-frame builder is judged when it starts, whatever its result). A background
+  board command counts once its completion notification is in the transcript before the builder; a board command still running or never reported, and a missing or half-written
+  transcript, exit 2 (unknown), never 1. `SKILL.md` "Images stay in subagents" and `docs/workflow.md` name the board as the one
+  image the author of `style-frames/src/` opens, so they no longer contradict Step 5. Step 5's reading does not grow
   (7357 to 7356 bytes).
 - **Scene code only in builder subagents** (`look-build.md` "Parallel build", `review.md` §3, `qc.md` Step 7,
   `SKILL.md` "Work fast"): the main agent never writes, patches or reads the film's `src/` or `assets/*.js` (the Step 5 style frames in
