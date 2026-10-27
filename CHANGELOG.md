@@ -392,6 +392,12 @@ that reads as:
 
 ### Fixed
 
+- `timing_lint.mjs` (and `score_run.mjs`'s `timing_problems`) now follow each host of a shot-group film
+  (`data-composition-src`) into `compositions/<group>.html` and add the host's start to the group's local times: a cut
+  inside a word or a clip under 1 s inside a group no longer passes as OK because `index.html` holds only the hosts.
+  A group file that cannot be read, an unfilled `{{placeholder}}` or a host loop is exit 1, never OK. Step 5 and Step 6
+  item 4 of `look-build.md` no longer send a group subagent to the shared `src/index.tpl.html` or to absolute times;
+  `tests/timing-lint.mjs` and `tests/build-docs.mjs` run in the gate.
 - `find_media.mjs --type music --licence cc0` no longer always says "nothing matched": the `category=music` filter
   dropped Openverse's CC0 music, which has no category. Music is now kept apart from SFX by `--min-duration` (default
   20 s unless a smaller `--max-duration` is given, also a flag for any type, unknown lengths kept), and a music search reads up to 3 result pages. A provider's
