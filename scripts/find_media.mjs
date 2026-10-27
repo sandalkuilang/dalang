@@ -35,6 +35,9 @@
 // Music is told from SFX by length, not by Openverse category: its CC0 music (Freesound) has category null, so a category
 //   filter dropped all of it. --type music therefore defaults to --min-duration 20 (a result of unknown length is kept);
 //   --min-duration works for any type, by hand. SFX keeps category=sound_effect.
+// --query "a|b|c": one search per query, all at once, into <out>/<query slug>, printed as one block per query; exit 0 when
+//   any query found something. Media sources (Openverse, Commons) are asked at once; each source has FIND_MEDIA_SOURCE_S
+//   (default 45) seconds in all, past that it is a WARN + rerun.
 // Exit: 0 results; 1 every source answered and nothing matched; 2 usage; 3 a source failed and nothing was found, or a local file
 //   could not be made, copied or written (rerun).
 // A source that fails is a WARN with "rerun", never "nothing matched" (an unreadable answer is not an empty one); neither is a local
@@ -241,6 +244,19 @@ if (!['music', 'sfx', 'image', 'model'].includes(type)) usage('--type must be mu
 if (!args.out) usage('--out <dir> is required');
 if (!args.bundled && !args.query) usage('--query "<English words>" is required');
 if (args.bundled && type !== 'sfx') usage('--bundled is for --type sfx');
+// --query "a|b|c": one search per query, all at once, each into <out>/<query slug>; exit 0 when any found something.
+if (!args.bundled && args.query.includes('|')) {
+  const qs = [...new Set(args.query.split('|').map(q => q.trim()).filter(Boolean))];
+  const rest = process.argv.slice(2).filter((v, i, a) => v !== '--query' && a[i - 1] !== '--query' && v !== '--out' && a[i - 1] !== '--out');
+  const { spawn } = await import('node:child_process');
+  const runs = await Promise.all(qs.map(q => new Promise(done => {
+    const p = spawn(process.execPath, [process.argv[1], ...rest, '--query', q, '--out', path.join(args.out, slug(q))]);
+    let text = ''; p.stdout.on('data', d => { text += d; }); p.stderr.on('data', d => { text += d; });
+    p.on('close', code => done({ q, code, text }));
+  })));
+  for (const r of runs) console.log(`── "${r.q}" (exit ${r.code})\n${r.text.trimEnd()}`);
+  process.exit(runs.some(r => r.code === 0) ? 0 : Math.max(...runs.map(r => r.code ?? 3)));
+}
 const query = args.query ?? '';
 const out = path.resolve(args.out);
 const max = Math.max(1, Number(args.max ?? 8) || 8);
@@ -596,13 +612,24 @@ else {
   if (type === 'model') { for (const s of order) if (!MODEL_SOURCES.includes(s)) usage(`--source "${s}" is not available for --type model (${MODEL_SOURCES.join(', ')})`); }
   else for (const s of order) if (!['openverse', 'commons'].includes(s) || (s === 'commons' && type !== 'image')) usage(`--source "${s}" is not available for --type ${type} (openverse: music, sfx, image; commons: image)`);
   const warns = warnsOut, cands = [], seen = new Set();
-  for (const s of order) {
+  // Each source gets SOURCE_S seconds in all (pages, retries): a slow one is a WARN + rerun, never a stalled search.
+  // Media sources are asked at once and read in order; model sources stay one after another (rate limits, zip downloads).
+  const SOURCE_MS = Number(process.env.FIND_MEDIA_SOURCE_S ?? 45) * 1000;
+  const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`no answer in ${SOURCE_MS / 1000} s`)), SOURCE_MS).unref())]);
+  const pagesOf = s => within((async () => {
+    // Without a category filter page one can be all short clips: a music search reads up to 3 pages.
+    const pages = type === 'music' && s === 'openverse' ? 3 : 1, all = [];
+    for (let page = 1; page <= pages; page++) { const raw = await SOURCES[s](page); all.push(raw); if (raw.length < 20) break; }   // a short page is the last one
+    return all;
+  })());
+  const asked = type === 'model' ? null : order.map(s => pagesOf(s).catch(e => e));
+  for (const [k, s] of order.entries()) {
     if (cands.length >= max) break;
     try {
-      // Without a category filter page one can be all short clips: a music search reads up to 3 pages.
-      const pages = type === 'music' && s === 'openverse' ? 3 : 1;
-      for (let page = 1; page <= pages && cands.length < max; page++) {
-        const raw = await SOURCES[s](page);
+      const got = asked ? await asked[k] : await pagesOf(s);
+      if (got instanceof Error) throw got;
+      for (const raw of got) {
+        if (cands.length >= max) break;
         for (const c of raw) {
           if (!c.url || seen.has(c.url) || !licenceOk(c.licence)) continue;
           if (needsCredit(c.licence) && !c.author) continue;       // CC BY with no author: no credit possible
@@ -610,7 +637,6 @@ else {
           if (minDur !== null && c.duration != null && c.duration < minDur) continue;   // unknown length is kept
           seen.add(c.url); cands.push(c);
         }
-        if (raw.length < 20) break;                              // a short page is the last one
       }
     } catch (e) {
       if (e.missingTool) {

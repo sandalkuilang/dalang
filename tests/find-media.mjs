@@ -769,6 +769,26 @@ await test("28. --type model, Kenney, unzip not on PATH: said as a missing local
   });
 });
 
+await test("M1. --query \"a|b\" runs both searches at once, each into its own folder, one block per query", async () => withMock(audioRoutes, async (m) => {
+  const out = dir("multi");
+  const r = await run(["--type", "music", "--query", "calm|soft piano", "--out", out], env(m));
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /── "calm" \(exit 0\)/); assert.match(r.out, /── "soft piano" \(exit 0\)/);
+  for (const d of ["calm", "soft-piano"]) assert.ok(fs.existsSync(path.join(out, d, "results.json")), d);
+}));
+
+await test("M2. a source that never answers is cut at FIND_MEDIA_SOURCE_S: a WARN + rerun (exit 3), not a stalled search", async () => {
+  const srv = http.createServer(() => {});   // accepts, never answers
+  await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
+  try {
+    const t0 = Date.now();
+    const r = await run(["--type", "music", "--query", "calm", "--out", dir("hang")], { OPENVERSE_API: `http://127.0.0.1:${srv.address().port}/v1`, FIND_MEDIA_SOURCE_S: "1" });
+    assert.equal(r.code, 3, r.out);
+    assert.match(r.out, /no answer in 1 s.*rerun/);
+    assert.ok(Date.now() - t0 < 10000, `took ${Date.now() - t0} ms`);
+  } finally { srv.closeAllConnections(); srv.close(); }
+});
+
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
 console.log(`find_media ok: ${count} cases`);

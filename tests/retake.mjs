@@ -343,7 +343,7 @@ await test("E6. without --retake a flagged sentence is named, with the command t
   const r = await take(NARRATION, { speak: adds((k) => k === 0) });
   assert.equal(r.code, 0, r.out);
   assert.equal(r.speech.length, 1);
-  assert.match(r.out, /Retake\s+: sentence 3 may not say the script \(heard ≠ script\) — run again with --retake auto --from-response \S*narration\.response\.json/);
+  assert.match(r.out, /Retake\s+: sentence 3 may not say the script \(heard ≠ script: heard "[^"]+"\) — run again with --retake auto --from-response \S*narration\.response\.json/);
   assert.doesNotMatch(r.out, /listen/i, "no warning tells the agent to listen");
   const clean = await take(NARRATION);
   assert.doesNotMatch(clean.out, /Retake\s+:/);
