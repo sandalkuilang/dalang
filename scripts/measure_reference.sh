@@ -20,6 +20,11 @@ fi
 [[ -f "$VIDEO" ]] || { echo "FAILED: file not found: $VIDEO" >&2; exit 1; }
 command -v ffmpeg >/dev/null || { echo "FAILED: ffmpeg not found" >&2; exit 1; }
 
+# A run is about this video only: clear what an earlier run left in the folder (frames, contact sheets, the board and
+# the Node measurements), or a shorter film would be measured with the leftover stills of a longer one. One folder per
+# reference (references/measure-reference.md); a second film in the same folder replaces the first.
+rm -rf "$OUT/frames" "$OUT/contact" "$OUT/.board"
+rm -f "$OUT/reference-board.jpg" "$OUT/stillness.txt" "$OUT/loudness.txt" "$OUT/palette.txt"
 mkdir -p "$OUT/frames" "$OUT/contact"
 
 # 1) Basic info
