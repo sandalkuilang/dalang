@@ -317,7 +317,7 @@ try {
   const loose = pointerProblems(json.steps, readLines);
   assert.deepEqual(loose, [], `a pointer in a step's text with no line in that step's look-up index:\n${loose.join("\n")}`);
   // the legitimate side: a pointer the step does read, or indexes, passes (a fixture step that points at its own and an indexed section)
-  const fixSteps = { 9: { read: [{ file: "craft-rules.md", heading: "## 6. On-screen text", from: 39, to: 56 }], refs: [{ file: "voice.md", heading: "### Clone (VoiceStudio, free, local)", from: 35, to: 40 }], sub: [] } };
+  const fixSteps = { 9: { read: [{ file: "craft-rules.md", heading: "## 6. On-screen text", from: 39, to: 56 }], refs: [{ file: "voice.md", heading: "### Clone (VoiceStudio, free, local)", from: 46, to: 61 }], sub: [] } };
   const fixLines = () => [["fix:1", "captions per `craft-rules.md` §6 and `voice.md` \"Clone\""]];
   assert.deepEqual(pointerProblems(fixSteps, fixLines), [], "pointers covered by a read or an index entry pass");
   assert.equal(pointerProblems({ 9: { ...fixSteps[9], refs: [] } }, fixLines).length, 1, "the same text without the index entry is one problem");
@@ -343,6 +343,14 @@ try {
   assert.match(bullet(s12, "Impact numeral"), /accent/);
   assert.match(s5, /accent colour appears on \*\*one\*\* element per shot/);
   assert.match(row(s11, "Restraint"), /accent used once/);
+
+  // a trim must not join two list items on one line ("... 0.25–4.- **Calmer or faster ...": the second item loses its bullet)
+  const joined = (text) => text.split("\n").filter((l) => /\S- \*\*[^*\n]+\*\*/.test(l));
+  assert.equal(joined("- **Audition:** `--speed` 0.25–4.- **Calmer or faster approved take:** `--tempo`").length, 1, "two bullets on one line are caught");
+  assert.equal(joined("- **Audition:** `--speed` 0.25–4.\n- **Calmer or faster approved take:** `--tempo`\n  - **Nested:** item\n| a | **b** |").length, 0, "separate and nested bullets pass");
+  for (const f of fs.readdirSync(path.join(root, "references")).filter((f) => f.endsWith(".md"))) {
+    assert.deepEqual(joined(fs.readFileSync(path.join(root, "references", f), "utf8")), [], `${f}: a list item joined to the previous one on a single line`);
+  }
 
   console.log("reading: ok");
 } finally {

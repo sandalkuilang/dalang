@@ -5,11 +5,13 @@
 // dozen commands. Never prints secrets.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
-//                           [--check-workspace] [--workspace-dir PATH]
+//                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro]
 //   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
 //                  --skill-dir points it at another folder.
 //   --check-workspace  only the Workspace row (is the videos folder lean? workspace.mjs status); --workspace-dir
 //                  points it at a folder other than the current one.
+//   --check-kokoro only the Kokoro row (optional local Apache-2.0 voice, scripts/kokoro_tts.py --check): reads the
+//                  Python's packages and the weights cache, downloads nothing. DALANG_PYTHON picks the Python.
 //   --start  VoiceStudio STOPPED (macOS app installed, not running): open it and wait ≤ 60 s for the backend.
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
@@ -28,6 +30,7 @@ const vsUrl = vsRaw.replace(/\/+$/, '');
 const asJson = args.includes('--json');
 const start = args.includes('--start');
 const checkSkill = args.includes('--check-skill');
+const checkKokoro = args.includes('--check-kokoro');
 const sdArg = args.indexOf('--skill-dir'), sdEq = args.find(a => a.startsWith('--skill-dir='));
 const sdRaw = sdEq ? sdEq.slice('--skill-dir='.length) : sdArg >= 0 ? args[sdArg + 1] : fileURLToPath(new URL('..', import.meta.url));
 if (!sdRaw) { console.error('--skill-dir needs a path'); process.exit(2); }
@@ -39,7 +42,7 @@ if (!wdRaw) { console.error('--workspace-dir needs a path'); process.exit(2); }
 const wsDir = path.resolve(wdRaw);
 
 const run = (cmd, argv, timeout = 60000, env) => new Promise(res =>
-  execFile(cmd, argv, { timeout, maxBuffer: 8 << 20, env: { ...process.env, ...env } }, (err, stdout, stderr) => res({ ok: !err, killed: !!err?.killed, out: String(stdout || ''), err: String(stderr || err?.message || '') })));
+  execFile(cmd, argv, { timeout, maxBuffer: 8 << 20, env: { ...process.env, ...env } }, (err, stdout, stderr) => res({ ok: !err, killed: !!err?.killed, out: String(stdout || ''), err: String(stderr || err?.message || ''), code: err?.code })));
 // Never null: a failure keeps why it failed, because a refused port (nothing running) and a timeout
 // (running but busy) need opposite fixes, and "couldn't read" must never read as "none".
 const get = (url, init = {}, ms = 8000) => fetch(url, { ...init, signal: AbortSignal.timeout(ms) })
@@ -177,6 +180,45 @@ async function elevenlabs() {
   return [['ElevenLabs (paid)', 'PAID', `optional, only if the user asks — tier ${b.tier}, ${b.character_count}/${b.character_limit} characters used${b.tier === 'free' ? '; free tier: non-commercial, no cloning/library voices' : ''}`]];
 }
 
+// Kokoro-82M (Apache-2.0), an optional local voice: scripts/kokoro_tts.py --check answers by exit code (0 usable,
+// 5 package not installed, 4 weights not downloaded). Only those two codes are MISSING; a timeout, a crash, any other
+// exit or a reply that is not the helper's JSON is WARN "rerun", never MISSING and never an install suggestion. Exit 6
+// at --check is the helper refusing a network reach (it reaches nothing outside --download): WARN too, install nothing.
+// The spaCy text model en and en-gb need (en_core_web_sm), reported absent, is a note on the OK row, with its size and
+// the consented command: a take stops without it. Kokoro here speaks only en and en-gb (their text front end is the one
+// proven to fetch nothing); every other language is refused by tts_timestamps.mjs and the helper, naming VoiceStudio,
+// and the row says so: no other language is listed, checked for or offered a download.
+// Kokoro lives in a separate Python (DALANG_PYTHON), never in VoiceStudio's venv: with DALANG_PYTHON unset nothing runs
+// and nothing is installed there, and a DALANG_PYTHON that is that venv is told to use another.
+async function kokoro() {
+  const item = 'Kokoro (voice)', py = process.env.DALANG_PYTHON, size = '~330 MB', pkgSize = 'about 0.3 GB to download on macOS arm64, about 3 GB on Linux with the default CUDA wheels', ref = 'references/voice.md "Setup — Kokoro"';
+  const what = 'optional commercial-OK (Apache-2.0) local voice, only en and en-gb (other languages: VoiceStudio)';
+  const helper = fileURLToPath(new URL('kokoro_tts.py', import.meta.url));
+  const apart = `set DALANG_PYTHON to a separate Python that has kokoro, never VoiceStudio's venv; its packages (torch, transformers, spaCy and the rest) are ${pkgSize}, plus ${size} of weights: install only with consent (${ref})`;
+  try {
+    if (!py) return [[item, 'MISSING', `${what}: no Python chosen for it — ${apart}`]];
+    if (!existsSync(py)) return [[item, 'MISSING', `${what}: no Python at ${py} — ${apart}`]];
+    const r = await run(py, [helper, '--check'], Number(process.env.DALANG_PREFLIGHT_KOKORO_MS) || 60000);
+    if (r.killed) return [[item, 'WARN', 'could not check Kokoro (timeout) — rerun preflight; install nothing']];
+    if (r.code === 5 || r.code === 4) {
+      if (samePython(py, vsPython)) return [[item, 'MISSING', `${what}: DALANG_PYTHON is VoiceStudio's venv, where Kokoro does not go — ${apart}`]];
+      if (r.code === 5) return [[item, 'MISSING', `kokoro not installed in ${py} — ${what}; the install is pip kokoro soundfile torchaudio into that Python, which pulls torch, transformers, spaCy and the rest (${pkgSize}), then ${size} of weights; install only with consent (${ref})`]];
+      return [[item, 'MISSING', `kokoro installed, weights not downloaded — once, with consent: ${py} ${helper} --download --lang a (${size}, Apache-2.0; it also fetches the spaCy en_core_web_sm text model, about 13 MB, a pip install from GitHub; ${what})`]];
+    }
+    let d = null;
+    if (r.ok) try { d = JSON.parse(r.out); } catch { /* odd reply */ }
+    if (d?.ok === true) {
+      const en = d.english_model === false ? `; for en and en-gb the spaCy text model en_core_web_sm is not installed: once, with consent, ${py} ${helper} --download --lang a (about 13 MB, a pip install from GitHub), the take stops without it` : '';
+      return [[item, 'OK', `Kokoro-82M ${clean(d.version ?? '?')} — Apache-2.0, commercial OK, only en and en-gb (other languages: VoiceStudio); timing needs the Word aligner model for the language${en}`]];
+    }
+    if (r.code === 6) return [[item, 'WARN', `could not check Kokoro (the check reached for the network and was refused: ${clean(String(r.err).trim().split('\n').pop().split(': without --download')[0]).slice(0, 160)}) — rerun preflight; this is not "missing", install nothing`]];
+    const reason = r.ok ? 'unexpected reply' : clean(String(r.err).trim().split('\n').pop()) || `exit ${r.code}`;
+    return [[item, 'WARN', `could not check Kokoro (${reason}) — rerun preflight; this is not "missing", install nothing`]];
+  } catch (e) {
+    return [[item, 'WARN', `could not check Kokoro (${clean(e.message) || 'error'}) — rerun preflight; this is not "missing", install nothing`]];
+  }
+}
+
 async function media() {
   const [r, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
   const lines = (r.out + r.err).split('\n');
@@ -214,6 +256,10 @@ async function media() {
 // through `g`, which throws Unread on any failure (an exit, a timeout, output of an unexpected shape), and skillClone
 // turns every throw into "could not check". "Not a clone" is a known fact too: notClone() needs proof that no .git
 // is here, and a .git it cannot rule out (present, or unreadable) makes it Unread as well.
+const samePython = (x, y) => { // the same file, the folder's symlinks followed on both sides (never the file's own: a venv's python links to the base interpreter)
+  const f = q => { const r = path.resolve(q); try { return path.join(realpathSync(path.dirname(r)), path.basename(r)); } catch { return r; } };
+  return f(x) === f(y);
+};
 const clean = t => String(t).replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 80); // remote text printed to the agent
 class Unread extends Error {}
 const gitWhy = r => r.killed ? 'timeout' : clean(String(r.err).split('\n')[0]) || 'git failed';
@@ -290,11 +336,11 @@ async function workspace() {
   return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}`]];
 }
 
-const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), elevenlabs(), media()]);
+const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
-if (checkSkill || checkWorkspace) process.exit(0);
+if (checkSkill || checkWorkspace || checkKokoro) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
 // The summary repeats the fix that matters, so a filtered read still gets it.

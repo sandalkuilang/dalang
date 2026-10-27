@@ -67,7 +67,7 @@ Check your machine once — one call, a few seconds, never prints secrets:
 node ~/.claude/skills/dalang/scripts/preflight.mjs
 ```
 
-It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/main`? update with `git -C ~/.claude/skills/dalang pull --ff-only`; pinned to an older release? the note gives the fetch-tags and checkout command above), both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits. It also says when the folder you make videos in loads plugins or MCP servers a video never uses (they are re-read on every model call): `node ~/.claude/skills/dalang/scripts/workspace.mjs init <folder>` proposes switching them off for that folder only. It asks first, writes only `<folder>/.claude/settings.json` with `--yes` (your user settings are never touched), and `undo` restores the old file.
+It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/main`? update with `git -C ~/.claude/skills/dalang pull --ff-only`; pinned to an older release? the note gives the fetch-tags and checkout command above), the voice engines (model state, quota, tier; Kokoro optional) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits. It also says when the folder you make videos in loads plugins or MCP servers a video never uses (they are re-read on every model call): `node ~/.claude/skills/dalang/scripts/workspace.mjs init <folder>` proposes switching them off for that folder only. It asks first, writes only `<folder>/.claude/settings.json` with `--yes` (your user settings are never touched), and `undo` restores the old file.
 
 <br/>
 
@@ -138,7 +138,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
 | **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches), cloth, one air field, plants, particles, granular fills, water, fur, section views, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
-| **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
+| **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or Kokoro-82M (free, local, Apache-2.0) for English (en, en-gb) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 | **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide (a bake's impacts, latches and breaks place and level their own SFX: `sfx.js`) |
 | **Series** | save a channel's kit once (`series.mjs`): its next videos start from it with the same look, HUD, captions, voice and rules, and fewer questions; never scene code |
 
@@ -194,7 +194,7 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   snapshot and render; examples/ ready pieces
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
-tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit, lean workspace, golden (run by the gate)
+tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, golden (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```
@@ -234,6 +234,7 @@ State lives in files, so a session can die and you resume with `node <skill-dir>
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
 | three 0.186.1 · Rapier 0.14.0 (pinned, in `engine/three/vendor`) | 3D sets and physics | free, MIT / Apache-2.0; `build.mjs` installs them once and bundles them into each project |
+| Kokoro-82M (`pip install kokoro soundfile torchaudio`, own Python via `DALANG_PYTHON`) | optional commercial-OK local voice (`--engine kokoro`) | the pip install pulls torch, transformers, spaCy and the rest: ~0.3 GB on macOS arm64, ~3 GB on Linux with CUDA wheels; then ~330 MB of weights (+ the ~13 MB spaCy English text model). Apache-2.0, en and en-gb only, asked first |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
 
 The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — never printed, never written to a project file.
@@ -261,7 +262,7 @@ Borrowing the **craft** of a video you admire — section lengths, cut rhythm, c
 
 [MIT](LICENSE) — do what you like with the skill.
 
-Not ours to license: VoiceStudio's default **OmniVoice** weights (CC-BY-NC) and the **ElevenLabs free tier** are non-commercial; **VoxCPM2** is Apache-2.0. That limit follows the audio they generate, not this repo. `check_assets.mjs --commercial` fails any non-commercial asset before a monetised render, and `check_assets.mjs` checks the narration's licence against the model that spoke it (`scripts/voice_licences.mjs`); a voice that table cannot identify is a `WARN`, never read as commercial-OK.
+Not ours to license: VoiceStudio's default **OmniVoice** weights (CC-BY-NC) and the **ElevenLabs free tier** are non-commercial; **VoxCPM2** and **Kokoro-82M** are Apache-2.0. That limit follows the audio they generate, not this repo. `check_assets.mjs --commercial` fails any non-commercial asset before a monetised render, and `check_assets.mjs` checks the narration's licence against the model that spoke it (`scripts/voice_licences.mjs`); a voice that table cannot identify is a `WARN`, never read as commercial-OK.
 
 Parts of `references/camera-motion.md` paraphrase [smixs/visual-skills](https://github.com/smixs/visual-skills) by Serge Shima (CC BY 4.0) and [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT); see [NOTICE](NOTICE).
 
