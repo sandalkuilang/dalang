@@ -475,7 +475,7 @@ that reads as:
   style-frame write before a board read and a builder started before the board existed; every call counts only once its
   own result came back without error (a failed read, write, edit or board command counts as no call; a style-frame builder is judged when it starts, whatever its result). A background
   board command counts once its completion notification is in the transcript before the builder, read by its `<status>` tag
-  alone (never its free text: "exit code 1" in a completed Agent's `<result>` changes nothing). Each board command's state
+  (and for a Bash command the `(exit code N)` of its `<summary>`, N other than 0 = failed); a completed Agent's free text never counts ("exit code 1" in its `<result>` changes nothing). Each board command's state
   is set once at one place, made, none or unknown, and "none" needs evidence (an error result, `<status>failed`); a board
   command still running or never reported, a status it cannot read, and a missing or half-written
   transcript, exit 2 (unknown), never 1. `SKILL.md` "Images stay in subagents" and `docs/workflow.md` name the board as the one

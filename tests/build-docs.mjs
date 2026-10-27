@@ -378,7 +378,10 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     for (const [name, text] of free.flatMap((t) => [["Bash", t], ["Agent", t]])) {
       const [m, tid] = maker({ run_in_background: true }, name);
       r = go(file(m, result(tid), raw(tid, `<status>completed</status>\n${text}`), builder()), file(read(), write()));
-      assert.ok(r.status === 0 && r.out === "", `a completed background ${name} maker is made whatever its free text says (${text.slice(0, 40)}…): clean (got ${r.status} "${r.out}")`);
+      // Only a Bash command's own "(exit code N)" in <summary> says it failed; an Agent's words (summary or result) never do.
+      const failedBash = name === "Bash" && /\(exit code [1-9]/.test(/<summary>([^<]*)<\/summary>/.exec(text)?.[1] ?? "");
+      if (failedBash) assert.ok(r.status === 1 && /builder started before/.test(r.out), `a completed Bash maker whose summary says exit code 1 made no board: flagged (got ${r.status} "${r.out}")`);
+      else assert.ok(r.status === 0 && r.out === "", `a completed background ${name} maker is made whatever its free text says (${text.slice(0, 40)}…): clean (got ${r.status} "${r.out}")`);
     }
     for (const body of ["<status>killed</status>", "<status>stopped</status>", "<summary>Background command \"tile\" completed (exit code 0)</summary>",
       "<status>completed</status>\n<result>the first try ended <status>failed</status></result>", "<status></status>"]) {
