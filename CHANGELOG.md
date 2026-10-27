@@ -40,7 +40,8 @@ that reads as:
   first narration's order, unnamed, has an invalid or repeated name, or a brace is unbalanced (words, sections and line
   breaks may differ); an unreadable file is a warning (exit 2, rerun), never "not found". `fill_times.mjs --lang <code>`
   takes the times from `audio/<code>/` and switches each local `src` / `href` to its language variant (`audio/x` →
-  `audio/<code>/x`, a missing one fails; `name.ext` → `name.<code>.ext` when it exists); without `--lang` the output is
+  `audio/<code>/x`, a missing one fails; `name.ext` → `name.<code>.ext` when it exists, and a missing one fails for
+  `narration.*` and `strings.*`, the narration the film plays and the on-screen words); without `--lang` the output is
   unchanged. Both have a gate step (`tests/beats-lint.mjs`, `tests/fill-times.mjs`). The steps: `BRIEF.md`
   `second_language` (optional; the hand-off offers it once, never in autonomous mode unless named), Step 3b (translate
   `narration.txt` for the ear into `narration.<lang>.txt`, same beats), Step 4 again into `audio/<lang>`, Step 6 with

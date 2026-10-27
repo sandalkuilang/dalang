@@ -6,9 +6,10 @@
 //
 // --lang <code> (a second-language cut, look-build.md "Second-language cut"): the times come from audio/<code>/, and
 // every local src / href of the output is switched to its language variant: audio/<rest> -> audio/<code>/<rest>
-// (missing = FAILED: the cut would play the first language's file), any other <dir>/<name>.<ext> ->
-// <dir>/<name>.<code>.<ext> when that file exists (else kept: a language-free asset). URLs, //, / and # paths are
-// kept. Paths resolve from the current folder (the project). Without --lang only the times change, so a plain run
+// (missing = FAILED: the cut would play the first language's file; a path already in audio/<code>/ must exist too),
+// any other <dir>/<name>.<ext> -> <dir>/<name>.<code>.<ext> when that file exists. No variant: kept as a
+// language-free asset, except narration.<ext> and strings.<ext> (the narration the film plays, the on-screen words),
+// which are FAILED like audio/. A leading ./ is ignored. URLs, //, / and # paths are kept. Paths resolve from the current folder (the project). Without --lang only the times change, so a plain run
 // after a cut gives the first language's index.html back byte for byte (Gate 4 hashes it).
 //
 // Usage: node fill_times.mjs <template.html> <out.html> [--audio audio | --lang <code>]
@@ -47,19 +48,29 @@ let html = readFileSync(src, 'utf8').replace(/\{\{([^}]+)\}\}/g, (m, expr) => {
   n++;
   return String(Math.round(v * 1000) / 1000);
 });
-// --lang: every local src / href to its language variant (a missing audio/ variant writes nothing)
+// --lang: every local src / href to its language variant (a missing audio/ variant, or one of narration.* / strings.*
+// anywhere, writes nothing)
+const LANG_BOUND = /^(narration|strings)\.[^.]+$/;
 const switched = [], missing = [];
 if (lang) html = html.replace(/(\s(?:src|href)=)(["'])([^"']+)\2/g, (m, pre, q, val) => {
   if (/^[a-z][a-z0-9+.-]*:/i.test(val) || /^[/#]/.test(val) || val.includes('{{')) return m; // URL, absolute, anchor
-  const [, p, tail] = val.match(/^([^?#]*)(.*)$/); // the existence check ignores a ?query / #hash, the output keeps it
+  const [, raw, tail] = val.match(/^([^?#]*)(.*)$/); // the existence check ignores a ?query / #hash, the output keeps it
+  const p = path.posix.normalize(raw); // ./audio/x, audio//x and a/../audio/x are audio/x
   let to;
   if (p.startsWith('audio/')) {
-    if (p.startsWith(`audio/${lang}/`)) return m;
+    if (p.startsWith(`audio/${lang}/`)) {
+      if (!existsSync(p)) { if (!missing.includes(p)) missing.push(p); }
+      return m;
+    }
     to = `audio/${lang}/${p.slice(6)}`;
     if (!existsSync(to)) { if (!missing.includes(p)) missing.push(p); return m; }
   } else {
     to = p.replace(/(\.[^./]+)$/, `.${lang}$1`);
-    if (to === p || !existsSync(to)) return m; // a language-free asset
+    if (to === p || !existsSync(to)) {
+      // the narration the film plays and the on-screen words are language-bound by name: no variant = FAILED
+      if (LANG_BOUND.test(path.posix.basename(p))) { if (!missing.includes(p)) missing.push(p); }
+      return m; // else a language-free asset
+    }
   }
   if (!switched.includes(`${p} → ${to}`)) switched.push(`${p} → ${to}`);
   return pre + q + to + tail + q;
