@@ -33,6 +33,10 @@ that reads as:
 
 ### Added
 
+- **`strips.mjs --crops`** and `--crop X,Y,W,H`: one zoomed subject crop per shot (`crop-NN.jpg`, 640 px wide) cut by
+  ffmpeg from the shot's middle still, listed in `index.md` under `Subject crops`. The box is a fraction of the frame
+  (default the centre half); a shot without a still gets no crop, a `WARN` and exit 3. Stale crops are removed on a
+  rerun; `--dry-run` writes none. Check: `tests/strips.mjs`.
 - **`scripts/scopes.mjs`**: per cut, YMIN / YMAX / YLOW / YHIGH / SATAVG / HUEAVG from ffmpeg `signalstats` over the
   middle 60 % of the cut, bands for crushed blacks, clipped whites and hue jumps, `--cuts`, `--scene`, `--limits
   tv|pc`, `--png [dir]` (PNGs for flagged cuts only). Exit 0 inside the bands, 3 a cut is flagged, 2 unreadable (WARN,
@@ -288,6 +292,13 @@ that reads as:
 
 ### Changed
 
+- **Sheets first, full-res on doubt** (`review.md`, Step 7): the fresh-eyes reviewer gets the strip sheets, `index.md`
+  and the subject crops, and opens a full-res still only for a frame where those leave a doubt, listing each under
+  `Opened full-res:` in `QC-REVIEW.md`. The second Realism / Reality check still reads full-res stills.
+  `state.mjs reading` counts the reviewer's headings of `review.md` for Step 7, not the Asset pass.
+- **Lean review for a test run** (`qc.md` Step 7, `review.md`): only when the user calls the run a test or a draft,
+  the fresh-eyes review and the quiz run once, with no repeat round. Autonomous mode alone never turns it on, and a
+  final render ends it.
 - **Scopes as numbers** (`qc.md` Step 7): exposure and hue come from `scripts/scopes.mjs` as text per cut. The
   waveform and vectorscope PNGs are made, and a subagent opens them, only for a cut outside its band (crushed
   blacks, clipped whites, a hue jump of more than 40 degrees); inside all bands no PNG is made.
