@@ -79,6 +79,8 @@ Never hard-code seconds in a scene: change the script, regenerate, and the visua
 
 ## Autonomous mode
 
+(A test run the user names as a test or draft gets one review round, lean; autonomous mode alone never does.)
+
 Given only a topic, the skill uses defaults (16:9, 60–90 s — 9:16 when a short is asked for — user's language, modern balanced energy), logs "defaults used" in `PRODUCTION.md`, passes the gates on its own judgement and stops at a draft that passes Step 7. A fresh-eyes reviewer subagent stands in for the human eye. The final render happens only if the user said "just finish it", in any language.
 
 ## CI

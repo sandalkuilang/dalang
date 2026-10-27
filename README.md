@@ -106,7 +106,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. One video = one session, because all state lives in files. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
 
 </td></tr>
 </table>
@@ -176,7 +176,7 @@ scripts/
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
-  strips.mjs           review strips: stills per shot on numbered sheets + index; --against labels what changed since the last round
+  strips.mjs           review strips: stills per shot on numbered sheets + index; --crops adds a subject crop per shot; --against labels what changed since the last round
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
   check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
