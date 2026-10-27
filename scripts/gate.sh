@@ -36,7 +36,7 @@ if [ $fast -eq 0 ]; then
   step "save-profile cut vs mock VoiceStudio" node tests/save-profile.mjs
   step "scopes (signalstats per cut: bands, flagged cuts, PNGs only when flagged)" node tests/scopes.mjs
   step "palette (dominant colours, OKLCH L, figure-ground compare)" node tests/palette.mjs
-  step "retake, busy retry, chunk limit vs mock VoiceStudio" node tests/retake.mjs
+  step "retake, busy retry, resume, chunk limit vs mock VoiceStudio" node tests/retake.mjs
   step "Kokoro take, alignment, retake vs a mock Python" node tests/kokoro.mjs
   step "Kokoro helper vs fake packages (no unasked fetch, broken install is not missing)" node tests/kokoro-helper.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs

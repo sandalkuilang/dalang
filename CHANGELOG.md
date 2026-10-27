@@ -47,6 +47,18 @@ that reads as:
   120 turns or 250K context) is a WARN row and exit 3; a main context over it says /compact is safe. A session run in a
   parent folder counts only the subagents that name this project. No transcript, or none readable, is NOT CHECKED
   (exit 2), never "no tokens"; it never blocks a gate.
+- **A stopped voice take resumes** (`scripts/tts_timestamps.mjs`, `voice.md`, `script-voice.md` §4,
+  `tests/retake.mjs`): every chunk is kept in `audio/.tts-parts/` under a hash of its text and settings, beside the chunk
+  plan, until the take is transcribed, so rerunning the same command after a 503, a dropped request or a closed laptop
+  speaks only what is not on disk. Before, a slow model's take that stopped near the end started over, and agents
+  wrote their own resumable generation scripts, which cost hours per film.
+- **Heavy-model take check** (VoxCPM2): before a take the backend must answer `/health` (no answer: another job holds
+  it, `WARN … rerun`, exit 3, nothing spoken) and free memory is read (under 4 GB: a WARN and 60-character chunks;
+  unreadable: a WARN, never MISSING). During the take: minutes left, the remaining chunks shrunk after one took over
+  half the compute limit (`DALANG_VS_LIMIT_S`, default 300 s), a chunk that answered 503 retried in halves.
+- **Clipped sentence starts are flagged** ("clipped start"): a generated take is also transcribed once without the
+  script as prompt, because the prompt makes Whisper hear a stray syllable or a lost first consonant as the written
+  word. `--retake auto` re-speaks those sentences with the others, in one batch.
 
 ### Changed
 
@@ -58,6 +70,10 @@ that reads as:
 - **Every look one click away** (`brief.md` item 6, `looks.md`): AskUserQuestion holds 4 options, so the visual-style
   question offers the 3 best-fitting looks and "More looks", which opens a second question with the rest; before, the
   others were only named in the question text and easy to miss. A stylized slate for a made thing always holds J.
+- **A dropped VoiceStudio request is BUSY, not FAILED** (`tts_timestamps.mjs`): a reset or no answer in 5 minutes is
+  retried once, then `WARN … rerun` and exit 3, like a 503. Before, it failed the take and agents restarted the app.
+- **A new take keeps the last one**: before a full take overwrites the narration, the previous audio and its response
+  move to `audio/takes/<n>/`.
 
 ### Fixed
 
@@ -65,6 +81,9 @@ that reads as:
   child through `_posixsubprocess.fork_exec` with no audit event, so a spawn or forkserver child slipped past the guard
   and the gate failed on `main`. The helper now raises that event itself before the real call; `tests/kokoro-helper.mjs`
   passes on 3.12, 3.13 and 3.14.
+- **Joining parts of different sample rates** (`tts_timestamps.mjs`): each part is resampled to 24 kHz mono before
+  the concat, which read every part at the first one's rate, so a 48 kHz speech part beside 24 kHz silence (a dialogue
+  pause) played at the wrong speed.
 
 ## [1.5.0] - 2026-10-27
 

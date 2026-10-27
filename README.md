@@ -124,7 +124,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 The voice is recorded **before a single frame exists**, then timed word by word — by forced alignment against the script where a model for the language is installed, else by transcription. Named beats in the script (`{so here is the catch|proof}`) become exact timestamps, and every scene, cut and title references `BEATS.<name>.start`.
 
-Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence the voice got wrong is re-spoken alone and spliced in at its pauses (`--retake auto`, or `--retake changed` after an edit), never the whole take. A calmer or faster delivery of an approved take is `--tempo` (ffmpeg `atempo`; the take keeps its model and licence). No scene ever holds a hard-coded second.
+Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence the voice got wrong is re-spoken alone and spliced in at its pauses (`--retake auto`, or `--retake changed` after an edit), never the whole take. A take stopped by a busy backend resumes from the chunks already spoken. A calmer or faster delivery of an approved take is `--tempo` (ffmpeg `atempo`; the take keeps its model and licence). No scene ever holds a hard-coded second.
 
 <br/>
 
