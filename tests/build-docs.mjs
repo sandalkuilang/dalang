@@ -373,10 +373,11 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
         "builder Agent": [(e) => builder("Agent", e), (s) => [file(s, write("/p/film/SPEC.md")), file(read(), write())]],
       };
       for (const [kind, [mk, around]] of Object.entries(kinds)) {
-        const failed = go(...around(mk(true))), absent = go(...around(""));
-        assert.deepEqual([failed.status, failed.out], [absent.status, absent.out], `a failed ${kind} must count as no ${kind} at all`);
-        const ok = go(...around(mk(false)));
-        assert.notDeepEqual([ok.status, ok.out], [absent.status, absent.out], `a ${kind} that returned must count (the legitimate case)`);
+        // The verdict: exit code and flagged lines, with the temp file names left out.
+        const verdict = (...files) => { const v = go(...files); return [v.status, v.out.replace(/\/s\d+\.jsonl/g, "")]; };
+        const failed = verdict(...around(mk(true))), absent = verdict(...around(""));
+        assert.deepEqual(failed, absent, `a failed ${kind} must count as no ${kind} at all`);
+        assert.notDeepEqual(verdict(...around(mk(false))), absent, `a ${kind} that returned must count (the legitimate case)`);
       }
     }
     // Unknown is not clean: no write under style-frames/src/, no argument, an empty transcript.
