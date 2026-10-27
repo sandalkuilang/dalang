@@ -2,12 +2,14 @@
 // node tests/strips.mjs — scripts/strips.mjs against fixture projects: the shot table (or the beat list) read into
 // frame times, the index of frame → sheet, row, column → time → shot, and the tiling of stills captured elsewhere.
 // The capture path (`hyperframes snapshot`) needs a composition and Chrome, so it is not run here: --dry-run and
-// --frames cover everything but the call itself. The tiling case runs only where ffmpeg does.
+// --frames cover everything but the call itself, and a stand-in `npx` covers the layout receiver (records posted
+// during the capture). The tiling and capture cases run only where ffmpeg does.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFile, spawnSync } from "node:child_process";
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 
 const strips = fileURLToPath(new URL("../scripts/strips.mjs", import.meta.url));
@@ -50,6 +52,56 @@ try {
   assert.deepEqual(rows.map((x) => x.sheet), [...Array(6).fill("strip-01.jpg"), ...Array(3).fill("strip-02.jpg")]);
   assert.equal(`${rows[4].row}/${rows[4].col}`, "2/2", "frame 5 is shot 2's middle still: row 2, column 2");
   console.log("ok  storyboard table → nine frames, times, rows and columns");
+
+  // 1b. Layout numbers (canvas text): the records of layoutFrame, read from layout.json, indexed and linted per frame.
+  // The page → receiver path needs Chrome, so it is not run here; the index, the lint and --layout are.
+  const stripsDir = path.join(sb, "review", "strips");
+  const text = () => fs.readFileSync(path.join(stripsDir, "index.md"), "utf8");
+  const clean = { t: 0.16, W: 1080, H: 1920, format: "shorts", hero: { x0: 100, y0: 400, x1: 550, y1: 1100 },
+    boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }, { kind: "label", text: "valve", x0: 600, y0: 300, x1: 800, y1: 356, size: 40 }] };
+  const covered = { ...clean, t: 2.8, hero: { x0: 100, y0: 400, x1: 900, y1: 1300, clipped: true } };
+  assert.match(text(), /No layout recorded/,"no layout.json: say so, never 'no faults'");
+  assert.doesNotMatch(text(), /no faults|Lint \(layout_lint\.mjs\): OK/i);
+  fs.writeFileSync(path.join(stripsDir, "layout.json"), JSON.stringify({ frames: [clean, covered, { ...clean, t: 9 }] }));
+  r = await run([sb, "--dry-run", "--per-sheet", "6"]);
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.match(text(), /## Layout/);
+  assert.match(text(), /^- frame 1 · 0\.16 s · caption "the hero" · 200,1180–880,1330 · 60 px$/m);
+  assert.match(text(), /^- frame 1 · 0\.16 s · hero · 100,400–550,1100$/m);
+  assert.match(text(), /^- frame 5 · 2\.8 s · hero · 100,400–900,1300 \(clipped\)$/m);
+  assert.match(text(), /^- FLAG frame 5 · .*covers/m);
+  assert.equal(text().split("\n").filter((l) => /^- FLAG frame/.test(l)).length, 1, "only the covered frame is flagged");
+  assert.doesNotMatch(text(), /Lint \(layout_lint\.mjs\): OK/);
+  assert.match(text(), /Not recorded: frames 2, 3, 4, 6, 7, 8, 9/);
+  assert.match(r.out, /FLAG: frame 5 \(shot 2, 2\.8 s\): .*covers/);
+  // A clean set: OK, and a record that matches no frame (t 9) is not an error.
+  fs.writeFileSync(path.join(stripsDir, "layout.json"), JSON.stringify({ frames: [clean] }));
+  r = await run([sb, "--dry-run", "--per-sheet", "6"]);
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.match(text(), /Lint \(layout_lint\.mjs\): OK/);
+  assert.doesNotMatch(text(), /- FLAG/);
+  assert.doesNotMatch(r.out, /FLAG/);
+  // --layout <file>: another file; bad JSON is a WARN and not recorded, never "no faults".
+  const bad = path.join(tmp, "bad-layout.json");
+  fs.writeFileSync(bad, "{not json");
+  r = await run([sb, "--dry-run", "--per-sheet", "6", "--layout", bad]);
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.match(r.out, /WARN: layout .*bad-layout\.json/);
+  assert.match(text(), /No layout recorded/);
+  assert.doesNotMatch(text(), /Lint \(layout_lint\.mjs\): OK/);
+  const other = path.join(tmp, "other-layout.json");
+  fs.writeFileSync(other, JSON.stringify({ frames: [covered] }));
+  r = await run([sb, "--dry-run", "--per-sheet", "6", "--layout", other]);
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.match(text(), /^- FLAG frame 5 · /m);
+  // --layout with no file is a usage error (exit 1), not a silent fall back to the receiver; with a file it ran above.
+  for (const args of [[sb, "--dry-run", "--layout"], [sb, "--dry-run", "--layout", "--per-sheet", "6"]]) {
+    r = await run(args);
+    assert.equal(r.code, 1, r.err + r.out);
+    assert.match(r.err, /--layout needs a file/);
+  }
+  fs.rmSync(path.join(stripsDir, "layout.json")); // later cases reuse sb
+  console.log("ok  layout: records indexed per frame, lint FLAG with its frame, clean = OK, nothing recorded is said, --layout");
 
   // 2. Beats fallback: an untimed beat is no shot; the last timed beat runs to the duration.
   const bt = mk("beats");
@@ -222,6 +274,69 @@ try {
     assert.equal(r.code, 3, r.err + r.out);
     assert.equal(index(sb)[4].change, "-");
     console.log("ok  --against: three labels, beat or shot targets, usage errors, a missing still is not compared");
+
+    // 6. The capture path with a stand-in `npx` that writes the stills and posts layout records to the receiver, as the
+    // page's layoutFrame does under `hyperframes snapshot`: records land in layout.json, a stale one goes, a busy port is a WARN.
+    const bin = mk("bin");
+    fs.writeFileSync(path.join(bin, "npx"), `#!/usr/bin/env node
+const { spawnSync } = require("node:child_process"), fs = require("node:fs"), path = require("node:path");
+const a = process.argv.slice(2), at = a[a.indexOf("--at") + 1].split(",").map(Number), out = a[a.indexOf("--output") + 1];
+fs.mkdirSync(out, { recursive: true });
+for (const t of at) spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=64x36", "-frames:v", "1", path.join(out, "frame-at-" + t + "s.png")]);
+const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }] });
+(async () => {
+  if (process.env.NPX_SILENT) return; // the page posts nothing (no layoutFrame call, or its first post failed)
+  for (const t of [...at, 0.5]) await fetch("http://127.0.0.1:47614/layout", { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 900, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
+  await fetch("http://127.0.0.1:47614/layout", { method: "POST", body: "{not json" });
+})().catch((e) => { console.error(String(e)); process.exit(1); });
+`, { mode: 0o755 });
+    const runWith = (args, extra = {}) => new Promise((resolve) => execFile(process.execPath, [strips, ...args], { env: { ...process.env, ...extra, PATH: `${bin}${path.delimiter}${process.env.PATH}` } }, (e, out, err) => resolve({ code: e ? e.code : 0, out, err })));
+    const lay = path.join(sb, "review", "strips", "layout.json");
+    fs.writeFileSync(lay, JSON.stringify({ frames: [{ ...clean, t: 5 }] })); // a stale layout of an earlier round
+    r = await runWith([sb, "--per-sheet", "6"]);
+    if (/port 47614 is busy/.test(r.out)) console.log("receiver case skipped: port 47614 is in use");
+    else {
+      assert.equal(r.code, 0, r.err + r.out);
+      const saved = JSON.parse(fs.readFileSync(lay, "utf8")).frames;
+      assert.deepEqual(saved.map((x) => x.t), want, "one record per frame, in frame order; the stray t=0.5 and the bad body are dropped");
+      assert.match(text(), /^- FLAG frame 5 · .*covers/m);
+      assert.match(r.out, /FLAG: frame 5/);
+      assert.doesNotMatch(text(), /Not recorded/);
+      assert.equal(index(sb).length, 9);
+      console.log("ok  capture: the receiver gets the records, writes layout.json, drops the stale one");
+    }
+    // A capture that gets no records must not index an earlier round's layout.json as this round's.
+    fs.writeFileSync(lay, JSON.stringify({ frames: [clean, covered] }));
+    r = await runWith([sb, "--per-sheet", "6"], { NPX_SILENT: "1" });
+    if (/port 47614 is busy/.test(r.out)) console.log("silent-capture case skipped: port 47614 is in use");
+    else {
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.match(text(), /No layout recorded/, "no records this round: say so");
+      assert.doesNotMatch(text(), /Lint \(layout_lint\.mjs\): OK|- FLAG frame|caption "the hero"/, "round 1's boxes and lint are not round 2's");
+      assert.doesNotMatch(r.out, /FLAG/);
+      assert.equal(fs.existsSync(lay), false, "the stale layout.json is removed before the capture");
+      console.log("ok  capture: no records this round, an earlier round's layout.json is not indexed");
+    }
+    // --layout <file> given: the receiver is not opened and the capture's own layout.json is left as it was.
+    fs.writeFileSync(lay, JSON.stringify({ frames: [clean] }));
+    r = await runWith([sb, "--per-sheet", "6", "--layout", other], { NPX_SILENT: "1" });
+    assert.equal(r.code, 0, r.err + r.out);
+    assert.match(text(), /^- FLAG frame 5 · /m, "--layout names the records to index");
+    assert.equal(JSON.parse(fs.readFileSync(lay, "utf8")).frames.length, 1, "layout.json is left as it was");
+    fs.rmSync(lay, { force: true });
+    const hold = await new Promise((resolve) => { const s = http.createServer((q, p) => { p.writeHead(404); p.end(); }); s.on("error", () => resolve(null)); s.listen(47614, "127.0.0.1", () => resolve(s)); });
+    if (!hold) console.log("busy-port case skipped: port 47614 is in use");
+    else {
+      try {
+        r = await runWith([sb, "--per-sheet", "6"]);
+        assert.equal(r.code, 0, `a busy port does not fail the capture: ${r.err}${r.out}`);
+        assert.match(r.out, /WARN: layout not recorded: port 47614 is busy/);
+        assert.match(text(), /No layout recorded/);
+        assert.equal(fs.existsSync(lay), false);
+        assert.equal(index(sb).length, 9);
+        console.log("ok  capture: a busy port is a WARN, the stills and the index still come");
+      } finally { hold.close(); }
+    }
   }
   console.log("OK");
 } finally {

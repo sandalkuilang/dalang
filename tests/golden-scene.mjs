@@ -58,6 +58,17 @@ try {
   for (const [n, src] of [["scene.js", sceneSrc], ["index.html", html]]) {
     for (const bad of ["Math.random", "Date.now", "requestAnimationFrame", "performance.now"]) assert.ok(!src.includes(bad), `${n} must not use ${bad}`);
   }
+  // 4b. The layout numbers are wired on the main path: the ready example the builder starts from calls layoutFrame last in
+  // its frame function (after the caption and the labels it records), and the build step says to do the same.
+  const frameFn = html.slice(html.indexOf("function renderAt"));
+  assert.match(html, /import \{[^}]*\blayoutFrame\b[^}]*\} from "\.\/assets\/engine\/type\.js"/, "golden imports layoutFrame");
+  assert.match(html, /import \{[^}]*\bheroBox\b[^}]*\} from "\.\/assets\/engine\/camera\.js"/, "golden imports heroBox");
+  const at = (re) => frameFn.search(re);
+  assert.ok(at(/layoutFrame\(ctx, t, \{[^}]*hero: heroBox\(/) > Math.max(at(/drawCaption\(/), at(/pinLabel\(/)), "layoutFrame comes after drawCaption and pinLabel");
+  const lookBuild = fs.readFileSync(path.join(root, "references", "look-build.md"), "utf8");
+  const craft = fs.readFileSync(path.join(root, "references", "craft-rules.md"), "utf8");
+  assert.match(lookBuild, /`layoutFrame` last \(`craft-rules\.md` §6\)/, "Step 6 item 4 tells the builder to call layoutFrame last");
+  assert.match(craft, /layoutFrame\(ctx, t, \{ format, hero: heroBox\(camera, heroObject, W, H\) \}\)[^\n]{0,80}LAST in the frame function/, "craft-rules §6 says how");
   assert.match(sceneSrc, /\.\.\/assets\/engine\//, "scene.js imports the engine from the project's assets/engine");
   assert.ok(!/\b(document|window)\b/.test(sceneSrc.replace(/\/\/.*$/gm, "")), "scene.js is DOM-free");
   console.log("golden-scene: ok");
