@@ -41,6 +41,13 @@ that reads as:
   time and a shot where the subject does nothing are refused before a frame is drawn; physics stays the bake's. The
   torch's three style frames rebuilt from data give the same camera and the same draw calls as the hand-written frame.
   `look-build.md` Step 6 ("Shot data first", builder budget "Data before code"), `SKILL.md`, `README.md` and `docs/` in step.
+- **Look K, Technical clean** (`looks.md` row K and its recipe, `brief.md`, `SKILL.md` autonomous mode): a real mechanism
+  at real proportions with its housing in x-ray instead of a cut, near-monochrome greys and one accent on the part the
+  narration names, soft studio light and a contact shadow on a light sweep, no textures, wear or set dressing; one model
+  carries many shots and 2D cards carry the facts. It is the first, recommended stylized look for a made thing (how a
+  machine, tool or device works, what is inside, why it fails) and the autonomous default there: clearer to read and far
+  cheaper to build than a dressed set. It keeps real shapes, scale and physical motion. Look J's overlay details moved to
+  its recipe so the look table stays in its reading budget.
 - **Token report at every gate** (`scripts/tokens.mjs`, `state.mjs approve`, `tests/tokens.mjs`): turns, tokens and the
   largest context of the main agent and of each subagent, read from Claude Code's own transcripts (no new dependency),
   written to `review/tokens.json` and recorded in `state.json` with each approval. A builder over the budget (default
