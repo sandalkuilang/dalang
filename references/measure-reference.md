@@ -6,7 +6,7 @@
 2. **Copying the script** and just changing the character names. Also theft, only slower.
 3. **Copying the craft**: measuring how the film is built, then using those measurements for your own story. **Only this one is used.**
 
-What you may take is the measurements: section lengths, number of cuts, camera movement, boil rate, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a logo, a brand mark or a channel's signature colour scheme is never copied.
+What you may take is the measurements: section lengths, number of cuts, camera movement, boil rate, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a channel's signature colour scheme is never copied.
 
 One sentence covers it: **measure theirs, make yours.**
 
@@ -32,6 +32,7 @@ It produces:
 - `measure/info.txt`: duration, resolution, fps, and audio channels.
 - `measure/frames/`: one still per second.
 - `measure/contact/`: contact sheets, 16 stills per sheet (4×4). `measure/contact/index.txt` records which seconds each sheet covers.
+- `measure/reference-board.jpg`: 8 stills, the Gate 3 benchmark board.
 - `measure/cuts.txt`: estimated time of every hard cut.
 - `measure/boil.txt`: estimated unique frames per second at a few points. About 5 means the lines are redrawn 5× per second.
 - `measure/stillness.txt` and `measure/loudness.txt`: stillness % and loudness (needs Node).
@@ -42,7 +43,7 @@ Note: the "still" number depends heavily on the sensitivity threshold. Use the *
 
 ### 3. Reading the contact sheets
 
-- If subagents are available, split the contact sheets into 4 parts and work in parallel. For a 9-minute film this takes about 17 minutes.
+- With subagents, read the contact sheets in 4 parallel parts.
 - For each shot, note: start–end time, what is visible (described in general terms, never copied), camera movement, and the beat word that triggers the change (from the transcript).
 - **Colour and type.** With `palette.txt`, name what each dominant colour is (ground and walls, floor, hero, its dark parts, accents and the job each accent has, such as heat, current or cold), and read the type: ink colour, kicker and headline treatment, any tag or label style, the caption box and the highlight of the spoken word. Note how the hero separates from the ground: value (dark parts, shadow) or a coloured backdrop.
 - **Limitation:** an assistant reading images cannot hear. Sound effects written from images are guesses; mark them `(guess)`.

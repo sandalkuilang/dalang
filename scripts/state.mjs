@@ -5,7 +5,10 @@
 //
 // Usage: node state.mjs [dir]                     -> status (resume from here)
 //        node state.mjs approve <1-4> [dir] [--by "user"|"agent"] [--note "..."]
-//                                                 -> approve 3 also runs storyboard_lint.mjs and records its result
+//                                                 -> approve 3 also runs storyboard_lint.mjs and records its result;
+//                                                    it refuses without review/benchmark.md, with a row there more
+//                                                    than 1 point behind the reference board, or with a verdict older
+//                                                    than the style frames
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
 //        node state.mjs log "<step> | <output> | <problems or ->" [dir]
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
@@ -30,7 +33,7 @@ const GATES = {
   // in model.mjs, or a rerun that writes another numbers.json, makes the approval stale even when the words stay.
   1: { name: 'script', files: ['script.md', 'narration.txt'], optional: ['model.mjs', 'numbers.json'] },
   2: { name: 'voice', files: ['audio/beats.json'] },
-  3: { name: 'look', files: ['SPEC.md', 'storyboard.md', 'style-frames'] },
+  3: { name: 'look', files: ['SPEC.md', 'storyboard.md', 'style-frames'], optional: ['review/benchmark.md'] }, // approve 3 requires the verdict; an approval from before it stays fresh
   4: { name: 'draft', files: ['index.html'] },
 };
 
@@ -54,6 +57,33 @@ const hashOf = g => {
   return h.digest('hex').slice(0, 12);
 };
 const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
+// Gate 3's benchmark (review.md "Benchmark review"): the fresh reviewer's table, written by the main agent to
+// review/benchmark.md as `| Row | Reference | Style frames | … |`, scores 1–5. A row more than 1 point behind the board
+// blocks the gate; so does a verdict that is missing, unreadable or older than the style frames (never read as passed).
+const BENCH = 'review/benchmark.md';
+const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'text system', 'overlays caused by physics', 'framing', 'macro quality'];
+const newest = p => statSync(p).isDirectory() ? Math.max(0, ...readdirSync(p).map(f => newest(path.join(p, f)))) : statSync(p).mtimeMs;
+const benchmarkOf = () => {
+  const p = path.join(dir, BENCH);
+  if (!existsSync(p)) return { error: `has no benchmark verdict: ${BENCH} (review.md "Benchmark review": the style frames scored against the reference board)` };
+  if (statSync(p).mtimeMs < newest(path.join(dir, 'style-frames'))) return { error: `has a benchmark older than the style frames: score them again into ${BENCH}` };
+  const scores = {};
+  for (const l of readFileSync(p, 'utf8').split('\n')) {
+    const c = l.split('|').map(s => s.trim());
+    if (c.length < 5) continue;
+    const row = c[1].replace(/\*/g, '').trim().toLowerCase();
+    if (!BENCH_ROWS.includes(row)) continue; // header, separator, notes
+    if (row in scores) return { error: `cannot read ${BENCH}: row "${c[1]}" appears twice` };
+    const [ref, own] = [c[2], c[3]].map(s => (/^[1-5]$/.test(s) ? Number(s) : NaN));
+    if (Number.isNaN(ref) || Number.isNaN(own)) return { error: `cannot read ${BENCH}: row "${c[1]}" needs two scores 1–5 (reference, style frames)` };
+    scores[row] = [ref, own];
+  }
+  const absent = BENCH_ROWS.filter(r => !(r in scores));
+  if (absent.length) return { error: `cannot read ${BENCH}: no score for ${absent.join(', ')}` };
+  const behind = BENCH_ROWS.filter(r => scores[r][0] - scores[r][1] > 1);
+  if (behind.length) return { error: `is held by the benchmark: ${behind.map(r => `${r} ${scores[r][1]} vs ${scores[r][0]}`).join(', ')} — more than 1 point behind the reference board; fix the style frames and score them again` };
+  return { summary: BENCH_ROWS.map(r => `${r} ${scores[r][1]}/${scores[r][0]}`).join(', ') };
+};
 const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'waiting for approval' : 'not started') : a.hash === hashOf(g) ? `approved ${a.at} by ${a.by}` : `STALE — files changed after approval (${a.at})`; };
 // The reading list: one table that mirrors SKILL.md's step table (edit both together; `state.mjs reading`, run by
 // scripts/gate.sh, checks it). An entry is [file in references/, heading line], the heading EXACTLY as the file has
@@ -89,7 +119,7 @@ const READING = {
   3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
   4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: of('voice.md', '### Clone (VoiceStudio, free, local)'), sub: [] },
   5: {
-    name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: [],
+    name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),
     refs: [
       ...LOOKS, ...THREEJS,
       ...VD_HERO,
@@ -209,15 +239,18 @@ if (cmd === 'approve') {
   // 'sv' formats local time as YYYY-MM-DD HH:MM
   // Gate 3 records the storyboard lint's verdict; it never blocks (a heuristic must not lock a gate) and an
   // unreadable result is "not checked", never OK.
-  let lint;
+  let lint, bench;
   if (g === 3) {
+    bench = benchmarkOf();
+    if (bench.error) { console.error(`FAILED: gate 3 (look) ${bench.error}`); process.exit(1); }
     const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'storyboard_lint.mjs'), dir], { encoding: 'utf8' });
     lint = (r.stdout || '').match(/^\s*Result\s*:\s*(.+)$/m)?.[1].trim() || 'not checked';
   }
-  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(note && { note }) };
+  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }),...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
   if (lint) console.log(`Storyboard lint: ${lint}`);
+  if (bench) console.log(`Benchmark: ${bench.summary}`);
 } else if (cmd === 'log') {
   if (!gateArg?.includes('|')) { console.error('FAILED: log needs "<step> | <output> | <problems or ->"'); process.exit(1); }
   // the build starts from an approved storyboard: Step 6 cannot be logged without it

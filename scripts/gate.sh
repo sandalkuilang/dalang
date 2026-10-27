@@ -45,6 +45,7 @@ if [ $fast -eq 0 ]; then
   step "fill_times --lang (times from audio/<lang>, language variants, plain run unchanged)" node tests/fill-times.mjs
   step "SFX from impacts (tags, gains, merge, licence rows vs check_assets)" node tests/sfx.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
+  step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs
   step "layout lint (canvas text: safe area, hero overlap, min size, caption over label)" node tests/layout-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
   step "golden (metrics, diff, flags vs fixture frames; no Chrome)" node tests/golden.mjs

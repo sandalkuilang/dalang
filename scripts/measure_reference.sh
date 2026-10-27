@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Measure a reference video mechanically: info, one frame per second, contact sheets,
-# estimated hard cuts, estimated "boil" rate, stillness, loudness, and the palette (dominant colours).
+# estimated hard cuts, estimated "boil" rate, stillness, loudness, the palette (dominant colours), and a reference
+# board (8 stills on one sheet, the Gate 3 benchmark board).
 # The output is numbers to borrow the rhythm from — not material to copy.
 #
 # Usage: bash measure_reference.sh <video> <output-folder> [cut-threshold=0.35]
@@ -53,6 +54,21 @@ for f in "$OUT"/contact/sheet_*.jpg; do
   n=$(( n + 1 ))
 done
 
+# 3b) Reference board: 8 stills spread evenly over the film on one 4x2 sheet, the Gate 3 benchmark board
+#     (references/review.md "Benchmark review"). Local only: never published or committed.
+echo "Building the reference board..."
+BN=$(( NFRAMES < 8 ? NFRAMES : 8 ))
+if (( BN > 0 )); then
+  BD="$OUT/.board"; rm -rf "$BD"; mkdir -p "$BD"
+  for (( i = 0; i < BN; i++ )); do
+    k=$(( (2 * i + 1) * NFRAMES / (2 * BN) + 1 ))
+    cp "$OUT/frames/$(printf '%04d' "$k").jpg" "$BD/$(printf '%02d' "$i").jpg"
+  done
+  ffmpeg -hide_banner -loglevel error -y -framerate 1 -i "$BD/%02d.jpg" \
+    -vf "tile=4x2:padding=4:margin=4:color=white" -frames:v 1 "$OUT/reference-board.jpg"
+  rm -rf "$BD"
+fi
+
 # 4) Estimated hard cuts
 echo "Detecting hard cuts (threshold $SCENE)..."
 ffmpeg -hide_banner -nostats -i "$VIDEO" -map 0:v:0 -vf "select='gt(scene,$SCENE)',showinfo" -f null - 2>&1 \
@@ -84,6 +100,7 @@ fi
   cat "$OUT/info.txt"
   echo "Frames           : $NFRAMES files in frames/"
   echo "Contact sheets   : $(ls "$OUT"/contact/sheet_*.jpg | wc -l | tr -d ' ') sheets (see contact/index.txt)"
+  [[ -f "$OUT/reference-board.jpg" ]] && echo "Reference board  : reference-board.jpg (8 stills; Gate 3 benchmark, local only)" || true
   echo "Hard cuts        : $NCUTS (estimate, threshold $SCENE; see cuts.txt)"
   [[ -f "$OUT/stillness.txt" ]] && grep -E 'Total still|Longest still' "$OUT/stillness.txt" || true
   [[ -f "$OUT/loudness.txt" ]] && grep -E 'integrated' "$OUT/loudness.txt" || true
