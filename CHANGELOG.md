@@ -41,7 +41,13 @@ that reads as:
   breaks may differ); an unreadable file is a warning (exit 2, rerun), never "not found". `fill_times.mjs --lang <code>`
   takes the times from `audio/<code>/` and switches each local `src` / `href` to its language variant (`audio/x` →
   `audio/<code>/x`, a missing one fails; `name.ext` → `name.<code>.ext` when it exists); without `--lang` the output is
-  unchanged. Both have a gate step (`tests/beats-lint.mjs`, `tests/fill-times.mjs`).
+  unchanged. Both have a gate step (`tests/beats-lint.mjs`, `tests/fill-times.mjs`). The steps: `BRIEF.md`
+  `second_language` (optional; the hand-off offers it once, never in autonomous mode unless named), Step 3b (translate
+  `narration.txt` for the ear into `narration.<lang>.txt`, same beats), Step 4 again into `audio/<lang>`, Step 6 with
+  `strings.<lang>.js` for on-screen words and `fill_times.mjs --lang`, a draft QC (timing lint, captions, loudness; no
+  re-review of the look) and `final.<lang>.mp4` + `narration.<lang>.srt`. Described in new sections of
+  `script-voice.md`, `look-build.md` and `qc.md`, which the reading list indexes (Steps 1, 6 and 8, outside the 60 KB);
+  the hand-off gains one sentence.
 - **Lean video workspace** (`scripts/workspace.mjs`; `brief.md` Step 0 "Lean workspace" and Call 0; preflight's
   `Workspace` row; `SKILL.md` "Work fast"): plugins and MCP servers a video never uses are re-read on every model call.
   `workspace.mjs init <folder>` lists what is on (a guessed job each) and proposes the video set (DALANG, HyperFrames,

@@ -48,7 +48,7 @@ A clean final encode can measure stiller than the draft; over target → add mot
 
 ## Step 8 — Hand-off
 
-Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (below; the report links it, an upload pastes it as is). Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**; the one improvement with the most impact.
+Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (below; the report links it, an upload pastes it as is). Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**; the one improvement with the most impact. Offer a second language once.
 
 **Open P1s:** list every P1 still open in `QC-REVIEW.md` with its rubric test and why it stays (cosmetic, or two rounds failed on it).
 
@@ -68,3 +68,10 @@ A companion to the film, written at the hand-off from `script.md` (plus `numbers
 A film without a model, failure modes or a checkable number drops those parts: never invent a formula for part 4. Every number is the film's (`script.md` tags, `numbers.json`); the part 4 formula on the example inputs gives the film's number.
 
 Credits: a CC0 or public-domain asset needs no line. A CC BY asset gets one credit line only if the user chose CC BY at Gate 2 and chose the description as its place (`look-build.md` §6 item 7). No meta lines about tools, models or AI unless the user asks; the platform's AI label is an upload toggle, asked at upload. User away: write it anyway and link it in the report.
+
+### Second-language cut: QC and delivery
+
+- **Draft:** `npx hyperframes render --fps 10 --quality draft --quiet --output draft.<lang>.mp4`, then `timing_lint.mjs --audio audio/<lang>` (every cut between the new words), `qc.mjs draft.<lang>.mp4 --audio audio/<lang> --size <WxH>`, `loudness.mjs draft.<lang>.mp4`, and a captions check on the phone sheet (`strips.mjs --audio audio/<lang> --out review/strips-<lang>` when the captions changed length). No fresh-eyes review of the look: the look and storyboard are the approved ones; a caption or label that overflows is fixed in `strings.<lang>.js`.
+- `audio_qc.mjs` reads `audio/words.json` (the first take): it does not check the cut; say so in the hand-off.
+- **Final:** `npx hyperframes render --fps <fps> --quality high --quiet --output final.<lang>.mp4`, the same re-checks as the first final with `--audio audio/<lang>`; `check_assets.mjs .` again (a new voice model's licence).
+- **Deliver** `final.<lang>.mp4` and `narration.<lang>.srt` (a copy of `audio/<lang>/narration.srt`) beside `final.mp4`; `POST.md` gets a `POST.<lang>.md` in that language (same six parts, no new fact). Report the cut's numbers like the first's. Restore `index.html` (`look-build.md` "Second-language cut", last step).

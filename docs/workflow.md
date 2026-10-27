@@ -39,7 +39,7 @@ flowchart TD
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills) | **3** |
 | 6 Build | HyperFrames composition: builder subagents only: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
 | 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
-| 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md` | — |
+| 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md`; optional second-language cut: `final.<lang>.mp4` + `narration.<lang>.srt` (same storyboard, `beats_lint.mjs`) | — |
 
 Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's
 files and prints only that step's reading list (sections as `sed` commands, the step's lesson headlines), then a
