@@ -34,6 +34,38 @@ that reads as:
 
 ### Added
 
+- **Fields and optics** (`engine/three/fields.js`, `optics.js`, `examples/magnet.js`, `examples/straw.js`): invisible physics
+  drawn by its law and never by hand. `fields.js` holds static electric and magnetic fields in SI units from point
+  charges, dipoles, straight wires, current loops and bar magnets (a uniformly magnetised block as two pole sheets, `Br`
+  from the film's model with a source and no default), superposed. `fieldLines` traces lines by RK4 from seeds spaced by
+  flux (a Fibonacci sphere round a charge, equal area on the N face, equal flux across a loop's disc), so in the 3D set
+  line density is field strength; a hand-picked or planar set shows direction only and says so. Lines grow on cue
+  (`reveal(u)`), are traced again when a source moves (`at(t)`, pure of t) and draw as `teach` (on top of the world, with
+  arrowheads) or `world`. `filings` lie along the field's in-sheet component and a `compass` needle turns by the field's
+  torque with inertia and damping (a fixed-step cache, so `at(t)` is order-independent). The self-check asserts the
+  share of a dipole's lines crossing its equatorial plane beyond a radius against the flux law and the density falling as
+  1/r³, Coulomb's field, a loop on its axis, a long wire with the right-hand rule, a bar magnet's far field as a dipole
+  of moment (Br/μ0)·V, filings along the field (parallel to the axis on the equator), a compass settling along B and
+  the same value whichever time is asked first, a moving source re-traced, lines revealed on cue, and the refusals.
+  `optics.js` (`examples/straw.js`) makes light a subject: rays traced through lenses, mirrors, prisms, a flat interface
+  and any closed mesh of the set by Snell's law with the Fresnel split and total internal reflection, the index of each
+  medium from a cited table per wavelength (air, water, BK7, fused silica; a custom index is refused without a source),
+  so a prism spreads a beam and a lens focuses blue nearer than red. `bundle` traces a real beam (a torch, the Sun) and
+  reports the focal length and image point in metres for the film's numbers model; `apparent` gives where a submerged
+  point is seen through a flat surface. `drawRays` draws `teach` rays (clean tubes and arrowheads on top of the world,
+  growing on cue) or `world` light shafts in dust (which need a stated `dust` fraction, else no shaft) and `caustic` the
+  bright spot where a lens concentrates a beam, as bright as the light is concentrated (the source power is a unit: a
+  beam of power 2 looks like the same beam of power 1, and `minPower` is a share of it). The straw example draws a
+  glass of water bending a straw at the position the eye sees it, from the same law, and refuses a view through the
+  side wall. The self-check asserts air into water at 30° against asin(sin 30°/n) (to 0.1° and exactly with the same
+  index), the Fresnel share at normal incidence and at 30°, total internal reflection past the critical angle, a thin
+  and a thick lens's traced focus against the lensmaker's and thick-lens formulas, blue focusing nearer than red, a
+  mirror's focus at R/2, a prism's minimum deviation 2 asin(n sin A/2) − A and its dispersion, a ball traced through a
+  moved (across the ray too) and scaled mesh against the analytic deviation, apparent depth (a point on the surface
+  that rounds a hair above it included), faces that cross at the rim and a view through the straw glass's side wall
+  refused, the source power cancelling out of the caustic and the drawn rays, rays growing on cue, a caustic smallest and
+  brightest at the focus, the straw drawn at its apparent position, and the refusals.
+
 - **Creatures that walk and climb** (`engine/three/creature.js`, `examples/lizard.js`): an animal acting by its own
   anatomy. `gait(name, { h, v })` gives the stride and its frequency by dynamic similarity (Froude number, never typed
   per film) for four named gaits with cited footfall orders and duty factors: `walk`, `trot`, `sprawl` (a lizard's

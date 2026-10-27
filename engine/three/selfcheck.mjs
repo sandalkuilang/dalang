@@ -42,6 +42,10 @@ const { makeLizard, wallClimb } = await use("examples/lizard.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
 const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR, polarityClashes } = await use("electronics.js");
 const { openPsu } = await use("examples/psu.js");
+const FLD = await use("fields.js");
+const { makeMagnetDemo } = await use("examples/magnet.js");
+const O = await use("optics.js");
+const { makeStrawGlass } = await use("examples/straw.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -2379,6 +2383,288 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const big = supplyChain(null, { ...O, at: V(1 / Mq, 0, 0) });
     assert.ok(Math.abs(big.group.position.x * Mq - 1) < 1e-9, "placed at `at`"); }
 }
+{ // Fields (fields.js): a field is drawn by its law in real units. Lines are traced by RK4 from seeds spaced by FLUX, so
+  // how close lines lie means how strong the field is; filings lie along B, a compass needle settles along it, and a
+  // moving source re-traces everything from t alone.
+  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z), m = (x, y, z) => V(x / Mq, y / Mq, z / Mq); // metres → scene units
+  const MU0 = 1.25663706212e-6, rel = (a, b) => Math.abs(a - b) / Math.abs(b);
+
+  // Coulomb: 1 nC at 1 m gives 8.98755 V/m, at any scene scale.
+  const E1 = FLD.field([FLD.charge(1e-9, V(0, 0, 0))]).at(m(1, 0, 0));
+  assert.ok(rel(E1.x, 8.9875517923) < 1e-6 && Math.abs(E1.y) < 1e-12 && Math.abs(E1.z) < 1e-12, "Coulomb's law in V/m: " + E1.x);
+
+  { // Line density = strength. Equal flux per line: the share of a dipole's lines that cross its equatorial plane beyond
+    // a radius rho is h / sqrt(rho² + h²) (the plane's flux outside rho, divided by the whole), and the density of
+    // crossings per area falls as the field does.
+    const h = 0.005, count = 2000, dip = FLD.field([FLD.charge(1e-9, m(0, 0, h)), FLD.charge(-1e-9, m(0, 0, -h))]);
+    const { points: seeds, dir } = FLD.seeds(dip, { count });
+    assert.equal(seeds.length, count);
+    assert.equal(dir, 1, "lines leave the positive charge");
+    const rhos = [], ends = {};
+    for (const s of seeds) {
+      const tr = FLD.trace(dip, s, { dir, maxLength: 2, stop: (p) => p.z <= 0 });
+      ends[tr.ended] = (ends[tr.ended] || 0) + 1;
+      if (tr.ended === "stop") { const a = tr.points.at(-2), b = tr.points.at(-1), u = a.z / (a.z - b.z); rhos.push(Math.hypot(a.x + u * (b.x - a.x), a.y + u * (b.y - a.y))); }
+    }
+    assert.ok(!ends.singular, "no line ends on a singular point: " + JSON.stringify(ends));
+    const beyond = (rho) => count - rhos.filter((r) => r <= rho).length; // lines that never reached the plane lie beyond too
+    for (const k of [2, 5, 10, 20]) {
+      const want = h / Math.sqrt((k * h) ** 2 + h * h), got = beyond(k * h) / count;
+      assert.ok(Math.abs(got - want) < 0.1 * want + 2 / count, `line density = strength: ${got.toFixed(4)} of the lines cross beyond ${k}h, the flux law says ${want.toFixed(4)}`);
+    }
+    const per = (rho) => (rhos.filter((r) => r > rho && r <= 1.5 * rho).length) / (Math.PI * ((1.5 * rho) ** 2 - rho ** 2));
+    const lawRatio = ((400 + 1) / (100 + 1)) ** 1.5, ratio = per(10 * h) / per(20 * h);
+    assert.ok(Math.abs(ratio / lawRatio - 1) < 0.2, "crossings per area fall as 1/rho³ far away: ratio " + ratio.toFixed(2) + " vs " + lawRatio.toFixed(2));
+  }
+
+  { // Sources in real units.
+    const R = 0.05, I = 2, lp = FLD.field([FLD.loop(I, { at: V(0, 0, 0), normal: V(0, 0, 1), R })]);
+    for (const z of [0, 0.03, 0.1]) {
+      const want = MU0 * I * R * R / (2 * (R * R + z * z) ** 1.5), got = lp.at(m(0, 0, z));
+      assert.ok(rel(got.z, want) < 0.005 && Math.abs(got.x) < 1e-9 * want, `a current loop on its axis at ${z} m: ${got.z} T vs ${want} T`);
+    }
+    const w = FLD.field([FLD.straightWire(10, m(-1, 0, 0), m(1, 0, 0))]), bw = w.at(m(0, 0.01, 0));
+    assert.ok(rel(bw.z, MU0 * 10 / (2 * Math.PI * 0.01)) < 0.005, "a long straight wire: mu0 I / 2 pi r, got " + bw.z);
+    assert.ok(bw.z > 0 && Math.abs(bw.x) < 1e-12 && Math.abs(bw.y) < 1e-12, "right-hand rule: I along +x, a point at +y gets B along +z");
+    assert.ok(w.at(m(0, -0.01, 0)).z < 0, "and the other side gets -z");
+    const Br = 1.3, L = 0.02, bar = FLD.barMagnet({ at: V(0, 0, 0), axis: V(1, 0, 0), length: L, width: 0.01, depth: 0.005, Br }), bf = FLD.field([bar]);
+    const mom = (Br / MU0) * (L * 0.01 * 0.005), far = bf.at(m(10 * L, 0, 0)).x, want = MU0 / (4 * Math.PI) * 2 * mom / (10 * L) ** 3;
+    assert.ok(rel(far, want) < 0.05, `a bar magnet far on its axis is a dipole of moment (Br/mu0)·V: ${far} T vs ${want} T`);
+    assert.ok(bf.at(m(0.15, 0, 0)).x > 0 && bf.at(m(-0.15, 0, 0)).x > 0, "outside the magnet B runs along +axis on both ends of the axis (N at +axis)");
+    const { points: ns, dir } = FLD.seeds(bf, { count: 24 });
+    const ends = ns.map((s) => FLD.trace(bf, s, { dir, maxLength: 1 }).ended);
+    assert.ok(ends.filter((e) => e === "sink").length >= 0.75 * ends.length && !ends.includes("singular"), "lines from the N face end in the magnet at S: " + ends.join());
+    assert.ok(bar.mesh.userData.real && scaleAudit(bar.mesh).ok, "the magnet's mesh is its real size");
+  }
+
+  { // Filings lie along B and a compass settles along it.
+    const bar = FLD.barMagnet({ at: V(0, 0, 0), axis: V(1, 0, 0), length: 0.02, width: 0.01, depth: 0.005, Br: 1.3 }), bf = FLD.field([bar]);
+    const fil = FLD.filings(bf, { at: m(0, 0.02, 0), w: 0.2, d: 0.2, count: 3000 });
+    assert.equal(fil.dirs.length, 3000);
+    const bh = (p) => { const b = bf.at(p); b.y = 0; return b; };
+    let worst = 1, mid = 0;
+    fil.points.forEach((p, i) => {
+      const d = fil.dirs[i], b = bh(p).normalize();
+      worst = Math.min(worst, Math.abs(d.dot(b)));
+      if (Math.abs(p.x * Mq) < 0.001) { mid++; assert.ok(Math.abs(d.x) > 0.99, "on the magnet's equatorial line the filings lie parallel to its axis: " + d.toArray()); }
+    });
+    assert.ok(worst > 0.999, "every filing lies along the in-plane field: " + worst);
+    assert.ok(mid >= 5, "enough filings on the equatorial line to check: " + mid);
+    assert.equal(fil.mesh.count, 3000);
+
+    const c1 = FLD.compass(bf, { at: m(0.11, 0, 0), angle0: Math.PI / 2 }), c2 = FLD.compass(bf, { at: m(0.11, 0, 0), angle0: Math.PI / 2 });
+    const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a)), deg = 180 / Math.PI;
+    assert.ok(Math.abs(c1.at(0).angle - Math.PI / 2) < 1e-9, "starts where it was put");
+    assert.ok(Math.abs(wrap(c1.at(5).angle)) * deg < 2, "the compass N end settles along B (+x, away from the magnet's N pole): " + c1.at(5).angle * deg);
+    const a3 = c2.at(3).angle, a1 = c2.at(1).angle, once = FLD.compass(bf, { at: m(0.11, 0, 0), angle0: Math.PI / 2 }).at(1).angle;
+    assert.ok(a1 === once && a3 === c1.at(3).angle, "at(t) is pure of t: asking 3 before 1 changes nothing");
+    assert.ok(Math.abs(wrap(c1.at(0.2).angle)) * deg > 2, "it takes time to settle (it is not snapped to the field)");
+  }
+
+  { // A moving source re-traces from t; lines grow on cue.
+    const mv = FLD.field([FLD.charge(1e-9, (t) => m(t * 0.01, 0, 0))]), ln = FLD.fieldLines(mv, { count: 12, maxLength: 0.05 });
+    const p0 = ln.lines[0].points[0].clone();
+    ln.at(1);
+    assert.ok(Math.abs(ln.lines[0].points[0].x - p0.x - 0.01) < 1e-9, "the lines follow a source that moved 1 cm");
+    ln.at(0);
+    assert.ok(ln.lines[0].points[0].distanceTo(p0) < 1e-12, "and come back at t = 0 (pure of t)");
+    const dip = FLD.field([FLD.charge(1e-9, m(0, 0, 0.005)), FLD.charge(-1e-9, m(0, 0, -0.005))]), st = FLD.fieldLines(dip, { count: 10, maxLength: 0.2 });
+    assert.equal(st.lines.length, 10);
+    st.reveal(0.5);
+    for (const tube of st.tubes) assert.ok(Math.abs(tube.geometry.drawRange.count - tube.geometry.index.count / 2) <= 6, "half revealed: " + tube.geometry.drawRange.count + " of " + tube.geometry.index.count);
+    st.reveal(0);
+    assert.ok(st.tubes.every((t) => t.geometry.drawRange.count === 0) && st.arrows.count === 0, "nothing shown at 0");
+    st.reveal(7);
+    assert.ok(st.tubes.every((t) => t.geometry.drawRange.count === t.geometry.index.count) && st.arrows.count >= 10, "clamped at 1, one arrowhead per line");
+    assert.ok(st.tubes.every((t) => t.material.depthTest === false && t.renderOrder === 10), "teaching lines draw on top of the world");
+    const w = FLD.fieldLines(dip, { count: 4, maxLength: 0.2, mode: "world" });
+    assert.ok(w.tubes.every((t) => t.material.depthTest !== false), "in-world lines are depth tested");
+  }
+
+  { // Refusals and the demo.
+    assert.throws(() => FLD.field([]), /field/);
+    assert.throws(() => FLD.field([FLD.charge(1e-9, V(0, 0, 0)), FLD.straightWire(1, V(0, 0, 0), V(1, 0, 0))]), /kind/, "E and B sources are not mixed");
+    assert.throws(() => FLD.barMagnet({ at: V(0, 0, 0), axis: V(1, 0, 0), length: 0.02, width: 0.01, depth: 0.005 }), /Br/, "Br comes from the film's model");
+    assert.throws(() => FLD.fieldLines(FLD.field([FLD.charge(1e-9, V(0, 0, 0))]), { count: 4, mode: "x" }), /mode/);
+    assert.throws(() => FLD.charge(NaN, V(0, 0, 0)), /q/);
+    assert.throws(() => FLD.loop(1, { at: V(0, 0, 0), normal: V(0, 0, 1), R: -1 }), /R/);
+    assert.throws(() => makeMagnetDemo(kit, {}), /Br/);
+
+    const demo = makeMagnetDemo(kit, { Br: 1.3, filings: { count: 300, w: 0.12, d: 0.1 }, compass: [m(0.08, 0, 0.03)], lines: { count: 8 }, motion: (t) => m(0.01 * t, 0, 0) });
+    const aud = scaleAudit(demo.group);
+    assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 3, "the magnet is its real size: " + aud.problems.join("; ") + " checked " + aud.checked);
+    const x0 = demo.magnet.mesh.position.x;
+    const d0 = demo.filings.dirs.map((d) => d.clone());
+    demo.at(2);
+    assert.ok(Math.abs((demo.magnet.mesh.position.x - x0) * Mq - 0.02) < 1e-9, "the magnet slid 2 cm by the film's motion");
+    assert.ok(demo.filings.dirs.some((d, i) => d.angleTo(d0[i]) > 0.05 && Math.PI - d.angleTo(d0[i]) > 0.05), "the filings re-aligned to the moved magnet");
+    assert.ok(demo.compasses.length === 1 && Number.isFinite(demo.compasses[0].at(2).angle));
+  }
+}
+{ // Optics (optics.js): rays are traced by Snell's law and the Fresnel split through the set's surfaces, with the index of a
+  // cited material; a lens's focus is traced and compared with the lensmaker's formula, a prism spreads colours, a mesh from the
+  // set refracts by its own normals, and the straw example draws the apparent bend from the same law.
+  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z), m = (x, y, z) => V(x / Mq, y / Mq, z / Mq); // metres → scene units
+  const D = Math.PI / 180, rel = (a, b) => Math.abs(a - b) / Math.abs(b);
+  const nAir = O.MATERIALS.air.n(589.3), nWater = O.MATERIALS.water.n(589.3), nBk7 = O.MATERIALS.bk7.n(587.6);
+  const main = (r) => r.rays.reduce((a, b) => (b.power > a.power ? b : a)); // the escaping ray carrying the most power
+  const axisCross = (ray) => { const t = -ray.origin.y / ray.dir.y; return ray.origin.z + t * ray.dir.z; }; // z where a ray crosses y = 0
+
+  { // Cited indices.
+    assert.ok(Math.abs(nWater - 1.333) < 5e-4 && Math.abs(O.MATERIALS.water.n(450) - 1.337) < 1e-3, "water: 1.333 at 589 nm and about 1.337 at 450 nm: " + nWater);
+    assert.ok(Math.abs(nBk7 - 1.5168) < 2e-4 && Math.abs(O.MATERIALS.fusedSilica.n(587.6) - 1.4585) < 3e-4 && Math.abs(nAir - 1.000293) < 1e-6, "BK7, fused silica and air at the sodium line");
+    assert.ok(O.MATERIALS.bk7.n(450) > O.MATERIALS.bk7.n(650), "normal dispersion: blue bends more than red");
+    for (const k of Object.keys(O.MATERIALS)) assert.ok(typeof O.MATERIALS[k].source === "string" && O.MATERIALS[k].source.length > 10, k + " cites its source");
+    assert.throws(() => O.material({ n: 1.5 }), /source/, "an index is cited, never typed");
+    assert.ok(O.material({ n: 1.5, source: "selfcheck fixture" }).n(550) === 1.5);
+  }
+
+  { // Snell: air into water at 30° refracts to asin(sin 30° / n), by the helper and through an interface element.
+    const dir = V(Math.sin(30 * D), -Math.cos(30 * D), 0), up = V(0, 1, 0), t = O.snell(dir, up, nAir, nWater);
+    const got = Math.acos(-t.y);
+    assert.ok(Math.abs(got - Math.asin(nAir * Math.sin(30 * D) / nWater)) < 1e-9, "Snell, exact with the same index");
+    assert.ok(Math.abs(got - Math.asin(Math.sin(30 * D) / 1.33)) / D < 0.1, "within 0.1° of asin(sin 30° / 1.33): " + (got / D).toFixed(3));
+    const pool = O.interface({ at: m(0, 0, 0), normal: up, below: "water", above: "air", size: 1 });
+    const r = O.traceRay([pool], { origin: V(-0.1 * Math.sin(30 * D), 0.1 * Math.cos(30 * D), 0), dir });
+    const first = r.segments.filter((s) => s.depth === 1).sort((a, b) => b.power - a.power);
+    const seg = first[0], v = seg.b.clone().sub(seg.a).normalize();
+    assert.ok(Math.abs(Math.acos(-v.y) - got) < 1e-6 && v.y < 0, "the traced ray bends the same way: " + (Math.acos(-v.y) / D).toFixed(3));
+    const refl = first[1], rv = refl.b.clone().sub(refl.a).normalize();
+    assert.ok(Math.abs(rv.y - Math.cos(30 * D)) < 1e-9 && rv.x > 0, "and the reflected ray leaves at the angle of incidence");
+    const R = O.fresnel(Math.cos(30 * D), nAir, nWater);
+    assert.ok(Math.abs(refl.power - R) < 1e-9 && Math.abs(seg.power - (1 - R)) < 1e-9 && R > 0.015 && R < 0.03, "the split is the Fresnel one, about 2 % at 30°: " + R);
+  }
+
+  { // Fresnel at normal incidence and total internal reflection.
+    const R = O.fresnel(1, nAir, nBk7), want = ((nBk7 - nAir) / (nBk7 + nAir)) ** 2;
+    assert.ok(Math.abs(R - want) < 1e-6 && R > 0.04 && R < 0.045, "air to glass reflects (n-1)²/(n+1)² = " + want.toFixed(4));
+    assert.equal(O.fresnel(Math.cos(60 * D), nWater, nAir), 1, "water to air at 60° is past the critical angle (48.6°)");
+    assert.equal(O.snell(V(Math.sin(60 * D), Math.cos(60 * D), 0), V(0, -1, 0), nWater, nAir), null);
+    const pool = O.interface({ at: m(0, 0, 0), normal: V(0, 1, 0), below: "water", above: "air", size: 1 }), d = V(Math.sin(60 * D), Math.cos(60 * D), 0);
+    const r = O.traceRay([pool], { origin: d.clone().multiplyScalar(-0.1), dir: d });
+    assert.ok(r.rays.length === 1 && Math.abs(r.rays[0].power - 1) < 1e-12 && r.rays[0].dir.y < 0, "total internal reflection: one ray, all the power, back down");
+  }
+
+  { // A thin lens: the traced focus is the lensmaker's, a thick one the thick-lens formula; blue focuses nearer than red.
+    const lens = O.lens({ at: m(0, 0, 0), axis: V(0, 0, 1), R1: 0.1, R2: -0.1, thickness: 0.004, diameter: 0.03, material: "bk7" });
+    const thin = 1 / ((nBk7 - 1) * (1 / 0.1 + 1 / 0.1)), one = (lam) => O.traceRay([lens], { origin: V(0, 0.001, -0.05), dir: V(0, 0, 1), λ: lam });
+    const f = axisCross(main(one(587.6)));
+    assert.ok(rel(f, thin) < 0.015, `thin-lens focus 1/f = (n-1)(1/R1 - 1/R2): traced ${f} m, formula ${thin} m`);
+    assert.ok(rel(f - 0.002, lens.bfd(587.6)) < 0.002, `and the back focal distance of the thick lens: ${f - 0.002} vs ${lens.bfd(587.6)}`);
+    assert.ok(rel(lens.focal(587.6), 0.09741) < 0.001 && rel(lens.thin(587.6), thin) < 1e-9, "focal(): thick-lens f 97.4 mm, thin(): the lensmaker's");
+    assert.ok(axisCross(main(one(450))) < axisCross(main(one(650))), "crown glass: blue focuses nearer than red");
+    const b = O.bundle([lens], { source: { at: m(0, 0, -0.05), dir: V(0, 0, 1), kind: "parallel", radius: 0.001, count: 20 }, wavelengths: [587.6] }), im = b.image();
+    assert.ok(rel(im.focal, f) < 0.005 && im.spread < 1e-4, `the bundle reports the focus: ${im.focal} m, spread ${im.spread}`);
+    assert.ok(im.point.distanceTo(m(0, 0, f)) < 0.0005 / Mq, "image point on the axis, in scene units");
+    assert.throws(() => O.lens({ at: m(0, 0, 0), axis: V(0, 0, 1), R1: NaN, R2: -0.1, thickness: 0.004, diameter: 0.03, material: "bk7" }), /R1/);
+    assert.throws(() => O.lens({ at: m(0, 0, 0), axis: V(0, 0, 1), R1: 0.1, R2: -0.1, thickness: 0.004, diameter: 0.3, material: "bk7" }), /diameter/, "a rim wider than the sphere is refused");
+    // R = 0.1 m over a 30 mm rim: each face sags 1.131 mm at the rim, so the faces cross below 2.262 mm of centre thickness.
+    const thick = (t) => () => O.lens({ at: m(0, 0, 0), axis: V(0, 0, 1), R1: 0.1, R2: -0.1, thickness: t, diameter: 0.03, material: "bk7" });
+    assert.throws(thick(0.002), /faces cross/, "faces that cross at the rim leave no glass there: refused");
+    assert.throws(thick(0.0022), /faces cross/, "and just under the crossing thickness too");
+    assert.doesNotThrow(thick(0.0023), "a lens just thick enough to keep an edge is accepted");
+    const aud = scaleAudit(lens.mesh);
+    assert.ok(lens.mesh.userData.real && aud.ok && aud.checked === 3, "the lens mesh is its real size: " + aud.problems.join("; "));
+  }
+
+  { // A prism at minimum deviation spreads colours: 2 asin(n sin 30°) - 60°; blue deviates more than red.
+    const prism = O.prism({ at: m(0, 0, 0), apex: 60 * D, height: 0.05, length: 0.04, material: "bk7" });
+    const dev = (lam) => {
+      const n = O.MATERIALS.bk7.n(lam), th = Math.asin(n * Math.sin(30 * D)), phi = th - 30 * D, d = V(Math.cos(phi), 0, Math.sin(phi));
+      const r = O.traceRay([prism], { origin: d.clone().multiplyScalar(-0.1), dir: d, λ: lam });
+      return { got: main(r).dir.angleTo(d) / D, want: (2 * th - 60 * D) / D };
+    };
+    const g = dev(589.3);
+    assert.ok(Math.abs(g.got - g.want) < 0.05, `minimum deviation ${g.got.toFixed(3)}° vs ${g.want.toFixed(3)}°`);
+    assert.ok(dev(450).got > dev(650).got, "blue deviates more than red");
+  }
+
+  { // A spherical mirror R = 0.2 m focuses at R / 2.
+    const mir = O.mirror({ at: m(0, 0, 0), normal: V(0, 0, 1), R: 0.2, diameter: 0.05 });
+    const r = O.traceRay([mir], { origin: V(0, 0.001, 0.3), dir: V(0, 0, -1) });
+    assert.ok(rel(axisCross(main(r)), 0.1) < 0.005, "mirror focus at R/2: " + axisCross(main(r)));
+    assert.ok(O.traceRay([mir], { origin: V(0, 0.001, -0.3), dir: V(0, 0, 1) }).rays.every((x) => Math.abs(x.dir.z - 1) < 1e-12), "its back is not a mirror: the ray passes");
+  }
+
+  { // A glass ball from the set, traced through its own mesh with the mesh moved and scaled, refracts as the analytic ball does.
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), new THREE.MeshStandardMaterial());
+    ball.scale.setScalar(0.02 / Mq); ball.position.copy(m(0.003, 0.002, 0)); ball.updateMatrixWorld(true);
+    const glass = O.surfaceFromMesh(ball, { inside: { n: 1.5, source: "selfcheck fixture" }, outside: "air" });
+    // The ball sits 2 mm up (across the ray) and 3 mm along it; the ray runs 6 mm up, so 4 mm from the ball's centre. A mesh whose
+    // move were ignored would be hit 6 mm from the centre (11.8° of deviation, not 7.8°), well outside the 0.5° window.
+    const h = 0.004, R = 0.02, ti = Math.asin(h / R), tt = Math.asin(Math.sin(ti) * nAir / 1.5);
+    const r = O.traceRay([glass], { origin: V(-0.05, 0.006, 0), dir: V(1, 0, 0) });
+    const ex = main(r).dir;
+    assert.ok(Math.abs(ex.angleTo(V(1, 0, 0)) / D - 2 * (ti - tt) / D) < 0.5, `ball deviation ${(ex.angleTo(V(1, 0, 0)) / D).toFixed(2)}° vs ${(2 * (ti - tt) / D).toFixed(2)}°`);
+    assert.throws(() => O.surfaceFromMesh(ball, { inside: "water" }), /outside/);
+  }
+
+  { // Apparent depth: a point 10 cm under water, seen from straight above, is 10 cm × n_air / n_water deep.
+    const pool = O.interface({ at: m(0, 0, 0), normal: V(0, 1, 0), below: "water", above: "air", size: 1 });
+    const a = O.apparent(m(0, -0.1, 0), m(0, 0.5, 0), pool), depth = -a.image.y * Mq;
+    assert.ok(rel(depth, 0.1 * nAir / nWater) < 0.01, "apparent depth " + depth);
+    const side = O.apparent(m(0.05, -0.1, 0), m(0, 0.5, 0), pool), x = side.through;
+    assert.ok(x.x > 0 && x.x * Mq < 0.05 && Math.abs(x.y) < 1e-12, "the sight line crosses the surface between the eye and the point");
+    assert.ok(Math.abs(side.image.x * Mq - 0.05) < 1e-12, "the image lies on the vertical line through the point");
+    assert.ok(-side.image.y * Mq < 0.1 && -side.image.y * Mq > 0.05, "shallower than the real depth, off the normal too");
+    // A point meant to sit on the surface may land a rounding error above it: that is on the surface, not an error.
+    for (const dy of [0, 1e-17, 1e-15, 1e-12]) {
+      const on = O.apparent(m(0.02, dy, 0), m(0, 0.5, 0), pool);
+      assert.ok(on.image.distanceTo(m(0.02, dy, 0)) < 1e-12 && on.through.distanceTo(m(0.02, dy, 0)) < 1e-12, "a point " + dy + " m above the surface is on it");
+    }
+    assert.throws(() => O.apparent(m(0.02, 1e-3, 0), m(0, 0.5, 0), pool), /below the surface/, "a point a millimetre above the surface is still refused");
+  }
+
+  { // Drawing: a shaft needs dust to be visible, a ray grows on cue, a caustic follows the concentration.
+    const lens = O.lens({ at: m(0, 0, 0), axis: V(0, 0, 1), R1: 0.1, R2: -0.1, thickness: 0.004, diameter: 0.03, material: "bk7" });
+    const b = O.bundle([lens], { source: { at: m(0, 0, -0.05), dir: V(0, 0, 1), kind: "parallel", radius: 0.01, count: 12 } });
+    assert.throws(() => O.drawRays(b, { mode: "world" }), /dust/, "no dust, no visible shaft");
+    const teach = O.drawRays(b, { mode: "teach" });
+    assert.equal(teach.reveal(0).visible, 0);
+    const half = teach.reveal(0.02).visible, all = teach.reveal(1).visible; // the front at 2 % of the longest path is still before the lens
+    assert.ok(half > 0 && half < all && all === b.segments.length, `rays grow on cue: ${half} of ${all}`);
+    assert.ok(teach.rays.material.depthTest === false && teach.rays.renderOrder >= 10, "teaching rays draw on top of the world");
+    const world = O.drawRays(b, { mode: "world", dust: 0.05 });
+    assert.ok(world.rays.material.blending === THREE.AdditiveBlending && world.rays.material.depthTest !== false, "a shaft is light in the scene: additive and depth tested");
+    const spot = O.caustic(b, { surface: { at: m(0, 0, 0.0974), normal: V(0, 0, -1) } }), wide = O.caustic(b, { surface: { at: m(0, 0, 0.2), normal: V(0, 0, -1) } });
+    assert.ok(spot.userData.radius < wide.userData.radius && spot.userData.concentration > wide.userData.concentration, "the caustic is smallest and brightest at the focus: " + spot.userData.radius + " vs " + wide.userData.radius);
+    assert.ok(spot.userData.radius >= 0.0005 - 1e-12 && spot.userData.brightness <= 1, "never smaller than half a millimetre, never brighter than 1");
+    // The source power is a unit: a beam of power 2 (or 0.5) looks like the same beam at power 1.
+    const src = { at: m(0, 0, -0.05), dir: V(0, 0, 1), kind: "parallel", radius: 0.01, count: 12 }, onWide = { surface: { at: m(0, 0, 0.2), normal: V(0, 0, -1) } };
+    const b2 = O.bundle([lens], { source: src, power: 2 }), dim = O.bundle([lens], { source: src, power: 0.5 });
+    assert.ok(Math.abs(O.caustic(b2, onWide).userData.brightness - wide.userData.brightness) < 1e-9, "caustic brightness does not scale with the source power");
+    assert.ok(Math.abs(O.caustic(dim, onWide).userData.brightness - wide.userData.brightness) < 1e-9, "nor shrink with a weaker source");
+    { // minPower is a share of the source power: the 2 % reflection off water is kept at a 1 % floor and dropped at 5 %, at any source power.
+      const pool = O.interface({ at: m(0, 0, 0), normal: V(0, 1, 0), below: "water", above: "air", size: 1 }), cnt = (power, minPower) => O.traceRay([pool], { origin: V(0, 0.1, 0), dir: V(0, -1, 0), power, minPower }).segments.length;
+      assert.deepEqual([cnt(1, 0.01), cnt(4, 0.01), cnt(0.25, 0.01)], [3, 3, 3], "the reflection stays at a 1 % floor whatever the source power");
+      assert.deepEqual([cnt(1, 0.05), cnt(4, 0.05), cnt(0.25, 0.05)], [2, 2, 2], "and goes at a 5 % floor whatever the source power");
+      assert.throws(() => O.traceRay([pool], { origin: V(0, 0.1, 0), dir: V(0, -1, 0), power: 0 }), /power/, "a source of no power is refused");
+    }
+    const same = (x, y) => x.length === y.length && x.every((v, i) => Math.abs(v - y[i]) < 1e-9);
+    const t2 = O.drawRays(b2, { mode: "teach" }), w2 = O.drawRays(b2, { mode: "world", dust: 0.05 });
+    assert.ok(same(t2.rays.instanceMatrix.array, teach.reveal(1).rays.instanceMatrix.array), "teaching tubes are as thin for the same branches whatever the source power");
+    assert.ok(same(w2.rays.instanceColor.array, world.reveal(1).rays.instanceColor.array), "and a shaft is as bright");
+  }
+
+  { // The straw: a glass of water bends a straw by the same law; the example draws the apparent position for the camera.
+    const eye = m(0.01, 0.4, 0.0), camera = new THREE.PerspectiveCamera(); camera.position.copy(eye); camera.updateMatrixWorld(true);
+    const demo = makeStrawGlass(kit, { at: m(0, 0, 0), eye, rays: true });
+    const aud = scaleAudit(demo.group);
+    assert.ok(aud.ok && aud.checked >= 2, "glass and straw are their real size: " + aud.problems.join("; ") + " checked " + aud.checked);
+    demo.at(0, camera);
+    const want = O.apparent(demo.real.foot, eye, demo.surface).image;
+    assert.ok(demo.drawn.tip.distanceTo(want) < 1e-6, "the submerged tip is drawn at its apparent position");
+    assert.ok(demo.drawn.tip.y > demo.real.foot.y + 1e-5 / Mq, "which is shallower than the real one");
+    assert.ok(demo.drawn.end.distanceTo(demo.real.end) < 1e-12, "the end above the water is unchanged");
+    assert.ok(demo.rays && demo.rays.group.children.length > 0, "teaching rays are drawn from straw points to the eye");
+    assert.throws(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0, 0.05, 0) }), /below the rim/, "an eye below the glass's rim is refused");
+    assert.throws(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0.5, 0.12, 0) }), /side wall/, "an eye above the rim but so far off that the sight line crosses the side wall is refused");
+    // The sample on the water line may round a hair above the surface: every fill, glass and eye the docs allow draws.
+    for (const fill of [0.1, 0.3, 0.5, 0.59, 0.6, 0.7, 0.8, 0.9]) for (const gl of [{}, { h: 0.12, r: 0.04 }, { h: 0.09, r: 0.03 }]) {
+      assert.doesNotThrow(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0.01, 0.4, 0), fill, glass: gl }), "fill " + fill + " glass " + JSON.stringify(gl));
+    }
+  }
+}
 // Look J (engineering cutaway): the torch example at real size, the look's lens set and framing (subject low), and the
 // drafting-style text on the frame: a dimension line, pill labels and a text band, all inside the safe area.
 {
@@ -2781,4 +3067,5 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       } }
   }
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
+
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
