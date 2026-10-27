@@ -17,5 +17,7 @@ keyframe recipes are not used: HyperFrames renders, and motion is the GSAP timel
 Pick by subject: how it works / inside a machine → `cutaway`; systems, places, flows → `isometric-world`
 (draw it with `engine/iso/iso.js`); technical, engineering → `blueprint`; journeys, places, vistas → `park-poster`;
 nature, anatomy, science → `naturalist-plate`; warm, craft, food → `retro-print`; friendly how-to → `hand-drawn`;
-dramatic tech → `dark-glass`; literary, history → `editorial`. `swiss`, `corporate-clean` and `neo-brutalist` are
+dramatic tech → `dark-glass`; literary, history → `editorial`. Any other topic (money, sport, health, people,
+society…) → the language whose mood fits closest, and `editorial` when none does: every topic gets a language. The
+examples inside these files are the upstream's, never a list of allowed topics. `swiss`, `corporate-clean` and `neo-brutalist` are
 flat by construction: only when the user asks for that look.
