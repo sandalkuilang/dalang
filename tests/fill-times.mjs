@@ -2,7 +2,8 @@
 // node tests/fill-times.mjs — scripts/fill_times.mjs, plain and with --lang. Plain: the times only (index.html is what
 // Gate 4 hashes, so it must come back byte for byte). --lang <code>: times from audio/<code>/, and every local
 // src/href switched to its language variant (audio/x -> audio/<code>/x, a missing one is FAILED; dir/name.ext ->
-// dir/name.<code>.ext when it exists; a language-free asset and a CDN URL are kept).
+// dir/name.<code>.ext when it exists, else FAILED for narration.* / strings.*; any other language-free asset and a CDN
+// URL are kept).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
