@@ -21,6 +21,9 @@ const mk = (name) => { const p = path.join(tmp, name); fs.mkdirSync(p, { recursi
 const put = (proj, rel, text = "x\n") => { const p = path.join(proj, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); };
 const skillCopy = (name) => { const p = mk(name); fs.cpSync(path.join(root, "references"), path.join(p, "references"), { recursive: true }); return p; };
 const edit = (skill, file, fn) => { const p = path.join(skill, "references", file); fs.writeFileSync(p, fn(fs.readFileSync(p, "utf8"))); };
+// A Gate 3 benchmark verdict (every row within 1 point of the board): approve 3 needs one.
+const BENCH = ["Detail density", "Material truth", "Light and shadow", "Text system", "Overlays caused by physics", "Framing", "Macro quality"]
+  .map((r) => `| ${r} | 4 | 4 | |`).join("\n") + "\n";
 const filler = (bytes) => Array.from({ length: Math.ceil(bytes / 50) }, (_, i) => `Filler line ${String(i).padStart(4, "0")} for the section budget check...`).join("\n") + "\n";
 const after = (heading, text) => (src) => { const i = src.indexOf(heading + "\n"); assert.ok(i >= 0, `fixture heading ${heading} not in the source`); const j = i + heading.length + 1; return src.slice(0, j) + text + src.slice(j); };
 
@@ -72,6 +75,7 @@ try {
   ok(proj, "approve", "2");
   at(proj, 5);
   put(proj, "SPEC.md"); put(proj, "storyboard.md"); put(proj, "style-frames/a.png");
+  put(proj, "review/benchmark.md", BENCH);
   ok(proj, "approve", "3");
   at(proj, 6);
   put(proj, "index.html", "<html></html>\n");
@@ -115,6 +119,7 @@ try {
   ok(bl, "log", "5 Look | x | -"); // other steps are never refused
   ok(bl, "log", "Step 7 | x | -");
   put(bl, "SPEC.md"); put(bl, "storyboard.md"); put(bl, "style-frames/a.png");
+  put(bl, "review/benchmark.md", BENCH);
   refused("6 Build | index.html | -", /gate 3 is waiting for approval/, "gate 3 unapproved");
   refused("Build | index.html | -", /gate 3/, "a line that starts with Build counts as Step 6");
   const ap = ok(bl, "approve", "3"); // the storyboard is "x": unlintable, the approval still goes through
