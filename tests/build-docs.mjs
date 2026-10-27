@@ -366,6 +366,28 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
       assert.equal(r.status, 1, "a background board command that never started (its own result is an error): flagged"); }
     { const b = tu("Bash", { command: "sleep 30", run_in_background: true }); r = go(file(line(b), result(b.id), note(b.id), builder()), file(read(), write()));
       assert.equal(r.status, 1, "a background command that makes no board never counts: flagged"); }
+    // The class "unknown read as missing", for notifications: a background maker's fate is read from its <status> tag
+    // alone (completed = made, failed = none), never from free text (<summary>, <result>: a background Agent's own words,
+    // a command's description). Free text that says "exit code 1", "failed" or "error" never makes a completed maker
+    // "no board"; a status the check cannot read (another word, none, two that disagree) is unknown (exit 2), never 1.
+    const raw = (tid, body) => JSON.stringify({ type: "user", isSidechain: false, message: { role: "user", content: [{ type: "text", text: `<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>${tid}</tool-use-id>\n${body}\n</task-notification>` }] } });
+    const free = ["<result>Board written to review/refs-board-hook.jpg. First ffmpeg try failed with exit code 1 (bad filter), the retry succeeded.</result>",
+      `<summary>Background command "tile, retry once if it fails with exit code 1" completed (exit code 0)</summary>`,
+      "<summary>Agent \"screen\" finished</summary>\n<result>error: one still was unreadable, failed (exit code 2); the board is written</result>",
+      "<summary>Background command \"tile\" completed (exit code 1: No matches found)</summary>"];
+    for (const [name, text] of free.flatMap((t) => [["Bash", t], ["Agent", t]])) {
+      const [m, tid] = maker({ run_in_background: true }, name);
+      r = go(file(m, result(tid), raw(tid, `<status>completed</status>\n${text}`), builder()), file(read(), write()));
+      assert.ok(r.status === 0 && r.out === "", `a completed background ${name} maker is made whatever its free text says (${text.slice(0, 40)}…): clean (got ${r.status} "${r.out}")`);
+    }
+    for (const body of ["<status>killed</status>", "<status>stopped</status>", "<summary>Background command \"tile\" completed (exit code 0)</summary>",
+      "<status>completed</status>\n<result>the first try ended <status>failed</status></result>", "<status></status>"]) {
+      const [m, tid] = maker({ run_in_background: true });
+      r = go(file(m, result(tid), raw(tid, body), builder()), file(read(), write()));
+      assert.ok(r.status === 2 && r.out === "" && /unknown/.test(r.err), `a notification whose status the check cannot read (${body.replace(/\n/g, " ")}) is unknown, never missing (got ${r.status} "${r.out}")`);
+    }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), raw(tid, `<status>failed</status>\n<summary>Background command "tile" failed with exit code 1</summary>\n<result>exit code 0</result>`), builder()), file(read(), write()));
+      assert.ok(r.status === 1 && /builder started before/.test(r.out), `a failed status stays definite whatever its free text says (got ${r.status} "${r.out}")`); }
     { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), builder()), file(read(), write()), file(write()));
       assert.equal(r.status, 1, "a definite flag in another file stays exit 1 though the builder start is unknown"); }
     { const [m, tid] = maker(); r = go(file(m, result(tid, true), builder()), file(read(), write()));
