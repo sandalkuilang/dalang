@@ -3,6 +3,8 @@
 // ("Parallel build: pilot, then shot groups"). Group subagents are told to follow Step 6 items 3-6, so those items must not
 // send them to the shared root template with absolute times, and Step 5 must not send the style-frame scenes only there.
 // Legitimate side: a film under 3 groups still builds in `src/index.tpl.html`, and item 4 still names it.
+// Also: scene code is only written by builder subagents (the pilot, a short film whole, the groups, the assembly, each QC
+// fix round); look-build "Parallel build", review.md How item 3, qc.md Step 7, SKILL.md and evals.md say so.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -29,4 +31,24 @@ assert.doesNotMatch(i4, /fill_times\.mjs src\/index\.tpl\.html index\.html/, "it
 assert.match(parallel, /never (?:edits?|touch(?:es)?) `src\/index\.tpl\.html`/, "group subagents must be told not to touch the shared root template");
 assert.match(parallel, /item 4[^.]*\{\{beat - first\}\}|\{\{beat - first\}\}[^.]*item 4/, "group subagents must be told how item 4 reads for a group (local times)");
 assert.match(parallel, /timing_lint\.mjs/, "the parallel section must say Step 7's timing lint follows the hosts into the groups");
-console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; group subagents are told to leave the root template");
+
+// Scene code stays in builder subagents (pilot, a short film whole, groups, assembly, each QC fix round).
+const read = f => fs.readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), "utf8");
+assert.doesNotMatch(parallel, /in the main context/, "Parallel build still builds the pilot, a short film or the assembly in the main context");
+assert.match(parallel, /never writes, patches or reads scene code/, "Parallel build must say the main agent never touches scene code");
+assert.match(parallel, /under 3 groups[^.]*whole film|whole film[^.]*under 3 groups/i, "a film under 3 groups is built whole by one builder subagent");
+assert.match(parallel, /Each QC fix round/, "the table must give each QC fix round to a builder subagent");
+assert.match(parallel, /fixed \/ not fixed/, "a fix round returns fixed / not fixed per finding");
+const review = read("references/review.md");
+const how = review.slice(review.indexOf("## How"), review.indexOf("## Sound-off"));
+const r3 = how.match(/^3\. .*$/m)?.[0] ?? "";
+assert.doesNotMatch(r3, /builder session/, "review.md item 3 still fixes in the builder session");
+assert.match(r3, /builder subagent/, "review.md item 3 must fix in a builder subagent");
+assert.match(review, /never a fork or a follow-up of the builder/, "the reviewer must stay a fresh agent, never the builder");
+const qc7 = read("references/qc.md").split("## Step 8")[0];
+assert.match(qc7, /builder subagent[^.]*fixes every P0 and P1/, "qc.md Step 7 must send the fixes to a builder subagent");
+const skill = read("SKILL.md");
+assert.match(skill, /\*\*Scene code stays in builder subagents\.\*\*/, "SKILL.md Work fast must state the builder rule");
+assert.match(skill, /\| Builder: [^|]*QC fix round/, "SKILL.md model table must list the builder jobs");
+assert.match(read("references/evals.md"), /no `Write` or `Edit` to `src\/` or `assets\/\*\.js`/, "evals.md must check the main transcript for scene-code writes");
+console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene code is only written by builder subagents");
