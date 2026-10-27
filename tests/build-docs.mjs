@@ -357,9 +357,14 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     assert.equal(r.status, 1, "a failed write then a successful one, still with no board read: flagged");
     r = go(file(line(tu("Write", { file_path: W }))));
     assert.equal(r.status, 2, "a write with no result yet has not written: exit 2");
-    // A builder Agent that came back as an error built nothing; one that returned is judged by when it started.
+    // A builder Agent is judged when it starts: its result comes after the subagent did its work, so an error (interrupted,
+    // crashed) or no result yet does not undo that it started before the board existed.
     r = go(file(builder("Agent", true)), file(read(), write()));
-    assert.ok(r.status === 0 && r.out === "", `a builder call that failed is no builder start (got ${r.status} "${r.out}")`);
+    assert.ok(r.status === 1 && /builder started before/.test(r.out), `a builder that errored still started before the board (got ${r.status} "${r.out}")`);
+    r = go(file(line(tu("Agent", { prompt: "Build the style frames in style-frames/src/ from review/refs-board-hook.jpg" }))), file(read(), write()));
+    assert.ok(r.status === 1 && /builder started before/.test(r.out), `a builder with no result yet still started before the board (got ${r.status} "${r.out}")`);
+    r = go(file(read(), builder("Agent", true)), file(read(), write()));
+    assert.ok(r.status === 0 && r.out === "", `a builder that errored after the board was read is clean (got ${r.status} "${r.out}")`);
     // The class, for every kind of call the check reads: a call whose result is an error counts exactly as if it were
     // absent, so no error result is ever counted as a success, whichever call it is.
     {
@@ -370,7 +375,6 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
         "style-frame Edit": [(e) => write(W, "Edit", e), (s) => [file(s)]],
         "board command": [(e) => done(mb, mbid, e), (s) => [file(s, builder()), file(read(), write())]],
         "board subagent": [(e) => done(ma, maid, e), (s) => [file(s, builder()), file(read(), write())]],
-        "builder Agent": [(e) => builder("Agent", e), (s) => [file(s, write("/p/film/SPEC.md")), file(read(), write())]],
       };
       for (const [kind, [mk, around]] of Object.entries(kinds)) {
         // The verdict: exit code and flagged lines, with the temp file names left out.

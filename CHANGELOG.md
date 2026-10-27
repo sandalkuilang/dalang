@@ -473,7 +473,7 @@ that reads as:
   before its first write, and fix rounds reuse it. Full-size stills stay with the reviewer, who grades the parts lines.
   Hyperreal assets stay "check after". A transcript check in `evals.md` (tested in `tests/build-docs.mjs`) flags a
   style-frame write before a board read and a builder started before the board existed; every call counts only once its
-  own result came back without error (a failed read, write, edit, board command or builder counts as no call), and a
+  own result came back without error (a failed read, write, edit or board command counts as no call; a style-frame builder is judged when it starts, whatever its result), and a
   missing or half-written transcript exits 2 (unknown), never 1. Step 5's reading does not grow
   (7357 to 7356 bytes).
 - **Scene code only in builder subagents** (`look-build.md` "Parallel build", `review.md` §3, `qc.md` Step 7,
