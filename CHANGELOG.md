@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-27
+
 ### Added
 
 - **No user gate, in either mode** (`SKILL.md` principle 5): after the Brief the agent passes Gates 1–4 itself
@@ -1099,7 +1101,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/sandalkuilang/dalang/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/sandalkuilang/dalang/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...v1.4.0
