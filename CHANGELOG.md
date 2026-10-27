@@ -32,6 +32,26 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Token report at every gate** (`scripts/tokens.mjs`, `state.mjs approve`, `tests/tokens.mjs`): turns, tokens and the
+  largest context of the main agent and of each subagent, read from Claude Code's own transcripts (no new dependency),
+  written to `review/tokens.json` and recorded in `state.json` with each approval. A builder over the budget (default
+  120 turns or 250K context) is a WARN row and exit 3; a main context over it says /compact is safe. A session run in a
+  parent folder counts only the subagents that name this project. No transcript, or none readable, is NOT CHECKED
+  (exit 2), never "no tokens"; it never blocks a gate.
+
+### Changed
+
+- **Builder budget** (`SKILL.md`, `look-build.md` "Builder budget", `review.md` §3): every job gets a new builder briefed
+  with the last report, never a resumed one, because each turn re-reads the builder's whole context and a long-lived
+  builder was what burned a film's tokens (hundreds of turns at half a million tokens each). Every builder brief carries
+  the budget: a round's edits batched in one message then one snapshot, at most 3 snapshot rounds per job, a round's
+  stills read as one `strips.mjs --frames` sheet, no file read twice.
+- **Every look one click away** (`brief.md` item 6, `looks.md`): AskUserQuestion holds 4 options, so the visual-style
+  question offers the 3 best-fitting looks and "More looks", which opens a second question with the rest; before, the
+  others were only named in the question text and easy to miss. A stylized slate for a made thing always holds J.
+
 ## [1.5.0] - 2026-10-27
 
 ### Added

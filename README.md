@@ -168,6 +168,7 @@ scripts/
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
   fill_times.mjs       {{beat}} expressions in the template → index.html; --lang for a second-language cut
   state.mjs            gate approvals, stale when files change; Gate 3 needs the benchmark verdict; `next`: the step's reading list
+  tokens.mjs           tokens per agent from Claude Code's transcripts, a WARN per builder over budget (recorded at every gate)
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
   audio_qc.mjs         music bed under the voice, clicks, dropouts, voice drift per sentence
