@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-28
+
 ### Added
 
 - Express design languages: each beat is designed as a finished editorial infographic in one of nine scene-native languages (cutaway, isometric-world, blueprint, park-poster, naturalist-plate, retro-print, hand-drawn, dark-glass, editorial), picked by subject, with EpicInfographics' composition, data-vocabulary and chart rules (MIT, vendored unchanged in `engine/epic/`). The frame is a place, one object carries the data, one named composition pattern, an anti-slop look at the first frame, and a build order per beat (place, structure, data, hero last) with truthful motion. `isometric-world` stays on `engine/iso/iso.js`; the rest is inline SVG/HTML tweened by the GSAP timeline.
@@ -1105,7 +1107,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/sandalkuilang/dalang/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/sandalkuilang/dalang/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/sandalkuilang/dalang/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...v1.5.0
