@@ -36,7 +36,7 @@ This skill decides the order of work, when to stop for approval, and the quality
 |---|---|
 | Fresh-eyes review (rubric, Reality, Realism, Clarity), the second Realism / Reality check, style-frame check, scopes verdict (flagged cut) | strongest (omit `model`) |
 | Fix check (did each listed fix land: pass/fail + one line) | mid tier (`model: "sonnet"`) |
-| Asset pair check (asset vs real reference), media screening of `find_media` candidates, contact-sheet triage | mid tier |
+| Asset pair check (asset vs real reference), media screening of `find_media` candidates and the Step 5 reference boards, contact-sheet triage | mid tier |
 | Fact research | mid tier; strongest when the topic is technical or contested |
 | Builder: pilot, shot groups, assembly, each QC fix round (Steps 6–7) | strongest (omit `model`) |
 
