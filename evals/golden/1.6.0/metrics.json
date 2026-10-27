@@ -1,0 +1,41 @@
+{
+  "version": "1.6.0",
+  "tree": "0081335",
+  "node": "v26.12.1",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "model": "Apple M5"
+  },
+  "revision": 1,
+  "size": "1280x720",
+  "fps": 30,
+  "duration": 6,
+  "render": {
+    "seconds": 139.3
+  },
+  "stillness": {
+    "pct": 64.4,
+    "longest": 1.7
+  },
+  "detail": {
+    "wide": 7.12,
+    "medium": 4.4,
+    "macro": 4.08
+  },
+  "shadow": {
+    "wide": {
+      "texelMm": 0.390625,
+      "t": 1
+    },
+    "medium": {
+      "texelMm": 0.390625,
+      "t": 3
+    },
+    "macro": {
+      "texelMm": 0.390625,
+      "t": 5.2
+    }
+  }
+}
