@@ -104,14 +104,18 @@ Default engine VoiceStudio (free); `--engine elevenlabs` (bills) or `kokoro` onl
 
 - **Ask before auditioning:** a voice named in the Brief or chosen in its Call 3 is sampled directly, no question; `design: <description>` → audition 2–3 designed voices from it. Otherwise show the saved profiles from `--list-voices` (own clones first) and ask which to try; design only when none fits.
 - Audition 2–3 voices that suit the narration language with `--sample` (own file names; it prints the pace). More than 10 % off the target → adjust the script; less → `--speed` or `--tempo` (`voice.md`).
+- No saved profile for the language, a voice from a clip, dialogue, the user's own recording, and the output files: "Voice sources and outputs" below.
+- Act on every warning (low alignment score, words heard ≠ written, estimated words or beats on one, unnamed beats) before the storyboard. You cannot listen, so a flagged sentence is fixed with `--retake auto` (add `--from-response audio/narration.response.json` on a take you already made): it re-speaks only that sentence, splices it in and retimes the file, and none is left open. A sentence still flagged after its two tries is respelled in `narration.txt`, then `--retake changed`. A `503` ending in `WARN … rerun`: VoiceStudio is still finishing a job; wait and rerun, never restart it or switch engines. Log characters billed (0 unless ElevenLabs).
+
+Play the narration; **wait for approval**. Mispronounced word → respell it in `narration.txt`, run `--retake changed` (only the edited sentences are re-spoken; `voice.md` "Use").
+
+### Voice sources and outputs (Step 4, look up when needed)
+
 - **VoiceStudio with no saved profile** for this language: audition designed voices with `--voice default --instructions "…"`. The fixed `--seed` (default 42) keeps the approved timbre: pass the same instructions and seed. For a voice reused across videos, save it: `--save-profile "<name>" --ref audio/<approved sample>.wav --language <lang>` (`voice.md` "Clone"); a sample over 20 s is cut at the last word end ≤ 15 s using its `.words.json` (pass no `--ref-text`); without that file it stops and asks for a 3–10 s clip.
 - **"Use the voice from this clip"** (a recording, a voice note): only with the speaker's permission; `voice.md` "Clone".
 - **Dialogue:** one voice per character with `--voices name=<voice>,name=<voice>`.
 - **The user's own recording** (any audio or video file, narration or dialogue): `--from-audio <file> --language <lang> --own-recording` keeps it as the voice track and gets the timing by transcribing it (needs VoiceStudio's speech-to-text). No audition, generation or cost. `--own-recording` states the file is a human recording the user may use (their voice, or a speaker who gave permission), never TTS output; it makes the narration commercial-OK for `check_assets.mjs`. A generated take retimed with `--from-audio` goes without it and keeps its original licence (an OmniVoice take stays CC-BY-NC); an untraceable origin is a `WARN`.
 - Outputs: the narration audio; `words.json` (`{ i, text, start, end, est?, score? }`); `narration.srt`; `beats.json` and `beats.js` (`window.BEATS.<name>.start`, `BEATS_LIST`, `SECTIONS`, `WORDS`, `NARRATION_DURATION`); `narration.response.json` (keep it for `--from-response`).
-- Act on every warning (low alignment score, words heard ≠ written, estimated words or beats on one, unnamed beats) before the storyboard. You cannot listen, so a flagged sentence is fixed with `--retake auto` (add `--from-response audio/narration.response.json` on a take you already made): it re-speaks only that sentence, splices it in and retimes the file, and none is left open. A sentence still flagged after its two tries is respelled in `narration.txt`, then `--retake changed`. A `503` ending in `WARN … rerun`: VoiceStudio is still finishing a job; wait and rerun, never restart it or switch engines. Log characters billed (0 unless ElevenLabs).
-
-Play the narration; **wait for approval**. Mispronounced word → respell it in `narration.txt`, run `--retake changed` (only the edited sentences are re-spoken; `voice.md` "Use").
 
 ### Second-language cut (offered once at the hand-off; Steps 3b and 4)
 

@@ -50,6 +50,11 @@ that reads as:
 
 ### Changed
 
+- **Room in the 60 KB reading budget** (`scripts/state.mjs` reading list, `script-voice.md`, `look-build.md`): Steps
+  0–8 read 60.0 KB, so any added line in a step's text failed the gate. Two blocks that only matter when used move to
+  look-up sections the step points to, with their text unchanged: Step 4's voice sources and outputs (no saved profile,
+  a voice from a clip, dialogue, the user's own recording, the output files) to "Voice sources and outputs", and Step 6
+  item 7's sound-effect and music sources, licences and fitting to "Sound effects and music". Steps 0–8 now read 56.4 KB.
 - **Builder budget** (`SKILL.md`, `look-build.md` "Builder budget", `review.md` §3): every job gets a new builder briefed
   with the last report, never a resumed one, because each turn re-reads the builder's whole context and a long-lived
   builder was what burned a film's tokens (hundreds of turns at half a million tokens each). Every builder brief carries
