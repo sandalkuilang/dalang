@@ -462,6 +462,24 @@ that reads as:
   self-check asserts the ac period in the pulse shape, the alias refusal, the lamp falling with voltage by its curve,
   the arc's light only in its frames, each failure variant, the scope showing two periods of 50 Hz over 40 ms, and the
   chain's fuse, arc, lamp and shaft angle (an integral, the same for any order of frames).
+- **Made things carry their real markings** (`engine/three/markings.js`, `electronics.js`, `examples/psu.js`;
+  `references/looks.md`). `markings(target, items)` prints text, standard symbols (ISO 7010 W012, IEC 60417 earth and
+  class II) and stickers on any mesh at their real size in mm: a decal built by casting a grid of points onto the
+  surface, lifted along the surface normal by the print's thickness (pad print, silkscreen, laser etch, paper sticker with
+  a curled corner, never above 1.5 mm), so it follows a cylinder and is never flattened by the target's non-uniform scale;
+  a print that overhangs the surface or wraps round an edge is refused; `wear` 0..1 rubs and chips it. `glyphPx(item,
+  camera, H)` is the on-screen cap height in px (0 for a print facing away) and `READ_PX` (12) the floor under which text
+  does not read; every print declares `userData.marking` for the detail check. `electronics.js`: `board()` (FR-4
+  1.6 mm, a solder-mask colour, copper pads and traces built with `wire()`, silkscreen references), a `PARTS` catalogue at
+  real dimensions with its source (radial electrolytic and film capacitors, resistors with `bands(ohms)` per IEC 60062,
+  DIP-8 and TO-220 with its heatsink, a relay, a fuse in its holder, a disc varistor, screw terminals), parts placed by
+  reference designator on the board (off the board, overlapping and a bad rotation refused), `pin()`, `trace()` through
+  pins, `cable()` with the IEC 60445 conductor colours. `examples/psu.js` (`openPsu`): an opened small power supply.
+  `scaleAudit` measures a part without the ink printed on it. The self-check asserts a 2 mm print reads 85 px tall at a
+  macro station at 1080 px and not from 2 m, the size under a non-uniform parent scale, the lift, the wrap on a cylinder,
+  every refusal, the icons and wear drawing through a recording canvas, every catalogue size within 1 % upright and
+  turned, the colour codes, placement, pins and traces, and the opened supply's references, sticker and cable colours.
+  The reading floor and the proportions of a sans font are decisions, not standards.
 
 ### Changed
 
@@ -575,6 +593,8 @@ that reads as:
 
 ### Fixed
 
+- `circuit.js` `wire()` now accepts a `THREE.Curve` as its docs said: it tested for an `isCurve` flag three.js does not
+  set, so any curve was refused as a bad path.
 - `timing_lint.mjs` (and `score_run.mjs`'s `timing_problems`) now follow each host of a shot-group film
   (`data-composition-src`) into `compositions/<group>.html` and add the host's start to the group's local times: a cut
   inside a word or a clip under 1 s inside a group no longer passes as OK because `index.html` holds only the hosts.
