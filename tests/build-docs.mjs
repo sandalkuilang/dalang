@@ -259,3 +259,95 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   assert.match(dimRow, /(?:over|on top of) (?:the )?(?:parts|frame)|no part hides/i, "§13's dimension row must say the line is drawn over the parts");
   console.log("ok  look J's row and §13 agree with quantity.js: dimension lines are a canvas overlay, current is occluded");
 }
+
+// Style frames are built FROM their reference (an object modelled in code): Step 5 waits for the OBJECTS stills, the media
+// screening writes one board per frame and a parts line per object, the author opens the board before its first write.
+// review.md "Asset pass" carries the board recipe, and the evals.md transcript check proves it from a run.
+{
+  assert.match(step5, /refs-board-<frame>\.jpg/, "Step 5 must name the reference board of a style frame");
+  assert.match(step5, /once their OBJECTS stills have landed/, "Step 5: the style frames start only once their OBJECTS stills have landed");
+  assert.match(step5, /before its first write/, "Step 5: the author opens each board before its first write");
+  assert.match(step5, /brief names the boards/, "Step 5: a delegated builder's brief names the boards");
+  assert.match(step5, /parts line/, "Step 5: a modelled object carries a parts line in OBJECTS");
+  assert.match(step5, /never re-fetch/, "Step 5: fix rounds reuse the boards");
+  const assetPass = review.slice(review.indexOf("## Asset pass"), review.indexOf("## Benchmark review"));
+  assert.doesNotMatch(assetPass, /The builder doesn't open full-size stills/, "Asset pass item 3 still says the builder never sees the reference");
+  assert.match(assetPass, /refs-board-<frame>\.jpg/, "Asset pass item 3 must carry the board recipe");
+  assert.match(assetPass, /tile=/, "Asset pass item 3 must carry the ffmpeg tile command");
+  assert.match(assetPass, /full-size stills stay with the reviewer/, "Asset pass item 3: full-size stills stay with the reviewer");
+  assert.match(skill, /media screening[^|]*reference boards/, "SKILL.md model table must list the Step 5 reference boards under media screening");
+
+  const evals = read("references/evals.md");
+  const cmd = evals.match(/^node -e '([^\n]*refs-board[^\n]*)' <session>\.jsonl/m)?.[1];
+  assert.ok(cmd, "evals.md must carry the style-frame reference-board transcript command");
+  assert.doesNotMatch(cmd, /BRIEF\.md/, "the board command must not be mistaken for the scene-code command");
+  const dir = fs.mkdtempSync(`${os.tmpdir()}/evals-board-`);
+  try {
+    let seq = 0, id = 0;
+    const tu = (name, input) => ({ type: "tool_use", id: `t${++id}`, name, input });
+    const line = (...blocks) => JSON.stringify({ isSidechain: false, message: { content: blocks } });
+    const file = (...lines) => { const f = `${dir}/s${seq++}.jsonl`; fs.writeFileSync(f, lines.join("\n") + "\n"); return f; };
+    const go = (...files) => { const r = spawnSync("node", ["-e", cmd, ...files], { encoding: "utf8" }); return { status: r.status, out: r.stdout.trim().replaceAll(dir, ""), err: r.stderr }; };
+    const W = "/p/film/style-frames/src/hook.js", BOARD = "/p/film/review/refs-board-hook.jpg";
+    const write = (p = W, name = "Write") => line(tu(name, { file_path: p }));
+    const read = (p = BOARD) => line(tu("Read", { file_path: p }));
+    // A board-making call: [its tool_use line, its id]. A Bash ffmpeg command by default, or an Agent (the media screening).
+    const maker = (extra = {}, name = "Bash") => {
+      const b = tu(name, name === "Bash" ? { command: "ffmpeg -v error -y -i review/refs-hook/%d.jpg -vf tile=4x2 review/refs-board-hook.jpg", ...extra } : { prompt: "screen the stills, write review/refs-board-hook.jpg", ...extra });
+      return [line(b), b.id];
+    };
+    const result = (tid, is_error = false) => line({ type: "tool_result", tool_use_id: tid, is_error });
+    const builder = (name = "Agent") => line(tu(name, { prompt: "Build the style frames in style-frames/src/ from review/refs-board-hook.jpg" }));
+
+    // Forbidden: the author writes before opening a board.
+    let r = go(file(write()));
+    assert.equal(r.status, 1, "a style-frame write with no board read must exit 1");
+    assert.match(r.out, /\/p\/film\/style-frames\/src\/hook\.js/, "the flagged line names the file written");
+    r = go(file(read(), write("/p/film/style-frames/src/a.js"), write("/p/film/style-frames/src/b.js", "Edit")));
+    assert.ok(r.status === 0 && r.out === "", `a board read first, then writes: clean (got ${r.status} "${r.out}")`);
+    r = go(file(write(), read()));
+    assert.equal(r.status, 1, "a board read AFTER the first write does not count");
+    r = go(file(read("/p/film/review/refs/bike.jpg"), write()));
+    assert.equal(r.status, 1, "a loose full-size still is not the board");
+    // A builder subagent's own file is judged on its own: a board read in another file does not count.
+    r = go(file(read()), file(write()));
+    assert.equal(r.status, 1, "a builder that writes before reading the board is flagged, whatever another file read");
+    r = go(file(write("/p/film/SPEC.md"), write("/p/film/style-frames/src/a.js", "Edit")), file(read(), write()));
+    assert.equal(r.status, 1, "the main session writing style frames without a board is flagged though the builder read one");
+    r = go(file(builder()), file(read(), write()));
+    assert.equal(r.status, 1, "a builder started with no board maker before it is flagged");
+    // The builder starts after the board exists (a board-making call that returned), or after a board read.
+    for (const name of ["Agent", "Task"]) {
+      const [m, tid] = maker();
+      r = go(file(m, result(tid), builder(name)), file(read(), write()));
+      assert.ok(r.status === 0 && r.out === "", `a ${name} builder after the board command returned: clean (got ${r.status} "${r.out}")`);
+    }
+    { const [m, tid] = maker({}, "Agent"); r = go(file(m, result(tid), builder()), file(read(), write()));
+      assert.ok(r.status === 0 && r.out === "", "a builder after the media-screening subagent returned: clean"); }
+    { const [m, tid] = maker(); r = go(file(m, builder(), result(tid)), file(read(), write()));
+      assert.equal(r.status, 1, "a builder started before the board command returned is flagged"); }
+    { const [m] = maker(); r = go(file(m, builder()), file(read(), write()));
+      assert.equal(r.status, 1, "a board command with no result yet does not count"); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), builder()), file(read(), write()));
+      assert.equal(r.status, 1, "a background board command's result is only its start: it never counts"); }
+    { const [m, tid] = maker(); r = go(file(m, result(tid, true), builder()), file(read(), write()));
+      assert.equal(r.status, 1, "a board command that failed does not count"); }
+    r = go(file(read(), builder()), file(read(), write()));
+    assert.ok(r.status === 0 && r.out === "", "a main session that opened the board before starting the builder: the board existed");
+    // Unknown is not clean: no write under style-frames/src/, no argument, an empty transcript.
+    for (const [what, files] of [["no write at all", [file(read())]], ["a read of a style-frames file", [file(read("/p/film/style-frames/src/hook.js"))]], ["a write elsewhere", [file(write("/p/film/SPEC.md"))]]]) {
+      r = go(...files);
+      assert.ok(r.status === 2 && r.out === "", `${what}: exit 2 and print nothing (got ${r.status} "${r.out}")`);
+      assert.match(r.err, /usage:/, `${what}: print the usage line`);
+    }
+    r = go();
+    assert.equal(r.status, 2, "no argument must exit 2");
+    assert.match(r.err, /usage:/, "no argument must print the usage line");
+    fs.writeFileSync(`${dir}/empty.jsonl`, "\n");
+    r = go(`${dir}/empty.jsonl`);
+    assert.ok(r.status === 2 && /transcript/.test(r.err), "an empty transcript must exit 2 and say so");
+    r = go(`${dir}/none.jsonl`);
+    assert.notEqual(r.status, 0, "a missing transcript must exit non-zero");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  console.log("ok  Step 5 builds the style frames from their reference boards; the evals.md board check flags a write before the board");
+}
