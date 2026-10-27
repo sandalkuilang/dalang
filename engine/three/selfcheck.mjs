@@ -40,7 +40,7 @@ const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
 const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
 const { makeLizard, wallClimb } = await use("examples/lizard.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
-const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR } = await use("electronics.js");
+const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR, polarityClashes } = await use("electronics.js");
 const { openPsu } = await use("examples/psu.js");
 
 const scene = new THREE.Scene();
@@ -2621,6 +2621,42 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const behind = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk); placeCamera(behind, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 180, elevation: 20 }));
     assert.equal(glyphPx(m, behind, 1080), 0, "a print facing away from the camera cannot be read");
   }
+  // 5b. legibility follows the print and the frame: a print is read where its mesh is now, and only when it is in the frame
+  { const mkCam = (fov = 15.19) => new THREE.PerspectiveCamera(fov, 16 / 9, 1e-4 / Mk, 100 / Mk), macro = (cam, part, az = 0) => placeCamera(cam, frame(part.body, { fov: 15.19, aspect: 16 / 9, azimuth: az, elevation: 20 })), mark2 = (p) => p.parts.C2.marks.find((x) => x.h === 0.002);
+    // a board flipped to show its solder side, and lifted: the rating print now faces down
+    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
+      assert.ok(glyphPx(m, cam, 1080) >= READ_PX, "before the flip the rating reads");
+      p.group.rotation.x = Math.PI; p.group.position.y += 0.1 / Mk; p.group.updateMatrixWorld(true);
+      assert.equal(glyphPx(m, cam, 1080), 0, "a print on a flipped board faces away: it is read where it is now, not where it was printed"); assert.ok(!legible(m, cam, 1080));
+    }
+    // the same board inside a housing that turns, the camera turning with it: the print reads as before
+    { const p = openPsu(null), housing = new THREE.Group(); housing.add(p.group);
+      const m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2); const px0 = glyphPx(m, cam, 1080);
+      housing.rotation.y = Math.PI / 2; housing.updateMatrixWorld(true);
+      const q = housing.quaternion; cam.position.applyQuaternion(q); cam.quaternion.premultiply(q); cam.updateMatrixWorld(true);
+      const px1 = glyphPx(m, cam, 1080);
+      assert.ok(px0 >= READ_PX && Math.abs(px1 / px0 - 1) < 0.01, "a turned housing and a camera turned with it: " + px0.toFixed(1) + " px before, " + px1.toFixed(1) + " px after");
+    }
+    // a print moved into view reads (it was out of the frame when it was printed)
+    { const q = openPsu(null), p = openPsu(null, { at: V(0.5 / Mk, 0, 0) }), m = mark2(p), cam = mkCam(); macro(cam, q.parts.C2);
+      assert.equal(glyphPx(m, cam, 1080), 0, "a board half a metre to the side is out of the frame");
+      p.group.position.x -= 0.5 / Mk; p.group.updateMatrixWorld(true);
+      assert.ok(glyphPx(m, cam, 1080) >= READ_PX && legible(m, cam, 1080), "moved into the frame, its print reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
+    }
+    // a print outside the frame is not read: the macro station on C3 does not show C2's rating, 17 mm away
+    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C3);
+      assert.equal(glyphPx(m, cam, 1080), 0, "C2's print is outside the frame framed on C3"); assert.ok(!legible(m, cam, 1080));
+      macro(cam, p.parts.C2); assert.ok(legible(m, cam, 1080), "framed on C2 it reads");
+    }
+    // a print half out of the frame is not readable, the whole of it in the frame is
+    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
+      const dist = cam.position.distanceTo(m.centre) * Mk, aim = (at, halfW) => { cam.fov = (2 * Math.atan(halfW / (16 / 9) / dist) * 180) / Math.PI; cam.lookAt(at); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); };
+      aim(m.centre.clone().addScaledVector(m.right, m.w / 2 / Mk), m.w / 4);
+      assert.equal(glyphPx(m, cam, 1080), 0, "the edge of the print is in the frame, the rest of it is not");
+      aim(m.centre, m.w);
+      assert.ok(legible(m, cam, 1080), "the whole print inside the frame reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
+    }
+  }
   // 6. the catalogue: every part body is within 1 % of its declared size, upright and turned a quarter
   { let declared = 0;
     for (const [type, spec] of Object.entries(PARTS)) {
@@ -2691,6 +2727,27 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(lowest > 0.0016, "a cable never goes through the board (lowest " + lowest + " m)");
     assert.equal(openPsu(null, { prints: { C2: ["47µF", "450V"] } }).parts.C2.marks.some((m) => [].concat(m.text).includes("450V")), true, "a film can print its own values");
     assert.ok(p.traces.length >= 3 && p.traces.every((t) => t.length > 0), "traces between pins");
+  }
+  // 10. polarity: the minus stripe of an electrolytic is on the side of its minus lead, and a trace never joins it to the other pole
+  { const p = openPsu(null);
+    for (const rot of [0, 90, 180]) {
+      const b = board({ w: 0.04, d: 0.04 }); b.place("C9", "cap.electrolytic", { size: "10x16", rot, print: ["1µF", "50V"] });
+      const stripe = b.parts.C9.marks.find((m) => [].concat(m.text).includes("−")), plus = b.pin("C9", 1), minus = b.pin("C9", 2);
+      assert.deepEqual([b.polarity("C9", 1), b.polarity("C9", 2)], ["+", "-"], "pin 1 is the plus lead, pin 2 the minus lead");
+      assert.ok(stripe.centre.distanceTo(minus) < stripe.centre.distanceTo(plus), "rot " + rot + ": the minus stripe is on the side of the minus lead");
+    }
+    assert.equal(p.board.polarity("R1", 1), null, "a resistor has no polarity");
+    assert.deepEqual(polarityClashes(p.board, p.cables), [], "the example joins plus to plus and minus to minus: " + polarityClashes(p.board, p.cables).join("; "));
+    const dc = p.cables.filter((c) => c.conductor === "+" || c.conductor === "-"); assert.ok(dc.length === 2 && dc.every((c) => /^J2:\d$/.test(c.pin)), "the dc cables say which pin they leave from");
+    const c3 = p.traces.find((t) => t.pins.includes("C3:1")), j2 = c3.pins.find((x) => x.startsWith("J2:")), cab = dc.find((c) => c.pin === j2);
+    assert.equal(cab.conductor, "+", "the output capacitor's plus lead runs to the dc plus cable");
+    // the attack: the plus lead traced to the dc minus cable
+    const bad = board({ w: 0.04, d: 0.04 }); bad.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); bad.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 });
+    bad.trace(["C9:1", "J9:1"]);
+    assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "-" }]).length, 1, "plus traced to a minus cable is a clash");
+    assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }]), [], "plus traced to a plus cable is not");
+    assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "L" }]), [], "a mains core has no polarity to clash with");
+    bad.trace(["C9:2", "J9:2"]); assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }, { pin: "J9:2", conductor: "+" }]).length, 1, "minus traced to a plus cable is a clash");
   }
 }
 console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
