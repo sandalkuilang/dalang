@@ -276,7 +276,7 @@ async function pinnedClone(g, item, q, dirty) {
   return [[item, 'WARN', `pinned at ${tag} (detached), newest release is ${newest} — asked in Brief Call 0: ${fix}, then re-read SKILL.md; a pinned clone moves by release, not by a pull from main`]];
 }
 
-// The videos folder: plugins and MCP servers a video never uses cost every model call (~a fifth of a long run's tokens).
+// The videos folder: plugins and MCP servers a video never uses cost every model call.
 // Read through workspace.mjs status; an exit, a timeout or an odd reply is "could not read", never "nothing enabled".
 async function workspace() {
   const item = 'Workspace', ws = fileURLToPath(new URL('./workspace.mjs', import.meta.url));
@@ -287,7 +287,7 @@ async function workspace() {
     return [[item, 'WARN', `could not read the settings (${clean(j?.error || (r.killed ? 'timeout' : r.err.split('\n')[0]) || 'odd reply')}) — rerun preflight; this is not "nothing enabled"`]];
   const on = j.items.filter(i => i.on && !i.video).length;
   if (j.lean) return [[item, 'OK', `lean: nothing a video never uses is on in ${clean(wsDir)}`]];
-  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (~a fifth of a run's tokens) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}`]];
+  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}`]];
 }
 
 const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), elevenlabs(), media()]);

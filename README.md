@@ -163,7 +163,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   evals.md             golden briefs to run before and after changing the skill
 scripts/
   preflight.mjs        whole environment in one call
-  workspace.mjs        lean video folder: plugins / MCP servers a video never uses off (project settings, undo)
+  workspace.mjs        lean video folder: plugins / MCP servers a video never uses off (project settings, undo; `measure` compares first-call tokens)
   tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
   fill_times.mjs       {{beat}} expressions in the template → index.html

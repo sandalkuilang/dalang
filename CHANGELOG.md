@@ -39,8 +39,13 @@ that reads as:
   `workspace.mjs init <folder>` lists what is on (a guessed job each) and proposes the video set (DALANG, HyperFrames,
   media-use, a browser; `--keep a,b` keeps more). It writes nothing without `--yes`; with it, only
   `<folder>/.claude/settings.json` (`enabledPlugins` false, `deniedMcpServers`), unknown keys kept, old file saved as
-  `.claude/settings.json.bak`; `undo` restores it byte for byte, `status` shows the state. Preflight reports a folder that
-  is not lean as INFO (asked in Call 0) and settings it cannot read as WARN, never as "nothing enabled". Gate step
+  `.claude/settings.json.bak` (plus a `.bak.dalang` hash file: a `.bak` that `init` did not write is refused, never
+  adopted, restored or deleted); `undo` restores it byte for byte, `status` shows the state. In a git repository it also
+  reads the repository root's `.claude/settings.local.json` (and a worktree's main checkout), which can turn items back
+  on. Preflight reports a folder that is not lean as INFO (asked in Call 0) and settings it cannot read as WARN, never
+  as "nothing enabled". `workspace.mjs measure <before> [after]` reads the first model call's context from a session
+  transcript or a one-turn `claude -p --output-format json` result, so the saving of a lean folder can be measured
+  (not yet measured: the ~85k figure is from the heavy setups of the runs that prompted this). Gate step
   `tests/workspace.mjs`.
 
 - **Pilot, then shot groups in parallel** (`look-build.md` "Parallel build"; `SKILL.md` "Batch and parallelise"): a film
