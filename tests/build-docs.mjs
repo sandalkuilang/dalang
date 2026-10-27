@@ -276,6 +276,15 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   assert.match(assetPass, /tile=/, "Asset pass item 3 must carry the ffmpeg tile command");
   assert.match(assetPass, /full-size stills stay with the reviewer/, "Asset pass item 3: full-size stills stay with the reviewer");
   assert.match(skill, /media screening[^|]*reference boards/, "SKILL.md model table must list the Step 5 reference boards under media screening");
+  // The rule "images stay in subagents" and the Step 5 author who opens a board must not contradict: both rule lines
+  // name the boards as the one exception, so an agent that follows SKILL.md (read first) still opens the board.
+  const imgRule = skill.split("\n").find((l) => l.startsWith("- **Images stay in subagents.**")) ?? "";
+  assert.match(imgRule, /refs-board/, "SKILL.md 'Images stay in subagents' must name the Step 5 reference boards as its exception");
+  assert.match(imgRule, /author of .{0,6}style-frames\/src/, "SKILL.md: the exception is the author of style-frames/src/");
+  assert.match(imgRule, /never[^.]{0,20}Read[^.]{0,120}style frame/, "SKILL.md still says the main agent never reads a style frame");
+  const wf = read("docs/workflow.md");
+  const wfImg = wf.slice(wf.indexOf("Images\n"), wf.indexOf("## Why timing drives everything"));
+  assert.match(wfImg, /refs-board/, "docs/workflow.md: the images rule must name the Step 5 reference boards as its exception");
 
   const evals = read("references/evals.md");
   const cmd = evals.match(/^node -e '([^\n]*refs-board[^\n]*)' <session>\.jsonl/m)?.[1];
@@ -330,9 +339,35 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     { const [m, tid] = maker(); r = go(file(m, builder(), result(tid)), file(read(), write()));
       assert.equal(r.status, 1, "a builder started before the board command returned is flagged"); }
     { const [m] = maker(); r = go(file(m, builder()), file(read(), write()));
-      assert.equal(r.status, 1, "a board command with no result yet does not count"); }
+      assert.ok(r.status === 2 && r.out === "", `a board command that never returned cannot say when the board was made: unknown (got ${r.status} "${r.out}")`); }
+    // A background board command: its own result is only its start. It counts once its completion notification (a user
+    // message carrying <task-notification>, <tool-use-id>, <status>) is in the transcript, ahead of the builder. A state the
+    // transcript does not show (no notification yet) is unknown (exit 2), never "the board was missing" (exit 1).
+    const note = (tid, status = "completed", asString = false) => {
+      const text = `<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>${tid}</tool-use-id>\n<status>${status}</status>\n<summary>Background command "tile" ${status}</summary>\n</task-notification>`;
+      return JSON.stringify({ type: "user", isSidechain: false, message: { role: "user", content: asString ? text : [{ type: "text", text }] } });
+    };
+    for (const name of ["Bash", "Agent"]) {
+      const [m, tid] = maker({ run_in_background: true }, name);
+      r = go(file(m, result(tid), note(tid), builder()), file(read(), write()));
+      assert.ok(r.status === 0 && r.out === "", `a background ${name} board maker whose notification came before the builder: clean (got ${r.status} "${r.out}")`);
+    }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), note(tid, "completed", true), builder()), file(read(), write()));
+      assert.ok(r.status === 0 && r.out === "", `a notification given as a plain string message counts too (got ${r.status} "${r.out}")`); }
     { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), builder()), file(read(), write()));
-      assert.equal(r.status, 1, "a background board command's result is only its start: it never counts"); }
+      assert.ok(r.status === 2 && r.out === "" && /unknown/.test(r.err), `a background board command with no notification yet is unknown, not missing (got ${r.status} "${r.out}")`); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), builder(), note(tid)), file(read(), write()));
+      assert.ok(r.status === 2 && r.out === "", `a notification that lands after the builder started cannot say when the board was made: unknown (got ${r.status} "${r.out}")`); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), note("toolu_other"), builder()), file(read(), write()));
+      assert.equal(r.status, 2, "another command's notification is not the board maker's: still unknown"); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), note(tid, "failed"), builder()), file(read(), write()));
+      assert.ok(r.status === 1 && /builder started before/.test(r.out), `a background board command that failed made no board: flagged (got ${r.status} "${r.out}")`); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid, true), builder()), file(read(), write()));
+      assert.equal(r.status, 1, "a background board command that never started (its own result is an error): flagged"); }
+    { const b = tu("Bash", { command: "sleep 30", run_in_background: true }); r = go(file(line(b), result(b.id), note(b.id), builder()), file(read(), write()));
+      assert.equal(r.status, 1, "a background command that makes no board never counts: flagged"); }
+    { const [m, tid] = maker({ run_in_background: true }); r = go(file(m, result(tid), builder()), file(read(), write()), file(write()));
+      assert.equal(r.status, 1, "a definite flag in another file stays exit 1 though the builder start is unknown"); }
     { const [m, tid] = maker(); r = go(file(m, result(tid, true), builder()), file(read(), write()));
       assert.equal(r.status, 1, "a board command that failed does not count"); }
     r = go(file(read(), builder()), file(read(), write()));
