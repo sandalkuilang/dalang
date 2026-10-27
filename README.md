@@ -106,7 +106,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. Scene code never enters the main thread: a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The film's scene code never enters the main thread (the Step 5 style frames do): a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
 
 </td></tr>
 </table>
