@@ -289,16 +289,18 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     const file = (...lines) => { const f = `${dir}/s${seq++}.jsonl`; fs.writeFileSync(f, lines.join("\n") + "\n"); return f; };
     const go = (...files) => { const r = spawnSync("node", ["-e", cmd, ...files], { encoding: "utf8" }); return { status: r.status, out: r.stdout.trim().replaceAll(dir, ""), err: r.stderr }; };
     const W = "/p/film/style-frames/src/hook.js", BOARD = "/p/film/review/refs-board-hook.jpg";
-    const write = (p = W, name = "Write") => line(tu(name, { file_path: p }));
-    // A Read is its tool_use line then its tool_result line (is_error: "File does not exist." when the board is not there yet).
-    const read = (p = BOARD, is_error = false) => { const b = tu("Read", { file_path: p }); return line(b) + "\n" + result(b.id, is_error); };
+    // Every call is its tool_use line then its tool_result line. A call counts only once its result came back without error:
+    // a Read errors with "File does not exist." when the board has not landed yet, an Edit with "File has not been read yet".
+    const call = (name, input, is_error = false) => { const b = tu(name, input); return line(b) + "\n" + result(b.id, is_error); };
+    const write = (p = W, name = "Write", is_error = false) => call(name, { file_path: p }, is_error);
+    const read = (p = BOARD, is_error = false) => call("Read", { file_path: p }, is_error);
     // A board-making call: [its tool_use line, its id]. A Bash ffmpeg command by default, or an Agent (the media screening).
     const maker = (extra = {}, name = "Bash") => {
       const b = tu(name, name === "Bash" ? { command: "ffmpeg -v error -y -i review/refs-hook/%d.jpg -vf tile=4x2 review/refs-board-hook.jpg", ...extra } : { prompt: "screen the stills, write review/refs-board-hook.jpg", ...extra });
       return [line(b), b.id];
     };
     const result = (tid, is_error = false) => line({ type: "tool_result", tool_use_id: tid, is_error });
-    const builder = (name = "Agent") => line(tu(name, { prompt: "Build the style frames in style-frames/src/ from review/refs-board-hook.jpg" }));
+    const builder = (name = "Agent", is_error = false) => call(name, { prompt: "Build the style frames in style-frames/src/ from review/refs-board-hook.jpg" }, is_error);
 
     // Forbidden: the author writes before opening a board.
     let r = go(file(write()));
@@ -346,6 +348,37 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     assert.ok(r.status === 0 && r.out === "", "a failed board read followed by a successful one: clean");
     r = go(file(read(BOARD, true), read(), builder()), file(read(), write()));
     assert.ok(r.status === 0 && r.out === "", "a main session whose retry read succeeded may start the builder");
+    // A Write/Edit that came back as an error wrote nothing: it is neither a write before the board nor a write at all.
+    r = go(file(write(W, "Edit", true), read(), write()));
+    assert.ok(r.status === 0 && r.out === "", `a failed Edit before the board read, then the read and a write: clean (got ${r.status} "${r.out}")`);
+    r = go(file(write(W, "Edit", true)));
+    assert.ok(r.status === 2 && r.out === "", `only a failed Edit: no style-frame write, exit 2 (got ${r.status} "${r.out}")`);
+    r = go(file(write(W, "Write", true), write()));
+    assert.equal(r.status, 1, "a failed write then a successful one, still with no board read: flagged");
+    r = go(file(line(tu("Write", { file_path: W }))));
+    assert.equal(r.status, 2, "a write with no result yet has not written: exit 2");
+    // A builder Agent that came back as an error built nothing; one that returned is judged by when it started.
+    r = go(file(builder("Agent", true)), file(read(), write()));
+    assert.ok(r.status === 0 && r.out === "", `a builder call that failed is no builder start (got ${r.status} "${r.out}")`);
+    // The class, for every kind of call the check reads: a call whose result is an error counts exactly as if it were
+    // absent, so no error result is ever counted as a success, whichever call it is.
+    {
+      const [mb, mbid] = maker(), [ma, maid] = maker({}, "Agent"), done = (l, tid, e) => l + "\n" + result(tid, e);
+      const kinds = {
+        "board Read": [(e) => read(BOARD, e), (s) => [file(s, write())]],
+        "style-frame Write": [(e) => write(W, "Write", e), (s) => [file(s, read(), write())]],
+        "style-frame Edit": [(e) => write(W, "Edit", e), (s) => [file(s)]],
+        "board command": [(e) => done(mb, mbid, e), (s) => [file(s, builder()), file(read(), write())]],
+        "board subagent": [(e) => done(ma, maid, e), (s) => [file(s, builder()), file(read(), write())]],
+        "builder Agent": [(e) => builder("Agent", e), (s) => [file(s, write("/p/film/SPEC.md")), file(read(), write())]],
+      };
+      for (const [kind, [mk, around]] of Object.entries(kinds)) {
+        const failed = go(...around(mk(true))), absent = go(...around(""));
+        assert.deepEqual([failed.status, failed.out], [absent.status, absent.out], `a failed ${kind} must count as no ${kind} at all`);
+        const ok = go(...around(mk(false)));
+        assert.notDeepEqual([ok.status, ok.out], [absent.status, absent.out], `a ${kind} that returned must count (the legitimate case)`);
+      }
+    }
     // Unknown is not clean: no write under style-frames/src/, no argument, an empty transcript.
     for (const [what, files] of [["no write at all", [file(read())]], ["a read of a style-frames file", [file(read("/p/film/style-frames/src/hook.js"))]], ["a write elsewhere", [file(write("/p/film/SPEC.md"))]]]) {
       r = go(...files);
