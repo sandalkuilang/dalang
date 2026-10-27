@@ -34,6 +34,15 @@ that reads as:
 
 ### Added
 
+- **Gate 3 benchmark** (`review.md` "Benchmark review", `measure_reference.sh` reference board, `state.mjs approve 3`):
+  the style frames are scored side by side against a reference board by a fresh subagent, 1-5 on seven rows (detail
+  density, material truth, light and shadow, text system, overlays caused by physics, framing, macro quality), text
+  only. The board is `measure/reference-board.jpg` (8 stills on one sheet, from `measure_reference.sh`; local only,
+  never published or committed); with no reference it is the golden sheet. A row more than 1 point behind is a fix
+  before the build. `state.mjs approve 3` refuses (user and agent alike) without `review/benchmark.md`, with a row
+  behind, a row absent, twice or with a score it cannot read, and with a verdict older than the style frames; it
+  records the scores in `state.json`, and the main agent logs them in `PRODUCTION.md`. An approval given before this
+  stays fresh. `qc.md` keeps the defect review separate. Gate step `tests/benchmark.mjs`.
 - **Second-language cut** (`scripts/beats_lint.mjs`, `fill_times.mjs --lang <code>`): every animation time is a named
   beat, so a second narration with the same beat names re-times the film from the same storyboard. `beats_lint.mjs
   narration.txt narration.<lang>.txt` exits 1 with `file:line` when a beat is missing, renamed, extra, out of the
