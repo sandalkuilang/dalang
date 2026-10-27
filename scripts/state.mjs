@@ -108,6 +108,7 @@ const VD_QUANTITY = of('visual-direction.md', '## 13. Showing a quantity: twin s
 const NUMBERS_MODEL = of('script-voice.md', '### Numbers model (model.mjs → numbers.json)');
 const SECOND_CUT = [...of('script-voice.md', '### Second-language cut (offered once at the hand-off; Steps 3b and 4)'), ...of('look-build.md', '### Second-language cut: build (Step 6 again, same storyboard)'), ...of('qc.md', '### Second-language cut: QC and delivery')];
 const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
+const SFX_MUSIC = of('look-build.md', '### Sound effects and music (Step 6, item 7)');
 const LEAN_WORKSPACE = of('brief.md', '### Lean workspace (workspace.mjs)');
 const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO, ...LEAN_WORKSPACE], sub: [] },
@@ -118,7 +119,7 @@ const READING = {
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
   3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
-  4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: of('voice.md', '### Clone (VoiceStudio, free, local)'), sub: [] },
+  4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)'), ...SFX_MUSIC], sub: [] },
   5: {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),
     refs: [
@@ -137,7 +138,7 @@ const READING = {
   6: {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
-      ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), SECOND_CUT[1], ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
+      ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), ...SFX_MUSIC, SECOND_CUT[1], ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
       ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },
