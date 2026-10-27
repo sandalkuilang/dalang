@@ -341,6 +341,12 @@ that reads as:
 
 ### Changed
 
+- **Scene code only in builder subagents** (`look-build.md` "Parallel build", `review.md` §3, `qc.md` Step 7,
+  `SKILL.md` "Work fast"): the main agent never writes, patches or reads `src/` or `assets/*.js`; the pilot (the
+  whole film under 3 groups), the groups, the assembly and each QC fix round go to a builder subagent that returns at
+  most 15 lines (a fix round: fixed / not fixed per finding), logged with `state.mjs log` and resumable with
+  SendMessage. `evals.md` gains a 2-group golden brief and a transcript check (no main-thread Write/Edit to scene
+  code; peak and total cache-read of the main context). Check: `tests/build-docs.mjs`.
 - **Sheets first, full-res on doubt** (`review.md`, Step 7): the fresh-eyes reviewer gets the strip sheets, `index.md`
   and the subject crops, and opens a full-res still only for a frame where those leave a doubt, listing each under
   `Opened full-res:` in `QC-REVIEW.md`. The second Realism / Reality check still reads full-res stills.
