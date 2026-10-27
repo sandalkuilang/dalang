@@ -136,10 +136,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   world.integrationParameters.contact_natural_frequency = 60;
   world.integrationParameters.maxCcdSubsteps = 4;
   const tracked = [], kin = [], held = new Map(), owner = new Map(); let replayed = false; // owner: collider handle → the object it was built from
-  const mech = []; // mechanism parts (mechanism.js): { bodies, key, step(t, dt), event() }: stepped before onStep, hashed, kept out of islands
+  const mech = []; // mechanism parts (mechanism.js): { bodies, key, step(t, dt), event(), record(), load(r) }: stepped before onStep, hashed, kept out of islands
   const dt0 = world.timestep; // taken here: inside an island bake's script a part must not read the fenced world
   const withParts = (onStep) => (mech.length ? (t) => { mech.forEach((p) => p.step(t, dt0)); if (onStep) onStep(t); } : onStep);
   const events = () => mech.map((p) => p.event?.()).filter(Boolean);
+  const recorders = () => mech.filter((p) => p.record), records = () => recorders().map((p) => p.record()); // what a part's report reads at the end of the bake (JSON), stored with it
   // o.group (1–15): parts of one object (a chair's seat and base) share a collision group and never collide with each other.
   const surface = (c, o) => { c.setFriction(o.friction ?? 0.55).setRestitution(o.restitution ?? 0.15).setDensity(o.density ?? 600); if (o.group) c.setCollisionGroups(((1 << o.group) << 16) | (0xffff & ~(1 << o.group))); return c; };
   const tmp = new THREE.Vector3();
@@ -183,6 +184,11 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
   // A bake's result, live or replayed: interpolated poses at any time t (sub-frames included) from the sparse store.
   function baked(data, hash, cached = false) {
     const { n, dt, poses, series, impacts, report, kept } = data;
+    const rec = recorders(); // live or replayed, a part's report is read from what the bake stored: a cache hit and a live bake give the same
+    if (rec.length) {
+      if (!Array.isArray(report.couplings) || report.couplings.length !== rec.length) throw new Error(`this bake holds no report for the mechanism parts (made by an older engine): delete assets/bake/${hash || ""}.bin and bake again`);
+      rec.forEach((p, i) => p.load(report.couplings[i]));
+    }
     const pose = (i, t) => { // interpolated pose of tracked body i at time t
       const { s, p } = poses[i], u = Math.min(n - 1, Math.max(0, t / dt));
       let lo = 0, hi = s.length - 1; // the last stored step at or before u
@@ -468,7 +474,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
     const impacts = parts.flatMap(({ res, idx: ix }) => res.impacts.map((v, e) => ({ gi: ix[res.ord.impacts[e]], v }))).sort((a, b) => a.v.t - b.v.t || a.gi - b.gi).map((x) => x.v);
     const deepest = parts.reduce((d, { res }) => (res.report.deepest.depth > d.depth ? res.report.deepest : d), { depth: 0 });
     crossing(poses, pre, jumps, run, of, main.n, main.dt, reach0);
-    return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled"), ...(mech.length ? { latches: events() } : {}) } });
+    return baked({ n: main.n, dt: main.dt, series: main.series, kept: main.kept, poses, impacts, report: { penetration_mm: +(deepest.depth * 1000).toFixed(2), deepest, floating: list("floating"), moving: list("moving"), settled: list("settled"), ...(mech.length ? { latches: events() } : {}), ...(recorders().length ? { couplings: records() } : {}) } });
   }
 
   const sim = {
@@ -541,7 +547,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       held.set(b.handle, until); return x;
     },
     // A mechanism part (mechanism.js): stepped before onStep every step (the pre-roll too), its key hashed into the bake,
-    // its bodies refused in opts.islands; event() → { name, t } goes in report.latches. early: true runs it before the other
+    // its bodies refused in opts.islands; event() → { name, t } goes in report.latches; record() → JSON (the part's report at the end) goes in report.couplings and load(r) hands it back, live or replayed. early: true runs it before the other
     // parts (a latch releases first, so its spring acts on the very step after the release).
     part(p) {
       if (replayed) throw new Error("mechanism parts are added before bakeCached");
@@ -557,6 +563,7 @@ export async function makeSim(THREE, g = G, mpu = M) { // g in units/s², mpu me
       if (opts.islands?.length) throw new Error("islands are baked in workers: use bakeCached");
       const { ord, pre, ...data } = runBake(world, tracked.map(itemOf), { duration, preroll, mpu, onStep: withParts(onStep), kin, track: Object.entries(opts.track || {}), keep: opts.keep, names: names() });
       if (mech.length) data.report.latches = events(); // when each latch let go: stored with the bake, so a replay knows it
+      if (recorders().length) data.report.couplings = records(); // the couplings' ratio, torque and angle at the end: a replay reads them from here
       return baked(data);
     },
     // bake(), stored once in assets/bake/<hash>.bin and replayed from there by every later page load (a snapshot, the
