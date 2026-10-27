@@ -58,6 +58,7 @@ flowchart LR
 | `scripts/golden.mjs` | release evals: renders the fixed golden scene (`examples/golden/`), records render time, stillness, macro detail and shadow texel per station into `evals/golden/<version>/`, diffs against the previous version and FLAGs a regression beyond tolerance | judge the frames |
 | `engine/three/` | generic 3D systems (real scale and settling, surfaces, physics and mechanisms, cloth, air, plants, particles, granular fills, water, fur, cutaways, captions and pinned labels in `type.js`, quantities shown in the world (flow arrows and tile fills in `quantity.js`, range cards in `type.js`), camera stations and attention by ghosting), each with a self-check; `bake.mjs` stores a physics bake once for every snapshot and render worker (groups that never touch bake in parallel workers); ready pieces in `examples/` | know a scene, a topic or a list of objects |
 | fresh-eyes reviewer (`references/review.md`) | a defect list from a subagent with no build history, on the strongest model, sheets and crops first and full-res only for a doubt; a sound-off quiz answered from the strips alone | fix anything |
+| builder subagents (`references/look-build.md` "Parallel build", `review.md` §3) | all scene code: the pilot (a film under 3 groups whole), each shot group, the assembly, each QC fix round; a report of at most 15 lines | approve a gate, review their own work |
 | HyperFrames skills | scene building, preview, render | pick the script or voice |
 | Project files | all state (one video = one session) | live in the skill repo |
 
