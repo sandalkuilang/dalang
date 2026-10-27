@@ -10,7 +10,7 @@ import { M, tone } from "./kit.js";
 // the scene.
 //
 //   const { items } = markings(capBody, [{ text: ["22µF", "400V"], h: 0.002, at: onTheSleeve, normal: outward, style: "pad" }]);
-//   glyphPx(items[0], camera, 1080) >= READ_PX;      // is the 2 mm cap height tall enough to read at this station?
+//   glyphPx(items[0], camera, 1080) >= READ_PX;      // is the 2 mm cap height tall enough, and the print in frame, at this station?
 //
 // Item: { text (a string or an array of lines) and / or icon, h (cap height, metres), at (the print's centre, a Vector3 on
 // the surface), normal (outward), style, up (the direction of the text's top, default world +Y; the text reads from +z when
@@ -83,8 +83,30 @@ const ICON = {
   },
 };
 
+// A print's place is kept in its mesh's own space and read through the mesh's world matrix each time, so `centre`, `up`,
+// `right` and `normal` (world, unit vectors, fresh copies) are where the print is now: a board flipped, a housing turned or
+// a part animated after it was printed takes its print's pose with it. `upV` and `rightV` (internal) are the same axes
+// carrying the world scale, one unit long where the mesh is unscaled, so a print is measured as it is drawn.
+const LOCAL = new WeakMap();
+function poseOn(item, at, up, right, n) {
+  const mesh = item.mesh;
+  mesh.updateWorldMatrix(true, false);
+  const lin = new THREE.Matrix3().setFromMatrix4(mesh.matrixWorld), inv = lin.clone().invert();
+  LOCAL.set(item, { c: at.clone().applyMatrix4(mesh.matrixWorld.clone().invert()), u: up.clone().applyMatrix3(inv), r: right.clone().applyMatrix3(inv), n: n.clone().applyMatrix3(lin.clone().transpose()) });
+  for (const k of ["centre", "up", "right", "normal"]) Object.defineProperty(item, k, { enumerable: true, get: () => poseOf(item)[k] });
+  return item;
+}
+function poseOf(item) {
+  const l = LOCAL.get(item);
+  if (!l) throw new Error("a marking item comes from markings(): it carries its mesh and where it sits on it");
+  const mesh = item.mesh;
+  mesh.updateWorldMatrix(true, false);
+  const lin = new THREE.Matrix3().setFromMatrix4(mesh.matrixWorld), upV = l.u.clone().applyMatrix3(lin), rightV = l.r.clone().applyMatrix3(lin);
+  return { centre: l.c.clone().applyMatrix4(mesh.matrixWorld), up: upV.clone().normalize(), right: rightV.clone().normalize(), normal: l.n.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld)).normalize(), upV, rightV };
+}
+
 // markings(target, items, { wear, seed }): see the header. Returns { group: target, items: [{ mesh, text, icon, style, h, w,
-// hh, wear, centre (world, on the surface), up, right, normal }] }.
+// hh, wear, centre, up, right, normal (the last four world, read where the mesh is now) }] }.
 export function markings(target, items, { wear = 0, seed = 1 } = {}) {
   let meshes = [];
   if (target?.isObject3D) target.traverse((o) => { if (o.isMesh && !o.userData.marking) meshes.push(o); });
@@ -178,20 +200,25 @@ export function markings(target, items, { wear = 0, seed = 1 } = {}) {
     mesh.name = "marking " + (lines.length ? lines.join(" ") : item.icon);
     mesh.userData.marking = { text: item.text, icon: item.icon, h, w, hh, style: item.style, wear: wr };
     target.add(mesh); mesh.updateWorldMatrix(true, false);
-    out.push({ mesh, text: item.text, icon: item.icon, style: item.style, h, w, hh, wear: wr, centre: item.at.clone(), up, right, normal: n });
+    out.push(poseOn({ mesh, text: item.text, icon: item.icon, style: item.style, h, w, hh, wear: wr }, item.at, up, right, n));
   });
   return { group: target, items: out };
 }
 
 // glyphPx(item, camera, H): the cap height of a marking on screen, in px of a frame H px tall (W = H x the camera's
-// aspect). 0 when the print is behind the camera, outside its depth range or faces away from it. Call after the camera is
-// placed (camera.js place()); the projection is the caller's.
+// aspect). 0 when the print faces away from the camera, is behind it or outside its depth range, or is not wholly inside the
+// frame (text cut by an edge, or off screen, is not read). The print is measured where its mesh is now. Call after the
+// camera is placed (camera.js place()); the projection is the caller's.
 export function glyphPx(item, camera, H) {
   camera.updateMatrixWorld();
-  const cp = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
-  if (item.normal.dot(cp.sub(item.centre)) <= 0) return 0;
-  const half = item.up.clone().multiplyScalar(item.h / 2 / M), a = item.centre.clone().add(half).project(camera), b = item.centre.clone().sub(half).project(camera);
-  if (Math.abs(a.z) > 1 || Math.abs(b.z) > 1) return 0;
+  const P = poseOf(item), cp = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
+  if (P.normal.dot(cp.sub(P.centre)) <= 0) return 0;
+  const hx = P.rightV.clone().multiplyScalar(item.w / 2 / M), hy = P.upV.clone().multiplyScalar(item.hh / 2 / M);
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { // the four corners of the print's box
+    const q = P.centre.clone().addScaledVector(hx, sx).addScaledVector(hy, sy).project(camera);
+    if (!(Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1 && Math.abs(q.z) <= 1)) return 0;
+  }
+  const half = P.upV.clone().multiplyScalar(item.h / 2 / M), a = P.centre.clone().add(half).project(camera), b = P.centre.clone().sub(half).project(camera);
   const W = H * camera.aspect;
   return Math.hypot(((a.x - b.x) * W) / 2, ((a.y - b.y) * H) / 2);
 }
