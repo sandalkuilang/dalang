@@ -50,6 +50,7 @@ Every job gets a new builder, briefed with the files and the last report; never 
 - **At most 3 snapshot rounds per job.** Then return the report with what is still open; a new builder takes the rest.
 - **Stills as one sheet.** Tile a round's stills with `node <skill-dir>/scripts/strips.mjs --frames <dir> --width 480` and read that sheet once, never each still.
 - **Read a file once.** Never re-read a file already in context; `grep -n` and `sed -n` for the lines needed.
+- **Parts before geometry.** A made thing's hero, in this order: the subject's own engineering data (CAD, STEP, a KiCad board) when the user has it; a found CC0 / CC BY model that passes the asset pair check; the engine's parts (`assets/engine/parts.js`: bolts, nuts, washers, bearings, springs, shafts, knobs, the x-ray housing; gears, belts and chains in `transmission.js`, boards in `electronics.js`), assembled at real proportions; custom geometry last, for what none of them gives. Look K's housing is `parts.xray()` (`looks.md` K).
 
 `state.mjs approve` records the token report at every gate (`scripts/tokens.mjs`: turns, tokens and largest context per agent, `review/tokens.json`); a WARN row is a builder over budget, and the rest of its job goes to a new one.
 
