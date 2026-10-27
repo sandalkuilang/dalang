@@ -33,6 +33,10 @@ that reads as:
 
 ### Added
 
+- **`scripts/scopes.mjs`**: per cut, YMIN / YMAX / YLOW / YHIGH / SATAVG / HUEAVG from ffmpeg `signalstats` over the
+  middle 60 % of the cut, bands for crushed blacks, clipped whites and hue jumps, `--cuts`, `--scene`, `--limits
+  tv|pc`, `--png [dir]` (PNGs for flagged cuts only). Exit 0 inside the bands, 3 a cut is flagged, 2 unreadable (WARN,
+  rerun), 1 usage. Check: `tests/scopes.mjs`, a gate step.
 - **`POST.md`, the post description** (`qc.md` Step 8, "Post description (POST.md)"): the hand-off writes a companion
   post text from the script and model: the hook as a question with the short answer, the model in plain sentences
   (numbers dated, a result labelled "our model, not a measurement"), both failure modes, a self-check the viewer can
@@ -284,6 +288,9 @@ that reads as:
 
 ### Changed
 
+- **Scopes as numbers** (`qc.md` Step 7): exposure and hue come from `scripts/scopes.mjs` as text per cut. The
+  waveform and vectorscope PNGs are made, and a subagent opens them, only for a cut outside its band (crushed
+  blacks, clipped whites, a hue jump of more than 40 degrees); inside all bands no PNG is made.
 - **Hand-off deliverables** (`qc.md` Step 8): `final.mp4`, `narration.srt`, `CREDITS.md` and `POST.md`. The credit
   rule for the upload text moved into the Post description section (rule unchanged: no credit line unless the user
   chose one).

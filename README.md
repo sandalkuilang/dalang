@@ -170,6 +170,7 @@ scripts/
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
   qc.mjs               black frames, clipping, silences, codec + colour tags
+  scopes.mjs           exposure and hue as numbers per cut; PNGs only for a flagged cut
   timing_lint.mjs      every cut between words, no flicker scenes
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
