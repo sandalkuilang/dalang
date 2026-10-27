@@ -7,6 +7,8 @@
 // fix round); look-build "Parallel build", review.md How item 3, qc.md Step 7, SKILL.md and evals.md say so.
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const src = fs.readFileSync(fileURLToPath(new URL("../references/look-build.md", import.meta.url)), "utf8");
@@ -52,3 +54,33 @@ assert.match(skill, /\*\*Scene code stays in builder subagents\.\*\*/, "SKILL.md
 assert.match(skill, /\| Builder: [^|]*QC fix round/, "SKILL.md model table must list the builder jobs");
 assert.match(read("references/evals.md"), /no `Write` or `Edit` to `src\/` or `assets\/\*\.js`/, "evals.md must check the main transcript for scene-code writes");
 console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene code is only written by builder subagents");
+
+// The evals.md transcript check runs the way an agent copies it: it flags a main-context write to the film's scene code and
+// stays silent on what the skill allows the main agent to write (the Step 5 style frames in `style-frames/src/`).
+{
+  const evals = read("references/evals.md");
+  const cmd = evals.match(/^node -e '([^\n]*Write\|Edit[^\n]*)' <session>\.jsonl/m)?.[1];
+  assert.ok(cmd, "evals.md must carry the scene-code transcript command");
+  const dir = fs.mkdtempSync(`${os.tmpdir()}/evals-scene-`);
+  const check = (name, input, side = false) => {
+    const f = `${dir}/s.jsonl`;
+    fs.writeFileSync(f, JSON.stringify({ isSidechain: side, message: { content: [{ type: "tool_use", name, input }] } }) + "\n");
+    return spawnSync("node", ["-e", cmd, f], { encoding: "utf8" }).stdout.trim();
+  };
+  try {
+    // Forbidden: the film's own scene code, from the main context.
+    assert.equal(check("Write", { file_path: "/p/film/src/index.tpl.html" }), "/p/film/src/index.tpl.html", "a Write to src/ must be flagged");
+    assert.equal(check("Edit", { file_path: "/p/film/src/compositions/g1.tpl.html" }), "/p/film/src/compositions/g1.tpl.html", "an Edit to a group template must be flagged");
+    assert.equal(check("Write", { file_path: "/p/film/assets/set.js" }), "/p/film/assets/set.js", "a Write to assets/*.js must be flagged");
+    // Legitimate: the Step 5 style frames (look-build.md §5), a subagent's own write, other tools and files.
+    assert.equal(check("Write", { file_path: "/p/film/style-frames/src/hook.js" }), "", "a style-frame write (Step 5, main agent) must not be flagged");
+    assert.equal(check("Edit", { file_path: "/p/film/style-frames/src/index.tpl.html" }), "", "a style-frame template edit must not be flagged");
+    assert.equal(check("Write", { file_path: "/p/film/src/index.tpl.html" }, true), "", "a builder subagent's write is not the main context's");
+    assert.equal(check("Read", { file_path: "/p/film/src/index.tpl.html" }), "", "the check is about Write and Edit");
+    assert.equal(check("Write", { file_path: "/p/film/BRIEF.md" }), "", "BRIEF.md is the main agent's");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  // The rule's text names the exception, so a reader does not hand the style frames to a builder either.
+  for (const [f, text] of [["SKILL.md", skill], ["references/look-build.md", parallel], ["references/evals.md", evals]])
+    assert.match(text, /style-frames\/src\//, `${f}: the scene-code rule must say the Step 5 style frames (style-frames/src/) stay with the main agent`);
+  console.log("ok  the evals.md scene-code check flags src/ and assets/*.js, not the Step 5 style frames");
+}
