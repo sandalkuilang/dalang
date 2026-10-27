@@ -32,6 +32,14 @@ that reads as:
 
 ### Changed
 
+- **Step 5 planner subagent** (`look-build.md` Step 5, `SKILL.md` model table): a new subagent on the strongest model
+  reads the look, direction, craft and camera rules and writes `SPEC.md` and `storyboard.md`; the main agent reads only
+  those files, so ~100 KB of rules no longer ride along on every later call. Same rules, same model, same output.
+- **A leaner videos folder** (`workspace.mjs init`): besides plugins and MCP servers it switches off, in the folder's
+  `.claude/settings.json` only, the user skills a video never uses (`skillOverrides`), the CLI's bundled skills
+  (`disableBundledSkills`) and the account's claude.ai connectors (`env.ENABLE_CLAUDEAI_MCP_SERVERS=false`); `status`
+  lists them, `--keep` keeps any, `undo` restores the file. The saving is checked with `workspace.mjs measure`.
+
 - **Releases in one command, no waiting** (`scripts/release.sh x.y.z`, `CLAUDE.md`, the release notes above): it moves
   `Unreleased` into the version, pins the README, merges the release PR at once and tags it; no local gate and no CI
   wait (CI still runs on `main`, the `release` workflow still refuses a broken tag). The golden eval runs only when a
