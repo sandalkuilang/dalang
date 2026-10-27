@@ -240,3 +240,22 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     assert.match(text, /style-frames\/src\//, `${f}: the scene-code rule must say the Step 5 style frames (style-frames/src/) stay with the main agent`);
   console.log("ok  the evals.md scene-code check flags src/ and assets/*.js, not the Step 5 style frames");
 }
+
+// Look J's row and visual-direction §13 agree with quantity.js: dimension() is drawn on the frame's 2D canvas, over everything,
+// so no part hides it; current (circuit.js flow) is a scene object and the nearer part does hide it.
+{
+  const looks = read("references/looks.md"), vd = read("references/visual-direction.md"), qty = read("engine/three/quantity.js");
+  assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update the look J and §13 text with it");
+  const rowJ = looks.split("\n").find((l) => l.startsWith("| **J. Engineering cutaway**")) ?? "";
+  assert.ok(rowJ, "looks.md has no look J row");
+  assert.match(rowJ, /36 mm gauge.*textBand.*pinLabel.*torch\.js/, "look J's row must carry its defaults (lens, text band, pill labels) and the reference piece");
+  assert.match(read("references/brief.md"), /engineering cutaway/i, "brief.md Step 1 must offer look J");
+  const dimClause = rowJ.split(";").find((c) => /dimension lines/i.test(c)) ?? "";
+  assert.ok(dimClause, "look J's row must mention dimension lines");
+  assert.doesNotMatch(dimClause, /in the world|occlud|hidden by|behind (?:a|the|another) part/i, "look J's row says dimension lines are drawn in the world / hidden by parts, but dimension() is a canvas overlay");
+  assert.match(rowJ, /dimension lines.{0,120}(?:over|on top of).{0,40}(?:part|frame)/i, "look J's row must say a dimension line is drawn over the frame, on top of parts");
+  assert.match(rowJ, /current.{0,120}part.{0,20}(?:occlud|hides)/i, "look J's row must still say the current is in the world, hidden by a nearer part");
+  const dimRow = vd.split("\n").find((l) => l.startsWith("| Dimension line |")) ?? "";
+  assert.match(dimRow, /(?:over|on top of) (?:the )?(?:parts|frame)|no part hides/i, "§13's dimension row must say the line is drawn over the parts");
+  console.log("ok  look J's row and §13 agree with quantity.js: dimension lines are a canvas overlay, current is occluded");
+}

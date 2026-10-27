@@ -27,15 +27,16 @@ const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
 const { makeDrivetrain } = await use("examples/drivetrain.js");
-const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame } = await use("type.js");
+const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
-const { flowArrow, tileFill } = await use("quantity.js");
+const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { supplyChain } = await use("examples/supply.js");
+const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -2090,4 +2091,142 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const big = supplyChain(null, { ...O, at: V(1 / Mq, 0, 0) });
     assert.ok(Math.abs(big.group.position.x * Mq - 1) < 1e-9, "placed at `at`"); }
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), any scale and gravity");
+// Look J (engineering cutaway): the torch example at real size, the look's lens set and framing (subject low), and the
+// drafting-style text on the frame: a dimension line, pill labels and a text band, all inside the safe area.
+{
+  const W = 1080, H = 1920, em = 0.55;
+  const mockCtx = (paint) => {
+    let px = 10; const log = [], noop = () => {};
+    const c = {
+      canvas: { width: W, height: H }, log, fillStyle: "", strokeStyle: "", lineWidth: 1, lineJoin: "", lineCap: "", textAlign: "", textBaseline: "", letterSpacing: "0px",
+      get font() { return this._f; }, set font(v) { this._f = v; px = parseFloat(/(\d+(?:\.\d+)?)px/.exec(v)[1]); },
+      measureText: (s) => ({ width: [...s].length * em * px }),
+      getImageData(x, y, w, h) {
+        const data = new Uint8ClampedArray(w * h * 4);
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const [r, g, b] = paint(x + i, y + j), o = (j * w + i) * 4; data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255; }
+        return { width: w, height: h, data };
+      },
+      fillText(s, x, y) { log.push({ s, x, y, fill: c.fillStyle, font: c._f, px }); },
+      strokeText(s, x, y) { log.push({ stroke: s, x, y }); },
+      roundRect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, rect(...r) { log.push({ rect: r, fill: c.fillStyle }); }, fillRect(...r) { log.push({ rect: r, fill: c.fillStyle }); },
+    };
+    for (const k of ["save", "restore", "beginPath", "closePath", "moveTo", "lineTo", "stroke", "arc", "fill", "clip", "setLineDash", "translate", "rotate", "setTransform"]) c[k] = noop;
+    return c;
+  };
+  const bright = () => [232, 233, 230];
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const inZone = (b, z) => b.x0 >= z.x0 - 1e-6 && b.x1 <= z.x1 + 1e-6 && b.y0 >= z.y0 - 1e-6 && b.y1 <= z.y1 + 1e-6;
+  const overlap = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const up = V3(0, 1, 0);
+  layoutFrame(mockCtx(bright), 0, { send: () => {} }); // empties the list of boxes drawn by the checks above
+
+  // The lens set: a 36 mm gauge on the long side.
+  assert.ok(Math.abs(lensFov(70, 9 / 16) - 28.84) < 0.01 && Math.abs(lensFov(100, 9 / 16) - 20.41) < 0.01 && Math.abs(lensFov(135, 9 / 16) - 15.19) < 0.01, "70, 100 and 135 mm on a 36 mm gauge, portrait");
+  assert.ok(Math.abs(lensFov(100, 16 / 9) - 2 * Math.atan(36 / (16 / 9) / 200) * 180 / Math.PI) < 1e-9, "landscape: the gauge is the width");
+  for (const bad of [0, -50, NaN, Infinity]) assert.throws(() => lensFov(bad, 9 / 16), /mm/, "a focal length must be finite and > 0");
+  assert.ok(LOOK.accents.label === "#ffd400" && LOOK.lens.macro === 135 && LOOK.ground === "#e8e9e6", "the look's defaults are data");
+
+  // The torch: real sizes, a dc flow caused by the model, refused inputs, cut open.
+  const O = { state: () => ({ I: 1.5 }), speed: 0.05, full: 2 };
+  const tc = openTorch(null, O);
+  const aud = scaleAudit(tc.group);
+  assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 7, "every part is its real size: " + aud.problems.join("; ") + " checked " + aud.checked);
+  assert.deepEqual(tc.at(1), { I: 1.5 }, "at(t) returns the model's state");
+  assert.ok(tc.flows.length >= 1 && tc.flows.every((f) => f.waveform === "dc" && f.ribbons[0].mesh.visible), "current flows as dc");
+  { const off = openTorch(null, { ...O, state: () => ({ I: 0 }) }); off.at(0); assert.ok(off.flows.every((f) => !f.ribbons[0].mesh.visible), "no current, no flow drawn"); }
+  assert.throws(() => openTorch(null, { ...O, state: () => ({ I: NaN }) }).at(1), /I/, "a bad model value is named");
+  assert.throws(() => openTorch(null, { ...O, state: undefined }), /state/);
+  assert.throws(() => openTorch(null, { ...O, speed: 0 }), /speed/);
+  assert.ok(tc.cut.parts.length >= 3 && tc.cut.plane, "the torch is cut open");
+
+  // The three style frames: lens, elevation 20-60 degrees, macro DOF only, the subject low in frame.
+  const fr = tc.frames({ W, H });
+  assert.ok(fr.wide && fr.medium && fr.macro, "three stations");
+  for (const [k, mm] of [["wide", 70], ["medium", 100], ["macro", 135]]) {
+    const st = fr[k], el = Math.asin(st.position.clone().sub(st.target).normalize().y) * 180 / Math.PI;
+    assert.ok(Math.abs(st.fov - lensFov(mm, W / H)) < 1e-9, k + " is a " + mm + " mm lens");
+    assert.ok(el >= 20 && el <= 60, k + " elevation " + el.toFixed(1) + " is within 20-60 degrees");
+  }
+  assert.ok(fr.macro.dof.bokehScale === 6 && Math.abs(fr.macro.dof.worldFocusRange - 0.6 * fr.macro.radius) < 1e-9 && fr.wide.dof === null && fr.medium.dof === null, "DOF on the macro only: bokeh 6, focus range 0.6 x the framed radius");
+
+  // Every text of the frame (band, labels, dimension, caption) is inside the safe area in all three style frames.
+  const caption = [{ text: "the cell feeds the driver", start: 0, end: 5, words: ["the", "cell", "feeds", "the", "driver"].map((w, i) => ({ text: w, start: i * 0.3, end: i * 0.3 + 0.25, gap: true })) }];
+  const zone = safeArea("shorts", W, H);
+  for (const k of ["wide", "medium", "macro"]) {
+    const st = fr[k], cam = new THREE.PerspectiveCamera(st.fov, W / H, 1e-4, 100);
+    tc.place(cam, st, W, H);
+    const centre = st.target.clone().project(cam); // what the station frames: a view offset of -4.5 % of the height is -0.09 in NDC
+    assert.ok(centre.y < -0.05 && centre.y > -0.13, k + ": the subject sits low in frame (NDC y " + centre.y.toFixed(3) + ")");
+    const ctx = mockCtx(bright);
+    const band = textBand(ctx, { kicker: "How it works", headline: "The cell pushes 1.5 A through the driver", tag: "Illustration" }, { format: "shorts" });
+    const [pa, pb] = { wide: [tc.parts.cell, tc.parts.driver], medium: [tc.parts.driver, tc.parts.star], macro: [tc.parts.led, tc.parts.reflector] }[k];
+    const l1 = pinLabel(ctx, { at: pa, camera: cam, text: "cell" }, { pill: LOOK.accents.label, top: band.box.y1 });
+    const l2 = pinLabel(ctx, { at: pb, camera: cam, text: "driver" }, { pill: LOOK.accents.label, top: band.box.y1 });
+    const d = { wide: tc.dims.cell, medium: tc.dims.gap, macro: tc.dims.reflector }[k];
+    const dm = dimension(ctx, d.a, d.b, { camera: cam, text: Math.round(d.m * 1000) + " mm", dir: up, top: band.box.y1 });
+    drawCaption(ctx, 0.5, caption, { format: "shorts", pill: true, accent: LOOK.accents.label });
+    const rec = layoutFrame(ctx, 0.5, { send: () => {} });
+    assert.ok(l1 && l2, k + ": both labels are on the frame");
+    assert.ok(dm && dm.drawn === true, k + ": the dimension line is drawn: " + JSON.stringify(dm));
+    const cap = rec.boxes.find((b) => b.kind === "caption");
+    assert.ok(cap && rec.boxes.length === 7, k + ": kicker, headline, tag, 2 labels, dimension and caption are recorded: " + rec.boxes.length);
+    for (const b of rec.boxes) {
+      assert.ok(inZone(b, b.kind === "caption" ? zone.caption : zone.text), k + ": " + b.kind + " \"" + b.text + "\" is inside the safe area: " + JSON.stringify(b));
+      assert.ok(b.size >= 36 - 1e-6, k + ": " + b.text + " is at least 36 px: " + b.size);
+      if (b.kind === "label") assert.ok(!overlap(b, cap), k + ": " + b.text + " does not touch the caption");
+    }
+    for (const b of [l1, l2]) assert.ok(b.y >= band.box.y1 - 1e-6, k + ": a pill label stays under the text band");
+  }
+
+  // dimension(): drafting style, kept in the safe area, or nothing and the reason.
+  { const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 100); cam.position.set(0, 0, 5); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
+    const lab = safeArea("shorts", W, H).labels, atY = (y) => y * 5 * Math.tan(Math.PI / 12); // NDC y to world y on the plane z = 0, 5 units from the camera
+    const top = dimension(mockCtx(bright), V3(-0.3, atY(0.78), 0), V3(0.3, atY(0.78), 0), { camera: cam, text: "16 mm", dir: up, off: 0.15 * K.M });
+    assert.ok(top.drawn && top.flipped === true && inZone(top.box, lab), "an edge near the top with its line standing off upward flips below: " + JSON.stringify(top));
+    const mid = dimension(mockCtx(bright), V3(-0.3, 0, 0), V3(0.3, 0, 0), { camera: cam, text: "16 mm", dir: up, off: 0.15 * K.M });
+    assert.ok(mid.drawn && mid.flipped === false && inZone(mid.box, lab) && mid.ends.length === 2, "in the middle the asked side is kept");
+    const wideCtx = mockCtx(bright), wide = dimension(wideCtx, V3(-5, 0, 0), V3(5, 0, 0), { camera: cam, text: "99 mm", dir: up });
+    assert.ok(wide.drawn === false && /safe area/.test(wide.why) && !wideCtx.log.some((l) => l.s || l.stroke), "an edge wider than the frame draws nothing and says why: " + JSON.stringify(wide));
+    const tiny = dimension(mockCtx(bright), V3(0, 0, 0), V3(0.002, 0, 0), { camera: cam, text: "1 mm", dir: up });
+    assert.ok(tiny.drawn === false && /short/.test(tiny.why), "an edge too short for its arrowheads and value draws nothing: " + JSON.stringify(tiny));
+    assert.throws(() => dimension(mockCtx(bright), V3(-0.3, 0, 0), V3(0.3, 0, 0), { camera: cam, text: "", dir: up }), /text/);
+    assert.throws(() => dimension(mockCtx(bright), V3(-0.3, 0, 0), V3(0.3, 0, 0), { camera: cam, dir: up }), /text/);
+    assert.throws(() => dimension(mockCtx(bright), V3(-0.3, 0, 0), V3(0.3, 0, 0), { camera: cam, text: "x", dir: V3(1, 0, 0) }), /dir/, "a direction along the edge cannot stand it off");
+    assert.throws(() => dimension(mockCtx(bright), V3(0, 0, 0), V3(0, 0, 0), { camera: cam, text: "x", dir: up }), /same point/);
+    assert.equal(dimension(mockCtx(bright), V3(-0.3, 0, 10), V3(0.3, 0, 0), { camera: cam, text: "x", dir: up }), null, "an end behind the camera draws nothing");
+    layoutFrame(mockCtx(bright), 0, { send: () => {} }); // empties the list of boxes drawn so far
+    const rc = mockCtx(bright), r = dimension(rc, V3(-0.3, 0, 0), V3(0.3, 0, 0), { camera: cam, text: "16 mm", dir: up, off: 0.15 * K.M });
+    const rec = layoutFrame(rc, 0, { send: () => {} }), box = rec.boxes[0];
+    assert.ok(rec.boxes.length === 1 && box.kind === "label" && box.text === "16 mm" && Math.abs(box.x0 - r.text.x0) < 0.06 && Math.abs(box.y1 - r.text.y1) < 0.06, "layoutFrame sees the value's box");
+    assert.ok(rc.log.some((l) => l.s === "16 mm" && l.fill === "#111111"), "the value is drawn in dark ink");
+    recordBox("label", "x", { x0: 1, y0: 2, x1: 3, y1: 4 }, 40);
+    assert.equal(layoutFrame(mockCtx(bright), 0, { send: () => {} }).boxes[0].text, "x", "recordBox hands a box to layoutFrame"); }
+
+  // pinLabel with a pill: dark text on a yellow pill, a dark leader ending in a ringed dot; no pill keeps the old path.
+  { const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 100); cam.position.set(0, 0, 5); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
+    const at = V3(0, 0, 0), c1 = mockCtx(() => [20, 20, 20]), p = pinLabel(c1, { at, camera: cam, text: "valve" }, { pill: "#ffd400" });
+    assert.ok(c1.log.some((l) => l.rect && l.fill === "#ffd400"), "the pill is yellow");
+    assert.equal(c1.log.find((l) => l.s === "valve").fill, "#111111", "the pill's text is dark, whatever the ground");
+    assert.ok(p.ink === "dark" && p.pill === "#ffd400" && !c1.log.some((l) => l.stroke), "dark ink, no halo on a pill");
+    const c2 = mockCtx(() => [20, 20, 20]), q = pinLabel(c2, { at, camera: cam, text: "valve" });
+    assert.ok(q.ink === "light" && !c2.log.some((l) => l.rect && l.fill === "#ffd400") && q.pill === undefined, "no pill: the label keeps its adaptive ink"); }
+
+  // textBand: kicker in tracked monospace caps, a headline, a tag, on a scrim, inside the label zone.
+  { const lab = safeArea("shorts", W, H).labels, c = mockCtx(bright);
+    layoutFrame(mockCtx(bright), 0, { send: () => {} }); // empties the list of boxes drawn so far
+    const b = textBand(c, { kicker: "How it works", headline: "Six words that state the claim", tag: "Sped up" }, { format: "shorts" });
+    const k = c.log.find((l) => l.s === "HOW IT WORKS"), h = c.log.filter((l) => l.s && /claim|Six/.test(l.s)), tg = c.log.find((l) => l.s === "SPED UP");
+    assert.ok(k && k.px === 36 && /monospace|Menlo/.test(k.font), "the kicker is upper-cased monospace at 36 px: " + JSON.stringify(k));
+    assert.ok(h.length >= 1 && h.every((l) => l.px >= 64 && l.px <= 96), "the headline is 64-96 px");
+    assert.ok(tg && tg.px === 36 && tg.fill === "#ffffff", "the tag is light on dark");
+    assert.ok(c.log.some((l) => l.rect && l.fill === "rgba(255,255,255,0.72)"), "a light scrim sits behind the text");
+    assert.ok(inZone(b.box, lab) && inZone(b.kicker, lab) && inZone(b.headline.box, lab) && inZone(b.tag, lab), "every box is inside the label zone: " + JSON.stringify(b.box));
+    assert.equal(layoutFrame(c, 0, { send: () => {} }).boxes.filter((x) => x.kind === "label").length, 3, "kicker, headline and tag are recorded");
+    const longH = "word ".repeat(30).trim(), b2 = textBand(mockCtx(bright), { headline: longH }, { format: "shorts" });
+    assert.ok((b2.headline.lines.length <= 2 || b2.headline.shrunk === true) && inZone(b2.box, lab), "a 30-word headline fits in two lines or says it shrank, and stays inside the zone");
+    assert.ok(b2.kicker === null && b2.tag === null, "kicker and tag are optional");
+    assert.throws(() => textBand(mockCtx(bright), { kicker: "x" }, {}), /headline/);
+    assert.throws(() => textBand(mockCtx(bright), { headline: "" }, {}), /headline/);
+    layoutFrame(c, 0, { send: () => {} }); }
+}
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), any scale and gravity");
