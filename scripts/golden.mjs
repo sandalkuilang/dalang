@@ -78,6 +78,7 @@ export function compare(base, cur, tol = TOL) {
   const r = { flags: [], warns: [], hard: [], rows: [] };
   const warn = (m, hard = true) => { r.warns.push(m); if (hard) r.hard.push(m); };
   const row = (metric, before, after, delta, verdict) => r.rows.push({ metric, before, after, delta, verdict });
+  if (base.revision !== cur.revision) { warn(`not comparable: scene revision ${base.revision ?? 'unknown'} vs ${cur.revision ?? 'unknown'} (examples/golden/scene.js changed, or the baseline predates revisions); this run is the new baseline, the next version compares against it`, false); return r; }
   if (base.size !== cur.size || base.fps !== cur.fps) { warn(`not comparable: ${base.size} at ${base.fps} fps vs ${cur.size} at ${cur.fps} fps; rerun against a baseline of the same size and fps`); return r; }
   const miss = (name) => { warn(`${name} could not be compared (not read on one side); rerun`); row(name, '?', '?', '', 'unknown'); };
   // render time: only on the same machine
@@ -123,9 +124,9 @@ const tail = (s) => String(s ?? '').trim().split('\n').slice(-12).join('\n');
 const ff = (cmd, args, opt = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 1 << 26, ...opt });
 const ffFail = (what, r) => new Stop(2, `${what} failed (${r.error?.message ?? `exit ${r.status}`}); rerun:\n${tail(r.stderr)}`);
 
-const VALUE = ['--version', '--out', '--against', '--explained', '--timeout', '--frames', '--clip', '--render-seconds', '--stations', '--size', '--fps'];
+const VALUE = ['--version', '--out', '--against', '--explained', '--timeout', '--frames', '--clip', '--render-seconds', '--stations', '--size', '--fps', '--revision'];
 const BOOL = ['--keep'];
-const USAGE = 'Usage: node golden.mjs [--version x.y.z] [--out dir] [--against version] [--explained "why"] [--keep] [--timeout ms]\n       node golden.mjs --frames dir --clip mp4 --render-seconds n --stations file.json [--size WxH] [--fps n] [same flags]';
+const USAGE = 'Usage: node golden.mjs [--version x.y.z] [--out dir] [--against version] [--explained "why"] [--keep] [--timeout ms]\n       node golden.mjs --frames dir --clip mp4 --render-seconds n --stations file.json [--size WxH] [--fps n] [--revision n] [same flags]';
 
 function parse(argv) {
   const o = {};
@@ -185,7 +186,7 @@ async function fullRun(o, tmp, cfg) { // build the scene into tmp, render the cl
     const x = ff('ffmpeg', ['-loglevel', 'error', '-y', '-ss', String(stations[s].t), '-i', clip, '-frames:v', '1', '-q:v', '2', path.join(fdir, `${s}.jpg`)]);
     if (x.status !== 0) throw ffFail(`frame cut (${s})`, x);
   }
-  return { frames: fdir, clip, seconds, stations, size: `${C.width}x${C.height}`, fps: C.fps, duration: C.duration };
+  return { frames: fdir, clip, seconds, stations, revision: C.revision, size: `${C.width}x${C.height}`, fps: C.fps, duration: C.duration };
 }
 
 async function main(argv) {
@@ -197,7 +198,7 @@ async function main(argv) {
   if (against !== undefined && !SEMVER.test(against)) throw new Stop(1, `--against "${against}" is not x.y.z.\n${USAGE}`);
   const measureOnly = o['--frames'] !== undefined;
   if (measureOnly) for (const k of ['--clip', '--render-seconds', '--stations']) if (o[k] === undefined) throw new Stop(1, `--frames needs ${k}.\n${USAGE}`);
-  if (!measureOnly) for (const k of ['--clip', '--render-seconds', '--stations', '--size', '--fps']) if (o[k] !== undefined) throw new Stop(1, `${k} goes with --frames (measure only).\n${USAGE}`);
+  if (!measureOnly) for (const k of ['--clip', '--render-seconds', '--stations', '--size', '--fps', '--revision']) if (o[k] !== undefined) throw new Stop(1, `${k} goes with --frames (measure only).\n${USAGE}`);
   const out = path.resolve(o['--out'] ?? path.join(ROOT, 'evals', 'golden'));
   const versions = existsSync(out) ? readdirSync(out).filter((d) => SEMVER.test(d)) : [];
   if (against !== undefined && !versions.includes(against)) throw new Stop(1, `--against ${against}: no such version in ${out} (found: ${versions.sort(semverCmp).join(', ') || 'none'}).`);
@@ -213,15 +214,17 @@ async function main(argv) {
       if (!(secs > 0)) throw new Stop(1, '--render-seconds must be a number above 0.');
       const size = o['--size'] ?? '1280x720', fps = o['--fps'] ? +o['--fps'] : 30;
       if (!/^\d+x\d+$/.test(size) || !(fps > 0)) throw new Stop(1, '--size must be WxH and --fps a number above 0.');
+      const rv = o['--revision'] ?? String(readFileSync(path.join(ROOT, 'examples', 'golden', 'scene.js'), 'utf8').match(/revision:\s*(\d+)/)?.[1]);
+      if (!/^[1-9]\d*$/.test(rv)) throw new Stop(1, '--revision must be a whole number above 0 (default: CONFIG.revision in examples/golden/scene.js).');
       const clip = path.resolve(o['--clip']);
       const d = ff('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', clip]);
-      src = { frames: path.resolve(o['--frames']), clip, seconds: secs, stations: st, size, fps, duration: d.status === 0 && fin(+d.stdout) ? Math.round(+d.stdout * 10) / 10 : null };
+      src = { frames: path.resolve(o['--frames']), revision: +rv, clip, seconds: secs, stations: st, size, fps, duration: d.status === 0 && fin(+d.stdout) ? Math.round(+d.stdout * 10) / 10 : null };
     } else src = await fullRun(o, tmp);
 
     for (const s of STATIONS) if (!existsSync(path.join(src.frames, `${s}.jpg`))) throw new Stop(2, `No ${s}.jpg in ${src.frames}; rerun the capture.`);
     const cpus = os.cpus();
     const m = { version, tree: null, node: process.version, host: { platform: process.platform, arch: process.arch, cpus: cpus.length, model: cpus[0]?.model ?? null },
-      size: src.size, fps: src.fps, duration: src.duration, render: { seconds: Math.round(src.seconds * 10) / 10 }, stillness: null, detail: {}, shadow: {} };
+      revision: src.revision, size: src.size, fps: src.fps, duration: src.duration, render: { seconds: Math.round(src.seconds * 10) / 10 }, stillness: null, detail: {}, shadow: {} };
     const git = ff('git', ['-C', ROOT, 'rev-parse', '--short', 'HEAD']);
     m.tree = git.status === 0 ? git.stdout.trim() : null;
     const measureWarns = [];

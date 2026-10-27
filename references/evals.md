@@ -34,10 +34,10 @@ per-frame perceptual (SSIM) difference against the previous version (`--against`
 
 Tolerances: render time +25 %, macro detail -15 %, shadow texel +25 %, stillness +5 points. Beyond one is a FLAG,
 exit 3: the release waits until it is explained (`--explained "<why>"`, recorded in `metrics.json`). Render time only
-compares on the same machine; across hosts it is a WARN. A baseline of another size or fps is "not comparable". An
+compares on the same machine; across hosts it is a WARN. A baseline of another size or fps is "not comparable" (a WARN that blocks); one of another scene `CONFIG.revision` is "not comparable" too, a WARN that does not block: the run becomes the new baseline. An
 unreadable baseline or a failed render is a WARN: rerun, never "none".
 
-A changed `examples/golden/scene.js` bumps `CONFIG.revision`: it moves every baseline, so say so in the release notes.
+A changed `examples/golden/scene.js` bumps `CONFIG.revision` (written to `metrics.json`): it moves every baseline, so the run against an older revision is "not comparable" and no metric is judged; say so in the release notes.
 
 ## Clarity quiz by skill version
 

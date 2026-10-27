@@ -143,9 +143,11 @@ try {
     r = await run(args(o, "1.1.0", soft, 40, ["--revision", "2"]));
     assert.equal(r.code, 0, r.err + r.out); assert.doesNotMatch(r.out, /FLAG:/); assert.match(r.out, /WARN: not comparable: scene revision 1 vs 2/);
     assert.equal(JSON.parse(read(o, "1.1.0", "metrics.json")).revision, 2);
-    r = await run(args(o, "1.1.1", soft, 40, ["--revision", "2"]));
+    r = await run(args(o, "1.1.1", sharp, 40, ["--revision", "2"]));
+    assert.equal(r.code, 0, r.err + r.out);
+    r = await run(args(o, "1.1.2", soft, 40, ["--revision", "2"]));
     assert.equal(r.code, 3); assert.match(r.out, /FLAG: detail/, "same revision again compares normally");
-    r = await run(args(o, "1.1.2", sharp, 40, ["--revision", "x"]));
+    r = await run(args(o, "1.1.3", sharp, 40, ["--revision", "x"]));
     assert.equal(r.code, 1); assert.match(r.err, /--revision/);
     console.log("ok  regressions, explained, other host, scene revision");
 

@@ -5,7 +5,7 @@
 //
 // Generic on purpose: the flask is an engine example (engine/three/examples/flask.js), nothing here is a film topic.
 // Fixed on purpose: changing this file moves every baseline. Bump CONFIG.revision and say so in the PR and the
-// CHANGELOG; scripts/golden.mjs then reads the older folders as not comparable.
+// CHANGELOG; scripts/golden.mjs then reads the older folders as not comparable (a WARN, no FLAG).
 //
 // DOM-free: no document, no window, no canvas, so Node imports it (tests/golden-scene.mjs). The renderer side is
 // index.html. In a project this file lives at src/scene.js and the engine at assets/engine/.
