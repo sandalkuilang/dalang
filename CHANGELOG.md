@@ -41,6 +41,13 @@ that reads as:
   machine, tool or device works, what is inside, why it fails) and the autonomous default there: clearer to read and far
   cheaper to build than a dressed set. It keeps real shapes, scale and physical motion. Look J's overlay details moved to
   its recipe so the look table stays in its reading budget.
+- **Shots from data** (`engine/three/shots.js`, `examples/torch-shots.js`, self-check): a film's builders write the set
+  and one shot per storyboard row as data (beat, action, transition, camera keys, cut, highlight, text band, labels,
+  dimension lines, a `custom` hook as the escape hatch); one tested runner plays it. Every time is a beat or word cue,
+  never seconds; a missing beat, an overshooting camera key, a label or dimension off the frame, a window under its read
+  time and a shot where the subject does nothing are refused before a frame is drawn; physics stays the bake's. The
+  torch's three style frames rebuilt from data give the same camera and the same draw calls as the hand-written frame.
+  `look-build.md` Step 6 ("Shot data first", builder budget "Data before code"), `SKILL.md`, `README.md` and `docs/` in step.
 - **Token report at every gate** (`scripts/tokens.mjs`, `state.mjs approve`, `tests/tokens.mjs`): turns, tokens and the
   largest context of the main agent and of each subagent, read from Claude Code's own transcripts (no new dependency),
   written to `review/tokens.json` and recorded in `state.json` with each approval. A builder over the budget (default
