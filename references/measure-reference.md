@@ -27,19 +27,19 @@ About the file: use a video the user is allowed to access, or one the user provi
 bash <skill-dir>/scripts/measure_reference.sh reference.mp4 measure/
 ```
 
-It produces:
+One folder per reference (`measure/<name>/` for two); a run clears its folder. It produces:
 
 - `measure/info.txt`: duration, resolution, fps, and audio channels.
 - `measure/frames/`: one still per second.
-- `measure/contact/`: contact sheets, 16 stills per sheet (4×4). `measure/contact/index.txt` records which seconds each sheet covers.
+- `measure/contact/`: contact sheets, 16 stills per sheet (4×4). `measure/contact/index.txt` lists each sheet's seconds.
 - `measure/reference-board.jpg`: 8 stills, the Gate 3 benchmark board.
 - `measure/cuts.txt`: estimated time of every hard cut.
 - `measure/boil.txt`: estimated unique frames per second at a few points. About 5 means the lines are redrawn 5× per second.
 - `measure/stillness.txt` and `measure/loudness.txt`: stillness % and loudness (needs Node).
 - `measure/palette.txt`: the dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall top list (`scripts/palette.mjs`, needs Node; `node <skill-dir>/scripts/palette.mjs --compare <#hex> <#hex>` gives the lightness gap of two colours).
-- `measure/summary.txt`: all of the above in one place.
+- `measure/summary.txt`: all of the above.
 
-Note: the "still" number depends heavily on the sensitivity threshold. Use the **same** threshold when measuring the reference and when checking your own draft, then compare them relative to each other.
+Note: "still" depends heavily on the sensitivity threshold. Use the **same** one for the reference and your own draft, then compare.
 
 ### 3. Reading the contact sheets
 

@@ -38,7 +38,9 @@ that reads as:
   the style frames are scored side by side against a reference board by a fresh subagent, 1-5 on seven rows (detail
   density, material truth, light and shadow, text system, overlays caused by physics, framing, macro quality), text
   only. The board is `measure/reference-board.jpg` (8 stills on one sheet, from `measure_reference.sh`; local only,
-  never published or committed); with no reference it is the golden sheet. A row more than 1 point behind is a fix
+  never published or committed; two references: one folder each, `measure/<name>/`, since a run first clears the
+  frames, contact sheets, board and Node measurements an earlier run left, so a shorter film is never boarded with the
+  leftover stills of a longer one); with no reference it is the golden sheet. A row more than 1 point behind is a fix
   before the build. `state.mjs approve 3` refuses (user and agent alike) without `review/benchmark.md`, with a row
   behind, a row absent, twice or with a score it cannot read, and with a verdict older than the style frames; it
   records the scores in `state.json`, and the main agent logs them in `PRODUCTION.md`. An approval given before this
