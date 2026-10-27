@@ -30,22 +30,21 @@
 // those of HyperFrames 0.8.206). Anything outside it makes the bed NOT CHECKED (exit 2), never OK, and the model is not
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
-// volume lane, a gain HyperFrames clamps; (3) any script (a <script> of any type a browser runs, the JavaScript MIME essences and the
-// language attribute included; script text in an attribute: an on* handler on any element, a javascript: URL, an iframe
-// srcdoc; inline, a plain relative src, or a module it imports by a static
-// quoted relative or root specifier, resolved against the folder of index.html; a file the .engine.json beside it lists is
-// the engine library, not read) whose text has the word volume, muted, playbackRate, gain or fx (MIX_TOKENS: "script may
-// change the mix; check the bed by ear on the draft"; no JS is parsed). SCRIPT-LOAD LIMIT: a page with a <base href> anywhere,
-// a <script type="importmap"> or a dynamic import( of any form loads scripts this check does not resolve, so it is NOT CHECKED
-// ("page loads scripts the check does not resolve; check the bed by ear on the draft"). A NESTED DOCUMENT: an iframe srcdoc
-// is read as a document like index.html (its own media is NOT CHECKED); an iframe or frame src, an object data, an embed
-// src (FRAMES) that opens a local or unresolved document is NOT CHECKED, a remote http(s) one is another origin. One
-// choke point judges every document (pageProblem): a scan field it does not know throws, never passes; (4) the unknown tags and fx chains above. LIMIT: the threat model is the agent's own accident
-// in a composition it wrote, not a hidden change: an obfuscated or computed write that MIX_TOKENS cannot see (a name built
-// from strings, a remote script) is out of scope. A tag HyperFrames leaves out (data-hidden on the tag or its bus, a
-// data-duration of 0, a data-end at or before the start) is not a bed, nor is a tag in a comment. Other limits: a `loop`
-// bed is repeated across the film (an unnamed `loop` clip without a data-duration of at most 10 s is unknown); a mix with
-// sharp percussion can show a false click; an engine that writes digital zeros inside a word can show a false dropout.
+// volume lane, a gain HyperFrames clamps; (3) THE SCRIPT RULE: a page that loads ANY script other than the engine library
+// is NOT CHECKED, never a pass ("page runs a script that is not the engine library; check the bed by ear on the draft"). A
+// script is a <script> of any type a browser runs (the JavaScript MIME essences and the language attribute included), inline
+// or by src / SVG href, and script text in an attribute (an on* handler on any element, a javascript: URL). The engine
+// library is a local file the .engine.json beside it lists, loaded by a <script src>; nothing else is allowed, and no script
+// text is read: no word list, no JavaScript parsed, so no way of writing the same thing differently gets past it. A page with
+// a <base href> or a <script type="importmap"> changes what a name loads: NOT CHECKED too ("page loads scripts the check does
+// not resolve; ..."). A NESTED DOCUMENT: an iframe srcdoc is read as a document like index.html (its scripts are judged by the
+// same rule, its own media is NOT CHECKED); an iframe or frame src, an object data, an embed src (FRAMES) that opens a local or
+// unresolved document is NOT CHECKED, a remote http(s) one is another origin. One choke point judges every document
+// (pageProblem): a scan field it does not know throws, never passes; (4) the unknown tags and fx chains above. A tag
+// HyperFrames leaves out (data-hidden on the tag or its bus, a data-duration of 0, a data-end at or before the start) is not
+// a bed, nor is a tag in a comment. Other limits: a `loop` bed is repeated across the film (an unnamed `loop` clip without a
+// data-duration of at most 10 s is unknown); a mix with sharp percussion can show a false click; an engine that writes digital
+// zeros inside a word can show a false dropout.
 //
 // Usage: node audio_qc.mjs [project] [--mix draft.mp4] [--music <id|src>]... [--text narration.txt]   (--music: once per bed)
 // Exit: 0 every check ran, no flag · 3 a flag · 2 a check could not run (WARN above: fix it, rerun) · 1 usage / failure.
@@ -368,11 +367,11 @@ export function scanHtml(html) {
     if (m[1]) { const i = stack.findLastIndex((e) => e.name === m[1].toLowerCase()); if (i >= 0) stack.length = i; continue; }
     if (!m[2]) continue;
     const name = m[2].toLowerCase(), selfClosed = /\/\s*$/.test(m[3]), dups = [], raw = {}, attrs = attrsOf(m[3].replace(/\s*\/\s*$/, ''), dups, raw);
-    // Every attribute of every element, decoded once as the browser does: script text (an on* handler, a javascript: URL,
-    // an iframe srcdoc, word-checked as script), and a document the element opens (FRAMES, judged as a load by scriptProblem).
+    // Every attribute of every element, decoded once as the browser does: script text (an on* handler, a javascript: URL)
+    // and a document the element opens (FRAMES: an iframe srcdoc is read as a document, any other local one is a load not resolved).
     for (const attr of Object.keys(attrs)) {
       const v = htmlDecode(raw[attr]), opens = Object.hasOwn(FRAMES, name) && FRAMES[name].includes(attr);
-      const js = /^on[a-z]+$/.test(attr) || (name === 'iframe' && attr === 'srcdoc') ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
+      const js = /^on[a-z]+$/.test(attr) ? v : v.match(/^[\s\x00-\x20]*javascript:([\s\S]*)$/i)?.[1];
       if (js != null) handlers.push({ tag: name, attr, text: js });
       if (opens && (attr === 'srcdoc' || js == null)) frames.push({ tag: name, attr, value: v });
     }
@@ -429,9 +428,7 @@ export const audioTags = (html) => scanHtml(html).media;
 export const groupsOf = (html) => scanHtml(html).groups;
 export const masterFxChain = (html) => scanHtml(html).master;
 
-// The one rule for scripts: HyperFrames samples element.volume from the timeline and a script can change the mix in more ways
-// than a check can parse, so any script text with one of these words may change it. No JS form is parsed.
-export const MIX_TOKENS = /\b(volume|muted|playbackRate|gain|fx)\b/;
+// Scripts: see scriptProblem (the script rule). No script text is read and no JavaScript is parsed.
 // The script types a browser runs: "module" and the JavaScript MIME essences of the HTML spec (Chromium, the HyperFrames
 // renderer, runs all of them). Any other type (json, a template, speculationrules, vbscript) is a data block, never run.
 const JS_TYPES = new Set(['module', 'application/ecmascript', 'application/javascript', 'application/x-ecmascript', 'application/x-javascript',
@@ -444,32 +441,37 @@ export function isJsScript(attrs) {
   const type = has('type') ? String(attrs.type) : has('language') && !Object.hasOwn(attrs, 'type') ? `text/${String(attrs.language).trim()}` : 'text/javascript';
   return JS_TYPES.has(type.split(';')[0].trim().toLowerCase());
 }
-// Why the scripts make the mix unknown, or null: a script (inline, a local file, or a module either loads) with a MIX_TOKENS
-// word, a local script that cannot be read, or a load the check does not resolve. THE SCRIPT-LOAD LIMIT, bounded on purpose:
-// only a plain relative <script src> and a static quoted relative or root import specifier are followed, resolved against the
-// folder of index.html (a remote http(s) library and a bare name are vendor code, not read). A page with a <base href>, a
-// <script type="importmap"> or a dynamic import( of any form loads scripts the check does not resolve: NOT CHECKED (UNRESOLVED).
+// Why the page's scripts make the mix unknown, or null. THE SCRIPT RULE (owner's decision, issue 39): a page that loads ANY
+// script other than the engine library is NOT CHECKED, never a pass. A script can change the mix in more ways than a check can
+// follow (a volume, a mute, a playback rate, a gain, an element made at run time, a document written in), and "unknown is never
+// read as pass"; so no script text is read and no JavaScript is parsed. The engine library is the one script allowed: a local
+// file that the .engine.json beside it lists (engine/three/build.mjs writes it), loaded by a <script src> (or the href of an
+// SVG <script>); it is vendored code, not the scene. Everything else is a script that is not the engine: any other <script src>
+// (a project file, a remote library, a data: URL), any inline <script> with code (a module that imports the engine included:
+// the inline code is the scene's own), an on* handler or javascript: URL on any element (non-blank). A <script> of a data type
+// (json, a template, speculationrules) is data and never runs. A page with a <base href> or a <script type="importmap"> changes
+// what a name loads, so even an engine name is unknown: NOT CHECKED (UNRESOLVED).
+export const NON_ENGINE = 'page runs a script that is not the engine library; check the bed by ear on the draft';
 export const UNRESOLVED = 'page loads scripts the check does not resolve; check the bed by ear on the draft';
-// A NESTED DOCUMENT is bounded the same way: an iframe srcdoc is read as a document like index.html (pageProblem; its base
-// URL is index.html's, so its loads resolve as above); any other document an element opens (FRAMES) that is not a remote
-// http(s) page (another origin cannot reach this page) is a load the check does not resolve; an empty one or about:blank is none.
+// A NESTED DOCUMENT is judged the same way: an iframe srcdoc is read as a document like index.html (pageProblem); any other
+// document an element opens (FRAMES) that is not a remote http(s) page (another origin cannot reach this page) is a load
+// the check does not resolve; an empty one or about:blank is none.
 export function scriptProblem(scripts, dir, read, { base = null, handlers = [], frames = [] } = {}) {
-  const ORIGIN = 'http://project.invalid', seen = new Set(), doc = new URL(`${ORIGIN}/index.html`);
-  const unresolved = (what) => `${UNRESOLVED} (${String(what).replace(/\s+/g, ' ').slice(0, 50)})`;
+  const ORIGIN = 'http://project.invalid', doc = new URL(`${ORIGIN}/index.html`);
+  const clip = (what) => String(what).replace(/\s+/g, ' ').slice(0, 50);
+  const unresolved = (what) => `${UNRESOLVED} (${clip(what)})`;
+  const nonEngine = (what) => `${NON_ENGINE} (${clip(what)})`;
   if (base !== null) return unresolved(`<base href="${base}">`);
   if (scripts.some((s) => (s.attrs.type || '').trim().toLowerCase() === 'importmap')) return unresolved('a <script type="importmap">');
-  // A specifier as a URL (relative, root or absolute), or null for a bare name. Throws on a relative one that is not a URL.
-  const urlOf = (spec, from) => (/^(?:\.{1,2})?\//.test(spec) ? new URL(spec, from) : URL.canParse(spec) ? new URL(spec) : null);
-  // What a URL is: a local file of the project, a remote library, or null (a data: or blob: module, a server on this machine
-  // that may serve the project itself, any other scheme).
+  // What a URL is: a local file of the project, a remote document, or null (a data: or blob: URL, a server on this machine that
+  // may serve the project itself, any other scheme).
   const locate = (u) => {
     if (u.origin === ORIGIN) return { file: path.join(dir, ...decodeURIComponent(u.pathname).split('/')) };
     if ((u.protocol === 'http:' || u.protocol === 'https:') && !/^(?:localhost|127\.[\d.]+|0\.0\.0\.0|\[::1?\]|.*\.localhost)$/i.test(u.hostname)) return { remote: true };
     return null;
   };
-  const fileUrl = (p) => new URL(path.relative(dir, p).split(path.sep).map(encodeURIComponent).join('/'), `${ORIGIN}/`);
-  // A file the .engine.json beside it lists is the DALANG engine copy (engine/three/build.mjs): a vendored library, like a
-  // remote script, not read (its text has the word volume as a measure of space). Anything the manifest does not list is read.
+  // The engine is a file the .engine.json beside it lists. A manifest that is missing, unreadable or not JSON lists nothing: the
+  // file is not the engine (unknown is never the engine).
   const manifests = new Map();
   const isEngine = (p) => {
     const d = path.dirname(p);
@@ -480,54 +482,22 @@ export function scriptProblem(scripts, dir, read, { base = null, handlers = [], 
     }
     return manifests.get(d).has(path.basename(p));
   };
-  // Every followed load ends here: a project file is read, a remote library is skipped, anything else is NOT CHECKED.
-  const loadUrl = (u, what) => {
+  const engineUrl = (spec) => {
     let at = null;
-    try { at = locate(u); } catch { /* a path that does not decode: unknown */ }
-    if (!at) return unresolved(what);
-    return at.remote ? null : load(at.file);
-  };
-  const visit = (code, where, from) => {
-    const w = code.match(MIX_TOKENS);
-    if (w) return `${where} has the word "${w[0]}": script may change the mix; check the bed by ear on the draft (a ducking written as a data-automation volume lane on the tag is read by this check)`;
-    // a dynamic import( of any form (a comment may sit between the word and the paren), a script element made at run time,
-    // importScripts(): loads whose file the check does not follow
-    const dyn = code.match(/\bimport\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\n\s*)*\(|\bimportScripts\s*\(|\bcreateElement\s*\(\s*["'`]script["'`]/i);
-    if (dyn) return unresolved(`${where}: ${dyn[0]}`);
-    for (const im of code.matchAll(/(?:\bfrom|\bimport)\s*(["'])((?:(?!\1)[^\\\n])*)\1/g)) {
-      let u = null;
-      try { u = urlOf(im[2], from); } catch { return unresolved(im[2]); }
-      const why = u && loadUrl(u, im[2]);
-      if (why) return why;
-    }
-    return null;
-  };
-  const load = (p) => {
-    if (seen.has(p)) return null;
-    seen.add(p);
-    if (isEngine(p)) return null;
-    const r = read(p), where = `the script ${path.relative(dir, p) || p}`;
-    if (r.text == null) return `${where} could not be read (${r.why}), so whether it sets a media volume is unknown: fix the path and rerun`;
-    return visit(r.text, where, fileUrl(p));
+    try { at = locate(new URL(spec, doc)); } catch { /* not a URL, or a path that does not decode: unknown */ }
+    return !!(at && at.file && isEngine(at.file));
   };
   for (const s of scripts) {
     if (!isJsScript(s.attrs)) continue;
-    let why = null;
-    // every attribute that loads the script's file: src, and href / xlink:href of an SVG <script>
-    for (const k of ['src', 'href', 'xlink:href']) {
-      if (why || !s.attrs[k]) continue;
-      let u = null;
-      try { u = new URL(s.attrs[k], doc); } catch { /* not a URL */ }
-      why = u ? loadUrl(u, s.attrs[k]) : unresolved(s.attrs[k]);
-    }
-    if (!why && !s.attrs.src) why = visit(s.text, 'an inline <script>', doc);
-    if (why) return why;
+    // every attribute that loads the script's file: src, and href / xlink:href of an SVG <script>; each must be the engine
+    const loads = ['src', 'href', 'xlink:href'].filter((k) => s.attrs[k]);
+    if (loads.length) {
+      const bad = loads.find((k) => !engineUrl(s.attrs[k]));
+      if (bad) return nonEngine(s.attrs[bad]);
+    } else if (s.text.trim() !== '') return nonEngine('an inline <script>');
   }
   // script text in an attribute (an on* handler, a javascript: URL) on any element runs in the page like an inline script
-  for (const h of handlers) {
-    const why = visit(h.text, `the ${h.attr} attribute of <${h.tag}>`, doc);
-    if (why) return why;
-  }
+  for (const h of handlers) if (h.text.trim() !== '') return nonEngine(`the ${h.attr} attribute of <${h.tag}>`);
   for (const f of frames) {
     const v = f.value.trim(), what = `<${f.tag} ${f.attr}="${v}">, a document whose scripts can reach the page`;
     let why = null;
