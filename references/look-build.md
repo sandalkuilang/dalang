@@ -42,7 +42,16 @@ Every film. The main agent never writes, patches or reads the film's scene code 
 | Each QC fix round (`review.md` §3) | one builder subagent per round, given the round's P0/P1 list and the files | per finding: fixed / not fixed + one line; files touched |
 | Fix check | a fresh mid-tier subagent (`model: "sonnet"`) | pass/fail per item |
 
-A builder may be resumed (SendMessage, where the host has it) for the next job of the same film, so it keeps its own code context; otherwise a new one gets the files and the last report. The reviewer is never a builder (`review.md` §2).
+Every job gets a new builder, briefed with the files and the last report; never resume one (SendMessage) for the next job. The reviewer is never a builder (`review.md` §2).
+
+**Builder budget** (every agent that writes scene code, the Step 5 style frames included). Each turn re-reads the builder's whole context, so cost grows with turns × context: a builder kept alive for hundreds of turns re-reads half a million tokens on each one. Put these lines in every builder brief:
+
+- **Batch a round.** Every edit of a round goes out in one message (parallel `Edit` calls), then one snapshot; never edit, snapshot, edit, snapshot.
+- **At most 3 snapshot rounds per job.** Then return the report with what is still open; a new builder takes the rest.
+- **Stills as one sheet.** Tile a round's stills with `node <skill-dir>/scripts/strips.mjs --frames <dir> --width 480` and read that sheet once, never each still.
+- **Read a file once.** Never re-read a file already in context; `grep -n` and `sed -n` for the lines needed.
+
+`state.mjs approve` records the token report at every gate (`scripts/tokens.mjs`: turns, tokens and largest context per agent, `review/tokens.json`); a WARN row is a builder over budget, and the rest of its job goes to a new one.
 
 1. **Group the storyboard rows.** Rows that share one physics bake or one continuous camera move are one group, owned by one agent; every other split is by scene or chapter. Name each group (`intro`, `stage-3`).
 2. **Each group is a HyperFrames sub-composition.** Template `src/compositions/<group>.tpl.html`, `fill_times.mjs` into `compositions/<group>.html`. The host in `index.html`, the scene root and the `window.__timelines` key share the group id; every element id carries the group prefix; `data-start` and `data-duration` are local to the file (`{{beat - first}}`, `BEATS.x.start - G0`, with `first` the group's first beat and `G0 = BEATS.<first>.start`); `drawCaption` takes absolute narration time, so give it `t + G0`, and `layoutFrame` the same. The other format rules are in `/hyperframes` `references/format.md`.
