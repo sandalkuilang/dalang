@@ -41,6 +41,7 @@ if [ $fast -eq 0 ]; then
   step "SFX from impacts (tags, gains, merge, licence rows vs check_assets)" node tests/sfx.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
+  step "golden (metrics, diff, flags vs fixture frames; no Chrome)" node tests/golden.mjs
   step "score_run (sound-off quiz result -> score)" node tests/score-run.mjs
 fi
 
