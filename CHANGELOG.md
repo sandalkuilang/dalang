@@ -37,6 +37,22 @@ that reads as:
   wait (CI still runs on `main`, the `release` workflow still refuses a broken tag). The golden eval runs only when a
   release changes how films look.
 
+### Fixed
+
+- **Background output read by bytes** (`SKILL.md` "Small tool output"): `tail -c 1500 <file>`, never `tail -5`; one
+  progress-bar line turned a five-line tail into ~7k tokens that every later call re-read.
+- **Fact research on the mid tier, always** (`SKILL.md` model table): a technical topic no longer moves it to the
+  strongest model; sources come back with every number and Gate 1 settles a contested one.
+- **A flagged sentence names its words** (`tts_timestamps.mjs`): `heard ≠ script: heard "…" missing "…"` in the take
+  log and the retake warnings, so a respelling needs no look into `narration.response.json` or `words.json`.
+- **Media search no longer stalls a film** (`find_media.mjs`, `look-build.md` Step 5): `--query "a|b|c"` runs every
+  query at once, each into its own folder, instead of one call per query in a shell loop; Openverse and Commons are
+  asked at once; each source has `FIND_MEDIA_SOURCE_S` (default 45) seconds in all, then a WARN + rerun.
+- **Fact research has a budget** (`SKILL.md` model table): at most 8 searches and 15 page fetches; a number still
+  unsourced comes back `[unknown]` for Gate 1 instead of more fetching.
+- **Compact at Gate 2 too** (`SKILL.md`): research, script and take fill the context before the look and the build
+  start re-reading it on every call.
+
 ## [1.6.0] - 2026-10-27
 
 ### Added

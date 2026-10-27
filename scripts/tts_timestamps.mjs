@@ -1061,7 +1061,9 @@ function flagsOf(a, sents, regions, transcriptWords, aligned, plainWords) {
       const minus = (xs, ys) => { const left = [...ys]; return xs.filter(x => { const i = left.indexOf(x); if (i < 0) return true; left.splice(i, 1); return false; }); };
       const extra = minus(heard, script), missing = minus(script, heard);
       // digits heard for a spelled-out number are harmless (the existing word-count warning says so)
-      if (extra.some(t => !/\d/.test(t)) || (missing.length && !extra.length)) why.push('heard ≠ script');
+      // the words themselves go in the reason, so a respelling needs no look into the response file
+      const said = (label, ws) => ws.length ? ` ${label} "${ws.slice(0, 4).join(' ')}${ws.length > 4 ? ' …' : ''}"` : '';
+      if (extra.some(t => !/\d/.test(t)) || (missing.length && !extra.length)) why.push(`heard ≠ script:${said('heard', extra)}${said('missing', missing)}`);
       // the first word heard without the prompt: a garbage syllable before it or a lost first consonant shows here
       const first = plainAll.find(w => w.mid >= regions[k].a && w.mid < regions[k].b)?.t;
       const want = stripPunct(s.words[0].text).toLowerCase();
