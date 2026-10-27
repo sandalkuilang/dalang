@@ -12,6 +12,8 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js + Rapier engine copied into each video project (`build.mjs`), with
   `selfcheck.mjs` and `bake.mjs`. `examples/` holds ready pieces built on it.
+- `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
+  committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
 - `docs/`: workflow and architecture, with diagrams (`docs/assets/build.py` derives the light SVGs from the dark ones).
 
@@ -56,6 +58,11 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
 - Releases: on a `release/vx.y.z` branch, move `Unreleased` into `## [x.y.z] - date` and pin the README's clone
   example; merge its PR, then tag `vx.y.z` on the merged commit in `main`. The `release` workflow publishes the
-  section.
+  section. On the release branch also run `node scripts/golden.mjs --version x.y.z` (the same machine the previous
+  release used, so render times compare) and commit `evals/golden/x.y.z/`. Exit 3 (render time +25 %, macro detail
+  -15 %, shadow texel +25 %, stillness +5 points) blocks the release until explained: rerun with
+  `--explained "<why>"` and put the same text in the CHANGELOG section. Larger changes go into the release notes
+  with `sheet.jpg`. The golden render is release-time, not in the gate; the gate runs `tests/golden.mjs` and
+  `tests/golden-scene.mjs` (no Chrome).
 - The installed copy (`~/.claude/skills/dalang`) is a clone of this repo: update it with `git pull`, never edit
   it directly.
