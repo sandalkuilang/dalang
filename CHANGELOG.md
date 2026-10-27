@@ -34,6 +34,15 @@ that reads as:
 
 ### Added
 
+- **Lean video workspace** (`scripts/workspace.mjs`; `brief.md` Step 0 "Lean workspace" and Call 0; preflight's
+  `Workspace` row; `SKILL.md` "Work fast"): plugins and MCP servers a video never uses are re-read on every model call.
+  `workspace.mjs init <folder>` lists what is on (a guessed job each) and proposes the video set (DALANG, HyperFrames,
+  media-use, a browser; `--keep a,b` keeps more). It writes nothing without `--yes`; with it, only
+  `<folder>/.claude/settings.json` (`enabledPlugins` false, `deniedMcpServers`), unknown keys kept, old file saved as
+  `.claude/settings.json.bak`; `undo` restores it byte for byte, `status` shows the state. Preflight reports a folder that
+  is not lean as INFO (asked in Call 0) and settings it cannot read as WARN, never as "nothing enabled". Gate step
+  `tests/workspace.mjs`.
+
 - **Pilot, then shot groups in parallel** (`look-build.md` "Parallel build"; `SKILL.md` "Batch and parallelise"): a film
   of 3 or more shot groups builds its first group (the pilot) in the main context, renders it as a 10 fps draft and has
   a subagent check it against the style frames; then one subagent per other group, all in one message, gets `SPEC.md`,

@@ -43,6 +43,7 @@ flowchart LR
 | `SKILL.md` | order of work, gates, quality bar | build animations |
 | `references/` | craft knowledge, read one § at a time | get loaded wholesale |
 | `scripts/preflight.mjs` | environment check, ~15 lines of output; `--start` opens an installed VoiceStudio; reports when the skill's own clone is behind `origin/main` (fetch only) | install anything, print secrets, pull or update on its own |
+| `scripts/workspace.mjs` | lean videos folder: lists the plugins and MCP servers that are on, proposes the video set; with `--yes` writes only `<folder>/.claude/settings.json` (backup, `undo`); preflight's `Workspace` row reads it | touch user-level settings, write without `--yes`, print a server's env or headers |
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
 | `scripts/align.py` | word timing against the known script (Apache-2.0 CTC models) | download a model without asking |
 | `scripts/stillness.mjs`, `loudness.mjs`, `audio_qc.mjs`, `qc.mjs`, `scopes.mjs`, `timing_lint.mjs` | measured QC (stillness, LUFS / true peak, bed level under the voice, clicks, voice drift, black frames, colour tags, exposure and hue per cut, cuts inside words) | judge taste |

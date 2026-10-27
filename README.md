@@ -67,7 +67,7 @@ Check your machine once — one call, a few seconds, never prints secrets:
 node ~/.claude/skills/dalang/scripts/preflight.mjs
 ```
 
-It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/main`? update with `git -C ~/.claude/skills/dalang pull --ff-only`; pinned to an older release? the note gives the fetch-tags and checkout command above), both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits.
+It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/main`? update with `git -C ~/.claude/skills/dalang pull --ff-only`; pinned to an older release? the note gives the fetch-tags and checkout command above), both voice engines (model state, quota, tier) and your stock-video key, each as `OK` / `MISSING` / `WARN` / `INFO` / `PAID` / `SKIP` (VoiceStudio also `STOPPED` / `BUSY` / `DOWN` / `UNREACHABLE` / `CONFLICT`) **with the fix**. VoiceStudio installed but closed? `--start` opens it and waits. It also says when the folder you make videos in loads plugins or MCP servers a video never uses (they are re-read on every model call): `node ~/.claude/skills/dalang/scripts/workspace.mjs init <folder>` proposes switching them off for that folder only. It asks first, writes only `<folder>/.claude/settings.json` with `--yes` (your user settings are never touched), and `undo` restores the old file.
 
 <br/>
 
@@ -163,6 +163,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   evals.md             golden briefs to run before and after changing the skill
 scripts/
   preflight.mjs        whole environment in one call
+  workspace.mjs        lean video folder: plugins / MCP servers a video never uses off (project settings, undo)
   tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
   fill_times.mjs       {{beat}} expressions in the template → index.html
@@ -193,7 +194,7 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   snapshot and render; examples/ ready pieces
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
-tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit, golden (run by the gate)
+tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit, lean workspace, golden (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```
