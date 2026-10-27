@@ -120,7 +120,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
       assert.match(r.stderr, /usage:.*<project>/, `<project> = ${what} must print the usage line`);
     }
     assert.equal(run([real], "Write", scene).stdout.trim(), scene.file_path, "the film's folder itself still flags its scene code");
-    // The class: a path is the film's only after both sides are resolved to the same real place. Another spelling of the
+    // The class: a path is the film's only when it is the same file on disk (device and inode of it or a folder above it). Another spelling of the
     // film's folder (a symlink such as /tmp for /private/tmp, other letter case on a case-insensitive disk) must not turn
     // its scene code into `../…` and print nothing; a transcript with no path inside the film at all (another session,
     // another film) is unknown, not clean: exit 2.
