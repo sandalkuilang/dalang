@@ -4,6 +4,8 @@
 // refusing backend is never read as missing, a model selected by bare name is found, odd replies stay WARN.
 // The skill-clone check runs against fixture clones and remotes (behind, ahead, diverged, dirty, offline, pinned), and
 // a git shim fails each of its reads in turn: a failed read is always "could not check".
+// The Workspace row (is the videos folder lean?) reads workspace.mjs status against a fixture HOME: not lean is INFO, lean OK,
+// unreadable settings WARN.
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -178,6 +180,29 @@ for (const [name, setup, status, note, not] of skillCases) {
     if (f.head) assert.equal(git(dir, "rev-parse", "HEAD"), f.head, "the check never pulls");
   } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
 }
+// The Workspace row: a videos folder that loads plugins or MCP servers a video never uses is INFO (asked in Brief Call 0),
+// a lean one is OK, and settings preflight cannot read are a WARN to rerun, never "nothing enabled". HOME is a fixture.
+{
+  const workspaceScript = fileURLToPath(new URL("../scripts/workspace.mjs", import.meta.url));
+  const home = path.join(tmp, "ws-home"), dir = path.join(tmp, "ws-videos");
+  fs.mkdirSync(path.join(home, ".claude"), { recursive: true }); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(home, ".claude", "settings.json"), JSON.stringify({ enabledPlugins: { "hyperframes@hf": true, "deploy-tools@cloud": true } }));
+  const env = { HOME: home, CLAUDE_CONFIG_DIR: "" };
+  const row = async () => parse((await run(["--check-workspace", "--workspace-dir", dir], undefined, env)).out).rows["Workspace"];
+  const check = async (name, want, note, not) => {
+    const r = await row();
+    try {
+      assert.equal(r?.status, want, "status");
+      assert.match(r.note, note, "note");
+      if (not) assert.doesNotMatch(r.note, not, "note must not say");
+    } catch (e) { failures.push(`✗ ${name}: ${e.message}\n    ${JSON.stringify(r)}`); }
+  };
+  await check("workspace not lean", "INFO", /asked in Brief Call 0.*workspace\.mjs init/);
+  execFileSync(process.execPath, [workspaceScript, "init", dir, "--yes"], { env: { ...process.env, ...env } });
+  await check("workspace lean after init", "OK", /lean/);
+  fs.writeFileSync(path.join(home, ".claude", "settings.json"), "{");
+  await check("workspace unreadable settings", "WARN", /could not read.*rerun/, /nothing enabled"?$|^lean/);
+}
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2 + skillCases.length} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + skillCases.length + 3} cases`);
