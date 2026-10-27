@@ -216,6 +216,15 @@ try {
     assert.equal(r.exit, 2); assert.match(r.text, /NOT CHECKED: mix/);
     r = v({ done: ["bed"], flags: ["x"] });
     assert.equal(r.exit, 3); assert.match(r.text, /1 flag/); assert.match(r.text, /NOT CHECKED: clicks, voice/);
+    // unknown is never a pass, also with nobody to listen: every open item (exit 2, or a flag beside it) says to name it in the hand-off
+    r = v({ done: ["clicks", "voice"], notChecked: ["bed"] });
+    assert.match(r.text, /away from the user[^\n]*hand-off[^\n]*never a pass/i, "exit 2: the text says what an unattended run does with it");
+    r = v({ done: ["bed"], flags: ["x"] });
+    assert.match(r.text, /away from the user[^\n]*hand-off/i, "a flag beside an open check says it too");
+    r = v({ done: ["bed", "clicks", "voice"], flags: ["x"] });
+    assert.doesNotMatch(r.text, /hand-off/, "a flag with every check run has nothing to name");
+    r = v({ done: ["bed", "clicks", "voice"] });
+    assert.doesNotMatch(r.text, /hand-off/, "exit 0 has nothing to name");
     console.log("ok  verdict: OK only when bed, clicks and voice each have an outcome; a missing one is NOT CHECKED");
   }
 
@@ -464,6 +473,23 @@ try {
     const src = fs.readFileSync(script, "utf8");
     assert.ok(!/python|numpy|\.py\b/i.test(src), "the script uses Node and ffmpeg only");
     console.log("ok  the script names no Python, numpy or .py file");
+  }
+
+  // 9b. The rule for a run with nobody there is written where the agent reads it: exit 3 (a flag) blocks, exit 2 (not checked)
+  // is never a pass and is named in the hand-off. The film the skill builds always loads a script, so exit 2 is the common case.
+  {
+    const qc = fs.readFileSync(path.join(here, "..", "references", "qc.md"), "utf8");
+    const skill = fs.readFileSync(path.join(here, "..", "SKILL.md"), "utf8");
+    const away = qc.split("\n").find((l) => l.startsWith("- **User away"));
+    assert.ok(away, "qc.md keeps its user-away bullet");
+    assert.match(away, /`audio_qc\.mjs` flag/, "the flag (exit 3) still blocks the final");
+    assert.match(away, /exit 2[^.]*hand-off/i, "qc.md: an exit 2 with nobody to listen is named in the hand-off");
+    assert.match(away, /never a pass/i, "qc.md: exit 2 is never a pass");
+    assert.doesNotMatch(qc, /exit 2 = by ear\s*$/m, "the Step 7 command line no longer ends the rule at 'by ear'");
+    const auto = skill.split("\n").find((l) => l.startsWith("If the user gives a topic and leaves"));
+    assert.ok(auto, "SKILL.md keeps its autonomous-mode paragraph");
+    assert.match(auto, /audio_qc\.mjs[^.]*exit 2[^.]*hand-off/i, "SKILL.md: the autonomous draft passes Step 7 only with an audio_qc exit 2 named in the hand-off");
+    console.log("ok  qc.md and SKILL.md: audio_qc exit 3 blocks, exit 2 is never a pass and is named in the hand-off when nobody can listen");
   }
 
   // ── CLI cases ─────────────────────────────────────────────────────────────
@@ -894,7 +920,18 @@ try {
       for (const [name, tags] of [["p-base", `<base href="js/">${music()}`], ["p-importmap", `${music()}<script type="importmap">{"imports":{}}</script>`], ["p-iframe", `${music()}<iframe src="widget.html"></iframe>`]]) {
         assert.match(run(make(name, tags)).stdout, /page loads scripts the check does not resolve; check the bed by ear on the draft/, name + ": the advice names the limit");
       }
-      assert.doesNotMatch(run(make("p-no-limit-text", `${music()}<script>x()</script>`)).stdout, /documented limit|out of scope/, "no excuse text: the page is NOT CHECKED, not waved through");
+      // an unattended run: the real film of look-build.md (GSAP from a CDN, then its own timeline script) with an inaudible bed
+      // is exit 2, never exit 0, and the output says what to do with nobody to listen (name it in the hand-off)
+      const AWAY = /with nobody to listen, name "bed level not checked" in the hand-off as a known bug/;
+      const gsapFilm = `${music()}<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script><script>const tl = gsap.timeline({ paused: true }); tl.to("#title", { opacity: 1, duration: 1 }, 0);</script>`;
+      const away = run(make("p-gsap-film", gsapFilm, { "assets/music.wav": bedTone(4.5, 30) }));
+      notChecked(away, "the real film (CDN GSAP + inline timeline) with the bed 30 dB under");
+      assert.match(away.stdout, AWAY, "the advice names the hand-off, not a listening nobody can do");
+      for (const [name, tags] of [["p-away-script", `${music()}<script>x()</script>`], ["p-away-remote", `${music()}<script src="https://cdn.example.test/g.js"></script>`], ["p-away-base", `<base href="js/">${music()}`], ["p-away-frame", `${music()}<iframe src="widget.html"></iframe>`], ["p-away-nested", `${music()}<iframe srcdoc="&lt;audio id=&quot;m&quot; src=&quot;assets/music.wav&quot;&gt;&lt;/audio&gt;"></iframe>`]]) {
+        assert.match(run(make(name, tags)).stdout, AWAY, name + ": every by-ear advice carries the unattended rule");
+      }
+      assert.doesNotMatch(run(make("p-plain-clean", `${music()}<p id="title">hi</p>`)).stdout, /hand-off|by ear/, "a page whose bed was measured has nothing to name");
+      assert.doesNotMatch(run(make("p-no-limit-text",`${music()}<script>x()</script>`)).stdout, /documented limit|out of scope/, "no excuse text: the page is NOT CHECKED, not waved through");
       notChecked(run(project("c-narr-hidden", { narr: voice(steady), bedDb: 15, html: `<div id="root"><section data-hidden><audio id="narration" src="audio/narration.wav"></audio></section><audio id="music" src="assets/music.wav"></audio></div>` })), "the narration under a hidden ancestor");
       // the other side of each rule
       ok(run(make("k-hidden-sibling", `<div data-hidden></div>${music()}`)), "a closed data-hidden sibling is not an ancestor");
