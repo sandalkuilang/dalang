@@ -5,7 +5,7 @@
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the palette measurement. CI runs the merge gate on every push and pull request.
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the SFX-from-impacts check. CI runs the merge gate on every push and pull request.
 # self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the storyboard lint, the series kit. CI runs the merge gate on every push and pull request.
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the SFX-from-impacts check, the quiz score, the Kokoro take check. CI runs the merge gate on every push and pull request.
+# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the beats lint, fill_times --lang, the SFX-from-impacts check, the quiz score, the Kokoro take check. CI runs the merge gate on every push and pull request.
 # Ends with a "Gate summary" block, one ✓/✗ line per step; exits non-zero when any step failed.
 set -u
 root=$(git rev-parse --show-toplevel) && cd "$root" || exit 2 # the tree the gate is run in (a PR worktree), never this file's own location
@@ -41,6 +41,8 @@ if [ $fast -eq 0 ]; then
   step "Kokoro helper vs fake packages (no unasked fetch, broken install is not missing)" node tests/kokoro-helper.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
   step "numbers lint (spoken model numbers = numbers.json)" node tests/numbers-lint.mjs
+  step "beats lint (two narrations: same named beats, same order)" node tests/beats-lint.mjs
+  step "fill_times --lang (times from audio/<lang>, language variants, plain run unchanged)" node tests/fill-times.mjs
   step "SFX from impacts (tags, gains, merge, licence rows vs check_assets)" node tests/sfx.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
