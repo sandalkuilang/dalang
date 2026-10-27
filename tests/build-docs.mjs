@@ -120,6 +120,48 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
       assert.match(r.stderr, /usage:.*<project>/, `<project> = ${what} must print the usage line`);
     }
     assert.equal(run([real], "Write", scene).stdout.trim(), scene.file_path, "the film's folder itself still flags its scene code");
+    // The class: a path is the film's only after both sides are resolved to the same real place. Another spelling of the
+    // film's folder (a symlink such as /tmp for /private/tmp, other letter case on a case-insensitive disk) must not turn
+    // its scene code into `../…` and print nothing; a transcript with no path inside the film at all (another session,
+    // another film) is unknown, not clean: exit 2.
+    {
+      const tr = (entries) => { const f = `${dir}/t.jsonl`; fs.writeFileSync(f, entries.map(([name, file_path]) => JSON.stringify({ isSidechain: false, message: { content: [{ type: "tool_use", name, input: { file_path } }] } })).join("\n") + "\n"); return f; };
+      const go = (entries, proj) => spawnSync("node", ["-e", cmd, tr(entries), proj], { encoding: "utf8" });
+      const realRoot = fs.realpathSync.native(real);
+      const link = `${dir}/film-link`;
+      fs.symlinkSync(realRoot, link);
+      const set = `${realRoot}/src/set.js`;
+      for (const [what, entries, proj] of [
+        ["<project> a symlink to the film, paths by the real folder", [["Write", set]], link],
+        ["<project> the real folder, paths through the symlink", [["Write", `${link}/src/set.js`]], realRoot],
+        ["<project> and paths both through the symlink", [["Write", `${link}/src/set.js`]], link],
+        ["a new file in a folder that is not there yet, through the symlink", [["Write", `${link}/assets/new.js`]], realRoot],
+      ]) {
+        const r = go(entries, proj);
+        assert.equal(r.status, 0, `${what}: exit 0`);
+        assert.equal(r.stdout.trim(), entries[0][1], `${what}: the scene write must be flagged`);
+      }
+      const upper = realRoot.replace(/film$/, "FILM");
+      if (fs.existsSync(upper)) {
+        assert.equal(go([["Write", set]], upper).stdout.trim(), set, "<project> in other letter case on a case-insensitive disk must still flag the scene write");
+        assert.equal(go([["Write", set.replace("/film/", "/FILM/")]], realRoot).stdout.trim(), set.replace("/film/", "/FILM/"), "paths in other letter case on a case-insensitive disk must still be flagged");
+      }
+      // Another session's transcript (another film) holds no path of this film: exit 2, never a silent pass.
+      const other = go([["Write", "/elsewhere/film2/src/set.js"], ["Write", "/elsewhere/film2/BRIEF.md"]], real);
+      assert.equal(other.status, 2, "a transcript with no path inside the film must exit 2");
+      assert.equal(other.stdout, "", "...and print no path");
+      assert.match(other.stderr, /no path of/, "...and say why");
+      // The other side: a transcript of this film with no scene-code write is clean (exit 0, nothing printed), also by symlink.
+      for (const [what, entries, proj] of [
+        ["main-agent files only", [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`]], real],
+        ["main-agent files only, through the symlink", [["Write", `${link}/BRIEF.md`], ["Write", `${link}/style-frames/src/hook.js`]], realRoot],
+        ["a read of scene code is not a write", [["Read", set], ["Write", `${realRoot}/BRIEF.md`]], link],
+      ]) {
+        const r = go(entries, proj);
+        assert.equal(r.status, 0, `${what}: a clean film transcript must exit 0`);
+        assert.equal(r.stdout, "", `${what}: nothing to flag`);
+      }
+    }
     // An empty or unreadable transcript is a loud failure too, never an empty pass.
     for (const [what, body] of [["empty", ""], ["blank", "\n  \n"]]) {
       fs.writeFileSync(`${dir}/e.jsonl`, body);
