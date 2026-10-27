@@ -472,7 +472,8 @@ that reads as:
   layer order); the author of `style-frames/src/` (or a builder whose brief names the boards) opens the board once
   before its first write, and fix rounds reuse it. Full-size stills stay with the reviewer, who grades the parts lines.
   Hyperreal assets stay "check after". A transcript check in `evals.md` (tested in `tests/build-docs.mjs`) flags a
-  style-frame write before a board read and a builder started before the board existed. Step 5's reading does not grow
+  style-frame write before a board read (a read that errored does not count) and a builder started before the board
+  existed; a missing or half-written transcript exits 2 (unknown), never 1. Step 5's reading does not grow
   (7357 to 7356 bytes).
 - **Scene code only in builder subagents** (`look-build.md` "Parallel build", `review.md` §3, `qc.md` Step 7,
   `SKILL.md` "Work fast"): the main agent never writes, patches or reads the film's `src/` or `assets/*.js` (the Step 5 style frames in
