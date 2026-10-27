@@ -6,9 +6,11 @@
 //
 // Usage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats]
 //        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--dry-run]
-//        [--against <previous round dir> --targets <shots|beats> [--threshold 1]]
+//        [--crops [--crop X,Y,W,H]] [--against <previous round dir> --targets <shots|beats> [--threshold 1]]
 //   --frames <dir>  tile stills already captured there (…at-<s>s.png) instead of capturing
 //   --dry-run       write index.md only: no capture, no ffmpeg
+//   --crops         also cut one zoomed subject crop per shot (crop-NN.jpg, 640 px wide) from the still nearest the middle
+//                   of the shot. --crop X,Y,W,H = the box as fractions of the frame (default 0.25,0.25,0.5,0.5, centre half)
 //   --against <dir> compare each still with the one at the same time in the previous round (its frames/ folder, or the
 //                   folder itself) and label it in index.md: unchanged (the earlier verdict stands), changed (targeted)
 //                   (its shot number or beat is in --targets: review again), changed (not targeted) (a possible regression)
@@ -23,7 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const argv = process.argv.slice(2);
-const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames', '--against', '--targets', '--threshold'];
+const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames', '--against', '--targets', '--threshold', '--crop'];
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const dir = argv.find((x, i) => !x.startsWith('--') && !VAL.includes(argv[i - 1])) ?? '.';
 const perShot = Math.max(1, parseInt(opt('--per-shot', '3'), 10) || 3);
@@ -33,9 +35,18 @@ const outRel = opt('--out', path.join('review', 'strips'));
 const out = path.resolve(dir, outRel);
 const dry = argv.includes('--dry-run');
 const usage = (why) => {
-  console.error(`${why}\nUsage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats] [--audio audio] [--width 480] [--timeout ms] [--frames dir] [--dry-run] [--against prev-round-dir --targets shots|beats [--threshold 1]]`);
+  console.error(`${why}\nUsage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats] [--audio audio] [--width 480] [--timeout ms] [--frames dir] [--dry-run] [--crops [--crop X,Y,W,H]] [--against prev-round-dir --targets shots|beats [--threshold 1]]`);
   process.exit(1);
 };
+
+const crops = argv.includes('--crops');
+const cropRaw = opt('--crop', null);
+const cropBox = (cropRaw ?? '0.25,0.25,0.5,0.5').split(',').map(x => (x.trim() === '' ? NaN : Number(x)));
+if (cropRaw && !crops) usage('--crop needs --crops.');
+if (crops) {
+  const [X, Y, W, H] = cropBox;
+  if (cropBox.length !== 4 || !cropBox.every(Number.isFinite) || X < 0 || Y < 0 || !(W > 0) || !(H > 0) || X + W > 1 + 1e-9 || Y + H > 1 + 1e-9) usage('--crop needs X,Y,W,H as fractions of the frame: X,Y >= 0, W,H > 0, X+W <= 1, Y+H <= 1.');
+}
 
 const fromStoryboard = () => {
   const f = path.join(dir, 'storyboard.md'); if (!existsSync(f)) return null;
@@ -69,6 +80,7 @@ if (against && !(threshold > 0)) usage('--threshold must be a number above 0.');
 if (against && dry) usage('--against compares stills: it cannot run with --dry-run.');
 for (const x of targets) if (!frames.some(f => f.shot === x || f.beat === x)) usage(`--targets: "${x}" matches no shot number and no beat name of this round.`);
 const sheetCount = frames.at(-1).sheet;
+const cropName = i => `crop-${String(i + 1).padStart(2, '0')}.jpg`;
 const sheetName = n => `strip-${String(n).padStart(2, '0')}.jpg`;
 const pct = Array.from({ length: perShot }, (_, j) => `${Math.round(frac(j) * 100)} %`).join(', ');
 
@@ -121,10 +133,15 @@ if (!dry) {
     process.exit(2);
   }
   if (spawnSync('ffmpeg', ['-version']).error) { console.error(`Tiling needs ffmpeg; the stills are in ${framesDir}.`); process.exit(2); }
-  for (const f of readdirSync(out)) if (/^strip-\d+\.jpg$/.test(f)) rmSync(path.join(out, f)); // a smaller rerun leaves no stale sheet
+  for (const f of readdirSync(out)) if (/^(strip|crop)-\d+\.jpg$/.test(f)) rmSync(path.join(out, f)); // a smaller rerun leaves no stale sheet or crop
 }
 const missing = dry ? [] : frames.filter(f => !still(f.t));
 const gone = new Set(missing);
+const cropFrame = i => { // the still of shot i nearest the middle of the shot
+  const mine = frames.slice(i * perShot, (i + 1) * perShot);
+  return mine.reduce((a, f) => Math.abs(frac(frames.indexOf(f) % perShot) - 0.5) < Math.abs(frac(frames.indexOf(a) % perShot) - 0.5) ? f : a, mine[0]);
+};
+const noCrop = [], cropped = [];
 
 if (!dry) {
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'dalang-strips-'));
@@ -143,6 +160,16 @@ if (!dry) {
         '-vf', `scale=${width}:-2,tile=${perShot}x${rows}`, '-frames:v', '1', '-q:v', '3', path.join(out, sheetName(n))], { encoding: 'utf8' });
       if (r.status !== 0) { console.error(`ffmpeg failed on ${sheetName(n)}:\n${r.stderr.trim().split('\n').slice(-12).join('\n')}`); process.exit(2); }
       on.forEach((_, i) => rmSync(path.join(tmp, `f-${String(i + 1).padStart(3, '0')}.png`)));
+    }
+    if (crops) {
+      const [X, Y, W, H] = cropBox;
+      for (let i = 0; i < shots.length; i++) {
+        const f = cropFrame(i);
+        if (gone.has(f)) { noCrop.push(shots[i].shot); continue; }
+        const r = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', still(f.t), '-vf', `crop=iw*${W}:ih*${H}:iw*${X}:ih*${Y},scale=640:-2`, '-frames:v', '1', '-q:v', '3', path.join(out, cropName(i))], { encoding: 'utf8' });
+        if (r.status !== 0) { console.error(`ffmpeg failed on ${cropName(i)}:\n${r.stderr.trim().split('\n').slice(-12).join('\n')}`); process.exit(2); }
+        cropped.push(i);
+      }
     }
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
@@ -186,6 +213,11 @@ writeFileSync(path.join(out, 'index.md'), [
   `${frames.length} stills: ${shots.length} shots from ${origin}, ${perShot} per shot (${pct} of each shot). One row per shot, left to right.`, '',
   `| Frame | Sheet | Row | Col | Time (s) | Shot | Beat | Note |${against ? ' Change | Diff (score %) |' : ''}`, `|---|---|---|---|---|---|---|---|${against ? '---|---|' : ''}`,
   ...frames.map((f, i) => `| ${i + 1} | ${sheetName(f.sheet)} | ${f.row} | ${f.col} | ${f.t} | ${f.shot} | ${f.beat} | ${gone.has(f) ? 'missing (black)' : ''} |${against ? ` ${label.get(f).change} | ${label.get(f).diff} |` : ''}`), '',
+  ...(crops && !dry ? [
+    '## Subject crops',
+    ...shots.map((sh, i) => cropped.includes(i) ? `${cropName(i)}: shot ${sh.shot} \`${sh.beat}\`, ${cropFrame(i).t} s, box ${cropBox.join(',')}` : null).filter(Boolean),
+    'The subject may sit off the box: a crop that misses it is a doubt, so open that shot\'s full-res still in `frames/`.', '',
+  ] : []),
   ...(against ? [
     `## Against ${against} (threshold ${threshold} %)`,
     `unchanged ${count('unchanged')} · changed (targeted) ${count('changed (targeted)')} · changed (not targeted) ${count('changed (not targeted)')}${unreadable.length ? ` · unknown ${unreadable.length}` : ''}`,
@@ -195,7 +227,8 @@ writeFileSync(path.join(out, 'index.md'), [
   ] : []),
 ].join('\n'));
 
-console.log(`Strips: ${shots.length} shots × ${perShot} stills → ${sheetCount} sheet${sheetCount > 1 ? 's' : ''} in ${outRel} (index.md)${dry ? ' [dry run]' : ''}`);
+console.log(`Strips: ${shots.length} shots × ${perShot} stills → ${sheetCount} sheet${sheetCount > 1 ? 's' : ''} in ${outRel} (index.md)${crops && !dry ? `, ${cropped.length} subject crops` : ''}${dry ? ' [dry run]' : ''}`);
+for (const n of noCrop) console.log(`WARN: no crop for shot ${n} (no still)`);
 for (const f of missing) console.log(`WARN: no still at ${f.t} s (shot ${f.shot}): black cell`);
 if (against) {
   console.log(`Against ${against}: ${count('unchanged')} unchanged, ${count('changed (targeted)')} changed (targeted), ${count('changed (not targeted)')} changed (not targeted)`);
@@ -203,4 +236,4 @@ if (against) {
   for (const x of quiet) console.log(`WARN: targeted shot ${x} shows no change`);
   for (const f of unreadable) console.log(`WARN: could not compare frame ${num(f)} (shot ${f.shot}, ${f.t} s); rerun`);
 }
-process.exit(missing.length || unreadable.length ? 3 : 0);
+process.exit(missing.length || unreadable.length || noCrop.length ? 3 : 0);
