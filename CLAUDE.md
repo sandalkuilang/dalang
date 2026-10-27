@@ -56,13 +56,11 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - `main` is protected: every change, a release included, goes in from a branch through a PR (rebase merge, linear
   history), with its gate green. No direct push, no force push, for admins too.
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
-- Releases: on a `release/vx.y.z` branch, move `Unreleased` into `## [x.y.z] - date` and pin the README's clone
-  example; merge its PR, then tag `vx.y.z` on the merged commit in `main`. The `release` workflow publishes the
-  section. On the release branch also run `node scripts/golden.mjs --version x.y.z` (the same machine the previous
-  release used, so render times compare) and commit `evals/golden/x.y.z/`. Exit 3 (render time +25 %, macro detail
-  -15 %, shadow texel +25 %, stillness +5 points) blocks the release until explained: rerun with
-  `--explained "<why>"` and put the same text in the CHANGELOG section. Larger changes go into the release notes
-  with `sheet.jpg`. The golden render is release-time, not in the gate; the gate runs `tests/golden.mjs` and
-  `tests/golden-scene.mjs` (no Chrome).
+- Releases: `scripts/release.sh x.y.z`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
+  moves `Unreleased` into `## [x.y.z] - date`, pins the README's clone example, merges that PR at once and tags the
+  merged commit; the `release` workflow publishes the section and its own checks refuse a broken tag. No local gate
+  and no CI wait for a release (CI still runs on `main`). The golden eval (`node scripts/golden.mjs --version x.y.z`,
+  same machine as last time, commit `evals/golden/x.y.z/`) runs only when the release changes how films look (engine
+  look, lights, camera, render); then exit 3 needs `--explained "<why>"` and the same text in the CHANGELOG.
 - The installed copy (`~/.claude/skills/dalang`) is a clone of this repo: update it with `git pull`, never edit
   it directly.

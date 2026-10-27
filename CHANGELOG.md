@@ -17,13 +17,11 @@ that reads as:
 
 <br/>
 
-1. Move the `Unreleased` items into a new `## [x.y.z] - YYYY-MM-DD` section and add its link at the bottom.
-2. Do it on a `release/vx.y.z` branch with the README's clone example pinned, and merge its PR (`main` is
-   protected). Run `node scripts/golden.mjs --version x.y.z` on that branch and commit `evals/golden/x.y.z/`
-   (exit 3 blocks the release until explained). Then tag the merged commit and push:
-   ```bash
-   git tag -a vx.y.z -m "vx.y.z" origin/main && git push origin vx.y.z
-   ```
+1. `scripts/release.sh x.y.z` cuts it in one go: a `release/vx.y.z` branch from `origin/main` with `Unreleased`
+   moved into `## [x.y.z] - YYYY-MM-DD`, its link at the bottom and the README's clone example pinned, a PR merged at
+   once, and the tag on the merged commit. Nothing waits on CI; it still runs on `main`.
+2. When the release changes how films look, first run `node scripts/golden.mjs --version x.y.z` and commit
+   `evals/golden/x.y.z/` (exit 3 blocks the release until explained).
 3. The `release` workflow verifies the scripts, the `SKILL.md` front-matter and that this file
    has a section for the tag — then publishes the GitHub release with generated notes.
    A tag with a suffix (`v1.1.0-rc.1`) is published as a pre-release.
@@ -31,6 +29,13 @@ that reads as:
 </details>
 
 ## [Unreleased]
+
+### Changed
+
+- **Releases in one command, no waiting** (`scripts/release.sh x.y.z`, `CLAUDE.md`, the release notes above): it moves
+  `Unreleased` into the version, pins the README, merges the release PR at once and tags it; no local gate and no CI
+  wait (CI still runs on `main`, the `release` workflow still refuses a broken tag). The golden eval runs only when a
+  release changes how films look.
 
 ## [1.6.0] - 2026-10-27
 
