@@ -21,18 +21,25 @@ Over budget at a step: say so with the clock time, cut scope (fewer shots, short
 ## Express Step 5 — Look in one frame
 
 - One builder (`model: "sonnet"`, a new one) writes the whole film. No asset search, no reference board, no style-frame check, no benchmark.
-- **2.5D look:** flat illustration drawn in inline SVG and HTML, made deep by layers: background, mid and foreground planes moving at different rates on a slow camera push (parallax), soft contact shadows under every object, one key light direction kept on every layer (a gradient lit side, a rim on the far edge), a cutaway or exploded view to show inside. One palette of 4–6 colours, one type family.
-- **True shapes still:** each object drawn with its real parts, proportions and order of layers; labels name real parts. Never a generic icon for a thing the film explains.
+- **The look is the isometric infographic** (grammar after lemo-opuscar's `iso-infographic`, MIT; engine `engine/iso/iso.js`, Canvas 2D, no three.js): the subject as a small diorama on a floating board with a cut edge, on a pale ground.
+  - **True isometric, never perspective:** axes at 30°, the projection never tilts or rotates; the camera only pans and zooms (zoom interpolated in log).
+  - **Three tones per face, no outlines:** top lightest, left mid, right darkest, all from one base colour (`tri()`); solids are told apart by tone alone.
+  - **Colour is a legend:** a pale ground, 5–7 hues, one ink; one hue per material or role for the whole film; the subject's hue is reserved, and to point at it everything else greys out (focus + context).
+  - **Infographic furniture lives in the world:** label pins (dot → leader → rule → text) that never cover the subject, dashed cut lines, hatched section faces, a route line, a "you are here" ring, a circular inset for a close-up.
+  - **Numbers are drawn, not said:** Isotype rows of identical icons that add up to the figure on screen.
+  - **True shapes still:** each object built from its real parts and proportions (boxes, prisms, cylinders, `shape()` for an outline); a machine gets its tell-tale parts, never a generic block. A cutaway shows the real inside.
 - The builder's first output, once `audio/beats.js` exists, is one frame: `npx hyperframes snapshot --at <the hook beat's seconds> --no-end --describe false -o style-frames/`. The main agent approves Gate 3 itself (`state.mjs approve 3 --by agent`, Express needs no benchmark) and the builder continues; it never waits for the user.
 
 ## Express Step 6 — Build (one builder)
 
-Builder brief: `BRIEF.md`, `SPEC.md`, `storyboard.md`, `narration.txt`, the `/hyperframes` skill, this section. Return ≤ 10 lines.
+Builder brief: `BRIEF.md`, `SPEC.md`, `storyboard.md`, `narration.txt`, the `/hyperframes` skill, this section and Step 5's look. Return ≤ 10 lines.
 
-- One composition per film (`src/index.tpl.html` → `fill_times.mjs` → `index.html`), GSAP timelines from `BEATS`/`WORDS` only; nothing timed by hand.
-- **Motion has a cause:** an arrow, a flow, a glow or a hand makes each move; nothing floats, drifts or loops. A fall eases in (`power2.in`), lands with a short squash and a sound; a push eases out. Every shot keeps one continuous motion (camera push, flow, the subject acting).
-- On-screen text: the headline per beat from `storyboard.md`, numbers as digits, captions from `WORDS`.
-- Audio: the narration; music and SFX only from the bundled `/media-use` library (`find_media.mjs --type sfx --bundled`), music ducked under the voice. No web search for media.
+- `cp <skill-dir>/engine/iso/iso.js assets/iso.js` (its API: the comment block at its top and `<skill-dir>/engine/iso/README.md`). One composition (`src/index.tpl.html` → `fill_times.mjs` → `index.html`) with one full-frame `<canvas>`; a GSAP timeline, built from `BEATS`/`WORDS` only, holds the animated values, and its `onUpdate` redraws the canvas from those values (`iso.cam`, then the primitives, then `iso.flush()`), so a seek renders the same frame every time.
+- **Motion has a cause, led by a line:** a route or leader line draws a little ahead of what moves; a cutaway is cut line (~0.3 s) → near skin slides out along its normal (~0.35 s, ease-out) → hatched rims. Solids arrive by moving in, never by fading (a see-through block reads as a ghost); landing squash ~18 % and a small bounce; a fall eases in. Isotype icons pop with an overshoot, one per beat subdivision, the count-up number in step. Every shot keeps one continuous motion.
+- Camera moves from the menu that fits the story: follow a route (cause → effect), hold wide with an inset, push through nested cutaways, a fast pull-out to the whole infographic, a locked frame while things pile up, a tilt down through strata. The subject ≥ 1/3 of frame height at its key moments.
+- Text: one geometric sans the project loads (set `FONT` in `assets/iso.js`), titles in caps with tracking, big numbers with half-size units, every text with a ground-colour halo; captions from `WORDS` as a pale map-label card at the bottom (keep that zone clear).
+- Pitfalls: give every face an outward hint (else it is culled), draw a composite as one ordered item, leave clearance between a wheel and the floor, skip small detail when zoomed in close.
+- Audio: the narration; music and SFX only from the bundled `/media-use` library (`find_media.mjs --type sfx --bundled`), light and acoustic, ducked under the voice. No web search for media.
 - Checks before returning: `npx hyperframes lint`, `node <skill-dir>/scripts/lint_scene.mjs`, `node <skill-dir>/scripts/timing_lint.mjs`; fix what they report.
 - Log the build: `state.mjs log "6 Build | index.html | <problems or ->"`.
 
