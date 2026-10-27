@@ -38,6 +38,7 @@ This skill decides the order of work, when to stop for approval, and the quality
 | Fix check (did each listed fix land: pass/fail + one line) | mid tier (`model: "sonnet"`) |
 | Asset pair check (asset vs real reference), media screening of `find_media` candidates and the Step 5 reference boards, contact-sheet triage | mid tier |
 | Fact research | mid tier (`model: "sonnet"`), always, briefed with a budget: at most 8 searches and 15 page fetches, original sources first; every number comes back with its source, one still unsourced comes back `[unknown]`, and Gate 1 settles a contested one |
+| Planner: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5) | strongest (omit `model`) |
 | Builder: pilot, shot groups, assembly, each QC fix round (Steps 6–7) | strongest (omit `model`) |
 
 - **Compact at Gates 2, 3 and 4.** Gate 2 first: by then research, script and take have filled the context, and every later step (look, build, review) would re-read them. Tell the user once, at each, that `/compact` (or a fresh session resumed with `state.mjs next`) is safe now — every decision is in the project files — and makes the remaining steps cheaper. You cannot run it yourself.

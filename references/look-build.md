@@ -2,7 +2,7 @@
 
 ## Step 5 — Look, storyboard, style frames → GATE 3
 
-Read the chosen look's row in `looks.md`; `visual-direction.md` §1, the chosen energy's row in §3, §5–8, §12; `craft-rules.md` §2–6; and `camera-motion.md` §1–4, §8, §10 and §11. Write:
+A **planner subagent** (strongest model, a new one) does this reading and writing, never the main agent: ~100 KB of rules would stay in the main context and be re-read on every later call. Brief it with `BRIEF.md`, `script.md`, `audio/beats.json` and the `sed` lines below from `state.mjs next`; it writes `SPEC.md` and `storyboard.md` and returns at most 15 lines (files, open questions). The main agent reads only those two files, then runs the lints. The planner reads the chosen look's row in `looks.md`; `visual-direction.md` §1, the chosen energy's row in §3, §5–8, §12; `craft-rules.md` §2–6; and `camera-motion.md` §1–4, §8, §10 and §11. It writes:
 
 - `SPEC.md` (template: `/hyperframes` `references/spec.md`): the LOOK line (the chosen look and energy in numbers — palette hex, faces and weights, light direction, grain, average shot length), the MOTION and ANCHORS lines (`camera-motion.md` §8), OBJECTS (each physical thing, its asset rung and source, and the real reference it is built from and checked against; one modelled in code adds a parts line, 3–6 things its reference shows, e.g. `parts: 2 chainrings · chain on the right · valve at the rim`), BANNED. Never skip it: without it every gap falls back to the generated default look.
 - `storyboard.md`: the arc, a colour-script line and the axis per section (`camera-motion.md` §3), then the shot table, times from `beats.json`:

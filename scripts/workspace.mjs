@@ -8,7 +8,8 @@
 //           Exit 1 when a settings file cannot be read: that is "unknown", never "nothing enabled".
 //   init    prints the proposal (keep DALANG, HyperFrames, media-use, a browser; everything else off) and writes NOTHING.
 //           With --yes it writes or merges ONLY <folder>/.claude/settings.json (`enabledPlugins` false for plugins,
-//           `deniedMcpServers` for MCP servers), keeps every other key, and saves the old file once as
+//           `deniedMcpServers` for MCP servers, `skillOverrides` off for user skills, `disableBundledSkills`, and
+//           env ENABLE_CLAUDEAI_MCP_SERVERS=false for the account's claude.ai connectors), keeps every other key, and saves the old file once as
 //           settings.json.bak (0 bytes = there was no file). User-level files and settings.local.json are never written.
 //   undo    puts the file from before init back byte for byte (or removes it when there was none), then drops the .bak.
 //   measure the first model call's context (input + cache creation + cache read tokens) from a session transcript (.jsonl)
@@ -23,7 +24,7 @@
 // Only plugin and server NAMES are printed, never their env, args, headers or URLs (MCP configs can hold tokens).
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -134,6 +135,16 @@ function items() {
   for (const [from, src] of [...mjs.map(m => ['.mcp.json', m?.mcpServers]), ...keyed, ['user', cj?.mcpServers]])
     for (const name of Object.keys(obj(src))) mcp.set(name, from);
   for (const [name, from] of mcp) out.push({ kind: 'mcp', name, from, on: !deny.has(name), video: KEEP.test(name) || keepArg.includes(name), job: jobOf(name), overridden: false });
+  // Every call also lists each user skill (~/.claude/skills), the CLI's bundled skills and the account's claude.ai connectors.
+  const ovr = Object.assign({}, ...[...scopes].reverse().map(([, s]) => obj(s?.skillOverrides)));   // the first scope wins
+  let skills = [];
+  try { skills = readdirSync(path.join(cfg, 'skills'), { withFileTypes: true }).filter(d => d.isDirectory() || d.isSymbolicLink()).map(d => d.name); }
+  catch (e) { if (e.code !== 'ENOENT') throw new Unread(`${e.code || e.message} reading ${path.join(cfg, 'skills')}`); }
+  for (const name of skills) out.push({ kind: 'skill', name, from: 'user', on: ovr[name] !== 'off', video: KEEP.test(name) || keepArg.includes(name), job: jobOf(name), overridden: false });
+  const first = get => scopes.map(([, s]) => get(s)).find(v => v !== undefined);
+  const set = (name, on, job) => out.push({ kind: 'set', name, from: 'cli', on, video: keepArg.includes(name), job, overridden: false });
+  set('bundled-skills', first(s => s?.disableBundledSkills) !== true, 'CLI built-in skills (loop, schedule, …)');
+  set('claudeai-connectors', String(first(s => obj(s?.env).ENABLE_CLAUDEAI_MCP_SERVERS) ?? process.env.ENABLE_CLAUDEAI_MCP_SERVERS) !== 'false', 'account connectors (deploy, docs, …)');
   return out;
 }
 
@@ -231,6 +242,9 @@ if (cmd === 'init') {
   const next = { ...(cur || {}), enabledPlugins: { ...obj(cur?.enabledPlugins) }, deniedMcpServers: [...(Array.isArray(cur?.deniedMcpServers) ? cur.deniedMcpServers : [])] };
   for (const i of toOff) {
     if (i.kind === 'plugin') next.enabledPlugins[i.name] = false;
+    else if (i.kind === 'skill') next.skillOverrides = { ...obj(next.skillOverrides), [i.name]: 'off' };
+    else if (i.name === 'bundled-skills') next.disableBundledSkills = true;
+    else if (i.name === 'claudeai-connectors') next.env = { ...obj(next.env), ENABLE_CLAUDEAI_MCP_SERVERS: 'false' };
     else if (!next.deniedMcpServers.some(x => x?.serverName === i.name)) next.deniedMcpServers.push({ serverName: i.name });
   }
   if (!toOff.some(i => i.kind === 'plugin') && !cur?.enabledPlugins) delete next.enabledPlugins;
