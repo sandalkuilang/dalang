@@ -2744,11 +2744,11 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.equal(cab.conductor, "+", "the output capacitor's plus lead runs to the dc plus cable");
     // the attack: the plus lead traced to the dc minus cable
     const bad = board({ w: 0.04, d: 0.04 }); bad.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); bad.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 });
-    bad.trace(["C9:1", "J9:1"]);
+    bad.trace(["C9:1", [-10.5, 8], [7.46, 8], "J9:1"]); // round the other pads: a trace over a pad joins it (nets())
     assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "-" }]).length, 1, "plus traced to a minus cable is a clash");
     assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }]), [], "plus traced to a plus cable is not");
     assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "L" }]), [], "a mains core has no polarity to clash with");
-    bad.trace(["C9:2", "J9:2"]); assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }, { pin: "J9:2", conductor: "+" }]).length, 1, "minus traced to a plus cable is a clash");
+    bad.trace(["C9:2", [-5.5, -8], [12.54, -8], "J9:2"]); assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }, { pin: "J9:2", conductor: "+" }]).length, 1, "minus traced to a plus cable is a clash");
     // a net is the copper that touches, across traces, and a pin no trace reaches is a net too: each attack, and its
     // legitimate twin on the other side of the same rule
     const mk = () => { const g = board({ w: 0.04, d: 0.04 }); g.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); g.place("R9", "resistor", { value: 1000, size: "0.25W", at: [0, 12] }); g.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 }); return g; };

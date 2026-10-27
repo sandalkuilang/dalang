@@ -478,7 +478,7 @@ that reads as:
   `scaleAudit` measures a part without the ink printed on it. The self-check asserts a 2 mm print reads at least 12 px tall at a
   macro station at 1080 px and not from 2 m, not when it is out of the frame or on a board flipped or moved after it was printed, the size under a non-uniform parent scale, the lift, the wrap on a cylinder,
   every refusal, the icons and wear drawing through a recording canvas, every catalogue size within 1 % upright and
-  turned, the colour codes, placement, pins and traces, the capacitor polarity (pin 1 plus, the stripe on the minus lead, `polarityClashes`), and the opened supply's references, sticker and cable colours.
+  turned, the colour codes, placement, pins and traces, the capacitor polarity (pin 1 plus, the stripe on the minus lead, `polarityClashes` over `board.nets()`: copper that touches is one net across traces, through a shared pin, a free point, a crossing or a pad run over, and a cable on a pin no trace reaches), and the opened supply's references, sticker and cable colours.
   The reading floor and the proportions of a sans font are decisions, not standards.
 
 ### Changed
