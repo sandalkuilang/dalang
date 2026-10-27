@@ -342,7 +342,8 @@ that reads as:
 ### Changed
 
 - **Scene code only in builder subagents** (`look-build.md` "Parallel build", `review.md` §3, `qc.md` Step 7,
-  `SKILL.md` "Work fast"): the main agent never writes, patches or reads `src/` or `assets/*.js`; the pilot (the
+  `SKILL.md` "Work fast"): the main agent never writes, patches or reads the film's `src/` or `assets/*.js` (the Step 5 style frames in
+  `style-frames/src/` stay the main agent's); the pilot (the
   whole film under 3 groups), the groups, the assembly and each QC fix round go to a builder subagent that returns at
   most 15 lines (a fix round: fixed / not fixed per finding), logged with `state.mjs log` and resumable with
   SendMessage. `evals.md` gains a 2-group golden brief and a transcript check (no main-thread Write/Edit to scene

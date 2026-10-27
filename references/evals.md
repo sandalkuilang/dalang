@@ -26,10 +26,10 @@ Not measurable by script, judged on the review sheets: Realism and Reality (`vis
 
 Also compare the cost of the run: tool calls and tokens per step (from the session's usage), and whether any reference file was read in full when only a section was needed.
 
-**Scene code stays out of the main context** (every autonomous run): the main session's transcript holds no `Write` or `Edit` to `src/` or `assets/*.js`; every scene write sits in a builder subagent's. From the session's JSONL (Claude Code: `~/.claude/projects/<project>/<session>.jsonl`; subagent lines are skipped):
+**Scene code stays out of the main context** (every autonomous run): the main session's transcript holds no `Write` or `Edit` to the film's `src/` or `assets/*.js`; every scene write sits in a builder subagent's. The Step 5 style frames (`style-frames/src/`, `look-build.md` §5) are the main agent's own and are not flagged. From the session's JSONL (Claude Code: `~/.claude/projects/<project>/<session>.jsonl`; subagent lines are skipped):
 
 ```bash
-node -e 'for(const l of require("fs").readFileSync(process.argv[1],"utf8").split("\n")){if(!l)continue;const e=JSON.parse(l),c=e.message?.content;if(e.isSidechain||!Array.isArray(c))continue;for(const b of c)if(b.type==="tool_use"&&/^(Write|Edit)$/.test(b.name)&&/\/src\/|\/assets\/[^/]+\.js$/.test(b.input?.file_path||""))console.log(b.input.file_path)}' <session>.jsonl   # prints nothing
+node -e 'for(const l of require("fs").readFileSync(process.argv[1],"utf8").split("\n")){if(!l)continue;const e=JSON.parse(l),c=e.message?.content;if(e.isSidechain||!Array.isArray(c))continue;for(const b of c)if(b.type==="tool_use"&&/^(Write|Edit)$/.test(b.name)&&(p=>!/\/style-frames\/src\//.test(p)&&/\/src\/|\/assets\/[^/]+\.js$/.test(p))(b.input?.file_path||""))console.log(b.input.file_path)}' <session>.jsonl   # prints nothing
 node -e 'let p=0,r=0;const s=new Set();for(const l of require("fs").readFileSync(process.argv[1],"utf8").split("\n")){if(!l)continue;const e=JSON.parse(l),u=e.message?.usage;if(e.isSidechain||!u||s.has(e.message.id))continue;s.add(e.message.id);r+=u.cache_read_input_tokens||0;p=Math.max(p,(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0))}console.log({peak:p,cache_read:r})' <session>.jsonl
 ```
 

@@ -37,7 +37,7 @@ assert.match(parallel, /timing_lint\.mjs/, "the parallel section must say Step 7
 // Scene code stays in builder subagents (pilot, a short film whole, groups, assembly, each QC fix round).
 const read = f => fs.readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), "utf8");
 assert.doesNotMatch(parallel, /in the main context/, "Parallel build still builds the pilot, a short film or the assembly in the main context");
-assert.match(parallel, /never writes, patches or reads scene code/, "Parallel build must say the main agent never touches scene code");
+assert.match(parallel, /never writes, patches or reads the film's scene code/, "Parallel build must say the main agent never touches scene code");
 assert.match(parallel, /under 3 groups[^.]*whole film|whole film[^.]*under 3 groups/i, "a film under 3 groups is built whole by one builder subagent");
 assert.match(parallel, /Each QC fix round/, "the table must give each QC fix round to a builder subagent");
 assert.match(parallel, /fixed \/ not fixed/, "a fix round returns fixed / not fixed per finding");
@@ -52,7 +52,7 @@ assert.match(qc7, /builder subagent[^.]*fixes every P0 and P1/, "qc.md Step 7 mu
 const skill = read("SKILL.md");
 assert.match(skill, /\*\*Scene code stays in builder subagents\.\*\*/, "SKILL.md Work fast must state the builder rule");
 assert.match(skill, /\| Builder: [^|]*QC fix round/, "SKILL.md model table must list the builder jobs");
-assert.match(read("references/evals.md"), /no `Write` or `Edit` to `src\/` or `assets\/\*\.js`/, "evals.md must check the main transcript for scene-code writes");
+assert.match(read("references/evals.md"), /no `Write` or `Edit` to the film's `src\/` or `assets\/\*\.js`/, "evals.md must check the main transcript for scene-code writes");
 console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene code is only written by builder subagents");
 
 // The evals.md transcript check runs the way an agent copies it: it flags a main-context write to the film's scene code and
