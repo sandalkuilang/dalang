@@ -346,9 +346,13 @@ that reads as:
   `style-frames/src/` stay the main agent's); the pilot (the
   whole film under 3 groups), the groups, the assembly and each QC fix round go to a builder subagent that returns at
   most 15 lines (a fix round: fixed / not fixed per finding), logged with `state.mjs log` and resumable with
-  SendMessage. `evals.md` gains a 2-group golden brief and a transcript check (no main-thread Write/Edit to scene
-  code, each path judged relative to the film's folder given as `<project>`, so a parent folder named `src` flags
-  nothing; paths and folder are resolved to real paths, so a symlink or other letter case still matches; a run without it, with a folder that holds no `BRIEF.md`, on an empty transcript or one with no path inside the film exits 2; peak and total cache-read of the main context). Check: `tests/build-docs.mjs`.
+  SendMessage. `evals.md` gains a 2-group golden brief and a transcript check (no main-thread Write/Edit, or any
+  tool given a path but Read, to scene code; a path is the film's when it or a folder above it is the same file on
+  disk as the film's folder `<project>` or a folder in its `src/` or `assets/`, so a parent folder named `src` flags
+  nothing and a symlink, other letter case or a symlinked `src/` still matches; clean needs evidence: exit 0 with
+  nothing printed only when the transcripts hold a builder's write to the scene code, else exit 2, so another film's
+  session or a session before the build never passes; it takes every session of the run and the subagent files;
+  peak and total cache-read of the main context). Check: `tests/build-docs.mjs`.
 - **Sheets first, full-res on doubt** (`review.md`, Step 7): the fresh-eyes reviewer gets the strip sheets, `index.md`
   and the subject crops, and opens a full-res still only for a frame where those leave a doubt, listing each under
   `Opened full-res:` in `QC-REVIEW.md`. The second Realism / Reality check still reads full-res stills.

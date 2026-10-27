@@ -61,7 +61,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   const evals = read("references/evals.md");
   // The command takes the film's folder (the one holding BRIEF.md) after the transcript: a path is judged only relative
   // to it, so a parent folder's name (`~/src/videos/...`) can never decide it.
-  const cmd = evals.match(/^node -e '([^\n]*Write\|Edit[^\n]*)' <session>\.jsonl <project>/m)?.[1];
+  const cmd = evals.match(/^node -e '([^\n]*BRIEF\.md[^\n]*)' <session>\.jsonl <project>/m)?.[1];
   assert.ok(cmd, "evals.md must carry the scene-code transcript command, given the transcript and the film's folder <project>");
   const dir = fs.mkdtempSync(`${os.tmpdir()}/evals-scene-`);
   const run = (args, name, input, side = false) => {
@@ -211,8 +211,11 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
         [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`], ["Write", `${realRoot}/SPEC.md`]],
         [["Write", `${realRoot}/style-frames/src/hook.js`], ["Write", `${realRoot}/assets/engine/physics.js`], ["Write", `${realRoot}/assets/data/curve.js`]],
         [["Write", "/elsewhere/film2/src/set.js"], ["Write", `${link}/../film2/src/set.js`]],
-        [["Bash", set]],
+        [["Read", `${realRoot}/src/index.tpl.html`], ["Read", `${link}/assets/set.js`]],
       ];
+      // Any tool given a path, Read aside, writes: a tool the check does not list (MultiEdit, a new one) is never skipped.
+      for (const tool of ["MultiEdit", "NotebookEdit", "SomeNewWriteTool"])
+        assert.equal(go([["Write", `${realRoot}/BRIEF.md`], [tool, set], built], real).stdout.trim(), set, `a main-thread ${tool} to scene code must be flagged`);
       for (const entries of without) {
         const label = JSON.stringify(entries.map(([n, p, sd]) => [n, p.replaceAll(dir, ""), !!sd]));
         const r = go([["Write", "/elsewhere/film2/BRIEF.md"], ...entries], real);
