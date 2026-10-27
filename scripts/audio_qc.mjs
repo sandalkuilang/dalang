@@ -31,7 +31,7 @@
 // meant to grow until it equals the renderer: (1) an attribute outside the allowlist, or the same attribute twice on one
 // element (the first value is read, like the DOM); (2) a data-hidden or <template> ancestor, a lane other than a straight
 // volume lane, a gain HyperFrames clamps; (3) THE SCRIPT RULE: a page that loads ANY script other than the engine library
-// is NOT CHECKED, never a pass ("page runs a script that is not the engine library; check the bed by ear on the draft"). A
+// is NOT CHECKED, never a pass ("page runs a script that is not the engine library; check the bed by ear on the draft"), whether a bed is measured or "no bed in the film" is being proved (a script can make an <audio> at run time or change an SFX's src or duration). A
 // script is a <script> of any type a browser runs (the JavaScript MIME essences and the language attribute included), inline
 // or by src / SVG href, and script text in an attribute (an on* handler on any element, a javascript: URL). The engine
 // library is a local file the .engine.json beside it lists (a copy under examples/ is not listed: NOT CHECKED, a spurious
@@ -705,13 +705,16 @@ function main(argv) {
   const unknown = roles.filter((r) => r.role === 'unknown');
   const musicCues = roles.filter((r) => r.role === 'bed').map((r) => r.tag);
   for (const m of music) if (!tags.some((t) => t.id === m || t.src === m)) musicCues.push({ kind: 'audio', id: '', src: m, start: 0, end: null, volume: 1, duration: null, mediaStart: 0, rate: 1, automation: null, bad: [], loop: false, group: null, fx: null, fadeIn: 0, fadeOut: 0, hidden: false, unmodelled: [], context: null });
-  let bedLine = null;
+  let bedLine = null, cp = null;
+  // The script rule judges the page whether a bed is measured or proved absent: code can make an <audio> at run time or
+  // change an SFX's src or duration, so "no bed in the film" needs the same page as a measured bed.
+  const codeProblem = () => pageProblem(page, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; });
   const bedProblem = () => {
     if (html.err) return 'index.html could not be read, so the gain of the music is unknown: fix the WARN above and rerun';
     if (narrTag && narrTag.bad.length) return `the narration's ${narrTag.bad.join(', ')} is not a number, so the timeline is unknown`;
     if (narrLaneErr) return `the narration's data-automation cannot be modelled (${narrLaneErr}), so its level is unknown`;
     if (master) return 'the composition root has a data-fx-chain (the master bus), which this check does not model';
-    const sp = pageProblem(page, path.resolve(a.dir), (p) => { const r = readText(p); return r.text != null ? r : { why: r.err || 'not found' }; });
+    const sp = codeProblem();
     if (sp) return sp;
     if (narrTag) {
       const gone = notRendered(narrTag, groups), p = gone ? `is not rendered (${gone})` : renderProblem(narrTag, groups, { narration: true });
@@ -735,6 +738,7 @@ function main(argv) {
   } else if (!musicCues.length) {
     if (html.err) skip('bed', 'index.html could not be read, so which music plays is unknown: fix the WARN above and rerun');
     else if (html.text == null) skip('bed', 'there is no index.html to say which music plays: pass the file with --music <file>');
+    else if ((cp = codeProblem())) skip('bed', cp);
     else {
       absent.push('bed');
       const sfx = roles.filter((r) => r.role === 'sfx').map((r) => r.tag.id || r.tag.src);
