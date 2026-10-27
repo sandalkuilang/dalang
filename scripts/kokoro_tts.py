@@ -118,6 +118,15 @@ def _guard(event, args):
 
 if not FETCH:
     sys.addaudithook(_guard)
+    # Older Pythons (3.12 on Linux) start a multiprocessing child through _posixsubprocess.fork_exec with no audit
+    # event at all, so raise it ourselves before the real call (on newer ones the guard simply sees it twice).
+    import _posixsubprocess
+    _fork_exec = _posixsubprocess.fork_exec
+
+    def _audited_fork_exec(args, executable_list, close_fds, fds_to_keep, cwd, env, *rest):
+        sys.audit(FORK_EXEC, executable_list, args, cwd, env)
+        return _fork_exec(args, executable_list, close_fds, fds_to_keep, cwd, env, *rest)
+    _posixsubprocess.fork_exec = _audited_fork_exec
     # The hub's own offline switch too, so a weights miss is the hub's clear "not in the cache" (exit 4).
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
