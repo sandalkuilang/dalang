@@ -32,11 +32,13 @@ that reads as:
 
 ### Added
 
+- **Express has no user gate**: after the Brief the agent passes Gates 1–4 itself (`--by agent`) and hands over the
+  finished film; a change asked afterwards is a new builder round. Studio keeps its four gates.
 - **Express mode, the default** (`references/express.md`, Brief Call 1 "Mode", `state.mjs`): a 30–90 s film in 20
   minutes of work at most. 2.5D illustration in HTML/SVG (layered planes, parallax, contact shadows, one key light,
   cutaways) instead of three.js; one builder that starts while the voice records; no asset search, reference board,
-  style-frame check, benchmark, reviewer or 10 fps draft; Gates 2 and 3 are the agent's, the user sees the script
-  (Gate 1) and the film (Gate 4). Facts, provenance tags, per-word timing and true shapes stay. `BRIEF.md`
+  style-frame check, benchmark, reviewer or 10 fps draft; every gate is the agent's, the user gets the finished
+  film. Facts, provenance tags, per-word timing and true shapes stay. `BRIEF.md`
   `mode: express` makes `state.mjs next` print express.md for Steps 5–7 and Gate 3 skip the benchmark. Studio is the
   other answer, unchanged.
 - **Express look: the isometric infographic** (`references/express.md` Steps 5–6, `engine/iso/`): true isometric,

@@ -7,7 +7,7 @@ description: Dalang — turn any topic into a finished animated video (narration
 
 This skill sets the order of work, the gates and the quality bar; the animation is built with `/hyperframes`.
 
-**Two modes, asked first in Step 1.** **Express (default):** a 2.5D illustrated film in 20 minutes of work at most, one builder, Gates 1 and 4 for the user (`references/express.md`; `state.mjs next` gives its sections). **Studio:** three.js, physics, reference boards, benchmark and review, all four gates; everything below. Principles 1–4, 6 and 8 hold in both.
+**Two modes, asked first in Step 1.** **Express (default):** a 2.5D illustrated film in 20 minutes of work at most, one builder, no stop after the Brief (the agent passes every gate) (`references/express.md`; `state.mjs next` gives its sections). **Studio:** three.js, physics, reference boards, benchmark and review, all four gates; everything below. Principles 1–4, 6 and 8 hold in both.
 
 ## Principles
 
@@ -15,7 +15,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 2. **Every change on screen lands on a word**, from the timing data, never eyeballed.
 3. **The subject acts in every shot**: a camera over a still is a slideshow.
 4. **Measure, don't guess.** Every reported number comes from a log or a script.
-5. **The user approves at every gate** (4). No final-quality render before the last one (Gate 3's style frames and hook sample excepted).
+5. **Studio: the user approves at every gate** (4; Express has no user gate). No final-quality render before the last one (Gate 3's style frames and hook sample excepted).
 6. **True to reality, in the realism the user picked** (Step 1). Hyperreal: real photo, real footage or a PBR 3D model in three.js, never CSS, SVG or vector; people move only as real footage; a generated still or clip only on request (paid). Stylized: drawn, diorama or toon 3D, one style per film. Both: correct anatomy, parts, proportions, scale and behaviour, checked against a real reference, in a world dressed with what is really there (`references/visual-direction.md` §1).
 7. **Top studio, never overdone.** Look development, style frames, blocking and polish, cinematography, a review rubric. Drafts (10 fps, snapshots) iterate; the final is `--quality high` at the brief's frame rate (always pass `--fps`) and passes every check.
 8. **Free by default.** Free, preferably local tools (VoiceStudio, three.js, licensed free media). A paid or metered service (ElevenLabs, HeyGen credits, paid APIs) only when the user asks, labelled "paid". Prefer commercial-OK licences; say when one is non-commercial.

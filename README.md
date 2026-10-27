@@ -73,7 +73,7 @@ It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/mai
 
 ## 🎬 How it works
 
-**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, one builder, and you approve only the script and the finished film (`references/express.md`). **Studio**: the full pipeline below, three.js and physics, every check.
+**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, one builder, and no stop after the Brief: you get the finished film (`references/express.md`). **Studio**: the full pipeline below, three.js and physics, every check.
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
