@@ -69,7 +69,11 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     fs.writeFileSync(f, JSON.stringify({ isSidechain: side, message: { content: [{ type: "tool_use", name, input }] } }) + "\n");
     return spawnSync("node", ["-e", cmd, f, ...args], { encoding: "utf8" });
   };
-  const check = (name, input, side = false, root = "/p/film") => run([root], name, input, side).stdout.trim();
+  // The check needs <project>/BRIEF.md, so a case's film root is made real under the temp dir with a BRIEF.md in it; the
+  // case's paths stay plain strings (they need not exist) and are shown without the temp dir prefix.
+  const film = (root) => { const abs = dir + root; fs.mkdirSync(abs, { recursive: true }); fs.writeFileSync(`${abs.replace(/\/$/, "")}/BRIEF.md`, "x"); return abs; };
+  const check = (name, input, side = false, root = "/p/film") =>
+    run([film(root)], name, { ...input, file_path: dir + input.file_path }, side).stdout.trim().replaceAll(dir, "");
   try {
     // Forbidden: the film's own scene code, from the main context.
     assert.equal(check("Write", { file_path: "/p/film/src/index.tpl.html" }), "/p/film/src/index.tpl.html", "a Write to src/ must be flagged");
@@ -103,6 +107,29 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     const bare = run([], "Write", { file_path: "/p/film/src/index.tpl.html" });
     assert.notEqual(bare.status, 0, "the check run without <project> must exit non-zero");
     assert.match(bare.stderr, /<project>/, "the check run without <project> must say it needs the film's folder");
+    // A <project> that is not the film's folder reads as "clean" when only its presence is checked: a parent folder, a typo'd
+    // sibling, the film's own src/, a missing folder, or a file all exit 2 with the usage line, never print nothing.
+    const real = film("/p2/film");
+    fs.mkdirSync(`${real}/src`, { recursive: true });
+    fs.writeFileSync(`${real}/not-a-folder`, "x");
+    const scene = { file_path: `${real}/src/index.tpl.html` };
+    for (const [what, arg] of [["a parent folder", dir + "/p2"], ["a typo'd sibling", dir + "/p2/flim"], ["the film's own src/", `${real}/src`], ["a folder that is gone", dir + "/gone"], ["a file", `${real}/not-a-folder`], ["an empty argument", ""]]) {
+      const r = run([arg], "Write", scene);
+      assert.equal(r.status, 2, `<project> = ${what} must exit 2`);
+      assert.equal(r.stdout, "", `<project> = ${what} must print no path`);
+      assert.match(r.stderr, /usage:.*<project>/, `<project> = ${what} must print the usage line`);
+    }
+    assert.equal(run([real], "Write", scene).stdout.trim(), scene.file_path, "the film's folder itself still flags its scene code");
+    // An empty or unreadable transcript is a loud failure too, never an empty pass.
+    for (const [what, body] of [["empty", ""], ["blank", "\n  \n"]]) {
+      fs.writeFileSync(`${dir}/e.jsonl`, body);
+      const r = spawnSync("node", ["-e", cmd, `${dir}/e.jsonl`, real], { encoding: "utf8" });
+      assert.equal(r.status, 2, `an ${what} transcript must exit 2`);
+      assert.match(r.stderr, /transcript/, `an ${what} transcript must say so`);
+    }
+    const missing = spawnSync("node", ["-e", cmd, `${dir}/none.jsonl`, real], { encoding: "utf8" });
+    assert.notEqual(missing.status, 0, "a missing transcript must exit non-zero");
+    assert.equal(missing.stdout, "", "a missing transcript must print no path");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   // The rule's text names the exception, so a reader does not hand the style frames to a builder either.
   for (const [f, text] of [["SKILL.md", skill], ["references/look-build.md", parallel], ["references/evals.md", evals]])
