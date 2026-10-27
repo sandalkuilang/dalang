@@ -2749,6 +2749,36 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }]), [], "plus traced to a plus cable is not");
     assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "L" }]), [], "a mains core has no polarity to clash with");
     bad.trace(["C9:2", "J9:2"]); assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }, { pin: "J9:2", conductor: "+" }]).length, 1, "minus traced to a plus cable is a clash");
+    // a net is the copper that touches, across traces, and a pin no trace reaches is a net too: each attack, and its
+    // legitimate twin on the other side of the same rule
+    const mk = () => { const g = board({ w: 0.04, d: 0.04 }); g.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); g.place("R9", "resistor", { value: 1000, size: "0.25W", at: [0, 12] }); g.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 }); return g; };
+    const minus = [{ pin: "J9:2", conductor: "-" }], plus = [{ pin: "J9:2", conductor: "+" }];
+    const both = (build, clash, why) => { const g = mk(); build(g); assert.equal(polarityClashes(g, minus).length, clash ? 1 : 0, why + (clash ? ": plus to the minus cable is a clash" : ": not joined, no clash")); assert.deepEqual(polarityClashes(g, plus), [], why + ": plus to the plus cable is not"); };
+    both((g) => { g.trace(["C9:1", "R9:1"]); g.trace(["R9:1", "J9:2"]); }, true, "two traces through a shared pin are one net");
+    both((g) => { g.trace(["C9:1", [0, -10]]); g.trace([[0, -10], "J9:2"]); }, true, "two traces meeting at a free point are one net");
+    both((g) => { g.trace(["C9:1", [0, -10]]); g.trace([[0, -14], "J9:2"]); }, false, "traces that never touch");
+    both((g) => { g.trace(["C9:1", [-10.5, -10], [5, -10]]); g.trace(["J9:2", [12.5, -6], [0, -6], [0, -14]]); }, true, "two traces that cross are one net");
+    both((g) => { g.trace(["C9:1", [-10.5, -10], [5, -10]]); g.trace(["J9:2", [12.5, -6], [0, -6], [0, -8]]); }, false, "a trace that stops short of another");
+    both((g) => { g.trace(["J9:2", [12.5, 8], [-10.5, 8], [-10.5, -8]]); }, true, "a trace run over a pad it does not name joins it");
+    both((g) => { g.trace(["J9:2", [12.5, 8], [-14.5, 8], [-14.5, -8]]); }, false, "a trace run clear of the pad");
+    { const g = mk();
+      assert.equal(polarityClashes(g, [{ pin: "C9:1", conductor: "-" }]).length, 1, "a minus cable soldered straight to the plus lead, no trace on it, is a clash");
+      assert.deepEqual(polarityClashes(g, [{ pin: "C9:1", conductor: "+" }]), [], "a plus cable soldered straight to the plus lead is not");
+      assert.equal(polarityClashes(p.board, [...p.cables, { pin: "C3:2", conductor: "+" }]).length, 1, "on the example: a plus cable on C3's untraced minus lead"); }
+    // the class: connectivity has one source, board.nets(). Every pin is in exactly one net, a trace's named pins share a
+    // net, the nets do not depend on the order traces are drawn in, and a clash is reported for exactly the nets that see both signs.
+    { const route = [["C9:1", "R9:1"], ["R9:1", [0, 4]], [[0, 4], [3, -2]], ["C9:2", [-5.5, -12], [8, -12]], ["J9:1", [7.46, -8]], ["J9:2", [15, 8]]];
+      const fwd = mk(), rev = mk(); for (const r of route) fwd.trace(r); for (const r of [...route].reverse()) rev.trace(r);
+      const norm = (g) => g.nets().map((n) => [...n].sort().join(",")).sort();
+      const all = Object.values(fwd.parts).flatMap((pt) => pt.pins.map((_, i) => `${pt.ref}:${i + 1}`)).sort();
+      assert.deepEqual(fwd.nets().flat().sort(), all, "every pin is in exactly one net");
+      for (const t of fwd.traces) assert.ok(fwd.nets().some((n) => t.pins.every((x) => n.includes(x))), "a trace's pins share a net");
+      assert.deepEqual(norm(fwd), norm(rev), "the nets do not depend on the order of the traces");
+      for (const cabs of [[{ pin: "J9:1", conductor: "-" }], [{ pin: "J9:1", conductor: "+" }], [{ pin: "J9:2", conductor: "+" }], [{ pin: "J9:2", conductor: "-" }, { pin: "R9:2", conductor: "+" }]]) {
+        const sign = (x) => [fwd.polarity(...((s) => [s[0], Number(s[1])])(x.split(":"))), ...cabs.filter((c) => c.pin === x).map((c) => c.conductor)].filter(Boolean);
+        const want = fwd.nets().filter((n) => new Set(n.flatMap(sign)).size > 1).length;
+        assert.equal(polarityClashes(fwd, cabs).length, want, "one clash per net that sees both signs: " + JSON.stringify(cabs));
+      } }
   }
 }
 console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
