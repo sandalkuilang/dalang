@@ -104,7 +104,7 @@ const READING = {
   6: {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
-      ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
+      ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
       ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
         '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
   },

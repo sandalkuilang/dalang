@@ -106,7 +106,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. Scenes are built in parallel: a pilot shot group is checked against the style frames, then one subagent per group builds the rest, and the main thread only assembles them. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening and research.
 
 </td></tr>
 </table>

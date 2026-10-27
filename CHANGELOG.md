@@ -34,6 +34,14 @@ that reads as:
 
 ### Added
 
+- **Pilot, then shot groups in parallel** (`look-build.md` "Parallel build"; `SKILL.md` "Batch and parallelise"): a film
+  of 3 or more shot groups builds its first group (the pilot) in the main context, renders it as a 10 fps draft and has
+  a subagent check it against the style frames; then one subagent per other group, all in one message, gets `SPEC.md`,
+  its storyboard rows, the pilot's files (read-only) and the set modules, and returns paths and a verdict, never code.
+  Shots that share one physics bake or one continuous camera move are one group. Each group is a HyperFrames
+  sub-composition (`src/compositions/<group>.tpl.html` -> `fill_times.mjs` -> `compositions/<group>.html`, local
+  times); the main context only assembles the hosts, order and audio, and reads a group's code only when its check
+  fails. `evals.md` gains a 6-group golden brief.
 - **`strips.mjs --crops`** and `--crop X,Y,W,H`: one zoomed subject crop per shot (`crop-NN.jpg`, 640 px wide) cut by
   ffmpeg from the shot's middle still, listed in `index.md` under `Subject crops`. The box is a fraction of the frame
   (default the centre half); a shot without a still gets no crop, a `WARN` and exit 3. Stale crops are removed on a
