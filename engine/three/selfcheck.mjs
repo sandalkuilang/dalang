@@ -2,7 +2,7 @@
 // node selfcheck.mjs <project>/assets/engine — after build.mjs: each check fails loudly if a known trap is back.
 import assert from "node:assert/strict";
 import { resolve, join } from "node:path";
-import { realpathSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { realpathSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -2229,4 +2229,40 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.throws(() => textBand(mockCtx(bright), { headline: "" }, {}), /headline/);
     layoutFrame(c, 0, { send: () => {} }); }
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), any scale and gravity");
+// found model: kit.model dresses a glTF by its own palette and kinds, checks its stated size, and loads Draco
+{
+  globalThis.ProgressEvent ??= class extends Event { constructor(type, init = {}) { super(type); Object.assign(this, init); } }; // three's FileLoader reports progress with a browser event
+  const pos = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1]), idx = new Uint16Array([0, 1, 2, 0, 0, 0]);
+  const bin = Buffer.concat([Buffer.from(pos.buffer), Buffer.from(idx.buffer, 0, 6), Buffer.alloc(2)]); // padded to 4
+  const acc = (o, min, max) => ({ bufferView: 0, byteOffset: o, componentType: 5126, count: 3, type: "VEC3", min, max });
+  const js = { asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0, 1] }],
+    nodes: [{ mesh: 0, name: "body" }, { mesh: 1, name: "trim" }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 2, material: 0 }] }, { primitives: [{ attributes: { POSITION: 1 }, indices: 2, material: 1 }] }],
+    materials: [{ name: "Body", pbrMetallicRoughness: { baseColorFactor: [1, 0, 0, 1] } }, { name: "Trim" }],
+    buffers: [{ byteLength: bin.length }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: bin.length }],
+    accessors: [acc(0, [0, 0, 0], [1, 1, 0]), acc(36, [0, 0, 1], [1, 1, 1]), { bufferView: 0, byteOffset: 72, componentType: 5123, count: 3, type: "SCALAR" }] };
+  let j = Buffer.from(JSON.stringify(js)); j = Buffer.concat([j, Buffer.alloc((4 - (j.length % 4)) % 4, 0x20)]);
+  const head = Buffer.alloc(12); head.write("glTF", 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + j.length + 8 + bin.length, 8);
+  const ch = (b, t) => { const h = Buffer.alloc(8); h.writeUInt32LE(b.length, 0); h.write(t, 4); return Buffer.concat([h, b]); };
+  const url = "data:model/gltf-binary;base64," + Buffer.concat([head, ch(j, "JSON"), ch(bin, "BIN\0")]).toString("base64");
+  const part = (g, n) => { let m; g.traverse((o) => { if (o.isMesh && o.material.name === n) m = o; }); return m; };
+  const metres = 1 * K.M; // the fixture is 1 unit tall; a unit is M metres
+  const found = await kit.model(url, { palette: { Body: 0x336699, Trim: 0x888888 }, kinds: { metal: /Trim/ }, real: { h: metres }, rest: false });
+  assert.equal(part(found, "Body").material.color.getHex(), 0x336699, "a found model takes its own palette");
+  assert.ok(Math.abs(part(found, "Trim").material.metalness - 0.3) < 1e-9, "and its own surface kinds (metal)");
+  const plain = await kit.model(url, { rest: false });
+  assert.equal(part(plain, "Body").material.color.getHex(), 0xff0000, "a model without a look keeps its own colour; the first one's look did not leak into the kit");
+  assert.deepEqual(found.userData.real, { h: metres }, "real is the stated size, on the model");
+  const ok = scaleAudit(found);
+  assert.ok(ok.ok && ok.checked >= 1 && ok.off.length === 0, "the stated size matches the box: " + ok.problems.join("; "));
+  const wrong = await kit.model(url, { real: { h: metres * 10 }, rest: false });
+  assert.ok(scaleAudit(wrong).off.length === 1, "a stated size 10x off is reported");
+  const none = scaleAudit(plain);
+  assert.ok(none.unchecked.length >= 1 && none.checked === 0, "a model with no stated size is listed unchecked");
+  [found, plain, wrong].forEach((g) => scene.remove(g));
+  const built = fileURLToPath(dir);
+  assert.ok(existsSync(join(built, "draco", "draco_decoder.wasm")) && existsSync(join(built, "draco", "draco_wasm_wrapper.js")), "the Draco decoder is installed beside the engine");
+  const row = JSON.parse(readFileSync(join(built, ".engine.json"), "utf8")).find((r) => r.file === "draco/draco_decoder.wasm");
+  assert.ok(row && row.licence === "Apache-2.0" && /draco/i.test(row.source), "the decoder is listed with its origin and licence");
+}
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), any scale and gravity");
