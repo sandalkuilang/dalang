@@ -44,6 +44,8 @@ if [ $fast -eq 0 ]; then
   step "golden (metrics, diff, flags vs fixture frames; no Chrome)" node tests/golden.mjs
   step "golden scene (stations, texel size, pure camera; no render)" node tests/golden-scene.mjs
   step "score_run (sound-off quiz result -> score)" node tests/score-run.mjs
+  step "score_run (sound-off quiz result -> score, timing_problems inside groups)" node tests/score-run.mjs
+  step "timing lint (cuts and flash clips inside shot groups, unreadable group = exit 1)" node tests/timing-lint.mjs
 fi
 
 echo "Gate summary ($([ $fast -eq 1 ] && echo fast || echo merge))"

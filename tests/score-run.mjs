@@ -56,6 +56,19 @@ try {
 
   assert.match(score(proj(rows("correct", "wrong"))).out, /^quiz_score\s+1$/m);
   console.log("ok  plain output has a quiz_score line");
+
+  // timing_problems counts the cuts inside shot groups too (index.html holds only the hosts; the lint follows them).
+  const grouped = (cut) => {
+    const p = proj(null); fs.mkdirSync(path.join(p, "audio")); fs.mkdirSync(path.join(p, "compositions"));
+    fs.writeFileSync(path.join(p, "audio", "words.json"), JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ text: `w${i}`, start: i, end: i + 0.8 }))));
+    fs.writeFileSync(path.join(p, "index.html"), `<div id="g" data-composition-id="g" data-composition-src="compositions/g.html" data-start="3.85" data-duration="6" data-track-index="1"></div>`);
+    const c = (id, s, d) => `<div id="${id}" data-start="${s}" data-duration="${d}" data-track-index="1"></div>`;
+    fs.writeFileSync(path.join(p, "compositions", "g.html"), `<template><div id="g" data-composition-id="g" data-start="0" data-duration="6">${c("g1", 0, cut)}${c("g2", cut, 6 - cut)}</div></template>`);
+    return p;
+  };
+  assert.equal(json(grouped(2.14)).timing_problems, 0);
+  assert.equal(json(grouped(2.4)).timing_problems, 1);
+  console.log("ok  timing_problems: a mid-word cut inside a group counts, a clean group is 0");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
