@@ -474,7 +474,10 @@ that reads as:
   Hyperreal assets stay "check after". A transcript check in `evals.md` (tested in `tests/build-docs.mjs`) flags a
   style-frame write before a board read and a builder started before the board existed; every call counts only once its
   own result came back without error (a failed read, write, edit or board command counts as no call; a style-frame builder is judged when it starts, whatever its result). A background
-  board command counts once its completion notification is in the transcript before the builder; a board command still running or never reported, and a missing or half-written
+  board command counts once its completion notification is in the transcript before the builder, read by its `<status>` tag
+  alone (never its free text: "exit code 1" in a completed Agent's `<result>` changes nothing). Each board command's state
+  is set once at one place, made, none or unknown, and "none" needs evidence (an error result, `<status>failed`); a board
+  command still running or never reported, a status it cannot read, and a missing or half-written
   transcript, exit 2 (unknown), never 1. `SKILL.md` "Images stay in subagents" and `docs/workflow.md` name the board as the one
   image the author of `style-frames/src/` opens, so they no longer contradict Step 5. Step 5's reading does not grow
   (7357 to 7356 bytes).
