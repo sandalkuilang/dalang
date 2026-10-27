@@ -32,8 +32,11 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-27
+
 ### Added
 
+- `evals/golden/1.5.0/`: the first committed golden release eval (frames, `sheet.jpg`, `metrics.json`, `diff.md`) of the fixed golden scene; later releases compare against it. No earlier version, so nothing flagged.
 - **Fields and optics** (`engine/three/fields.js`, `optics.js`, `examples/magnet.js`, `examples/straw.js`): invisible physics
   drawn by its law and never by hand. `fields.js` holds static electric and magnetic fields in SI units from point
   charges, dipoles, straight wires, current loops and bar magnets (a uniformly magnetised block as two pole sheets, `Br`
@@ -969,7 +972,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/sandalkuilang/dalang/compare/v1.1.0...v1.2.0
