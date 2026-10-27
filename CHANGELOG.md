@@ -39,6 +39,10 @@ that reads as:
   (Gate 1) and the film (Gate 4). Facts, provenance tags, per-word timing and true shapes stay. `BRIEF.md`
   `mode: express` makes `state.mjs next` print express.md for Steps 5–7 and Gate 3 skip the benchmark. Studio is the
   other answer, unchanged.
+- **Express look: the isometric infographic** (`references/express.md` Steps 5–6, `engine/iso/`): true isometric,
+  three tones per face and no outlines, colour as a legend, label pins, cutaways, Isotype numbers, motion led by a line;
+  drawn with lemo-opuscar's dependency-free Canvas 2D engine, vendored unchanged with its MIT licence
+  (`engine/iso/iso.js`, `tests/iso.mjs`), redrawn from the GSAP timeline on every seek. No three.js in Express.
 
 ### Changed
 
