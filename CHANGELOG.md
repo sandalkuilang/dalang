@@ -19,7 +19,8 @@ that reads as:
 
 1. Move the `Unreleased` items into a new `## [x.y.z] - YYYY-MM-DD` section and add its link at the bottom.
 2. Do it on a `release/vx.y.z` branch with the README's clone example pinned, and merge its PR (`main` is
-   protected). Then tag the merged commit and push:
+   protected). Run `node scripts/golden.mjs --version x.y.z` on that branch and commit `evals/golden/x.y.z/`
+   (exit 3 blocks the release until explained). Then tag the merged commit and push:
    ```bash
    git tag -a vx.y.z -m "vx.y.z" origin/main && git push origin vx.y.z
    ```
@@ -41,6 +42,15 @@ that reads as:
   middle 60 % of the cut, bands for crushed blacks, clipped whites and hue jumps, `--cuts`, `--scene`, `--limits
   tv|pc`, `--png [dir]` (PNGs for flagged cuts only). Exit 0 inside the bands, 3 a cut is flagged, 2 unreadable (WARN,
   rerun), 1 usage. Check: `tests/scopes.mjs`, a gate step.
+- **Golden scene evals**: `examples/golden/` is one fixed scene built only from engine parts (an opened flask at real
+  size, three stations: wide, medium with a flow arrow, macro with depth of field, plus caption, labels and a
+  dimension line). `scripts/golden.mjs` renders one 6 s / 30 fps clip, cuts the three frames from it, records render
+  time, stillness, detail density in the macro and the shadow texel size per station, writes
+  `evals/golden/<version>/` (frames, `sheet.jpg`, `metrics.json`, `diff.md`) and diffs against the previous version
+  (per-frame difference, metric deltas). Worse beyond tolerance (render time +25 %, detail -15 %, shadow texel +25 %,
+  stillness +5 points) is a FLAG: exit 3 blocks the release until explained (`--explained "<why>"`); a baseline of
+  another size or fps is "not comparable", not "no change". The release checklist (`CLAUDE.md`) runs it; the render
+  is release-time, the gate runs only the Chrome-free `tests/golden.mjs` and `tests/golden-scene.mjs`.
 - **`POST.md`, the post description** (`qc.md` Step 8, "Post description (POST.md)"): the hand-off writes a companion
   post text from the script and model: the hook as a question with the short answer, the model in plain sentences
   (numbers dated, a result labelled "our model, not a measurement"), both failure modes, a self-check the viewer can

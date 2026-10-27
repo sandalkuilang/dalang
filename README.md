@@ -177,6 +177,7 @@ scripts/
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
   strips.mjs           review strips: stills per shot on numbered sheets + index; --crops adds a subject crop per shot; --against labels what changed since the last round
+  golden.mjs           golden scene rendered per version: metrics + sheet + diff against the previous (release time)
   captions.mjs         narration + words.json → caption phrases (audio/captions.js)
   find_media.mjs       free media search (Openverse, Commons, bundled SFX) → previews + ASSETS.json row
   check_assets.mjs     licence gate for every asset (engine files via .engine.json) → CREDITS.md
@@ -189,7 +190,9 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   quantities (flow arrows, tile fills, range cards), camera stations and
                   attention) with a self-check; bake.mjs caches a physics bake once for every
                   snapshot and render; examples/ ready pieces
-tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit (run by the gate)
+examples/golden/  the fixed golden scene for release evals (engine parts only)
+evals/golden/     committed per-release golden results: frames, sheet, metrics
+tests/            preflight against a mock VoiceStudio, review strips, palette, scene lint, series kit, golden (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```

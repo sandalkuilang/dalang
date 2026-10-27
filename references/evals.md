@@ -24,6 +24,21 @@ Not measurable by script, judged on the review sheets: Realism and Reality (`vis
 
 Also compare the cost of the run: tool calls and tokens per step (from the session's usage), and whether any reference file was read in full when only a section was needed.
 
+## Golden scene by skill version
+
+`examples/golden/` is one fixed scene built only from engine parts (an opened flask, three stations, caption, labels,
+a dimension line). `node scripts/golden.mjs --version x.y.z` renders one 6 s / 30 fps clip, cuts the three style
+frames from that clip (what the viewer gets), and writes `evals/golden/x.y.z/` (frames, `sheet.jpg`, `metrics.json`,
+`diff.md`). It records render time, stillness, detail density in the macro, shadow texel size per station, and a
+per-frame perceptual (SSIM) difference against the previous version (`--against` picks another).
+
+Tolerances: render time +25 %, macro detail -15 %, shadow texel +25 %, stillness +5 points. Beyond one is a FLAG,
+exit 3: the release waits until it is explained (`--explained "<why>"`, recorded in `metrics.json`). Render time only
+compares on the same machine; across hosts it is a WARN. A baseline of another size or fps is "not comparable". An
+unreadable baseline or a failed render is a WARN: rerun, never "none".
+
+A changed `examples/golden/scene.js` bumps `CONFIG.revision`: it moves every baseline, so say so in the release notes.
+
 ## Clarity quiz by skill version
 
 Append a row per run (`quiz_score` / `quiz_questions` from `score_run.mjs`, and the beats of the wrong answers).
