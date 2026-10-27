@@ -348,7 +348,7 @@ that reads as:
   most 15 lines (a fix round: fixed / not fixed per finding), logged with `state.mjs log` and resumable with
   SendMessage. `evals.md` gains a 2-group golden brief and a transcript check (no main-thread Write/Edit to scene
   code, each path judged relative to the film's folder given as `<project>`, so a parent folder named `src` flags
-  nothing and a run without it exits 2; peak and total cache-read of the main context). Check: `tests/build-docs.mjs`.
+  nothing; a run without it, with a folder that holds no `BRIEF.md` or on an empty transcript exits 2; peak and total cache-read of the main context). Check: `tests/build-docs.mjs`.
 - **Sheets first, full-res on doubt** (`review.md`, Step 7): the fresh-eyes reviewer gets the strip sheets, `index.md`
   and the subject crops, and opens a full-res still only for a frame where those leave a doubt, listing each under
   `Opened full-res:` in `QC-REVIEW.md`. The second Realism / Reality check still reads full-res stills.
