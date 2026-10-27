@@ -73,14 +73,14 @@ try {
   // 3. Unknown keys are kept; undo restores an odd-formatted original byte for byte; a second init keeps the first .bak.
   {
     const f = fixture();
-    const original = Buffer.from('{\n\t"model": "x",\n\t"permissions": {"deny": ["Read(./.env)"]},\n\t"enabledPlugins": {"keep@m": true}\n}');
+    const original = Buffer.from('{\n\t"model": "x",\n\t"permissions": {"deny": ["Read(./.env)"]},\n\t"enabledPlugins": {"browser-use@m": true}\n}');
     w(f.proj, original);
     const r = ws(f, "init", f.dir, "--yes");
     assert.equal(r.code, 0, r.all);
     const cur = JSON.parse(fs.readFileSync(f.proj, "utf8"));
     assert.equal(cur.model, "x");
     assert.deepEqual(cur.permissions, { deny: ["Read(./.env)"] });
-    assert.equal(cur.enabledPlugins["keep@m"], true, "a plugin not proposed off is left alone");
+    assert.equal(cur.enabledPlugins["browser-use@m"], true, "a plugin not proposed off is left alone");
     assert.equal(cur.enabledPlugins["deploy-tools@cloud"], false);
     assert.ok(fs.readFileSync(f.bak).equals(original), "the .bak holds the original bytes");
     const again = ws(f, "init", f.dir, "--yes");

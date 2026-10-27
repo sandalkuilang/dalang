@@ -201,7 +201,7 @@ for (const [name, setup, status, note, not] of skillCases) {
   execFileSync(process.execPath, [workspaceScript, "init", dir, "--yes"], { env: { ...process.env, ...env } });
   await check("workspace lean after init", "OK", /lean/);
   fs.writeFileSync(path.join(home, ".claude", "settings.json"), "{");
-  await check("workspace unreadable settings", "WARN", /could not read.*rerun/, /nothing enabled"?$|^lean/);
+  await check("workspace unreadable settings", "WARN", /could not read.*rerun/, /^lean|nothing a video never uses is on/);
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
