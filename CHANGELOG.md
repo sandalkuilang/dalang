@@ -30,6 +30,10 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- Express design languages: each beat is designed as a finished editorial infographic in one of nine scene-native languages (cutaway, isometric-world, blueprint, park-poster, naturalist-plate, retro-print, hand-drawn, dark-glass, editorial), picked by subject, with EpicInfographics' composition, data-vocabulary and chart rules (MIT, vendored unchanged in `engine/epic/`). The frame is a place, one object carries the data, one named composition pattern, an anti-slop look at the first frame, and a build order per beat (place, structure, data, hero last) with truthful motion. `isometric-world` stays on `engine/iso/iso.js`; the rest is inline SVG/HTML tweened by the GSAP timeline.
+
 ## [1.7.0] - 2026-10-27
 
 ### Added
