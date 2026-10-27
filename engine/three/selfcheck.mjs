@@ -39,6 +39,9 @@ const { supplyChain } = await use("examples/supply.js");
 const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
 const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
 const { makeLizard, wallClimb } = await use("examples/lizard.js");
+const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
+const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR } = await use("electronics.js");
+const { openPsu } = await use("examples/psu.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -2550,4 +2553,144 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const row = JSON.parse(readFileSync(join(built, ".engine.json"), "utf8")).find((r) => r.file === "draco/draco_decoder.wasm");
   assert.ok(row && row.licence === "Apache-2.0" && /draco/i.test(row.source), "the decoder is listed with its origin and licence");
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), any scale and gravity");
+{ // markings and electronics (K.M is 0.01 here: 1 unit = 1 cm, so every size below is metres / K.M)
+  const Mk = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z), UP = V(0, 1, 0);
+  const grey = new THREE.MeshStandardMaterial({ color: 0x334455 });
+  const flat = () => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), grey); m.scale.set(0.02 / Mk, 0.004 / Mk, 0.06 / Mk); return m; }; // 20 x 4 x 60 mm under a non-uniform scale
+  const topAt = V(0, 0.002 / Mk, 0);
+  const worldBox = (o) => { o.updateWorldMatrix(true, false); return new THREE.Box3().setFromObject(o, true); };
+
+  // 1. real size under a non-uniform parent scale: the print is never flattened with the mesh scale
+  { const box = flat(), r = markings(box, [{ text: "16V", h: 0.002, at: topAt, normal: UP, style: "pad" }]), it = r.items[0];
+    const size = worldBox(it.mesh).getSize(V(0, 0, 0)).multiplyScalar(Mk);
+    assert.ok(Math.abs(size.x / it.w - 1) < 0.01 && Math.abs(size.z / it.hh - 1) < 0.01, "marking measures " + size.x.toFixed(5) + " x " + size.z.toFixed(5) + " m, declared " + it.w.toFixed(5) + " x " + it.hh.toFixed(5));
+    assert.ok(it.w > 0.003 && it.w < 0.009 && it.hh > 0.003 && it.hh < 0.006, "3 characters 2 mm high are a few mm wide");
+    assert.equal(it.mesh.parent, box, "the print is a child of the target: it moves with the part");
+    // 2. lifted on its normal by the style's lift, the sticker's corner curled but never above 1.5 mm
+    const pos = it.mesh.geometry.attributes.position, wv = V(0, 0, 0); let worst = 0;
+    for (let i = 0; i < pos.count; i++) { wv.fromBufferAttribute(pos, i).applyMatrix4(it.mesh.matrixWorld); worst = Math.max(worst, Math.abs(wv.y * Mk - 0.002 - STYLES.pad.lift)); }
+    assert.ok(worst < STYLES.pad.lift * 0.2, "every vertex sits one pad-print lift above the face (off by " + worst + " m)");
+    const st = markings(box, [{ text: "HI", h: 0.002, at: topAt, normal: UP, style: "sticker" }]).items[0], sp = st.mesh.geometry.attributes.position;
+    let hi = 0, lo = 1; for (let i = 0; i < sp.count; i++) { wv.fromBufferAttribute(sp, i).applyMatrix4(st.mesh.matrixWorld); const l = wv.y * Mk - 0.002; hi = Math.max(hi, l); lo = Math.min(lo, l); }
+    assert.ok(Math.abs(lo - STYLES.sticker.lift) < 1e-5 && hi > STYLES.sticker.lift + 0.0003 && hi <= 0.0016, "a sticker is paper thick with one corner curled up to " + hi + " m, never above 1.5 mm");
+    assert.deepEqual(Object.keys(STYLES).sort(), ["laser", "pad", "silkscreen", "sticker"], "four print styles");
+    assert.ok(box.children.filter((c) => c.userData.marking).length === 2 && it.mesh.userData.marking.h === 0.002 && it.mesh.userData.marking.style === "pad" && it.mesh.userData.marking.wear === 0, "each print declares its height, style and wear for the detail check");
+  }
+  // 3. a curved surface: the print follows a cylinder; too wide or off the surface is refused
+  { const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.005 / Mk, 0.005 / Mk, 0.02 / Mk, 48), grey);
+    const it = markings(cyl, [{ text: "A", h: 0.002, at: V(0, 0, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]).items[0], p = it.mesh.geometry.attributes.position, wv = V(0, 0, 0);
+    let worst = 0; for (let i = 0; i < p.count; i++) { wv.fromBufferAttribute(p, i).applyMatrix4(it.mesh.matrixWorld); worst = Math.max(worst, Math.abs(Math.hypot(wv.x, wv.z) * Mk / (0.005 + STYLES.pad.lift) - 1)); }
+    assert.ok(worst < 0.02, "the print wraps the cylinder within 2 % of its radius (off by " + worst + ")");
+    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, w: 0.02, at: V(0, 0, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /wrap|overhang/, "a print wider than the cylinder is refused");
+    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, at: V(0, 0.5, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /overhang/, "a print off the surface is refused");
+    assert.throws(() => markings(flat(), [{ text: "A", h: 0.002, at: V(0.0095 / Mk, 0.002 / Mk, 0), normal: UP, style: "pad" }]), /wrap|overhang/, "a print over the edge of a face is refused");
+  }
+  // 4. refusals name the field
+  { const box = flat(), ok = { text: "A", h: 0.002, at: topAt, normal: UP, style: "pad" };
+    assert.throws(() => markings(box, [{ ...ok, h: 0 }]), /cap height/);
+    assert.throws(() => markings(box, [{ ...ok, style: "neon" }]), /style/);
+    assert.throws(() => markings(box, [ok], { wear: 1.5 }), /wear/);
+    assert.throws(() => markings(box, [{ ...ok, wear: -0.1 }]), /wear/);
+    assert.throws(() => markings(box, [{ ...ok, text: undefined }]), /text/);
+    assert.throws(() => markings(box, [{ ...ok, normal: undefined }]), /normal/);
+    assert.throws(() => markings(box, [{ ...ok, at: [0, 0, 0] }]), /at must be/);
+    assert.throws(() => markings(box, []), /items/);
+    assert.throws(() => markings({}, [ok]), /target/);
+    assert.throws(() => markings(box, [{ ...ok, icon: "skull" }]), /icon/);
+    const worn = markings(box, [{ ...ok, wear: 0.4 }]).items[0]; assert.equal(worn.mesh.userData.marking.wear, 0.4, "wear is kept on the print");
+  }
+  // 4b. every icon and wear draw through a canvas (a recording stand-in: the drawing code runs, nothing is shown)
+  { const calls = [], ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); return k === "measureText" ? { width: 6 * String(a[0]).length } : undefined; }), set: (t, k, v) => { t[k] = v; return true; } });
+    globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
+    try {
+      const box = flat(), at = (x) => V(x / Mk, 0.002 / Mk, 0);
+      markings(box, [{ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, at: at(0), normal: UP, style: "sticker", wear: 0.5 }, { icon: "earth", h: 0.002, at: at(-0.007), normal: UP, style: "pad" },
+        { icon: "class2", h: 0.002, at: at(0.007), normal: UP, style: "laser" }, { text: ["ab"], h: 0.001, at: V(0, 0.002 / Mk, 0.02 / Mk), normal: UP, style: "silkscreen", wear: 1 }]);
+      assert.ok(calls.includes("fillText") && calls.includes("fill") && calls.includes("stroke"), "text, shapes and strokes are drawn");
+      assert.ok(calls.includes("arc"), "the wear specks are cut out of the ink");
+    } finally { delete globalThis.document; }
+  }
+  // 5. legible at the macro station (the acceptance): a 2 mm print is at least READ_PX tall at 1080 px; far away it is not
+  { const p = openPsu(null), c2 = p.parts.C2, m = c2.marks.find((x) => x.h === 0.002), cam = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk);
+    assert.ok(m, "C2 carries a 2 mm rating print");
+    placeCamera(cam, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 0, elevation: 20 }));
+    const px = glyphPx(m, cam, 1080);
+    assert.ok(px >= READ_PX && legible(m, cam, 1080), "a 2 mm print is " + px.toFixed(1) + " px tall at the macro station (floor " + READ_PX + " px)");
+    const far = new THREE.PerspectiveCamera(30, 16 / 9, 1e-4 / Mk, 100 / Mk); far.position.copy(m.centre).add(V(0, 0, 2 / Mk)); far.lookAt(m.centre); far.updateProjectionMatrix(); far.updateMatrixWorld();
+    assert.ok(glyphPx(m, far, 1080) < READ_PX && !legible(m, far, 1080), "the same print 2 m away is " + glyphPx(m, far, 1080).toFixed(1) + " px: not legible");
+    const behind = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk); placeCamera(behind, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 180, elevation: 20 }));
+    assert.equal(glyphPx(m, behind, 1080), 0, "a print facing away from the camera cannot be read");
+  }
+  // 6. the catalogue: every part body is within 1 % of its declared size, upright and turned a quarter
+  { let declared = 0;
+    for (const [type, spec] of Object.entries(PARTS)) {
+      assert.ok(spec.source && spec.sizes && Object.keys(spec.sizes).length, type + " names its source and sizes");
+      for (const size of Object.keys(spec.sizes)) for (const rot of [0, 90]) {
+        const b = board({ w: 0.12, d: 0.12 });
+        b.place("X1", type, { size, rot, value: type === "resistor" ? 4700 : "1", heatsink: type === "ic.to220", poles: 3 });
+        const a = scaleAudit(b.group, { tol: 0.01 });
+        assert.ok(a.ok && a.off.length === 0 && a.bad.length === 0, type + " " + size + " rot " + rot + ": " + a.problems.join("; "));
+        assert.ok(a.checked >= 3 * 2, type + " " + size + ": body and board both declare a size (" + a.checked + ")");
+        if (rot === 0) declared++;
+      }
+    }
+    assert.ok(declared >= 14, declared + " catalogue sizes were built and measured");
+    const p = openPsu(null), a = scaleAudit(p.group, { tol: 0.01 });
+    assert.ok(a.ok && a.checked >= 13 * 3, "the opened power supply: " + a.checked + " sizes checked, " + a.problems.join("; "));
+  }
+  // 7. resistor colour code (IEC 60062)
+  { assert.deepEqual(bands(4700), ["yellow", "violet", "red", "gold"]);
+    assert.deepEqual(bands(220), ["red", "red", "brown", "gold"]);
+    assert.deepEqual(bands(1), ["brown", "black", "gold", "gold"]);
+    assert.deepEqual(bands(0.47), ["yellow", "violet", "silver", "gold"]);
+    assert.deepEqual(bands(1e6), ["brown", "black", "green", "gold"]);
+    assert.deepEqual(bands(4750, { count: 5, tol: 1 }), ["yellow", "violet", "green", "brown", "brown"]);
+    assert.throws(() => bands(4750), /significant/, "4750 ohm needs 3 digits: not on a 4-band");
+    assert.throws(() => bands(-1), /ohms/);
+    assert.throws(() => bands(100, { tol: 7 }), /tol/);
+    const r1 = openPsu(null).parts.R1, want = bands(4700).map((n) => new THREE.Color(BAND_HEX[n]).getHex());
+    assert.deepEqual(r1.rings.map((m) => m.material.color.getHex()), want, "R1's rings are its value's colours");
+    assert.ok(r1.rings.every((m, i) => i === 0 || m.position.x > r1.rings[i - 1].position.x), "in order along +x");
+  }
+  // 8. placement by reference designator, pins and traces
+  { const b = board({ w: 0.06, d: 0.04 });
+    b.place("C2", "cap.electrolytic", { size: "10x16", at: [-10, 0], print: ["22µF", "400V"] });
+    b.place("Q1", "ic.to220", { at: [15, 5] });
+    assert.throws(() => b.place("C2", "resistor", { size: "0.25W", value: 100, at: [0, 10] }), /ref/, "a reference designator is used once");
+    assert.throws(() => b.place("R9", "resistor", { size: "9W", value: 100 }), /catalogue/);
+    assert.throws(() => b.place("R9", "flux.capacitor"), /catalogue/);
+    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, at: [100, 0] }), /off the board/);
+    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, rot: 45 }), /rot/);
+    assert.throws(() => b.place("R9", "resistor", { size: "0.25W" }), /value/);
+    assert.throws(() => b.place("R9", "cap.electrolytic", { at: [0, 10] }), /size/, "a size is named when the type has several");
+    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, at: [-10, 0] }), /overlap/, "two parts cannot share a place");
+    const p1 = b.pin("C2", 1), p2 = b.pin("C2", 2);
+    assert.ok(Math.abs(p1.y * Mk - 0.0016) < 1e-9 && Math.abs(p2.y * Mk - 0.0016) < 1e-9, "pins lie on the board's top");
+    assert.ok(Math.abs(p1.distanceTo(p2) * Mk / PARTS["cap.electrolytic"].sizes["10x16"].pitch - 1) < 0.01, "the two pins are one lead pitch apart");
+    assert.throws(() => b.pin("C2", 3), /pin/); assert.throws(() => b.pin("Z9", 1), /pin/);
+    const t = b.trace(["C2:1", "Q1:2"]), q = b.pin("Q1", 2);
+    assert.ok(t.length > 0 && t.kind === "trace" && b.traces.includes(t), "a trace follows the layout");
+    for (const [e, pn] of [[t.pointAt(0), p1], [t.pointAt(t.length), q]]) assert.ok(Math.hypot(e.x - pn.x, e.z - pn.z) * Mk < 1e-6, "its ends are the pins");
+    assert.throws(() => b.trace(["C2:1", "Z9:1"]), /pin/);
+    assert.ok(b.trace(["C2:2", [0, -15], [10, -15]]).length > 0, "free points are in mm from the board centre");
+    assert.throws(() => board({ w: 0 }), /w|d/);
+    const core = cable([V(0, 0.01 / Mk, 0), V(0.02 / Mk, 0.02 / Mk, 0)], { conductor: "N" });
+    assert.equal(core.meshes[0].material.color.getHex(), new THREE.Color(CONDUCTOR.N).getHex(), "a neutral core is blue");
+    assert.throws(() => cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X" }), /conductor/);
+    assert.equal(cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X", color: 0x123456 }).meshes[0].material.color.getHex(), new THREE.Color(0x123456).getHex(), "a film in another region passes its own colour");
+  }
+  // 9. the opened power supply
+  { const p = openPsu(null), refs = Object.keys(p.parts);
+    assert.ok(refs.length === 13 && ["J1", "F1", "RV1", "C1", "U1", "Q1", "C2", "K1", "C3", "R1", "R2", "R3", "J2"].every((r) => refs.includes(r)), "thirteen parts by reference: " + refs.join(" "));
+    const onBoard = p.board.mesh.children.filter((c) => c.userData.marking).map((c) => [].concat(c.userData.marking.text ?? []));
+    for (const r of refs) assert.ok(onBoard.some((t) => t.includes(r)), r + " has its silkscreen reference");
+    assert.ok(p.marks.some((m) => m.icon === "W012" && m.style === "sticker") && p.marks.every((m) => m.h > 0 && Number.isFinite(m.w) && m.mesh.userData.marking), "the warning sticker and every print are listed");
+    assert.deepEqual(p.cables.map((c) => c.conductor).sort(), ["+", "-", "L", "N"], "mains in and dc out");
+    assert.ok(p.cables.every((c) => c.meshes[0].material.color.getHex() === new THREE.Color(CONDUCTOR[c.conductor]).getHex()), "cores in their conductor colours");
+    let lowest = Infinity; for (const c of p.cables) for (let s = 0; s <= c.length; s += c.length / 40) lowest = Math.min(lowest, c.pointAt(s).y * Mk);
+    assert.ok(lowest > 0.0016, "a cable never goes through the board (lowest " + lowest + " m)");
+    assert.equal(openPsu(null, { prints: { C2: ["47µF", "450V"] } }).parts.C2.marks.some((m) => [].concat(m.text).includes("450V")), true, "a film can print its own values");
+    assert.ok(p.traces.length >= 3 && p.traces.every((t) => t.length > 0), "traces between pins");
+  }
+}
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
