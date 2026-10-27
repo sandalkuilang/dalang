@@ -369,6 +369,20 @@ that reads as:
   `examples/twin.js` (`twinSets`); the self-check asserts the arrow width ratio equals the value ratio, the tile
   count and area, the range card's fill and fit, the twin gap. Review rubric: a `Quantity` row (§11), a compared
   quantity shown only in text is a P1.
+- **Electricity and signals** (`engine/three/circuit.js`, `instruments.js`, `examples/supply.js`; `camera-motion.md`
+  "Any subject moves by its own law"): current made visible, caused by the film's numbers model and never keyframed.
+  `wire` (trace, wire, busbar) and `flow` (pulses at a stated visualisation speed, their SHAPE the waveform: ac sine,
+  dc straight, pwm blocks, three phases; width and brightness follow |current|; mains frequency slowed by a shown
+  `timeScale`, a shown rate under 4 frames a period refused as `/alias/`); `glow` (black-body colour from heat, a bad power, h or emissivity refused with its field named, nothing
+  under the Draper point), `lamp` (light from the supply voltage by the lamp type's cited curve or a datasheet table),
+  `arc` (a seeded branching discharge that lights the scene only for its frames, ballistic sparks, an `sfx.js` event
+  row; energy and efficacy have no default); `failure` (a bulged or vented capacitor, a blown fuse wire with a gap and a
+  soot mark, a charred resistor, a melted connector, switched at the model's event time). Widgets for the text band or a
+  device screen: `scope`, `meter`, `gauge`, `bar`, each with units and a label (refused without) and `--`, never 0,
+  for a value it cannot read. `examples/supply.js` (`supplyChain`): plug to motor, every value from `state(t)`. The
+  self-check asserts the ac period in the pulse shape, the alias refusal, the lamp falling with voltage by its curve,
+  the arc's light only in its frames, each failure variant, the scope showing two periods of 50 Hz over 40 ms, and the
+  chain's fuse, arc, lamp and shaft angle (an integral, the same for any order of frames).
 
 ### Changed
 
