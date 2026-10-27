@@ -52,6 +52,13 @@ that reads as:
   question offers the 3 best-fitting looks and "More looks", which opens a second question with the rest; before, the
   others were only named in the question text and easy to miss. A stylized slate for a made thing always holds J.
 
+### Fixed
+
+- **Kokoro guard on older Pythons** (`scripts/kokoro_tts.py`): Python 3.12 (the Linux CI's) starts a multiprocessing
+  child through `_posixsubprocess.fork_exec` with no audit event, so a spawn or forkserver child slipped past the guard
+  and the gate failed on `main`. The helper now raises that event itself before the real call; `tests/kokoro-helper.mjs`
+  passes on 3.12, 3.13 and 3.14.
+
 ## [1.5.0] - 2026-10-27
 
 ### Added
