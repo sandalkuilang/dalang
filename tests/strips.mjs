@@ -124,6 +124,43 @@ try {
     console.log("ok  tiling: stamps within 10 ms match");
     console.log("ok  tiling: a missing still is a black cell and a WARN, sheets are numbered, stale sheets go");
 
+    // 4b. --crops: one zoomed subject crop per shot, from the still nearest the middle of the shot.
+    const cropDir = path.join(sb, "review", "strips");
+    const crops = () => fs.readdirSync(cropDir).filter((f) => /^crop-\d+\.jpg$/.test(f)).sort();
+    const idx = () => fs.readFileSync(path.join(cropDir, "index.md"), "utf8");
+    r = await run([sb, "--frames", near, "--crops"]);
+    assert.equal(r.code, 0, r.err + r.out);
+    assert.deepEqual(crops(), ["crop-01.jpg", "crop-02.jpg", "crop-03.jpg"]);
+    assert.match(r.out, /3 subject crops/);
+    assert.match(idx(), /## Subject crops/);
+    assert.equal(idx().split("\n").filter((l) => /^crop-\d+\.jpg:/.test(l)).length, 3);
+    assert.match(idx(), /full-res still/);
+    if (has("ffprobe", "-version")) {
+      const cdim = (f) => spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", path.join(cropDir, f)]).stdout.toString().trim();
+      assert.equal(cdim("crop-01.jpg"), "640,360", "centre half of a 16:9 still, 640 wide");
+      r = await run([sb, "--frames", near, "--crops", "--crop", "0,0,0.5,1"]);
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.equal(cdim("crop-02.jpg"), "640,720", "the aspect follows the box");
+    }
+    r = await run([sb, "--frames", near]);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(crops(), [], "a rerun without --crops leaves no stale crop");
+    assert.doesNotMatch(idx(), /Subject crops/);
+    r = await run([sb, "--frames", fr, "--crops"]);
+    assert.equal(r.code, 3, r.err + r.out);
+    assert.match(r.out, /WARN: no crop for shot 2/);
+    assert.deepEqual(crops(), ["crop-01.jpg", "crop-03.jpg"], "no crop for the shot whose middle still is missing");
+    r = await run([sb, "--frames", near]); // clean again
+    for (const bad of ["0.8,0,0.5,1", "a,b", "0,0,0,1", "-0.1,0,0.5,0.5"]) {
+      r = await run([sb, "--frames", near, "--crops", "--crop", bad]);
+      assert.equal(r.code, 1, `--crop ${bad}: ${r.err}`);
+      assert.match(r.err, /Usage|--crop/);
+    }
+    r = await run([sb, "--crops", "--dry-run"]);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(crops(), [], "--dry-run writes no crop");
+    console.log("ok  --crops: one crop per shot, box validated, stale crops go, a missing still is a WARN");
+
     // 5. --against: each frame labelled against the previous round (unchanged / changed (targeted) / changed (not targeted)).
     const png = (file, lavfi) => { const f = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", lavfi, "-frames:v", "1", file]); assert.equal(f.status, 0, String(f.stderr)); };
     const grey = "color=c=0x808080:s=64x36";
