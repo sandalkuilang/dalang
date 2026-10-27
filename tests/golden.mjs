@@ -42,7 +42,7 @@ try {
   assert.equal(G.parseStillness("garbage"), null);
   // 5. compare
   const host = { platform: "darwin", arch: "arm64", cpus: 8, model: "M" };
-  const base = { size: "1280x720", fps: 30, host, render: { seconds: 40 }, stillness: { pct: 10, longest: 1 },
+  const base = { revision: 1, size: "1280x720", fps: 30, host, render: { seconds: 40 }, stillness: { pct: 10, longest: 1 },
     detail: { wide: 20, medium: 20, macro: 40 }, shadow: { wide: { texelMm: 1 }, medium: { texelMm: 1 }, macro: { texelMm: 1 } } };
   const mod = (f) => { const c = structuredClone(base); f(c); return c; };
   let c = G.compare(base, structuredClone(base), G.TOL);
@@ -62,6 +62,11 @@ try {
   assert.deepEqual([c.flags.length, c.warns.length], [0, 1]); assert.match(c.warns[0], /rerun/);
   c = G.compare(base, mod((x) => { x.size = "640x360"; }), G.TOL);
   assert.deepEqual([c.flags.length, c.warns.length], [0, 1]); assert.match(c.warns[0], /not comparable/);
+  // a changed scene (revision) is not comparable: no flag from the scene change, a soft warn, not a block
+  c = G.compare(base, mod((x) => { x.revision = 2; x.detail.macro = 10; x.stillness.pct = 30; }), G.TOL);
+  assert.deepEqual([c.flags.length, c.warns.length, c.hard.length], [0, 1, 0]); assert.match(c.warns[0], /not comparable.*revision 1 vs 2/);
+  c = G.compare(mod((x) => { delete x.revision; }), base, G.TOL);
+  assert.deepEqual([c.flags.length, c.warns.length], [0, 1]); assert.match(c.warns[0], /unknown vs 1/);
   console.log("ok  pure functions");
 
   // 6. usage errors
@@ -87,7 +92,7 @@ try {
       return d;
     };
     const args = (out, version, fdir, secs = 40, extra = []) =>
-      ["--version", version, "--out", out, "--frames", fdir, "--clip", path.join(fx, "clip.mp4"), "--render-seconds", String(secs), "--stations", stations, ...extra];
+      ["--version", version, "--out", out, "--revision", "1", "--frames", fdir, "--clip", path.join(fx, "clip.mp4"), "--render-seconds", String(secs), "--stations", stations, ...extra];
     const sharp = frames("f-sharp");
     const soft = frames("f-soft", "soft.jpg");
     const before = fs.readdirSync(tmp).sort();
@@ -134,7 +139,15 @@ try {
     const bj = JSON.parse(read(bm)); bj.host.model = "Another"; fs.writeFileSync(bm, JSON.stringify(bj));
     r = await run(args(o, "1.1.0", sharp, 80));
     assert.equal(r.code, 0, r.err + r.out); assert.match(r.out, /WARN: render time not compared/);
-    console.log("ok  regressions, explained, other host");
+    o = await seeded("reg-rev");
+    r = await run(args(o, "1.1.0", soft, 40, ["--revision", "2"]));
+    assert.equal(r.code, 0, r.err + r.out); assert.doesNotMatch(r.out, /FLAG:/); assert.match(r.out, /WARN: not comparable: scene revision 1 vs 2/);
+    assert.equal(JSON.parse(read(o, "1.1.0", "metrics.json")).revision, 2);
+    r = await run(args(o, "1.1.1", soft, 40, ["--revision", "2"]));
+    assert.equal(r.code, 3); assert.match(r.out, /FLAG: detail/, "same revision again compares normally");
+    r = await run(args(o, "1.1.2", sharp, 40, ["--revision", "x"]));
+    assert.equal(r.code, 1); assert.match(r.err, /--revision/);
+    console.log("ok  regressions, explained, other host, scene revision");
 
     // 10. unreadable baseline, unknown --against
     o = await seeded("reg-bad");
