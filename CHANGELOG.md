@@ -32,8 +32,9 @@ that reads as:
 
 ### Added
 
-- **Express has no user gate**: after the Brief the agent passes Gates 1–4 itself (`--by agent`) and hands over the
-  finished film; a change asked afterwards is a new builder round. Studio keeps its four gates.
+- **No user gate, in either mode** (`SKILL.md` principle 5): after the Brief the agent passes Gates 1–4 itself
+  (`--by agent`, once each gate's checks pass) and hands over the finished film; a change asked afterwards is a new
+  round. The gates stay as the agent's checkpoints (order, staleness, Studio's benchmark).
 - **Express mode, the default** (`references/express.md`, Brief Call 1 "Mode", `state.mjs`): a 30–90 s film in 20
   minutes of work at most. 2.5D illustration in HTML/SVG (layered planes, parallax, contact shadows, one key light,
   cutaways) instead of three.js; one builder that starts while the voice records; no asset search, reference board,
