@@ -290,7 +290,8 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     const go = (...files) => { const r = spawnSync("node", ["-e", cmd, ...files], { encoding: "utf8" }); return { status: r.status, out: r.stdout.trim().replaceAll(dir, ""), err: r.stderr }; };
     const W = "/p/film/style-frames/src/hook.js", BOARD = "/p/film/review/refs-board-hook.jpg";
     const write = (p = W, name = "Write") => line(tu(name, { file_path: p }));
-    const read = (p = BOARD) => line(tu("Read", { file_path: p }));
+    // A Read is its tool_use line then its tool_result line (is_error: "File does not exist." when the board is not there yet).
+    const read = (p = BOARD, is_error = false) => { const b = tu("Read", { file_path: p }); return line(b) + "\n" + result(b.id, is_error); };
     // A board-making call: [its tool_use line, its id]. A Bash ffmpeg command by default, or an Agent (the media screening).
     const maker = (extra = {}, name = "Bash") => {
       const b = tu(name, name === "Bash" ? { command: "ffmpeg -v error -y -i review/refs-hook/%d.jpg -vf tile=4x2 review/refs-board-hook.jpg", ...extra } : { prompt: "screen the stills, write review/refs-board-hook.jpg", ...extra });
@@ -334,6 +335,17 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
       assert.equal(r.status, 1, "a board command that failed does not count"); }
     r = go(file(read(), builder()), file(read(), write()));
     assert.ok(r.status === 0 && r.out === "", "a main session that opened the board before starting the builder: the board existed");
+    // A Read that came back as an error (the board maker had not landed yet) is not a board read.
+    r = go(file(read(BOARD, true), write()));
+    assert.equal(r.status, 1, "a failed board read then a write must exit 1");
+    r = go(file(read(BOARD, true), write("/p/film/style-frames/src/a.js"), write("/p/film/style-frames/src/b.js", "Edit")));
+    assert.equal(r.status, 1, "a failed board read never counts for any later write");
+    r = go(file(read(BOARD, true), builder()), file(read(), write()));
+    assert.equal(r.status, 1, "a main session whose board read failed has not seen a board: its builder is flagged");
+    r = go(file(read(BOARD, true), read(), write()));
+    assert.ok(r.status === 0 && r.out === "", "a failed board read followed by a successful one: clean");
+    r = go(file(read(BOARD, true), read(), builder()), file(read(), write()));
+    assert.ok(r.status === 0 && r.out === "", "a main session whose retry read succeeded may start the builder");
     // Unknown is not clean: no write under style-frames/src/, no argument, an empty transcript.
     for (const [what, files] of [["no write at all", [file(read())]], ["a read of a style-frames file", [file(read("/p/film/style-frames/src/hook.js"))]], ["a write elsewhere", [file(write("/p/film/SPEC.md"))]]]) {
       r = go(...files);
@@ -346,8 +358,23 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     fs.writeFileSync(`${dir}/empty.jsonl`, "\n");
     r = go(`${dir}/empty.jsonl`);
     assert.ok(r.status === 2 && /transcript/.test(r.err), "an empty transcript must exit 2 and say so");
+    // An unreadable transcript is unknown (exit 2 + usage), never the exit 1 of a flagged line.
     r = go(`${dir}/none.jsonl`);
-    assert.notEqual(r.status, 0, "a missing transcript must exit non-zero");
+    assert.ok(r.status === 2 && r.out === "" && /usage:/.test(r.err), `a missing transcript: exit 2, nothing printed, usage line (got ${r.status} "${r.out}")`);
+    r = go(dir);
+    assert.ok(r.status === 2 && /usage:/.test(r.err), "a folder in place of a transcript: exit 2");
+    { const good = file(read(), write());
+      const partial = file(read(), write()); fs.appendFileSync(partial, '{"message":{"cont');
+      r = go(partial);
+      assert.ok(r.status === 2 && /usage:/.test(r.err), `a transcript still being written (partial last line): exit 2 (got ${r.status})`);
+      r = go(good, partial);
+      assert.equal(r.status, 2, "one unreadable transcript among readable ones: exit 2");
+      const mid = file(write(), "not json", write()); r = go(mid);
+      assert.ok(r.status === 2 && r.out === "", `a malformed line makes the flagged lines unknown, so nothing is printed (got ${r.status} "${r.out}")`);
+      r = go(good);
+      assert.ok(r.status === 0 && r.out === "", "a complete transcript (blank lines allowed) still reads clean");
+      const blank = file(read(), "", write(), ""); r = go(blank);
+      assert.ok(r.status === 0 && r.out === "", "blank lines between records are not malformed"); }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   console.log("ok  Step 5 builds the style frames from their reference boards; the evals.md board check flags a write before the board");
 }
