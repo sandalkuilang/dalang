@@ -66,6 +66,36 @@ try {
     assert.ok(read().equals(plain), "index.html differs from the first plain run");
     console.log("ok  a plain run after a --lang run gives the first run's bytes");
   }
+  { // 3b. the language-bound files outside audio/ (the narration the film plays, the on-screen words) and a ./audio path
+    put("audio/narration.wav", "x");
+    put("audio/de/narration.wav", "x");
+    put("src/index.tpl.html", TPL + '<audio src="./audio/narration.wav"></audio>\n');
+    let r = run("--lang", "de");
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.ok(read().toString().includes('"audio/de/narration.wav"'), "./audio/ was not switched");
+    assert.doesNotMatch(read().toString(), /"\.\/audio\//);
+    for (const [gone, word] of [["assets/narration.de.m4a", /assets\/narration\.m4a/], ["strings.de.js", /strings\.js/], ["audio/de/narration.wav", /audio\/narration\.wav/]]) {
+      const keep = fs.readFileSync(path.join(tmp, gone));
+      fs.rmSync(path.join(tmp, gone));
+      put("index.html", "SENTINEL");
+      r = run("--lang", "de");
+      assert.equal(r.code, 1, `${gone}: ${r.out}${r.err}`);
+      assert.match(r.err, word, gone);
+      assert.equal(read().toString(), "SENTINEL", `${gone}: the out file was rewritten`);
+      put(gone, keep);
+    }
+    // a template naming a language folder that holds no such file is refused too
+    put("src/index.tpl.html", '<script src="audio/de/nope.js"></script>\n');
+    r = run("--lang", "de");
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.err, /audio\/de\/nope\.js/);
+    // the other side: a template with no language-bound file, and an image with no variant, still pass
+    put("src/index.tpl.html", '<img src="assets/tex.png"><script src="mine.js"></script>\n');
+    r = run("--lang", "de");
+    assert.equal(r.code, 0, r.out + r.err);
+    put("src/index.tpl.html", TPL);
+    console.log("ok  a missing narration / strings / ./audio variant is FAILED, the output untouched; a language-free asset still passes");
+  }
   { // 4. a variant missing under audio/: FAILED, nothing written
     fs.rmSync(path.join(tmp, "audio/de/captions.js"));
     put("index.html", "SENTINEL");
