@@ -44,9 +44,10 @@ try {
   assert.match(r.stdout, /OPEN THE SCOPES for cut\(s\) 2, 3, 5/);
   console.log("ok  flags: crushed blacks, clipped whites, hue jump (not after a grey cut)");
 
-  // 1b. Without --cuts the scene detect finds the cuts at 1 s and 2 s.
+  // 1b. Without --cuts the scene detect finds the grey-black and black-white cuts at 1 s and 2 s (a colour-to-colour cut scores low, so --cuts is given there).
   const auto = cli([mixed]);
-  assert.match(auto.stdout, /5 cuts/, auto.stdout);
+  assert.match(auto.stdout, /1\.0-2\.0/, auto.stdout);
+  assert.match(auto.stdout, /2\.0-3\.0/, auto.stdout);
   console.log("ok  scene detect finds the cuts");
 
   // 2. In-band film: OK, exit 0, --png writes nothing.
