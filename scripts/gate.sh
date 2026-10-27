@@ -16,7 +16,7 @@ step() { # step <name> <command...>: runs it, prints its output only when it fai
   local out; out=$("$@" 2>&1)
   if [ $? -eq 0 ]; then summary+=("✓ $name"); else summary+=("✗ $name"); failed=1; printf '── %s failed ──\n%s\n' "$name" "$out"; fi
 }
-syntax() { local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js tests/*.mjs; do node --check "$f" || return 1; done; bash -n scripts/measure_reference.sh scripts/gate.sh; }
+syntax() { local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js examples/golden/*.js tests/*.mjs; do node --check "$f" || return 1; done; bash -n scripts/measure_reference.sh scripts/gate.sh; }
 frontmatter() { head -1 SKILL.md | grep -qx -- '---' && grep -q '^name: dalang$' SKILL.md && grep -q '^description: ' SKILL.md; }
 engine() { local d; d=$(mktemp -d) && node engine/three/build.mjs "$d" >/dev/null && node engine/three/selfcheck.mjs "$d"; local r=$?; rm -rf "$d"; return $r; }
 
@@ -42,6 +42,7 @@ if [ $fast -eq 0 ]; then
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
   step "golden (metrics, diff, flags vs fixture frames; no Chrome)" node tests/golden.mjs
+  step "golden scene (stations, texel size, pure camera; no render)" node tests/golden-scene.mjs
   step "score_run (sound-off quiz result -> score)" node tests/score-run.mjs
 fi
 
