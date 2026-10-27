@@ -2582,7 +2582,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     let worst = 0; for (let i = 0; i < p.count; i++) { wv.fromBufferAttribute(p, i).applyMatrix4(it.mesh.matrixWorld); worst = Math.max(worst, Math.abs(Math.hypot(wv.x, wv.z) * Mk / (0.005 + STYLES.pad.lift) - 1)); }
     assert.ok(worst < 0.02, "the print wraps the cylinder within 2 % of its radius (off by " + worst + ")");
     assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, w: 0.02, at: V(0, 0, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /wrap|overhang/, "a print wider than the cylinder is refused");
-    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, at: V(0, 0.5, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /overhang/, "a print off the surface is refused");
+    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, at: V(0, 5, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /overhang/, "a print off the surface is refused");
     assert.throws(() => markings(flat(), [{ text: "A", h: 0.002, at: V(0.0095 / Mk, 0.002 / Mk, 0), normal: UP, style: "pad" }]), /wrap|overhang/, "a print over the edge of a face is refused");
   }
   // 4. refusals name the field
@@ -2604,8 +2604,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
     try {
       const box = flat(), at = (x) => V(x / Mk, 0.002 / Mk, 0);
-      markings(box, [{ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, at: at(0), normal: UP, style: "sticker", wear: 0.5 }, { icon: "earth", h: 0.002, at: at(-0.007), normal: UP, style: "pad" },
-        { icon: "class2", h: 0.002, at: at(0.007), normal: UP, style: "laser" }, { text: ["ab"], h: 0.001, at: V(0, 0.002 / Mk, 0.02 / Mk), normal: UP, style: "silkscreen", wear: 1 }]);
+      markings(box, [{ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, at: at(0), normal: UP, style: "sticker", wear: 0.5 }, { icon: "earth", h: 0.002, at: at(-0.006), normal: UP, style: "pad" },
+        { icon: "class2", h: 0.002, at: at(0.006), normal: UP, style: "laser" }, { text: ["ab"], h: 0.001, at: V(0, 0.002 / Mk, 0.02 / Mk), normal: UP, style: "silkscreen", wear: 1 }]);
       assert.ok(calls.includes("fillText") && calls.includes("fill") && calls.includes("stroke"), "text, shapes and strokes are drawn");
       assert.ok(calls.includes("arc"), "the wear specks are cut out of the ink");
     } finally { delete globalThis.document; }

@@ -63,7 +63,7 @@ export function wire(path, { kind = "trace", radius, color, normal = new THREE.V
     if (path.length < 2 || !path.every((p) => p?.isVector3)) throw new Error("wire: path needs at least 2 THREE.Vector3 points in scene units");
     curve = new THREE.CurvePath();
     for (let i = 1; i < path.length; i++) if (path[i].distanceTo(path[i - 1]) > 0) curve.add(new THREE.LineCurve3(path[i - 1].clone(), path[i].clone()));
-  } else if (path?.isCurve) curve = path;
+  } else if (typeof path?.getPointAt === "function" && typeof path?.getLength === "function") curve = path; // three's Curve has no isCurve flag
   else throw new Error("wire: path is an array of THREE.Vector3 or a THREE.Curve");
   const lengthUnits = curve.curves?.length === 0 ? 0 : curve.getLength(), length = lengthUnits * M;
   if (!(length > 1e-9)) throw new Error("wire: the path has zero length");
