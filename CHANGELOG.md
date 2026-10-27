@@ -66,6 +66,15 @@ that reads as:
   refused, the source power cancelling out of the caustic and the drawn rays, rays growing on cue, a caustic smallest and
   brightest at the focus, the straw drawn at its apparent position, and the refusals.
 
+- **One light and render rig** (`engine/three/studio.js`): `studio(renderer, scene, camera, { look, route })` sets the
+  colour pipeline (sRGB, AgX or Neutral, stencil for cutaways), a RoomEnvironment, key/fill/rim from a preset (`warm`,
+  `window`, `overcast`), N8AO, optional depth of field and SMAA, replacing the rig each film wrote by hand. The key's
+  shadow frustum is refitted every frame to what the camera sees (the part of the set inside the frame's pyramid, the
+  ground and props far behind the target included, since a fragment outside the shadow camera is lit), so a close-up's
+  contact shadow is as fine as the region it shows (texel <= 1 mm while the frame sees under about 4 m of the set) while
+  every caster stays in range; the AO radius and the DOF `focusRange` (typed in metres) come from the scale, never as
+  typed units. `render`/`frame` place the camera at the pose and the frame is the rig's own camera (`oner.render`
+  refuses another). `examples/oner.js` takes `studio` and renders through it; Step 6 says to use it.
 - **Creatures that walk and climb** (`engine/three/creature.js`, `examples/lizard.js`): an animal acting by its own
   anatomy. `gait(name, { h, v })` gives the stride and its frequency by dynamic similarity (Froude number, never typed
   per film) for four named gaits with cited footfall orders and duty factors: `walk`, `trot`, `sprawl` (a lizard's

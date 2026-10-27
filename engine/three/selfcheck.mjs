@@ -31,6 +31,7 @@ const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, rea
 const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
+const { studio, aoFor, fitShadow, LOOKS, PRESETS } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
@@ -1892,6 +1893,102 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     near(pose(travel(0, a, b, { start: 0, dur: 2, ease: (u) => u + 0.01 })), [-1, 1, 1, 0, 0, 0, 30], 0, "and starts on its own");
   }
 }
+// The studio rig: on a room-scale set, where one shadow frustum over the whole set is coarser than 1 mm, the key's
+// frustum is refitted to what each pose sees; the AO radius comes from the scale and the view, never typed.
+{
+  const part = (w, h, d, name, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w / M, h / M, d / M), new THREE.MeshStandardMaterial()); o.name = name; o.position.set(x / M, y / M, z / M); return o; };
+  const root = new THREE.Scene(), world = new THREE.Group(), A = new THREE.Group();
+  const floor = part(6, 0.02, 4, "floor", 0, -0.01, 0), cabinet = part(1, 1, 0.5, "cabinet", -2, 0.5, -1);
+  const shell = part(0.12, 0.12, 0.12, "shell", 1.5, 0.06, 0.5), core = part(0.03, 0.03, 0.03, "core", 1.5, 0.06, 0.5);
+  A.add(shell, core); world.add(floor, cabinet, A); root.add(world); root.updateMatrixWorld(true);
+  const camera = new THREE.PerspectiveCamera(30, 9 / 16, 0.001, 200);
+  const o = oner({ world, subject: A, inside: core, keep: [floor], end: 12, aspect: 9 / 16, studio: { renderer: null, scene: root, camera, height: 1920 } });
+  const rig = o.studio, key = rig.key, map = key.shadow.mapSize.x; // 4096: studio() sets it at build
+  assert.equal(map, LOOKS.diorama.shadow.map, "the diorama's shadow map");
+  const whole = (2 * rig.set.getBoundingSphere(new THREE.Sphere()).radius * M * 1000) / map;
+  assert.ok(whole > 1, "the test set is big enough that one frustum over it is coarser than 1 mm (" + whole.toFixed(2) + " mm)");
+  const measured = () => ((key.shadow.camera.right - key.shadow.camera.left) * M * 1000) / map;
+  const ndc = (p) => p.clone().applyMatrix4(key.shadow.camera.matrixWorldInverse).applyMatrix4(key.shadow.camera.projectionMatrix);
+  const corners = (b) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z));
+  const at = {};
+  for (const [name, t] of [["home", 0], ["dive", 4], ["inside", 8]]) {
+    const p = o.at(t, camera); assert.equal(p.station, name, "t = " + t + " holds " + name);
+    const s = rig.state(p); at[name] = { p, s };
+    assert.ok(Math.abs(measured() - s.texelMm) < 1e-9, name + ": the reported texel is the frustum's");
+    // (a close-up covers everything it sees, so its texel is the visible region over the map: <= 1 mm below, not a frame pixel)
+    if (name === "home") assert.ok(measured() <= s.pixelMm, name + ": the shadow texel (" + measured().toFixed(3) + " mm) is no coarser than a frame pixel on the target (" + s.pixelMm.toFixed(3) + " mm)");
+    // The dive looks down at the floor, so it sees little of the set: <= 1 mm. The inside station looks level across the room
+    // and sees all of it, which the shadow covers (a lit far wall is the failure), at no worse than one frustum over the set.
+    if (name === "dive") assert.ok(measured() <= 1, name + ": a close-up's shadow texel is <= 1 mm, got " + measured().toFixed(3));
+    assert.ok(measured() <= whole + 1e-9, name + ": never coarser than one frustum over the whole set");
+    const subject = new THREE.Box3().setFromObject(name === "inside" ? core : A);
+    for (const c of corners(subject)) { const q = ndc(c); assert.ok(Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1 && Math.abs(q.z) <= 1, name + ": the subject is inside the shadow frustum"); }
+    for (const c of corners(rig.set)) assert.ok(Math.abs(ndc(c).z) <= 1, name + ": every caster of the set is inside the shadow's depth range");
+    // What the pose SEES, not a disc round the target: a ray through each of 25 frame points enters and leaves the set's box;
+    // both points are in the shadow camera's x/y (three.js lights a fragment outside it: the far floor would lose its shadows).
+    camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+    const slab = (o, d, b) => { let t0 = 0, t1 = Infinity; for (const k of ["x", "y", "z"]) { const i0 = (b.min[k] - o[k]) / d[k], i1 = (b.max[k] - o[k]) / d[k]; t0 = Math.max(t0, Math.min(i0, i1)); t1 = Math.min(t1, Math.max(i0, i1)); } return t0 <= t1 ? [t0, t1] : null; };
+    let seen = 0;
+    for (const nx of [-1, -0.5, 0, 0.5, 1]) for (const ny of [-1, -0.5, 0, 0.5, 1]) {
+      const dir = new THREE.Vector3(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize(), hit = slab(camera.position, dir, rig.set);
+      if (!hit) continue;
+      for (const tt of hit) { const q = ndc(camera.position.clone().addScaledVector(dir, tt)); seen++; assert.ok(Math.abs(q.x) <= 1 + 1e-6 && Math.abs(q.y) <= 1 + 1e-6, name + ": what the frame sees at (" + nx + ", " + ny + ") is inside the shadow frustum, got " + q.x.toFixed(2) + ", " + q.y.toFixed(2)); }
+    }
+    assert.ok(seen >= (name === "home" ? 2 : 20),name + ": the rays meet the set (" + seen + ")");
+  }
+  assert.ok(at.dive.s.texelMm < at.home.s.texelMm / 2, "the frustum is refitted, not fixed: dive " + at.dive.s.texelMm.toFixed(3) + " mm vs home " + at.home.s.texelMm.toFixed(3));
+  const again = rig.state(at.dive.p); // renders arrive out of order
+  assert.equal(again.texelMm, at.dive.s.texelMm, "state is a function of the pose, whatever was rendered before");
+  // AO: from M and the view, never typed.
+  for (const x of [0.3, 1.2, 4]) {
+    const a1 = aoFor(x / 1, LOOKS.diorama.ao, 1), a2 = aoFor(x / 2, LOOKS.diorama.ao, 2);
+    assert.ok(Math.abs(a1.aoRadius - 2 * a2.aoRadius) < 1e-12 && Math.abs(a1.metres - a2.metres) < 1e-12, "the AO radius in units scales with M (same metres at mpu 1 and 2)");
+  }
+  assert.ok(at.home.s.ao.metres > at.dive.s.ao.metres && at.inside.s.ao.metres >= LOOKS.diorama.ao.min, "the AO radius follows the view: wide " + at.home.s.ao.metres + " m, dive " + at.dive.s.ao.metres + " m");
+  // Edges of the fit: a frame that sees none of the set gets the whole-set sphere (a lit set is never left unshadowed); a
+  // camera straight above the floor fits finitely and covers what it sees.
+  {
+    const c = rig.set.getCenter(new THREE.Vector3()), R = rig.set.getBoundingSphere(new THREE.Sphere()).radius;
+    const away = fitShadow(key, { position: c.clone().add(new THREE.Vector3(0, 0, 10 * R)), target: c.clone().add(new THREE.Vector3(0, 0, 20 * R)), fov: 30, aspect: 9 / 16 }, { set: rig.set });
+    assert.ok(Math.abs(away.radius - R) < 1e-9, "a frame that sees none of the set gets the set's sphere");
+    const down = fitShadow(key, { position: c.clone().add(new THREE.Vector3(0, 1 / M, 0)), target: new THREE.Vector3(c.x, -0.01 / M, c.z), fov: 30, aspect: 9 / 16 }, { set: rig.set });
+    assert.ok(Number.isFinite(down.radius) && down.radius < R, "a camera looking straight down fits finitely, tighter than the whole set");
+    for (const p of [new THREE.Vector3(c.x, -0.01 / M, c.z), new THREE.Vector3(c.x, -0.01 / M, c.z + 0.3 / M)]) { const q = ndc(p); assert.ok(Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1, "the floor under a camera looking straight down is in the frustum"); }
+  }
+  // Toon: no AO, its own map; unknown names refused; a dry rig does not render.
+  const toon = studio(null, new THREE.Scene(), camera, { look: "toon", set: world });
+  assert.equal(toon.state(at.dive.p).ao, null, "toon has no AO");
+  assert.equal(toon.key.shadow.mapSize.x, LOOKS.toon.shadow.map, "toon's shadow map");
+  assert.throws(() => studio(null, new THREE.Scene(), camera, { look: "noir", set: world }), /unknown look/);
+  assert.throws(() => studio(null, new THREE.Scene(), camera, { preset: "neon", set: world }), /preset/);
+  assert.throws(() => o.render(0), /renderer/, "a dry rig refuses to render");
+  // The rig renders the camera it was built with: another camera passed to render() is refused, not moved and left unrendered;
+  // the same camera passes that check (and then meets the dry rig's refusal).
+  assert.throws(() => o.render(0, new THREE.PerspectiveCamera(30, 9 / 16, 0.001, 200)), /camera/, "render(t, other camera) is refused");
+  assert.throws(() => o.render(0, camera), /renderer/, "render(t, the rig's camera) passes the camera check");
+  // frame(t, pose) places the camera at the pose, so the frame is the pose the shadow was fitted to (render calls it).
+  {
+    const cam2 = new THREE.PerspectiveCamera(60, 1, 0.001, 200); cam2.position.set(9, 9, 9); cam2.updateMatrixWorld();
+    const r2 = studio(null, new THREE.Scene(), cam2, { set: world, route: o.route });
+    const pose = o.route.at(4), fr = r2.frame(4, pose);
+    assert.ok(cam2.position.distanceTo(pose.position) < 1e-9 && cam2.fov === pose.fov, "frame(t, pose) places the camera at the pose");
+    assert.ok(Math.abs(fr.texelMm - r2.state(pose).texelMm) < 1e-12, "and fits the shadow to that pose with the camera's aspect");
+    assert.ok(r2.frame(4).texelMm === fr.texelMm && cam2.position.distanceTo(pose.position) < 1e-9, "frame(t) without a pose takes the route's");
+    assert.throws(() => studio(null, new THREE.Scene(), cam2, { set: world }).frame(4), /route/, "no pose and no route is refused");
+  }
+  // DOF range: typed in metres, handed to the effect in units (the effect reads world units), so the in-focus depth in metres is the same at any M.
+  {
+    const dofAt = (mpu, dof) => studio(null, new THREE.Scene(), camera, { set: world, dof, mpu }).state(at.dive.p).focusRange;
+    for (const mpu of [0.01, 1, 2]) {
+      assert.ok(Math.abs(dofAt(mpu, { focusRange: 0.05 }) * mpu - 0.05) < 1e-12, "a typed focusRange of 0.05 is 0.05 m at mpu " + mpu);
+      assert.ok(Math.abs(dofAt(mpu, true) * mpu - 3) < 1e-12, "the default range is the same metres at mpu " + mpu);
+    }
+    assert.ok(dofAt(1, { focusRange: 0.2 }) === 4 * dofAt(1, { focusRange: 0.05 }), "a larger typed range is larger, in proportion");
+    assert.equal(dofAt(1, false), null, "no DOF, no range");
+    for (const bad of [0, -1, NaN, "3"]) assert.throws(() => dofAt(1, { focusRange: bad }), /focusRange/, "focusRange " + bad + " is refused");
+  }
+  assert.ok(Object.isFrozen(PRESETS.warm.key) && Object.isFrozen(LOOKS.diorama.ao), "the defaults are data, not shared mutable state");
+}
 // Cues and shots on one frame grid: a cue is snapped the way a cut is, so a raw cue never meets a snapped cut.
 {
   const shots = [{ name: "intro", start: 0, end: 1.05 }, { name: "valve", start: 1.05, end: 3 }, { name: "outro", start: 3, end: 5 }];
@@ -3068,4 +3165,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   }
 }
 
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
