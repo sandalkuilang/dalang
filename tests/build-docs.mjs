@@ -59,14 +59,17 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
 // stays silent on what the skill allows the main agent to write (the Step 5 style frames in `style-frames/src/`).
 {
   const evals = read("references/evals.md");
-  const cmd = evals.match(/^node -e '([^\n]*Write\|Edit[^\n]*)' <session>\.jsonl/m)?.[1];
-  assert.ok(cmd, "evals.md must carry the scene-code transcript command");
+  // The command takes the film's folder (the one holding BRIEF.md) after the transcript: a path is judged only relative
+  // to it, so a parent folder's name (`~/src/videos/...`) can never decide it.
+  const cmd = evals.match(/^node -e '([^\n]*Write\|Edit[^\n]*)' <session>\.jsonl <project>/m)?.[1];
+  assert.ok(cmd, "evals.md must carry the scene-code transcript command, given the transcript and the film's folder <project>");
   const dir = fs.mkdtempSync(`${os.tmpdir()}/evals-scene-`);
-  const check = (name, input, side = false) => {
+  const run = (args, name, input, side = false) => {
     const f = `${dir}/s.jsonl`;
     fs.writeFileSync(f, JSON.stringify({ isSidechain: side, message: { content: [{ type: "tool_use", name, input }] } }) + "\n");
-    return spawnSync("node", ["-e", cmd, f], { encoding: "utf8" }).stdout.trim();
+    return spawnSync("node", ["-e", cmd, f, ...args], { encoding: "utf8" });
   };
+  const check = (name, input, side = false, root = "/p/film") => run([root], name, input, side).stdout.trim();
   try {
     // Forbidden: the film's own scene code, from the main context.
     assert.equal(check("Write", { file_path: "/p/film/src/index.tpl.html" }), "/p/film/src/index.tpl.html", "a Write to src/ must be flagged");
@@ -78,6 +81,28 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     assert.equal(check("Write", { file_path: "/p/film/src/index.tpl.html" }, true), "", "a builder subagent's write is not the main context's");
     assert.equal(check("Read", { file_path: "/p/film/src/index.tpl.html" }), "", "the check is about Write and Edit");
     assert.equal(check("Write", { file_path: "/p/film/BRIEF.md" }), "", "BRIEF.md is the main agent's");
+    // A film under a folder named `src` (the user's videos folder in `~/src/`): the main agent's files are never flagged,
+    // the film's own scene code still is.
+    for (const f of ["BRIEF.md", "storyboard.md", "SPEC.md", "PRODUCTION.md", "QC-REVIEW.md"])
+      assert.equal(check("Write", { file_path: `/x/src/videos/film/${f}` }, false, "/x/src/videos/film"), "", `${f} of a film under /x/src/ must not be flagged`);
+    assert.equal(check("Write", { file_path: "/x/src/videos/film/src/index.tpl.html" }, false, "/x/src/videos/film"), "/x/src/videos/film/src/index.tpl.html", "the film's src/ under /x/src/ must still be flagged");
+    // The class: the path is judged ONLY relative to the film's folder. Whatever the parent folders are called (src,
+    // assets, style-frames, a trailing slash on the argument), the main agent's files and style frames are never flagged
+    // and the film's scene code always is; a path outside the film is not this film's scene code.
+    for (const root of ["/p/film", "/x/src/videos/film", "/x/assets/film", "/x/style-frames/src/film", "/x/src/assets/src/film/"]) {
+      const r = root.replace(/\/$/, "");
+      for (const f of ["BRIEF.md", "storyboard.md", "SPEC.md", "PRODUCTION.md", "QC-REVIEW.md", "style-frames/src/hook.js", "style-frames/src/index.tpl.html", "assets/bake/set.json", "assets/data/curve.js", "review/sheet.jpg"])
+        for (const tool of ["Write", "Edit"])
+          assert.equal(check(tool, { file_path: `${r}/${f}` }, false, root), "", `${tool} ${f} under ${root} must not be flagged`);
+      for (const f of ["src/index.tpl.html", "src/compositions/g1.tpl.html", "src/set.js", "assets/set.js", "assets/film.js"])
+        for (const tool of ["Write", "Edit"])
+          assert.equal(check(tool, { file_path: `${r}/${f}` }, false, root), `${r}/${f}`, `${tool} ${f} under ${root} must be flagged`);
+      assert.equal(check("Write", { file_path: `${r}/../other/src/a.js` }, false, root), "", `another film's src/ next to ${root} is not this film's`);
+    }
+    // Without the film's folder the check cannot judge a path: it fails loudly, never prints nothing (a silent pass).
+    const bare = run([], "Write", { file_path: "/p/film/src/index.tpl.html" });
+    assert.notEqual(bare.status, 0, "the check run without <project> must exit non-zero");
+    assert.match(bare.stderr, /<project>/, "the check run without <project> must say it needs the film's folder");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   // The rule's text names the exception, so a reader does not hand the style frames to a builder either.
   for (const [f, text] of [["SKILL.md", skill], ["references/look-build.md", parallel], ["references/evals.md", evals]])
