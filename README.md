@@ -179,7 +179,7 @@ scripts/
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
   beats_lint.mjs       a second-language narration keeps every named beat, in order (second-language cut)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
-  series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
+  series.mjs           series kit: save a channel's look, HUD, captions, voice, sets and rules once; apply to each new video (never scene code)
   strips.mjs           review strips: stills per shot on numbered sheets + index + layout numbers; --crops adds a subject crop per shot; --against labels what changed since the last round
   layout_lint.mjs      canvas text boxes per strip frame: safe area, hero overlap, minimum size, caption over label (strips.mjs runs it)
   golden.mjs           golden scene rendered per version: metrics + sheet + diff against the previous (release time)
@@ -195,7 +195,8 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   lines, filings, rays through lenses), cutaways, captions and labels,
                   printed markings and electronics, quantities (flow arrows, tile fills, range cards), camera stations and
                   attention) with a self-check; bake.mjs caches a physics bake once for every
-                  snapshot and render; examples/ ready pieces
+                  snapshot and render; examples/ ready pieces, examples/sets.js the set library (desk, workbench,
+                  counter, plinth, room) a film assembles its set from
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
 tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, Gate 3 benchmark, golden (run by the gate)

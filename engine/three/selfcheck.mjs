@@ -38,6 +38,7 @@ const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { supplyChain } = await use("examples/supply.js");
 const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
+const sets = await use("examples/sets.js");
 const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
 const { makeLizard, wallClimb } = await use("examples/lizard.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
@@ -3165,4 +3166,47 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   }
 }
 
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), any scale and gravity");
+{ // Sets (examples/sets.js): a set assembled from the library stands at its real height at any scale, every part lands on what
+  // is under it, the dressing leaves the hero's area clear, nothing is unchecked by scaleAudit, the hero is placed by
+  // footprint on the top and refused where it does not fit, and the same options build the same set.
+  const build = (mpu) => {
+    const k = K.makeKit(new THREE.Scene(), { mpu }), V = (x, y, z) => new THREE.Vector3(x / mpu, y / mpu, z / mpu);
+    const all = [sets.room(k, { at: V(0, 0, 0), w: 8, d: 6 }), sets.desk(k, { at: V(-2.5, 0, -1.5) }), sets.workbench(k, { at: V(0, 0, -1.5) }), sets.counter(k, { at: V(2.5, 0, -1.5) }), sets.plinth(k, { at: V(0, 0, 1) })];
+    const hero = new THREE.Mesh(new THREE.BoxGeometry(0.2 / mpu, 0.3 / mpu, 0.15 / mpu)); hero.name = "hero"; hero.userData.real = { h: 0.3, w: 0.2, d: 0.15 };
+    hero.position.set(1 / mpu, 2 / mpu, 0); // anywhere: place() moves it
+    all[1].place(hero, { u: 0.5, v: 0.5 });
+    return { k, all, hero, misses: k.settle() };
+  };
+  const heights = { room: 0, desk: 0.75, workbench: 0.9, counter: 0.91, plinth: 0.9 }, snap = [];
+  for (const mpu of [2, 0.5]) {
+    const { k, all, hero, misses } = build(mpu), Mq = K.M, box = (o) => new THREE.Box3().setFromObject(o, true);
+    assert.deepEqual(misses, [], "every set part lands on what is under it (mpu " + mpu + ")");
+    for (const s of all) {
+      assert.ok(Math.abs(s.top * Mq - heights[s.name]) < 1e-9, s.name + " top at its real height, in metres at any scale");
+      assert.ok(Math.abs(box(s.body).min.y + (s.name === "room" ? 0.02 / Mq : 0)) * Mq < 0.0005, s.name + " stands on the floor");
+      for (const p of s.props) {
+        const b = box(p), a = s.area;
+        assert.ok(b.max.x <= a.min.x || b.min.x >= a.max.x || b.max.z <= a.min.z || b.min.z >= a.max.z, `${p.name} stays out of the hero's clear area`);
+        if (p.isMesh) continue; // the lamp cable: laid along its path, not rested
+        assert.ok(b.min.y >= s.top - 0.0005 / Mq && (b.min.y - s.top) * Mq < 0.02, `${p.name} rests on the top or on what lies on it (${((b.min.y - s.top) * Mq * 1000).toFixed(1)} mm)`);
+      }
+    }
+    const hb = box(hero), c = hb.getCenter(new THREE.Vector3()), sp = all[1].spot(0.5, 0.5);
+    assert.ok(Math.abs(hb.min.y - all[1].top) * Mq < 0.0005 && Math.hypot(c.x - sp.x, c.z - sp.z) * Mq < 0.0005, "the hero by footprint on the desk top, at its spot");
+    let bulb; k.scene.traverse((o) => { if (o.isPointLight) bulb = o; });
+    assert.ok(Math.abs(bulb.intensity * Mq * Mq - 3) < 1e-9 && Math.abs(bulb.distance * Mq - 2.5) < 1e-9, "the desk lamp's light is in metres: the same pool on the top at any scale, not blown out or lost");
+    const audit = scaleAudit(k.scene);
+    assert.ok(audit.ok && audit.unchecked.length === 0 && audit.checked > 20, "every set part declares its real size and matches it: " + JSON.stringify([audit.problems, audit.unchecked]));
+    const big = new THREE.Mesh(new THREE.BoxGeometry(1 / mpu, 0.1 / mpu, 0.2 / mpu));
+    assert.throws(() => all[1].place(big), /does not fit the clear area/, "a hero wider than the clear area is refused, not dropped into the dressing");
+    assert.throws(() => all[1].place(hero, { u: 1 }), /does not fit/, "a spot that puts the hero over the edge of the area is refused");
+    assert.throws(() => sets.desk(k, { at: new THREE.Vector3(), w: 0.8 }), /no room left for the hero/, "a desk too narrow for its dressing throws");
+    assert.ok(sets.desk(k, { at: new THREE.Vector3(9 / mpu, 0, 0), w: 0.8, dress: false }).props.length === 0, "dress: false builds the bare desk");
+    assert.throws(() => sets.counter(k, { at: [0, 0, 0] }), /at is a THREE.Vector3/);
+    snap.push(all.map((s) => { const b = s.bounds(); return [...b.min.toArray(), ...b.max.toArray()].map((x) => +(x * Mq).toFixed(6)); }));
+  }
+  assert.deepEqual(snap[0], snap[1], "the same set at two scales measures the same in metres (seeded, no randomness)");
+  K.makeKit(new THREE.Scene(), { mpu: 2 });
+}
+
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), sets (real heights, parts landed, the hero's area clear, placed by footprint, refused where it does not fit, seeded), any scale and gravity");

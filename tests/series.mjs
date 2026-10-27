@@ -28,12 +28,13 @@ const BRIEF = [
   "# Brief", "", "- Topic: how a siphon works", "- Platform: YouTube Shorts", "- Ratio & resolution: 9:16, 1080×1920", "- fps: 30",
   "- Narration language: en", "- Angle: Step by step", "- Realism: stylized", "- Look: G. Stylised 3D diorama", "- Energy: Punchy social",
   "- Audience: General public", "- Voice engine: VoiceStudio", "- Voice model: omnivoice", "- Voice: narrator-a", "- Duration: 60 s",
-  "- Signoff: see you next time", "",
+  "- Signoff: see you next time", "- Sets: desk (top 0x8f6b4a), room (wear 0.2)", "",
 ].join("\n");
 const OVERLAYS = 'import { drawCaption } from "../assets/engine/type.js"; export const hud = 1;\n';
 const PALETTE = '{"ground":"#f3ede4"}\n';
 const FILM = 'import * as THREE from "../assets/engine/three-vendor.js"; const s = new THREE.Scene();\n';
 const SET = 'import { bakeCached } from "../assets/engine/physics.js"; bakeCached();\n';
+const RECIPE = 'import * as sets from "../assets/engine/examples/sets.js"; export const dress = (k, at) => sets.desk(k, { at });\n'; // a set from the library is still scene code
 
 const fixture = () => {
   const p = mkdir("src");
@@ -42,6 +43,7 @@ const fixture = () => {
   put(p, "src/palette.json", PALETTE);
   put(p, "src/film.js", FILM);
   put(p, "src/set.js", SET);
+  put(p, "src/desk.js", RECIPE);
   put(p, "src/index.tpl.html", "<html></html>\n");
   put(p, ".env", "KEY=x\n");
   put(p, "assets/engine/type.js", "export {};\n");
@@ -61,7 +63,7 @@ const fresh = () => `kit${++k}`;
   const r = run(["save", "chan", "--from", src, ...GOOD]);
   assert.equal(r.code, 0, r.out);
   const md = read(root, "chan/SERIES.md");
-  for (const l of ["- Platform: YouTube Shorts", "- fps: 30", "- Voice: narrator-a", "- Signoff: see you next time", "- Look: G. Stylised 3D diorama"]) assert.ok(md.includes(l), `SERIES.md lacks ${l}`);
+  for (const l of ["- Platform: YouTube Shorts", "- fps: 30", "- Voice: narrator-a", "- Signoff: see you next time", "- Look: G. Stylised 3D diorama", "- Sets: desk (top 0x8f6b4a), room (wear 0.2)"]) assert.ok(md.includes(l), `SERIES.md lacks ${l}`);
   for (const w of ["Topic", "Angle", "Duration", "siphon"]) assert.ok(!md.includes(w), `SERIES.md carries ${w}`);
   assert.equal(read(root, "chan/files/src/overlays.js"), OVERLAYS);
   assert.equal(read(root, "chan/files/src/palette.json"), PALETTE);
@@ -70,7 +72,7 @@ const fresh = () => `kit${++k}`;
 
 // 2. save refuses scene code, env, per-video files, escapes and symlinks; nothing is written (also in a mixed list).
 {
-  const bad = ["src/film.js", "src/set.js", ".env", "../x.js", path.join(src, "src/overlays.js"), "assets/engine/type.js", "audio/words.json", "script.md", "src/index.tpl.html", "src/link.js", "BRIEF.md", "src/missing.js"];
+  const bad = ["src/film.js", "src/set.js", "src/desk.js", ".env", "../x.js", path.join(src, "src/overlays.js"), "assets/engine/type.js", "audio/words.json", "script.md", "src/index.tpl.html", "src/link.js", "BRIEF.md", "src/missing.js"];
   for (const f of bad) {
     const name = fresh();
     const r = run(["save", name, "--from", src, "--file", f]);

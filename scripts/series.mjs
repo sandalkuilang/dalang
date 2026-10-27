@@ -8,8 +8,8 @@
 //   list                                                        the kits, one line each
 //   apply <name> [project] [--force]                            kit files -> project, BRIEF.md pre-filled, rules printed
 //   note <name> "<rule>"                                        append a channel-level rule to SERIES.md
-// Never in a kit: scene code (a module that builds a scene or imports the engine's 3D / physics: heuristic, see
-// isScene), per-video files (script, storyboard, audio, BRIEF.md ...), the engine copy, env files, anything outside
+// Never in a kit: scene code (a module that builds a scene or imports the engine's 3D / physics, a set from the
+// engine's set library included: heuristic, see isScene), per-video files (script, storyboard, audio, BRIEF.md ...), the engine copy, env files, anything outside
 // the project, symlinks. The real guarantee: save copies only the files named with --file, apply copies only files/.
 // Exit 0 ok, 1 refused / problem (nothing written), 2 cannot read (WARN: rerun; never read as "no kits"): every read
 // goes through fsRead, the one choke point that turns any error other than "missing" into that WARN.
@@ -39,7 +39,7 @@ const [cmd, name, arg3] = pos;
 
 // ---- Brief lines
 const CHANNEL = new Set(['platform', 'ratio & resolution', 'ratio', 'resolution', 'fps', 'narration language', 'language', 'realism',
-  'look', 'visual style', 'energy', 'audience', 'voice engine', 'voice model', 'voice', 'signoff', 'sign-off']);
+  'look', 'visual style', 'energy', 'audience', 'voice engine', 'voice model', 'voice', 'signoff', 'sign-off', 'sets']);
 const ALIAS = { ratio: 'ratio & resolution', resolution: 'ratio & resolution', language: 'narration language', 'visual style': 'look', 'sign-off': 'signoff' };
 const keyOf = line => {
   const m = line.match(/^\s*(?:[-*+]\s+)?(?:\*\*)?([A-Za-z][^:|*]*?)(?:\*\*)?\s*:(?:\*\*)?\s*\S/)
