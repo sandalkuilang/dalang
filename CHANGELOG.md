@@ -45,6 +45,21 @@ that reads as:
   behind, a row absent, twice or with a score it cannot read, and with a verdict older than the style frames; it
   records the scores in `state.json`, and the main agent logs them in `PRODUCTION.md`. An approval given before this
   stays fresh. `qc.md` keeps the defect review separate. Gate step `tests/benchmark.mjs`.
+- **Transmissions** in the engine (`mechanism.js`, `transmission.js`): `gear` (tooth counts or ratio, internal), `belt`
+  (radii or teeth, slip, an idler on the back), `chain` (tooth counts, shifts to another cog at a cue) and `cam` (a lift
+  profile, the follower held on it) tie one part's motion to another's at the real ratio in the same bake, hashed into
+  its cache key, so a film never hand-animates the second rotation off the real ratio. Two-way: a driven inertia comes
+  back to the driver as s²·I, `torque()` reports N·m, a latched wheel holds the train. `hinge` takes `min: -Infinity,
+  max: Infinity` for a free axle. `transmission.js` draws them at real size: involute spur gears at a real module and
+  tooth count that mesh at the centre distance (an interfering pair is refused with the fix named), belt and chain
+  loops, the centre for a whole number of links, links placed at the phase the driver's replayed pose gives.
+  `examples/drivetrain.js`: a bicycle drivetrain changing gear under the rider's pedal torque. Self-check: 12:36 turns
+  at exactly 1/3 the other way, links move at ω·r, meshing gears never interpenetrate over a turn, the 42:14 wheel
+  turns 3 times as fast as the cranks and 2 after the shift to 21, identical across two bakes. Not covered: bevel and
+  worm gears, a rack, linkages. A coupling's `ratio()`, `angle()` and `torque()` are stored with the bake
+  (`report.couplings`) and read from it, so they match on a cache hit and on a live bake; a cam profile is hashed by its
+  values as well as its source (a profile closing over a lift is not stale); `spring` refuses a free axle and stops past
+  a half turn.
 - **Second-language cut** (`scripts/beats_lint.mjs`, `fill_times.mjs --lang <code>`): every animation time is a named
   beat, so a second narration with the same beat names re-times the film from the same storyboard. `beats_lint.mjs
   narration.txt narration.<lang>.txt` exits 1 with `file:line` when a beat is missing, renamed, extra, out of the

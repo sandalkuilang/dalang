@@ -11,7 +11,7 @@ const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f)
 const { THREE } = await use("three-vendor.js");
 const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
 const { makeSim, RAPIER, slow, replay } = await use("physics.js");
-const { slide, hinge, spring, latch } = await use("mechanism.js");
+const { slide, hinge, spring, latch, gear, belt, chain, cam } = await use("mechanism.js");
 const { bakeCurtain } = await use("cloth.js");
 const { sweep } = await use("fur.js");
 const { get } = await use("surfaces.js");
@@ -26,6 +26,7 @@ const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
+const { makeDrivetrain } = await use("examples/drivetrain.js");
 const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
@@ -832,6 +833,310 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     assert.ok(Math.abs(ang(0.19)) < 1e-3, "angle 0 at the rotated start");
     assert.ok(Math.abs(ang(0.8) - 60) < 0.5, "the flap reaches its stop at 60°: " + ang(0.8));
     for (let t = 0.4; t <= 0.8; t += 1 / 60) assert.ok(ang(t) > 59, "the flap stays at its stop: " + ang(t).toFixed(2) + "° at " + t.toFixed(2));
+  }
+}
+// Couplings: gears, belts, chains and cams tie one part's motion to another's at the real ratio, in the bake (never a second
+// rotation animated from the first). A 12:36 pair turns the second wheel at exactly 1/3 the speed the other way, the driver
+// feels the load scaled by the ratio, a latched wheel holds the whole train, a chain shifts to another cog, a cam lifts its
+// follower along its profile, and every input is in the cache key. Wrong inputs are refused.
+{
+  const DT = 1 / 480, TAU = 2 * Math.PI, Y = 0.3, Z = { x: 0, y: 0, z: 1 };
+  // specs: [{ name, r, x, w, axis, group, slide, box, kg }] in metres: discs on an axle along z (a free hinge by default),
+  // or a box on a slide. Same collision group (meshing parts never collide); `tau` is the drive on the first wheel (N·m),
+  // registered before any coupling so the coupling solves what the drive pushed in the same step.
+  async function wheels(specs, o = {}) {
+    const sc = new THREE.Scene(), meshes = specs.map((w) => {
+      const m = w.box ? new THREE.Mesh(new THREE.BoxGeometry(0.02 / M, 0.02 / M, 0.02 / M), new THREE.MeshStandardMaterial()) : new THREE.Mesh(new THREE.CylinderGeometry(w.r / M, w.r / M, (w.w ?? 0.01) / M, 48), new THREE.MeshStandardMaterial());
+      if (!w.box) m.rotation.x = Math.PI / 2;
+      m.position.set(w.x / M, Y, 0); m.name = w.name; sc.add(m); return m;
+    });
+    sc.updateMatrixWorld(true);
+    const s = await makeSim(THREE); s.staticScene(sc, meshes);
+    const parts = specs.map((w, i) => s.dynamicHull(meshes[i], { angularDamping: 0, linearDamping: 0, group: w.group ?? 1, mass: w.kg ?? 7850 * Math.PI * w.r ** 2 * (w.w ?? 0.01), name: w.name }));
+    const js = specs.map((w, i) => (w.slide ? slide(s, parts[i], w.slide) : hinge(s, parts[i], { at: { x: w.x / M, y: Y, z: 0 }, axis: w.axis ?? Z, min: w.stops?.[0] ?? -Infinity, max: w.stops?.[1] ?? Infinity })));
+    if (o.tau !== undefined) s.part({ bodies: [parts[0].body], key: `drive ${o.tau}`, step(t, h) { if (t >= 0) parts[0].body.applyTorqueImpulse({ x: 0, y: 0, z: (o.tau / (M * M)) * h }, true); } });
+    const mem = o.mem || new Map();
+    return { s, parts, js, mem, opts: { load: async (k) => (mem.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem.set(k, v) } };
+  }
+  // The unwrapped angle (rad) of body i about z at k·DT, from the replayed poses alone.
+  const turned = (bk, i, T) => {
+    const q0 = bk.pose(i, 0).q, n = Math.round(T / DT), out = new Float64Array(n + 1); let th = 0, prev = 0;
+    for (let k = 1; k <= n; k++) { const qr = bk.pose(i, k * DT).q.clone().multiply(q0.clone().invert()), now = 2 * Math.atan2(qr.z, qr.w); th += now - prev - TAU * Math.round((now - prev) / TAU); prev = now; out[k] = th; }
+    return out;
+  };
+  const axle = (p) => { const pi = p.body.principalInertia(); return Math.max(pi.x, pi.y, pi.z) * M * M; }; // kg·m² of a thin disc
+  const pair = [{ name: "gA", r: 0.012, x: 0 }, { name: "gB", r: 0.036, x: 0.048 }]; // module 2 mm: 12 and 36 teeth
+  const TQ = 0.002;
+  // 12:36: the second wheel turns at exactly 1/3 the speed, the other way, at every sample of the bake.
+  const G = await wheels(pair, { tau: TQ }), g = gear(G.s, G.js[0], G.js[1], { teeth: [12, 36] });
+  const gb = await G.s.bakeCached(1.0, null, 0.1, G.opts), ta = turned(gb, 0, 1.0), tb = turned(gb, 1, 1.0);
+  assert.ok(ta[480] > 20, "the driven pair turns many times in a second: " + ta[480]);
+  for (let k = 0; k <= 480; k++) assert.ok(Math.abs(tb[k] + ta[k] / 3) < 1e-4, "θB = −θA/3 at t = " + (k * DT).toFixed(3) + ": " + (tb[k] + ta[k] / 3));
+  for (const k of [240, 480]) assert.ok(Math.abs((tb[k] - tb[k - 1]) / (ta[k] - ta[k - 1]) + 1 / 3) < 1e-3, "ωB/ωA = −1/3 at t = " + (k * DT).toFixed(2));
+  assert.ok(Math.abs(g.ratio() + 1 / 3) < 1e-12 && g.kind === "gear", "the gear reports its signed ratio");
+  // The driver feels the load scaled by the inverse ratio: a driven inertia counts s²·I, and the torque the pair passes on is
+  // 3× the torque the driver gives up.
+  const IA = axle(G.parts[0]), IB = axle(G.parts[1]), want = (0.5 * TQ) / (IA + IB / 9);
+  assert.ok(Math.abs(ta[480] - want) / want < 0.005, "θA(1 s) = ½τ/(IA + IB/9): " + ta[480] + " vs " + want);
+  const tq = g.torque();
+  assert.ok(Math.abs(Math.abs(tq.driven) / Math.abs(tq.driver) - 3) < 1e-3 && tq.driver * tq.driven > 0, "driven = 3× the driver's torque: " + JSON.stringify(tq));
+  assert.ok(Math.abs(Math.abs(tq.driver) - (TQ * (IB / 9)) / (IA + IB / 9)) / TQ < 0.01, "the driver gives up τ·(IB/9)/(IA + IB/9): " + tq.driver);
+  // The same inputs bake to the same result twice (no cache) and hit the cache; other teeth miss it.
+  const D = await wheels(pair, { tau: TQ }); gear(D.s, D.js[0], D.js[1], { teeth: [12, 36] });
+  const db = D.s.bake(1.0, null, 0.1);
+  for (const t of [0.1, 0.5, 1.0]) for (const i of [0, 1]) assert.deepEqual(poseAt(db, i, t), poseAt(gb, i, t), `a re-bake of the gear pair is identical at ${t} s, body ${i}`);
+  const G2 = await wheels(pair, { tau: TQ, mem: G.mem }); gear(G2.s, G2.js[0], G2.js[1], { teeth: [12, 36] });
+  const g2 = await G2.s.bakeCached(1.0, null, 0.1, G2.opts);
+  assert.ok(g2.cached && g2.hash === gb.hash, "the same gear pair replays from the cache");
+  for (const [name, c] of [["other teeth", (s, j) => gear(s, j[0], j[1], { teeth: [12, 30] })], ["an internal gear", (s, j) => gear(s, j[0], j[1], { teeth: [12, 36], internal: true })], ["a ratio instead of teeth", (s, j) => gear(s, j[0], j[1], { ratio: 1 / 3 })]]) {
+    const X = await wheels(pair, { tau: TQ, mem: G.mem }); c(X.s, X.js);
+    const xb = await X.s.bakeCached(0.3, null, 0.1, X.opts);
+    assert.ok(!xb.cached && xb.hash !== gb.hash, name + " misses the cache");
+  }
+  // An internal gear turns the same way; a ratio instead of teeth is ωB/ωA.
+  const Gi = await wheels(pair); assert.ok(Math.abs(gear(Gi.s, Gi.js[0], Gi.js[1], { teeth: [12, 36], internal: true }).ratio() - 1 / 3) < 1e-12, "an internal pair turns the same way");
+  const Gr = await wheels(pair); assert.ok(Math.abs(gear(Gr.s, Gr.js[0], Gr.js[1], { ratio: 0.25 }).ratio() + 0.25) < 1e-12, "a ratio is ωB/ωA");
+  // A latched driver holds the whole train until its cue; then the train turns at the ratio.
+  const L = await wheels(pair, { tau: TQ }); gear(L.s, L.js[0], L.js[1], { teeth: [12, 36] }); latch(L.s, L.parts[0], 0.3);
+  const lb = await L.s.bakeCached(0.8, null, 0.1, L.opts), la = turned(lb, 0, 0.8), lc = turned(lb, 1, 0.8);
+  for (const k of [10, 100, 140]) assert.ok(Math.abs(la[k]) < 1e-6 && Math.abs(lc[k]) < 1e-6, "a latched train is still at t = " + (k * DT).toFixed(2) + ": " + la[k] + ", " + lc[k]);
+  assert.ok(la[384] > 0.5 && Math.abs(lc[384] + la[384] / 3) < 1e-4, "released, the train turns at the ratio: " + la[384] + ", " + lc[384]);
+  // A belt: links move at ω·r, so the wheel ratio is the radius ratio (same way); slip lets it creep; a wheel on the back of
+  // the belt turns the other way.
+  const Bp = [{ name: "pA", r: 0.03, x: 0 }, { name: "pB", r: 0.09, x: 0.12 }, { name: "pC", r: 0.02, x: 0.06, w: 0.008 }], BT = 0.02;
+  for (const [slip, want] of [[0, 1 / 3], [0.05, 0.95 / 3]]) {
+    const W = await wheels(Bp.slice(0, 2), { tau: BT }), b = belt(W.s, [{ joint: W.js[0], r: 0.03 }, { joint: W.js[1], r: 0.09 }], { slip });
+    const bb = await W.s.bakeCached(0.6, null, 0.1, W.opts), a = turned(bb, 0, 0.6), c = turned(bb, 1, 0.6);
+    assert.ok(a[288] > 1 && Math.abs(c[288] - want * a[288]) < 1e-4, `belt slip ${slip}: θB/θA = ${c[288] / a[288]} vs ${want}`);
+    assert.ok(Math.abs(b.ratio() - want) < 1e-12 && b.kind === "belt", "the belt reports its ratio");
+  }
+  const Wi = await wheels(Bp, { tau: BT }); belt(Wi.s, [{ joint: Wi.js[0], r: 0.03 }, { joint: Wi.js[1], r: 0.09 }, { joint: Wi.js[2], r: 0.02, inside: true }], {});
+  const ib = await Wi.s.bakeCached(0.6, null, 0.1, Wi.opts), ia = turned(ib, 0, 0.6), ic = turned(ib, 2, 0.6);
+  assert.ok(Math.abs(ic[288] / ia[288] + 1.5) < 1e-3, "a wheel on the back of the belt turns the other way at r0/r2: " + ic[288] / ia[288]);
+  const Wt = await wheels(Bp.slice(0, 2), { tau: BT }), tbl = belt(Wt.s, [{ joint: Wt.js[0], teeth: 20 }, { joint: Wt.js[1], teeth: 60 }], { pitch: 0.005 });
+  assert.ok(Math.abs(tbl.ratio() - 1 / 3) < 1e-12, "a toothed belt's ratio is the tooth ratio");
+  // A chain with a shift: the speed ratio is the tooth ratio, 42:14 = 3 then 42:21 = 2 from 0.5 s, and the cog's angle does not jump.
+  const Cp = [{ name: "ring", r: 0.0849, x: 0 }, { name: "cog", r: 0.0283, x: 0.42 }];
+  const C = await wheels(Cp, { tau: 0.05 }), ch = chain(C.s, [{ joint: C.js[0], teeth: 42 }, { joint: C.js[1], teeth: 14 }], { pitch: 0.0127, shifts: [{ at: 0.5, index: 1, teeth: 21 }] });
+  const cb = await C.s.bakeCached(1.0, null, 0.1, C.opts), cr = turned(cb, 0, 1.0), cc = turned(cb, 1, 1.0);
+  assert.ok(Math.abs((cc[192] - cc[144]) / (cr[192] - cr[144]) - 3) < 3e-3, "42:14 turns the cog 3× the ring: " + (cc[192] - cc[144]) / (cr[192] - cr[144]));
+  assert.ok(Math.abs((cc[432] - cc[384]) / (cr[432] - cr[384]) - 2) < 2e-3, "after the shift 42:21 turns it 2×: " + (cc[432] - cc[384]) / (cr[432] - cr[384]));
+  for (let k = 232; k <= 248; k++) assert.ok(cc[k + 1] - cc[k] < 2 * (cc[k] - cc[k - 1]) && cc[k + 1] - cc[k] > 0, "the cog's angle has no jump at the shift, step " + k);
+  assert.ok(Math.abs(ch.ratio() - 2) < 1e-12 && ch.kind === "chain", "the chain reports the ratio it has now");
+  // A cam: the follower's lift is the profile at the cam's angle, contact kept (the follower weighs on it, gravity pulls it down).
+  const lift = (th) => 0.004 * (1 - Math.cos(th)), camSpecs = [{ name: "cam", r: 0.03, x: 0 }, { name: "follower", box: true, kg: 0.01, x: 0.1, slide: { axis: { x: 0, y: 1, z: 0 }, min: 0, max: 0.01 } }];
+  const Cm = await wheels(camSpecs, { tau: 0.005 }), cm = cam(Cm.s, Cm.js[0], Cm.js[1], lift);
+  const mb = await Cm.s.bakeCached(0.8, null, 0.1, Cm.opts), mt = turned(mb, 0, 0.8);
+  let worst = 0, top = 0, wk = 0;
+  for (let k = 0; k <= 384; k++) { const x = (mb.pose(1, k * DT).p.y - Y) * M; if (Math.abs(x - lift(mt[k])) > worst) { worst = Math.abs(x - lift(mt[k])); wk = k; } top = Math.max(top, x); }
+  assert.ok(mt[384] > 2 * TAU, "the cam turns several times: " + mt[384]);
+  assert.ok(top > 0.0075 && worst < 5e-5, "the follower's lift follows the profile within 0.05 mm (worst " + (worst * 1000).toFixed(4) + " mm at step " + wk + " (ω = " + ((mt[wk + 1] - mt[wk]) / DT).toFixed(1) + " rad/s), top " + (top * 1000).toFixed(2) + " mm)");
+  assert.ok(cm.kind === "cam" && Math.abs(cm.angle() - mt[384]) < 1e-3, "the cam reports its unwrapped angle");
+  // Every input of a chain and a cam is in the key.
+  for (const [name, c] of [["a later shift", (s, j) => chain(s, [{ joint: j[0], teeth: 42 }, { joint: j[1], teeth: 14 }], { pitch: 0.0127, shifts: [{ at: 0.6, index: 1, teeth: 21 }] })], ["another pitch", (s, j) => chain(s, [{ joint: j[0], teeth: 42 }, { joint: j[1], teeth: 14 }], { pitch: 0.01, shifts: [{ at: 0.5, index: 1, teeth: 21 }] })]]) {
+    const X = await wheels(Cp, { tau: 0.05, mem: C.mem }); c(X.s, X.js);
+    const xb = await X.s.bakeCached(1.0, null, 0.1, X.opts);
+    assert.ok(!xb.cached && xb.hash !== cb.hash, name + " misses the cache");
+  }
+  const Cm2 = await wheels(camSpecs, { tau: 0.005, mem: Cm.mem }); cam(Cm2.s, Cm2.js[0], Cm2.js[1], (th) => 0.003 * (1 - Math.cos(th)));
+  const mb2 = await Cm2.s.bakeCached(0.8, null, 0.1, Cm2.opts);
+  assert.ok(!mb2.cached && mb2.hash !== mb.hash, "another cam profile misses the cache");
+  // A report reads the same on a cold bake and on a cache hit: ratio, torque and angle are what the bake ended on, stored with it.
+  {
+    const Cx = await wheels(Cp, { tau: 0.05, mem: C.mem }), chx = chain(Cx.s, [{ joint: Cx.js[0], teeth: 42 }, { joint: Cx.js[1], teeth: 14 }], { pitch: 0.0127, shifts: [{ at: 0.5, index: 1, teeth: 21 }] });
+    assert.ok(Math.abs(chx.ratio() - 3) < 1e-12 && chx.angle() === 0 && chx.torque().driven === 0, "before the bake a report is the start: the first ratio, angle 0, no torque");
+    const cbx = await Cx.s.bakeCached(1.0, null, 0.1, Cx.opts);
+    assert.ok(cbx.cached, "the same chain replays from the cache");
+    assert.deepEqual([chx.ratio(), chx.angle(), chx.torque()], [ch.ratio(), ch.angle(), ch.torque()], "a chain reports the same after a cache hit as after the live bake");
+    assert.ok(Math.abs(chx.ratio() - 2) < 1e-12 && chx.angle() > 3 && chx.torque().driven !== 0, "and it is what the bake ended on: ratio 2, the angle turned, the torque passed: " + JSON.stringify([chx.angle(), chx.torque()]));
+    const Gx = await wheels(pair, { tau: TQ, mem: G.mem }), gx = gear(Gx.s, Gx.js[0], Gx.js[1], { teeth: [12, 36] });
+    assert.ok((await Gx.s.bakeCached(1.0, null, 0.1, Gx.opts)).cached);
+    assert.deepEqual([gx.ratio(), gx.angle(), gx.torque()], [g.ratio(), g.angle(), g.torque()], "a gear reports the same after a cache hit");
+    const Mx = await wheels(camSpecs, { tau: 0.005, mem: Cm.mem }), cmx = cam(Mx.s, Mx.js[0], Mx.js[1], lift);
+    assert.ok((await Mx.s.bakeCached(0.8, null, 0.1, Mx.opts)).cached);
+    assert.deepEqual([cmx.angle(), cmx.torque()], [cm.angle(), cm.torque()], "a cam reports the same after a cache hit");
+    assert.ok(cmx.angle() > 2 * TAU, "a replayed cam reports the angle it ended on: " + cmx.angle());
+  }
+  // A cam profile that closes over a value: the values are in the key, not only the source text.
+  {
+    const mk = (L) => (th) => L * (1 - Math.cos(th)), camAt = async (L) => { const X = await wheels(camSpecs, { tau: 0.005, mem: Cm.mem }); cam(X.s, X.js[0], X.js[1], mk(L)); return X.s.bakeCached(0.3, null, 0.1, X.opts); };
+    assert.equal(String(mk(0.004)), String(mk(0.003)), "the two profiles have the same source text");
+    const k4 = await camAt(0.004), k3 = await camAt(0.003), k4b = await camAt(0.004);
+    assert.ok(!k3.cached && k3.hash !== k4.hash, "a profile with another captured lift misses the cache");
+    assert.ok(k4b.cached && k4b.hash === k4.hash, "the same captured lift replays from the cache");
+  }
+  // A spring reads the hinge angle within ±π: a free axle, or stops past a half turn, are refused; stops inside it are not.
+  {
+    const H = await wheels(pair);
+    assert.throws(() => spring(H.s, H.js[0], { stiffness: 0.05, rest: 0 }), /free|half turn/, "a spring about a free axle");
+    const Hs = await wheels([{ name: "hA", r: 0.012, x: 0, stops: [-0.5, 4] }]);
+    assert.throws(() => spring(Hs.s, Hs.js[0], { stiffness: 0.0005, rest: 0 }), /half turn/, "stops past a half turn");
+    const Hf = await wheels([{ name: "hB", r: 0.012, x: 0, stops: [-Math.PI, Math.PI] }]);
+    assert.doesNotThrow(() => spring(Hf.s, Hf.js[0], { stiffness: 0.0005, rest: 0 }), "a spring about a hinge with stops inside a half turn");
+  }
+  // Wrong inputs are refused (nothing baked).
+  const R = await wheels([...pair, { name: "gX", r: 0.01, x: 0.1, axis: { x: 1, y: 0, z: 0 } }, { name: "gS", box: true, kg: 0.01, x: 0.15, slide: { axis: { x: 0, y: 1, z: 0 }, min: 0, max: 0.01 } }, { name: "gG", r: 0.012, x: 0.2, group: 2 }]);
+  const [a, b, x, sl, other] = R.js;
+  assert.throws(() => gear(R.s, a, b, { teeth: [5, 36] }), /teeth/, "fewer than 6 teeth");
+  assert.throws(() => gear(R.s, a, b, { teeth: [12.5, 36] }), /teeth/, "a fractional tooth count");
+  assert.throws(() => gear(R.s, a, b, { teeth: [12, 36], ratio: 3 }), /teeth|ratio/, "teeth and ratio together");
+  assert.throws(() => gear(R.s, a, b, {}), /teeth|ratio/, "neither teeth nor ratio");
+  assert.throws(() => gear(R.s, a, b, { ratio: -2 }), /ratio/, "a negative ratio");
+  assert.throws(() => gear(R.s, a, sl, { ratio: 2 }), /hinge/, "a slide where a hinge is needed");
+  assert.throws(() => gear(R.s, a, x, { ratio: 2 }), /parallel/, "axes at a right angle");
+  assert.throws(() => gear(R.s, a, a, { ratio: 2 }), /different/, "a gear meshing with itself");
+  assert.throws(() => gear(R.s, a, other, { teeth: [12, 12] }), /collision group/, "meshing gears share a collision group");
+  assert.throws(() => belt(R.s, [{ joint: a, r: 0.03 }, { joint: b, r: 0.09 }], { slip: 1 }), /slip/, "slip 1");
+  assert.throws(() => belt(R.s, [{ joint: a, r: 0.03 }, { joint: b, r: 0.09 }], { slip: -0.1 }), /slip/, "negative slip");
+  assert.throws(() => belt(R.s, [{ joint: a, teeth: 20 }, { joint: b, teeth: 60 }], { pitch: 0.005, slip: 0.1 }), /slip/, "slip on a toothed belt");
+  assert.throws(() => belt(R.s, [{ joint: a, teeth: 20 }, { joint: b, teeth: 60 }], {}), /pitch/, "teeth without a pitch");
+  assert.throws(() => belt(R.s, [{ joint: a, r: 0.03 }], {}), /pulleys/, "one pulley");
+  assert.throws(() => chain(R.s, [{ joint: a, teeth: 42 }, { joint: b, teeth: 14 }], {}), /pitch/, "a chain without a pitch");
+  assert.throws(() => chain(R.s, [{ joint: a, teeth: 42 }, { joint: b, teeth: 14 }], { pitch: 0.0127, shifts: [{ at: 0.5, index: 0, teeth: 21 }] }), /index/, "a shift of the driver");
+  assert.throws(() => chain(R.s, [{ joint: a, teeth: 42 }, { joint: b, teeth: 14 }], { pitch: 0.0127, shifts: [{ at: -1, index: 1, teeth: 21 }] }), /shift/, "a shift before the start");
+  assert.throws(() => cam(R.s, a, sl, (th) => 0.001 + 0.004 * (1 - Math.cos(th))), /start/, "a profile that is not 0 at the start");
+  assert.throws(() => cam(R.s, a, sl, (th) => th * 0.001), /repeat/, "a profile that does not repeat each turn");
+  assert.throws(() => cam(R.s, a, sl, (th) => 0.02 * (1 - Math.cos(th))), /stop/, "a lift beyond the follower's stop");
+  assert.throws(() => cam(R.s, sl, a, lift), /hinge|slide/, "a cam on a slide");
+  assert.throws(() => cam(R.s, a, sl, "x"), /profile/, "a profile that is not a function");
+  // A coupled pair is a mechanism part: it is not an island body.
+  const Q = await wheels(pair, { tau: TQ }); gear(Q.s, Q.js[0], Q.js[1], { teeth: [12, 36] });
+  await assert.rejects(Q.s.bakeCached(0.3, null, 0.1, { ...Q.opts, islands: [[Q.parts[0]]] }), /mechanism/, "a gear pair cannot be baked in an island");
+  // Transmissions: the geometry of what the couplings tie together. Involute spur gears at a real module and tooth count mesh at the
+  // centre distance without touching over a whole turn (and the test can see a clash: half a tooth off, teeth go into teeth);
+  // an interfering pair is refused; a belt or chain loop has the length of the closed form, links sit along it at the pitch, and
+  // a replayed frame knows where they are from the driver's pose alone, moving at ω·r.
+  {
+    const T = await use("transmission.js"), m = 0.002;
+    const place = (g, cx, rot) => { const c = Math.cos(rot), s = Math.sin(rot); return g.outline.map(([x, y]) => [cx + x * c - y * s, y * c + x * s]); };
+    const within = (P, [px, py]) => { let k = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) k = !k; } return k; };
+    const apart = (P, [px, py]) => { let best = Infinity; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, ay] = P[j], [bx, by] = P[i], dx = bx - ax, dy = by - ay, u = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); best = Math.min(best, Math.hypot(ax + u * dx - px, ay + u * dy - py)); } return best; };
+    // Over one turn of the first gear in 720 steps: vertices of either gear strictly inside the other, and the least gap between a vertex and the other outline.
+    const turnOf = (g1, g2, ms, off = 0, stopAt = Infinity) => {
+      let hits = 0, gap = Infinity; const lo = ms.centre - g2.ra - m, hi = g1.ra + m, win = (P) => P.filter((p) => p[0] >= lo && p[0] <= hi);
+      for (let k = 0; k < 720 && hits < stopAt; k++) {
+        const phi = (k / 720) * TAU, A = place(g1, 0, phi), B = place(g2, ms.centre, ms.phase2 + off - (phi * g1.z) / g2.z);
+        for (const p of win(B)) within(A, p) ? hits++ : (gap = Math.min(gap, apart(A, p)));
+        for (const p of win(A)) within(B, p) ? hits++ : (gap = Math.min(gap, apart(B, p)));
+      }
+      return { hits, gap };
+    };
+    const g1 = T.involute({ module: m, teeth: 12, pressure: 25 }), g2 = T.involute({ module: m, teeth: 36, pressure: 25 }), ms = T.meshing(g1, g2);
+    const near = (a, b) => Math.abs(a - b) < 1e-12;
+    assert.ok(near(g1.rp, 0.012) && near(g1.ra, 0.014) && near(g1.rf, 0.012 - 1.25 * m) && near(g1.rb, 0.012 * Math.cos((25 * Math.PI) / 180)), "radii: pitch m·z/2, tip +m, root −1.25m, base rp·cos α");
+    assert.ok(near(ms.centre, 0.048) && near(ms.ratio, 1 / 3) && near(ms.phase2, Math.PI - Math.PI / 36) && ms.contact > 1.3 && ms.contact < 1.5, "the centre distance is m(z1+z2)/2, the contact ratio about 1.4: " + JSON.stringify(ms));
+    assert.ok(g1.outline.some(([x, y]) => Math.abs(x - g1.ra) < 1e-12 && Math.abs(y) < 1e-12) && g1.outline.every(([x, y]) => Math.hypot(x, y) <= g1.ra + 1e-12 && Math.hypot(x, y) >= g1.rf - 1e-12), "tooth 0 is centred on +x, every point is between the root and the tip circle");
+    const ok = turnOf(g1, g2, ms), bad = turnOf(g1, g2, ms, Math.PI / g2.z, 1);
+    assert.equal(ok.hits, 0, "two meshing involute gears never interpenetrate over a turn");
+    assert.ok(ok.gap > 0 && ok.gap < 0.1 * m, "they really mesh: the least gap is " + (ok.gap / m).toFixed(3) + " m");
+    assert.ok(bad.hits > 0, "half a tooth off, teeth are inside teeth (the check can see a clash)");
+    const h1 = T.involute({ module: m, teeth: 20 }), h2 = T.involute({ module: m, teeth: 40 }), hs = T.meshing(h1, h2);
+    assert.equal(turnOf(h1, h2, hs).hits, 0, "a 20:40 pair at 20 degrees meshes too");
+    // Refusals: a fixable pair is told how.
+    assert.throws(() => T.meshing(T.involute({ module: m, teeth: 12 }), T.involute({ module: m, teeth: 36 })), /interference.*25/, "12:36 at 20 degrees interferes");
+    assert.throws(() => T.meshing(g1, T.involute({ module: 0.003, teeth: 36, pressure: 25 })), /module/, "gears of another module do not mesh");
+    assert.throws(() => T.meshing(g1, T.involute({ module: m, teeth: 36, pressure: 20 })), /pressure/, "gears of another pressure angle do not mesh");
+    assert.throws(() => T.involute({ module: m, teeth: 5 }), /teeth/, "fewer than 6 teeth");
+    assert.throws(() => T.involute({ module: m, teeth: 12.5 }), /teeth/, "a fractional tooth count");
+    assert.throws(() => T.involute({ module: 0, teeth: 12 }), /module/, "no module");
+    assert.throws(() => T.involute({ module: m, teeth: 6, pressure: 40 }), /pointed/, "a pointed tooth");
+    // The solid: an extrusion in metres, centred on the axle's plane, with a bore when asked.
+    const geo = T.gearGeometry(g1, { width: 0.01 }), bored = T.gearGeometry(g1, { width: 0.01, bore: 0.003 });
+    geo.computeBoundingBox(); bored.computeBoundingBox();
+    assert.ok(Math.abs(geo.boundingBox.max.z - 0.005) < 1e-9 && Math.abs(geo.boundingBox.min.z + 0.005) < 1e-9 && Math.abs(geo.boundingBox.max.x - g1.ra) < 1e-9, "a gear solid is width deep, centred, tip radius wide");
+    const rMin = (G) => { const p = G.attributes.position; let r = Infinity; for (let i = 0; i < p.count; i++) r = Math.min(r, Math.hypot(p.getX(i), p.getY(i))); return r; };
+    assert.ok(rMin(geo) > g1.rf - 1e-9 && Math.abs(rMin(bored) - 0.003) < 1e-9, "the bore leaves a hole of its radius");
+    // A belt or chain loop: its length is the closed form, it is continuous, an idler on the back adds its detour.
+    const R1 = 0.0849, R2 = 0.0283, CD = 0.42, L = 2 * Math.sqrt(CD * CD - (R1 - R2) ** 2) + Math.PI * (R1 + R2) + 2 * (R1 - R2) * Math.asin((R1 - R2) / CD);
+    assert.ok(Math.abs(T.openLength(R1, R2, CD) - L) < 1e-12, "openLength is the closed form");
+    const lp = T.loopPath([{ x: 0, y: 0, r: R1 }, { x: CD, y: 0, r: R2 }]);
+    assert.ok(Math.abs(lp.length - L) < 1e-9, "two wheels: the loop is as long as the closed form: " + (lp.length - L));
+    const EPS = 1e-7, wrapA = (a) => a - TAU * Math.round(a / TAU), joints = (P) => { for (const sg of P.segments) for (const s0 of [sg.s0, 0, P.length]) {
+      const a = P.at(s0 - EPS), b = P.at(s0 + EPS);
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 3 * EPS && Math.abs(wrapA(a.angle - b.angle)) < 1e-5, "the path is continuous at s = " + s0);
+    } };
+    joints(lp);
+    assert.ok(Math.abs(lp.segments.reduce((n, sg) => n + sg.length, 0) - lp.length) < 1e-12, "the segments add up to the length");
+    const lo = lp.at(0.1), lw = lp.at(0.1 + lp.length);
+    assert.ok(Math.abs(lo.x - lw.x) < 1e-9 && Math.abs(lo.y - lw.y) < 1e-9, "s wraps round the loop");
+    assert.ok(Math.abs(lo.angle) < 0.2 && lo.y < 0, "the loop runs counter-clockwise: the lower run goes +x");
+    const idler = T.loopPath([{ x: 0, y: 0, r: R2 }, { x: CD / 2, y: -0.07, r: 0.02, inside: true }, { x: CD, y: 0, r: R1 }]);
+    assert.ok(idler.length > T.loopPath([{ x: 0, y: 0, r: R2 }, { x: CD, y: 0, r: R1 }]).length, "an idler on the back of the belt adds a detour");
+    joints(idler);
+    assert.throws(() => T.loopPath([{ x: 0, y: 0, r: 0.05 }, { x: 0.06, y: 0, r: 0.02, inside: true }]), /tangent/, "wheels that overlap have no belt between them");
+    assert.throws(() => T.loopPath([{ x: 0, y: 0, r: 0.05 }]), /wheels/, "one wheel");
+    // The centre for a whole number of links.
+    for (const links of [110, 120]) { const c = T.centreFor({ links, pitch: 0.0127, r1: R1, r2: R2 }); assert.ok(Math.abs(T.openLength(R1, R2, c) - links * 0.0127) < 1e-9, links + " links round-trip through centreFor"); }
+    assert.throws(() => T.centreFor({ links: 8, pitch: 0.0127, r1: R1, r2: R2 }), /centre|links/, "a chain too short to go round");
+    const cc = T.centreFor({ links: 110, pitch: 0.0127, r1: R1, r2: R2 }), cl = T.loopPath([{ x: 0, y: 0, r: R1 }, { x: cc, y: 0, r: R2 }]), lk = T.linkPoses(cl, { pitch: 0.0127, phase: 0 });
+    assert.equal(lk.length, 110, "110 links on a loop of 110 pitches");
+    assert.ok(Math.abs(lk[0].x - cl.at(0).x) < 1e-12 && lk[0].y < 0, "the first link is where the loop starts");
+    const first = T.linkPoses(cl, { pitch: 0.0127, phase: 0.003 });
+    assert.ok(Math.hypot(first[0].x - lk[0].x, first[0].y - lk[0].y) > 0.0029, "the phase slides the links along the loop");
+    assert.throws(() => T.linkPoses({ length: 110.4 * 0.005, at: () => ({ x: 0, y: 0, angle: 0 }) }, { pitch: 0.005, phase: 0 }), /whole number of links/, "a loop of 110.4 pitches");
+    // Phase from the pose: any rotation of any size gives the same phase mod the pitch, in any frame order.
+    const qz = (a) => ({ x: 0, y: 0, z: Math.sin(a / 2), w: Math.cos(a / 2) }), q0 = qz(0.7), PR = T.pitchRadius(20, 0.005);
+    assert.ok(Math.abs(PR - (20 * 0.005) / TAU) < 1e-15, "pitch radius = teeth·pitch/2π");
+    assert.ok(Math.abs(T.angleOf(qz(0.7 + 2), q0, Z) - 2) < 1e-12 && Math.abs(T.angleOf(qz(0.7 + 7), q0, Z) - (7 - TAU)) < 1e-12, "angleOf is the turn about the axis, wrapped");
+    assert.ok(Math.abs(T.angleOf(qz(0.7 + 2), q0, { x: 0, y: 0, z: -1 }) + 2) < 1e-12, "and its sign follows the axis");
+    const PR1 = PR - 0.005 * Math.floor(PR / 0.005); // one radian of the 20-tooth wheel moves the chain PR, folded into one pitch
+    assert.ok(Math.abs(T.phaseOf(qz(0.7 + 1), q0, Z, 20, 0.005) - PR1) < 1e-12 && Math.abs(T.phaseOf(qz(0.7 + 1 + TAU * 3), q0, Z, 20, 0.005) - PR1) < 1e-9,"the phase is a distance along the chain and repeats every tooth");
+    // Links move at ω·r: a toothed belt's phase at both pulleys advances by the same distance, ω·r, whatever their sizes.
+    const Wl = await wheels(Bp.slice(0, 2), { tau: BT }); belt(Wl.s, [{ joint: Wl.js[0], teeth: 20 }, { joint: Wl.js[1], teeth: 60 }], { pitch: 0.005 });
+    const lb = await Wl.s.bakeCached(0.6, null, 0.1, Wl.opts), lA = turned(lb, 0, 0.6), lB = turned(lb, 1, 0.6), PB = T.pitchRadius(60, 0.005);
+    const ph = (i, n, t) => T.phaseOf(lb.pose(i, t).q, lb.pose(i, 0).q, Z, n, 0.005), fold = (d) => d - 0.005 * Math.round(d / 0.005);
+    for (const t of [0.3, 0.5]) {
+      const k = Math.round(t / DT), vA = fold(ph(0, 20, (k + 1) * DT) - ph(0, 20, k * DT)), vB = fold(ph(1, 60, (k + 1) * DT) - ph(1, 60, k * DT)), want = (lA[k + 1] - lA[k]) * PR;
+      assert.ok(want > 1e-4 && want < 0.0025, "the belt moves a measurable part of a pitch per step: " + want);
+      assert.ok(Math.abs(vA / want - 1) < 1e-3 && Math.abs(vB / want - 1) < 1e-3 && Math.abs(((lB[k + 1] - lB[k]) * PB) / want - 1) < 1e-3, `at ${t} s both pulleys move the belt by ω·r per step: ${vA}, ${vB} vs ${want}`);
+    }
+  }
+  // A bicycle drivetrain changing gear (examples/drivetrain.js): the pedals' torque is the only cause; the wheel turns at ring/cog,
+  // 3 on the 14-tooth cog and 2 after the shift to the 21-tooth one at 1.0 s; the same whole, even number of chain links goes round
+  // both cogs (the tensioner takes up the difference); the links move as far as the ring's teeth do; two bakes are identical.
+  {
+    const mk = async (o = {}, mem) => {
+      const s = await makeSim(THREE), d = makeDrivetrain({ ...kit, scene: new THREE.Scene() }, s, { at: new THREE.Vector3(0, 0.5, 0), shiftAt: 1.0, ...o });
+      return { s, d, opts: { load: async (k) => (mem?.has(k) ? mem.get(k).slice().buffer : null), save: async (k, v) => mem?.set(k, v) } };
+    };
+    const mem = new Map(), X = await mk({}, mem), bk = await X.s.bakeCached(2.0, null, 0.1, X.opts), ta = turned(bk, 0, 2.0), tb = turned(bk, 1, 2.0);
+    const rate = (th, t) => { const k = Math.round(t / DT); return (th[k] - th[k - 24]) / (24 * DT); };
+    assert.ok(X.d.links % 2 === 0 && X.d.links > 80, "a whole, even number of links: " + X.d.links);
+    for (const L of X.d.loops) assert.ok(Math.abs(L.length - X.d.links * 0.0127) < 1e-6, "the loop round each cog is links·pitch long: " + (L.length - X.d.links * 0.0127));
+    assert.ok(Math.abs(X.d.tensioner.angles[0] - X.d.tensioner.angles[1]) > 5, "the tensioner swings to take up the other cog's wrap");
+    assert.ok(rate(ta, 0.8) * 60 / TAU > 40 && rate(ta, 0.8) * 60 / TAU < 100, "the legs turn the cranks at a cadence: " + (rate(ta, 0.8) * 60 / TAU).toFixed(0) + " rpm");
+    assert.ok(Math.abs(rate(tb, 0.8) / rate(ta, 0.8) - 3) < 1e-3, "14 teeth: the wheel turns 42/14 = 3 times as fast as the cranks: " + rate(tb, 0.8) / rate(ta, 0.8));
+    assert.ok(Math.abs(rate(tb, 1.8) / rate(ta, 1.8) - 2) < 1e-3, "21 teeth after the shift: 42/21 = 2: " + rate(tb, 1.8) / rate(ta, 1.8));
+    assert.ok(rate(ta, 1.8) > 1.3 * rate(ta, 0.8), "the wheel's momentum comes back to the pedals: the cadence rises in the easier gear");
+    assert.ok(X.d.chain.kind === "chain", "the chain reports as a chain");
+    // The chain at three times: every link matrix finite, neighbours a pitch apart (a chord on a cog), the links moved as far as the teeth.
+    const pins = () => { const v = new THREE.Vector3(), m = new THREE.Matrix4(); return Array.from({ length: X.d.links }, (_, i) => { X.d.rollers.getMatrixAt(i, m); return v.setFromMatrixPosition(m).clone(); }); };
+    for (const t of [0.5, 1.1, 1.9]) {
+      bk.apply(t); X.d.update(t);
+      const P = pins();
+      assert.ok(P.every((p) => Number.isFinite(p.x + p.y + p.z)), "every link is placed at t = " + t);
+      P.forEach((p, i) => { const n = P[(i + 1) % P.length], c = Math.hypot(p.x - n.x, p.y - n.y); assert.ok(c <= 0.0127 * (1 + 1e-5) && c > 0.0127 * 0.8, `link ${i} is a pitch from the next at t = ${t}: ${c}`); });
+    }
+    const phase = (t) => { bk.apply(t); X.d.update(t); return X.d.state.phase; };
+    for (const t of [0.4, 0.7]) {
+      const k = Math.round(t / DT), moved = (ta[k + 1] - ta[k]) * ((42 * 0.0127) / TAU), fold = (d) => d - 0.0127 * Math.round(d / 0.0127), got = fold(phase((k + 1) * DT) - phase(k * DT));
+      assert.ok(moved > 1e-4 && Math.abs(got / moved - 1) < 2e-3, `at ${t} s the links move as far as the ring's teeth: ${got} vs ${moved}`);
+    }
+    // Two bakes are the same; a cached replay too; another shift time misses the cache.
+    const Y = await mk({}), yb = Y.s.bake(2.0, null, 0.1);
+    for (const t of [0.5, 1.1, 1.9]) for (const i of [0, 1]) assert.deepEqual(poseAt(yb, i, t), poseAt(bk, i, t), `a re-bake of the drivetrain is identical at ${t} s, body ${i}`);
+    const Zr = await mk({}, mem), zb = await Zr.s.bakeCached(2.0, null, 0.1, Zr.opts);
+    assert.ok(zb.cached && zb.hash === bk.hash, "the same drivetrain replays from the cache");
+    const W = await mk({ shiftAt: 1.2 }, mem), wb = await W.s.bakeCached(0.3, null, 0.1, W.opts);
+    assert.ok(!wb.cached && wb.hash !== bk.hash, "another shift time misses the cache");
+    // No shift: the ratio stays at the first cog. Refusals say what to change.
+    const N = await mk({ shiftAt: null }), nb = N.s.bake(1.6, null, 0.1), na = turned(nb, 0, 1.6), nc = turned(nb, 1, 1.6);
+    assert.ok(Math.abs(rate(nc, 1.5) / rate(na, 1.5) - 3) < 1e-3, "without a shift the ratio stays 3");
+    await assert.rejects(mk({ ring: 11 }), /ring/, "a ring under 12 teeth");
+    await assert.rejects(mk({ cogs: [14] }), /cogs/, "one cog");
+    await assert.rejects(mk({ cogs: [14, 14] }), /cogs/, "two cogs of the same size");
+    await assert.rejects(mk({ cogs: [14, 40] }), /links/, "a ring and cassette the tensioner cannot span");
+    await assert.rejects(mk({ at: undefined }), /bottom bracket/, "no position");
   }
 }
 // Type: shared captions and pinned labels. phrases() splits like craft-rules §6 in several languages (CJK by
@@ -1785,4 +2090,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const big = supplyChain(null, { ...O, at: V(1 / Mq, 0, 0) });
     assert.ok(Math.abs(big.group.position.x * Mq - 1) < 1e-9, "placed at `at`"); }
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch), time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), any scale and gravity");
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), any scale and gravity");

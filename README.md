@@ -136,7 +136,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick; 30 fps by default (the platforms play at 30), 24 is a film-look choice and gets motion blur on every camera move |
 | **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
-| **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches), cloth, one air field, plants, particles, granular fills, water, fur, section views, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
+| **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches, gears, belts, chains, cams), cloth, one air field, plants, particles, granular fills, water, fur, section views, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or Kokoro-82M (free, local, Apache-2.0) for English (en, en-gb) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 | **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide (a bake's impacts, latches and breaks place and level their own SFX: `sfx.js`) |
@@ -189,7 +189,7 @@ scripts/
   measure_reference.sh cuts, boil rate, contact sheets, palette, reference board
   palette.mjs          dominant colours of a video (% of frame, OKLCH L); --compare for figure-ground
   gate.sh              the repo's gate (--fast static, reading budget included; full adds the engine self-check and tests/)
-engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms,
+engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms and transmissions,
                   cloth, air, plants, particles, grains, water, fur, cutaways, captions and labels,
                   quantities (flow arrows, tile fills, range cards), camera stations and
                   attention) with a self-check; bake.mjs caches a physics bake once for every
