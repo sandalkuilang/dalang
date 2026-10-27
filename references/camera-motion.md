@@ -184,6 +184,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Shallow vs deep focus:** shallow isolates one idea; deep shows how parts relate (a system). **Focus as narration:** rack from cause to effect on the word, or pull a subject sharp out of the blur as its reveal.
 - **Split diopter:** near and far both sharp, with a soft seam — two related things in one frame without a cut **[C]** (two focus layers).
 - **Tilt-shift:** one sharp band makes a real system look like a model; an overview of how a whole thing works **[F][C]**.
+- **Engineering lens set (look J):** a 36 mm gauge; 70 mm wide, 100 mm medium, 135 mm macro (`lensFov` in `examples/torch.js`: 28.8°, 20.4°, 15.2° vertical on 9:16); a 3/4 high angle, elevation 20-60°; the subject a little low (view offset ≈ -4.5 % H) so the text band sits on clean ground; DOF on the macro only (bokeh ≈ 6, focus range ≈ 0.6 × framed radius).
 - Anamorphic oval bokeh is fine; its horizontal flares are banned (`visual-direction.md` §5).
 
 ### 11.3 Movement — beyond §2

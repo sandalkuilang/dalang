@@ -135,7 +135,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject, including what no camera can film (molecules, orbits, the inside of a machine) |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick; 30 fps by default (the platforms play at 30), 24 is a film-look choice and gets motion blur on every camera move |
-| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (toon explainer, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
+| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (toon explainer, engineering cutaway, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
 | **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches, gears, belts, chains, cams), cloth, one air field, plants, particles, granular fills, water, fur, section views, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or Kokoro-82M (free, local, Apache-2.0) for English (en, en-gb) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
@@ -154,7 +154,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, Gate 3 benchmark, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
   visual-direction.md  realism ladder, restraint, composition, review rubric, information layers, showing a quantity
-  looks.md             the nine looks, how to offer them, three.js recipes
+  looks.md             the ten looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps

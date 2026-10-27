@@ -34,6 +34,19 @@ that reads as:
 
 ### Added
 
+- **Look J, Engineering cutaway** (`looks.md`, Step 1 in `brief.md`): a stylized technical-illustration look with its own design system for "how it works / why it breaks / what is inside" topics: a real engineered thing opened at real size on a light-grey ground and a gridded mat, the engineering lens set (70, 100, 135 mm on a 36 mm gauge, 3/4 high angle, subject low), a fixed text band, yellow pill labels (at most 3 a frame), dimension lines (drawn on the frame over the parts, so nothing hides them), accents with one meaning for the whole film, and current drawn in the world (a nearer part hides it). Rules in step: `visual-direction.md` §5 (the label pills are not chips; the look's hue legend), §12 (text band, pill labels) and §13 (dimension lines); `camera-motion.md` §11.2 (the lens set); reference piece `engine/three/examples/torch.js`.
+
+- **Engineering-cutaway toolkit in the engine** (`type.js`, `quantity.js`, `examples/torch.js`): `dimension(ctx, a, b,
+  { camera, text })` draws a drafting-style dimension line (extension lines, arrowheads, a monospace value that never
+  reads upside down) inside the label safe area: it stands off on the other side, then closer, and when neither fits it
+  draws nothing and says why; `pinLabel` takes `{ pill }` (dark text on a coloured pill, a dark leader ending in a
+  ringed dot) and `{ top }` (stay under the text band); `textBand()` draws a tracked monospace kicker, a bold headline
+  and a status tag on a light scrim, all in the label zone at the minimum sizes; `recordBox()` lets another module's
+  text reach `layoutFrame`. `examples/torch.js` is the reference piece of the look: an opened small device at real
+  size, cut along its axis, with a dc flow caused by the model, the look's lens set (70, 100, 135 mm on a 36 mm gauge),
+  three style frames and the view offset that sets the subject low. The self-check proves every text of the three
+  frames is inside the safe area.
+
 - **Gate 3 benchmark** (`review.md` "Benchmark review", `measure_reference.sh` reference board, `state.mjs approve 3`):
   the style frames are scored side by side against a reference board by a fresh subagent, 1-5 on seven rows (detail
   density, material truth, light and shadow, text system, overlays caused by physics, framing, macro quality), text
