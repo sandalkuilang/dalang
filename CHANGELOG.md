@@ -32,8 +32,11 @@ that reads as:
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-27
+
 ### Added
 
+- `evals/golden/1.6.0/`: the golden release eval against 1.5.0, 0 flags: render time, detail, shadow texel and stillness unchanged, the three frames identical (this release does not touch the golden scene).
 - **Machine parts** (`engine/three/parts.js`): a mechanism for look K assembled from parts at their standard
   proportions instead of modelled: bolt (ISO 4017, ISO 261 pitch), nut (ISO 4032), washer (ISO 7089), deep-groove ball
   bearings 608 and 6000-6204 (raceway grooves, balls rolling at the cage speed), a compression spring that compresses
@@ -1048,7 +1051,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/sandalkuilang/dalang/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/sandalkuilang/dalang/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/sandalkuilang/dalang/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/sandalkuilang/dalang/compare/v1.2.0...v1.3.0
