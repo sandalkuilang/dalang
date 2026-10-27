@@ -48,7 +48,7 @@ A clean final encode can measure stiller than the draft; over target → add mot
 
 ## Step 8 — Hand-off
 
-Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (below; the report links it, an upload pastes it as is). Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**; the one improvement with the most impact. Offer a second language once.
+Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (below; the report links it, an upload pastes it as is). Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**; the top improvement. Offer a second language once.
 
 **Open P1s:** list every P1 still open in `QC-REVIEW.md` with its rubric test and why it stays (cosmetic, or two rounds failed on it).
 
