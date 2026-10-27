@@ -127,6 +127,34 @@ try {
       assert.ok(w > hh, `${name}: the board is wider than tall (${w}x${hh})`);
       assert.match(fs.readFileSync(path.join(out, "summary.txt"), "utf8"), /Reference board/, `${name}: the summary names the board`);
     }
+
+    // Stale output: a second run into the same folder is about the second film only. A long film first (3 contact
+    // sheets, 50 frames), then a short one: the frames, the contact sheets, the index and the board are the short
+    // film's, byte for byte what a fresh folder gives; nothing of the first film is left over.
+    const mk = (name, src, secs) => {
+      const f = path.join(tmp, `${name}.mp4`);
+      const g = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", `${src}${src.includes("=") ? ":" : "="}s=320x180:r=10:d=${secs}`, "-pix_fmt", "yuv420p", f], { encoding: "utf8" });
+      assert.equal(g.status, 0, g.stderr);
+      return f;
+    };
+    const measure = (video, out) => { const r = spawnSync("bash", [path.join(root, "scripts", "measure_reference.sh"), video, out], { encoding: "utf8" }); assert.equal(r.status, 0, `measure_reference.sh: ${r.stderr}`); };
+    const first = mk("first", "testsrc", 50), second = mk("second", "color=c=red", 5);
+    const fresh = path.join(tmp, "fresh"), reused = path.join(tmp, "reused");
+    measure(second, fresh);
+    measure(first, reused); measure(second, reused);
+    const count = (d, re) => fs.readdirSync(d).filter((x) => re.test(x)).length;
+    assert.equal(count(path.join(reused, "frames"), /\.jpg$/), count(path.join(fresh, "frames"), /\.jpg$/), "reused folder: only the second film's frames");
+    assert.equal(count(path.join(reused, "contact"), /^sheet_.*\.jpg$/), 1, "reused folder: only the second film's contact sheets");
+    assert.equal(fs.readFileSync(path.join(reused, "contact", "index.txt"), "utf8").trim().split("\n").length, 1, "reused folder: the index lists one sheet");
+    assert.ok(fs.readFileSync(path.join(reused, "reference-board.jpg")).equals(fs.readFileSync(path.join(fresh, "reference-board.jpg"))), "reused folder: the board is the second film's alone");
+    assert.match(fs.readFileSync(path.join(reused, "summary.txt"), "utf8"), /Frames\s+: 5 files/, "reused folder: the summary counts the second film");
+
+    // The other side of the rule: a rerun of the same film into its own folder gives the same result, and a folder per reference keeps both boards.
+    measure(second, reused);
+    assert.ok(fs.readFileSync(path.join(reused, "reference-board.jpg")).equals(fs.readFileSync(path.join(fresh, "reference-board.jpg"))), "a rerun of the same film is unchanged");
+    const A = path.join(tmp, "measure", "a"), B = path.join(tmp, "measure", "b");
+    measure(first, A); measure(second, B);
+    assert.ok(!fs.readFileSync(path.join(A, "reference-board.jpg")).equals(fs.readFileSync(path.join(B, "reference-board.jpg"))), "one folder per reference: both boards stay, each its own film");
   }
   console.log("benchmark: ok");
 } finally {
