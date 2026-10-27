@@ -24,7 +24,7 @@ const linear = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBCo
 // Sloan and Shirley, JCGT 2(2) 2013), then XYZ to linear sRGB (IEC 61966-2-1). `color` is the hue with its largest
 // channel at 1 (linear); `Y` is the relative luminance, to compare two temperatures by their ratio only.
 const lobe = (x, m, s1, s2) => { const t = (x - m) / (x < m ? s1 : s2); return Math.exp(-0.5 * t * t); };
-const cmf = (l) => [
+export const cmf = (l) => [
   1.056 * lobe(l, 599.8, 37.9, 31.0) + 0.362 * lobe(l, 442.0, 16.0, 26.7) - 0.065 * lobe(l, 501.1, 20.4, 26.2),
   0.821 * lobe(l, 568.8, 46.9, 40.5) + 0.286 * lobe(l, 530.9, 16.3, 31.1),
   1.217 * lobe(l, 437.0, 11.8, 36.0) + 0.681 * lobe(l, 459.0, 26.0, 13.8)];
