@@ -34,6 +34,13 @@ that reads as:
 
 ### Added
 
+- **Look K, Technical clean** (`looks.md` row K and its recipe, `brief.md`, `SKILL.md` autonomous mode): a real mechanism
+  at real proportions with its housing in x-ray instead of a cut, near-monochrome greys and one accent on the part the
+  narration names, soft studio light and a contact shadow on a light sweep, no textures, wear or set dressing; one model
+  carries many shots and 2D cards carry the facts. It is the first, recommended stylized look for a made thing (how a
+  machine, tool or device works, what is inside, why it fails) and the autonomous default there: clearer to read and far
+  cheaper to build than a dressed set. It keeps real shapes, scale and physical motion. Look J's overlay details moved to
+  its recipe so the look table stays in its reading budget.
 - **Token report at every gate** (`scripts/tokens.mjs`, `state.mjs approve`, `tests/tokens.mjs`): turns, tokens and the
   largest context of the main agent and of each subagent, read from Claude Code's own transcripts (no new dependency),
   written to `review/tokens.json` and recorded in `state.json` with each approval. A builder over the budget (default

@@ -33,7 +33,7 @@ Left alone, code-made video lands on one look: flat shapes on a cream or dark gr
 
 ## 2. Looks
 
-The ten looks, how they mix, and how to offer them in Step 1: `looks.md`. Step 5 needs only the chosen look's row.
+The eleven looks, how they mix, and how to offer them in Step 1: `looks.md`. Step 5 needs only the chosen look's row.
 
 ## 3. Energy (the Step 1 "Energy" option)
 
