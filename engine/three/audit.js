@@ -1,7 +1,8 @@
 // audit.js — two checks on a built set, in metres at any scale (kit.js M). Neither moves anything.
 //  - scaleAudit(root): a prop declares its real size in userData.real = { h, w, d } (metres, from the model's source or a
 //    cited size; h = world Y, w = world X, d = world Z: a prop turned about Y swaps w and d, so declare h or both).
-//    Off by more than tol -> reported. No declared size, at any depth in the tree -> "unchecked", never passed.
+//    Off by more than tol -> reported. No declared size, at any depth in the tree -> "unchecked", never passed. A printed
+//    marking (markings.js) is ink on a surface, not part of the body: a prop is measured without it.
 //  - zFight(root, { cameras }): coplanar-ish faces of two meshes closer than the depth buffer can tell apart at the
 //    camera depth z-fight. Depth step (m) = z² (far - near) / (far · near · 2^bits), a lower bound: a gap a few steps
 //    wide can still fight on a real GPU. A polygonOffset counts only by the window depth it shifts at each camera
