@@ -25,6 +25,7 @@ step "SKILL.md front-matter" frontmatter
 step "README diagrams (light derived from dark)" python3 docs/assets/build.py --check
 step "reading list (headings exist, sections <= 8 KB, Steps 0–8 <= 60 KB)" node scripts/state.mjs reading
 step "state.mjs next vs fixture projects and fixture skills" node tests/reading.mjs
+step "build docs (Step 5 / Step 6 item 4 agree with the parallel build)" node tests/build-docs.mjs
 if [ $fast -eq 0 ]; then
   step "engine build + self-check" engine
   step "preflight vs mock VoiceStudio" node tests/preflight-mock.mjs
