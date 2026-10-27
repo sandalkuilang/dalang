@@ -35,6 +35,7 @@ function sweep(pts, r, { squash = 1, seg = 64, rad = 28, colour, flow = -1 }) {
   g.computeVertexNormals();
   const nr = g.attributes.normal, t0 = curve.getTangentAt(0), t1 = curve.getTangentAt(1);
   for (let i = 0; i < nr.count; i++) if (Math.hypot(nr.getX(i), nr.getY(i), nr.getZ(i)) < 1e-6) { const t = i < nr.count / 2 ? t0.clone().negate() : t1; nr.setXYZ(i, t.x, t.y, t.z); } // the closed tips: a zero normal is NaN in the shader, and bloom spreads it over the frame
+  g.userData.sweep = { pts: pts.map((p) => p.clone()), seg, rad, squash }; // the spine, so a rig (creature.js) finds each vertex's ring: vertex v is on ring floor(v / (rad + 1))
   return g;
 }
 

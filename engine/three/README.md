@@ -1,7 +1,7 @@
 # DALANG three.js engine
 
 Generic 3D systems proven on real renders: real scale and placement, true surfaces, simulated physics, cloth, air,
-plants, particles, granular fills, water, fur, and the frame finish; plus a small catalogue of ready pieces built on them. Nothing
+plants, particles, granular fills, water, fur, creatures that walk and climb, and the frame finish; plus a small catalogue of ready pieces built on them. Nothing
 here knows a scene or a topic: every input is a parameter in real units, every preset (a kit's material names, a
 palette, a particle kind) is passed in by the set. The rules behind every number
 are in `references/looks.md` (true shapes and surfaces) and `references/camera-motion.md` §5 (physics, air, sound).
@@ -43,8 +43,8 @@ systems: scale and placement, procedural surfaces, rigid physics with joints, hu
 fur, one shared air field (a breeze, jets from any outlet), plants that bend in it, particles in it, wind-driven
 water, granular fills, section views, camera stations and attention, the finish. `examples/` holds ready pieces built on them, proof of how to use the systems, never required.
 
-The engine is a toolbox, not the limit of what a film shows. Not here yet: sky and terrain, rigged characters,
-ropes, glass and liquids, flames, fracture, and every subject away from human-scale sets (molecules and ions,
+The engine is a toolbox, not the limit of what a film shows. Not here yet: sky and terrain, people (rigged
+human characters), gallops, jumps and flight (creatures that walk and climb are here: `creature.js`), ropes, glass and liquids, flames, fracture, and every subject away from human-scale sets (molecules and ions,
 cells and organs, orbits, fields, crowds, data in space; electricity and signals are here: `circuit.js`). A film that needs one builds it from three.js the same way:
 the law that drives it and its real numbers from a cited source; parameters in real units, nothing that knows the
 set; a scale changed on purpose and shown when reality is too small, large, fast or slow (`camera-motion.md` §5,
@@ -71,6 +71,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 | `cloth.js` | `bakeCurtain({ cx, width, top, length, z, wall, wind, duration, mpu })`: any cloth hung from its top row (a curtain, a flag, a banner, laundry), PBD, drag in real units, drawn through a Catmull-Rom spline. |
 | `air.js` | `jet({ frame, D, u0 })`: air blown from any outlet (a fan, a blower, a vent, an exhaust) as a turbulent round jet; `frame(t, outlet, axis)` moves or turns it; `wind(p, t, out)` — add it to the set's air field (`wind.js`); `block(objects)` makes obstacles shadow it. |
 | `fur.js` | `sweep(points, radius, opts)` a tube with a skin laid out for fur; `coat(mesh, opts)` shell fur combed along the body: any animal, part by part from its anatomy. |
+| `creature.js` | Animals that walk and climb, in metres (the drawn creature lives in a group at scale 1/M). `gait(name, { h, v })`: stride length and frequency from the leg length `h` and the speed `v` by dynamic similarity (Froude number, Alexander 1976), never typed per film; the gaits are `walk`, `trot` (quadrupeds), `sprawl` (lizards, the trunk bending side to side) and `tripod` (insects), with footfall order and duty factor from cited values (sources in the file). `rig(body, { legs, spine, cling, head, breath })`: 2- or 3-segment legs (hips, rest feet, `bend`) on a body from `fur.js` `sweep()`, drawn as swept tubes; `cling: true` for an animal that grips a steep surface (without it a wall or a ceiling is refused); `breath: { rate, depth }` swells the chest (a rate is passed in from a source, no default is invented); `restingBreath(kg)` for a mammal. `path(creature, curve, { scene, exclude, speed, gait, start })`: the feet are planted by raycast on the set's solids (floors, walls, undersides), placed once and never sliding; the body follows the curve and lies along the surface normal; a leg that cannot reach, a missing surface or a steep one are refused with the fix named (every refusal throws through `refuse(id, message)`: the Error's `refusal` is a stable id, such as `path.reach`). Returns `at(t)`, `apply(t)` per frame, `steps` (touchdown time, leg and object, for sound cues), `touching(t)` (the names of the objects the planted feet are on), `together(a, b)` (the first t of the walk two objects are touched at once, for the model) and `look(target, t0)` (the head turns toward a point). |
 | `wind.js` | `makeWind()` the set's one air field (`add(source)`, `at(p, t)`, `source` for cloth); `breeze({ dir, speed, ground, z0, gust, size })` outdoor wind with the log-law profile and gusts carried downwind; `draught({ dir, speed, gust, size })` room air (0.05-0.2 m/s, slow eddies): every indoor set with steam or smoke adds one; `bakeBend({ count, at, f, zeta, lean, field, duration })` damped oscillators driven by drag, baked and replayed; `noise3`. |
 | `plants.js` | `tree(k, { at, height, trunk, levels, leaves, leaf, sun })` grown by rules, every branch an oscillator, leaves fluttering; `grass(k, { x0, x1, z0, z1, y, density, height, inside })` instanced blades each an oscillator (gusts run across as waves); `leafGeometry`, `leafTexture`, `leafMaterial` (translucent to the sun behind); `sway(object, field)` for a rigid kit plant. `bake(field, duration)`, then `apply(t, camera)` per frame. |
 | `particles.js` | `particles(k, { kind: "steam" \| "smoke" \| "dust" \| "rain", at \| box, field, rate, lit, ground, light })`: buoyant plumes that cool (`shade`: the self-shadow of a dense puff, steam 0.4, smoke 0.45, toward the side away from `light`, the direction toward the key; read after `camera.updateMatrixWorld()`), motes that follow the air and show only in light, rain at its terminal speed with the wind (and its `impacts`). `bake(duration)`, `object()`, `apply(t, camera)`. `contrast(kind, ground)` and `.contrast(ground)` give `{ lit, shaded, readable }` against `READABLE` (0.15): a plume needs a darker ground behind it or a side or back light, and moving air. |
@@ -91,6 +92,7 @@ here with a line in this table. Air is one shared field: every source adds into 
 | `examples/flask.js` | `makeFlask(k, { at, height, cut })`: a vacuum flask in metres, two steel shells with the vacuum gap between them, a solid stopper, a cup added after the cut; its `cutaway`. |
 | `examples/canister.js` | `makeCanister(k, { at, height, radius, fill, level, cut })`: an open canister of grains in metres, optionally cut (the fill is cut with the wall and follows `cut.off`/`cut.set`, the wall shows its ring). |
 | `examples/cat.js` | `makeCat({ size })`: a curled sleeping cat swept from its anatomy, in shell fur. |
+| `examples/lizard.js` | `makeLizard({ length, colour, breath })`: a small scaled lizard (12 cm nose to tail tip) swept from its anatomy, four sprawled legs of three segments, a head on a pivot, gripping (`cling`); `wallClimb(k, lizard, { wall, from, height, speed })`: its walk across a floor, round a corner and up a wall. |
 | `examples/interior.js` | American-Japandi pieces (`plaid`, `ticking`, `braidedRug`, `cushion`, `pouf`, `door`) and the presets for `makeKit`: `kits.furniture` (the CC0 furniture kits' material names) and `palettes.americanJapandi`. |
 | `examples/oner.js` | `oner({ world, subject, inside, keep, aspect, end, azimuth, look, beats })`: a one-take on any set, home shot, dive, push-through into the part, back home so the last frame is the first, with attention by ghosting on each beat (`look.dur` of 2.5 s or less, or it throws: the last frame must be solid); `at(t, camera)` once per frame, after the cutaway's `at`. |
 | `examples/supply.js` | `supplyChain(k, { at, mains, state, events: { fuseBlown }, arc: { dur, energy, efficacy }, lamp: { lm }, timeScale, speed })`: a plug, cord, glass fuse, rectifier on a board, dc trace, motor and lamp in real sizes, every value from the model's `state(t)` → `{ Vac, Iac, Vdc, Idc, rpm, V }`: ac flow upstream, dc downstream, the fuse blowing at the event with an arc, the lamp following `V`, the shaft angle the integral of `rpm` (one `timeScale` for the mains frequency and the shaft, said in `labels`, a rate under 4 frames a turn refused). Returns `{ group, flows, lamp, fuse, arc, shaft, labels, at(t) }`. |
@@ -179,3 +181,26 @@ const poses = linkPoses(path, { pitch, phase: phaseOf(pinion.quaternion, q0, Z, 
 
 A latched wheel holds the whole train; the driver feels the load as the driven inertia times the ratio squared. See
 `examples/drivetrain.js` for the whole thing with a gear shift.
+
+### A creature walking
+
+A small lizard crossing a floor and climbing a wall: the gait, the stride and the footholds come from its size and
+speed and from the set's own surfaces, nothing is keyed.
+
+```js
+import { makeLizard, wallClimb } from "./examples/lizard.js";
+floor.name = "floor"; wall.name = "wall";                 // what a foot touches is reported by the mesh's name
+const liz = makeLizard({ length: 0.12 });                 // metres; breath: { rate } only with a cited rate
+k.scene.add(liz.creature.group);
+const walk = wallClimb(k, liz, { wall: { x: 0.4 / M }, from: new THREE.Vector3(0, y0, 0), height: 0.3 / M, speed: 0.05 });
+walk.look(lamp.position, 2.0);                            // the head turns toward a point from t = 2 s (before the first apply)
+walk.steps.forEach((s) => sfx.push({ t: s.t, name: "foot", at: s.at }));  // a touchdown per step: leg, object, point (metres)
+const when = walk.together("wire A", "wire B");           // the first t of the walk one foot is on each, null if never
+// per frame:
+walk.apply(t);                                            // body, trunk sway, legs, breath, head
+```
+
+Any other animal builds its sweeps and calls `rig(body, { legs, cling, head })` and `path(creature, curve, { scene, speed,
+gait })` directly (`tripod` for a six-legged insect, `walk` or `trot` for a quadruped). To let it push props, give the
+physics a `kinematicHull(root, (t) => pose)` fed from `walk.at(t).body` (`p` in metres: divide by `M`; `q` as a
+quaternion). The body is one rigid frame that sways, so a corner's radius is chosen against the body's length.

@@ -34,6 +34,27 @@ that reads as:
 
 ### Added
 
+- **Creatures that walk and climb** (`engine/three/creature.js`, `examples/lizard.js`): an animal acting by its own
+  anatomy. `gait(name, { h, v })` gives the stride and its frequency by dynamic similarity (Froude number, never typed
+  per film) for four named gaits with cited footfall orders and duty factors: `walk`, `trot`, `sprawl` (a lizard's
+  trunk bends side to side) and `tripod` (an insect). `rig(body, { legs, spine, cling, head, breath })` puts 2- or
+  3-segment IK legs on a `fur.js` `sweep` body (swept tubes, trunk sway, breathing, a head on a pivot), and
+  `path(creature, curve, { scene, speed, gait })` plants every foot by raycast on the set's own solids: floors, and
+  walls and undersides for an animal that clings. A foot never slides while loaded, the body lies along the surface
+  normal, and a leg that cannot reach, a missing surface or a steep one without `cling` is refused with the fix named.
+  The walk reports its contacts: `steps` (touchdown time, leg and object, for sound cues), `touching(t)`,
+  `together(a, b)` (the first t of the walk two objects are touched at once, for the model; the walk's own start when the
+  first steps are already on both; `null` if never) and `look(target, t0)` for the head. The footholds' times are finite,
+  inside the walk.
+  `fur.js` `sweep` now records its spine for a rig. Self-check: a planted foot drifts under 1 mm, the stride
+  frequency halves at four times the leg length, a creature crossing from a floor to a wall keeps every planted foot
+  on a collider; every refusal (a leg that cannot reach during the walk, a foot that finds no surface where the body
+  does, normals that cancel, a curve into the surface, more than 5000 strides, `gait`, `look`, `rig`, `wallClimb`
+  inputs) has a case with its legitimate counterpart. The module and the example refuse only through `refuse(id,
+  message)` (the Error's `refusal` is the id), and the self-check reads both sources: a throw outside it, an id on two
+  sites or an id without its own case fails the gate. Not covered: gallop, jumps, flight, people, swimming, the body bending over a corner. Docs in step:
+  engine README (module, example, usage), README, `docs/architecture.md`, `camera-motion.md` §5, `looks.md`.
+
 - **Look J, Engineering cutaway** (`looks.md`, Step 1 in `brief.md`): a stylized technical-illustration look with its own design system for "how it works / why it breaks / what is inside" topics: a real engineered thing opened at real size on a light-grey ground and a gridded mat, the engineering lens set (70, 100, 135 mm on a 36 mm gauge, 3/4 high angle, subject low), a fixed text band, yellow pill labels (at most 3 a frame), dimension lines (drawn on the frame over the parts, so nothing hides them), accents with one meaning for the whole film, and current drawn in the world (a nearer part hides it). Rules in step: `visual-direction.md` §5 (the label pills are not chips; the look's hue legend), §12 (text band, pill labels) and §13 (dimension lines); `camera-motion.md` §11.2 (the lens set); reference piece `engine/three/examples/torch.js`.
 
 - **Engineering-cutaway toolkit in the engine** (`type.js`, `quantity.js`, `examples/torch.js`): `dimension(ctx, a, b,

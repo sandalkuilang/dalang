@@ -37,6 +37,8 @@ const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { supplyChain } = await use("examples/supply.js");
 const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
+const { gait, rig, path: creaturePath, restingBreath } = await use("creature.js");
+const { makeLizard, wallClimb } = await use("examples/lizard.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1139,6 +1141,289 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     await assert.rejects(mk({ cogs: [14, 40] }), /links/, "a ring and cassette the tensioner cannot span");
     await assert.rejects(mk({ at: undefined }), /bottom bracket/, "no position");
   }
+}
+// Creatures: a gait's stride scales with size by dynamic similarity, a planted foot stays where it landed while loaded, and a
+// creature crossing from floor to wall keeps its feet on the colliders. The feet are placed once (the bake), at(t) only reads them.
+{
+  const M = K.M, g = K.G * K.M;
+  // Refusals: creature.js and examples/lizard.js refuse only through creature.js refuse(id, message), one literal id per site. A case
+  // names the id it expects (R), and the audit at the end of this block reads both sources: no other throw, no id built at run time, no
+  // id on two sites (one regex would then pass for both), and every id hit by a case here. A refusal without its case fails the gate.
+  const hits = new Set(), R = (id, re) => (e) => {
+    assert.equal(e?.refusal, id, `refused as ${id}, not as ${e?.refusal}: ${e?.message}`);
+    if (re) assert.match(e.message, re);
+    hits.add(id);
+    return true;
+  };
+  const audit = (sources, hit) => {
+    const bad = [], seen = new Map();
+    for (const [file, src] of Object.entries(sources)) {
+      const code = src.replace(/\/\/.*$/gm, ""), defs = (code.match(/\bfunction refuse\(/g) || []).length;
+      const throws = (code.match(/\bthrow\b/g) || []).length;
+      if (throws > defs) bad.push(`${file}: ${throws - defs} throw outside refuse()`);
+      if ((code.match(/(?<!function )\brefuse\((?!"[^"]*",)/g) || []).length) bad.push(`${file}: a refuse() id that is not a literal`);
+      for (const [, id] of code.matchAll(/\brefuse\("([^"]*)",/g)) {
+        if (seen.has(id)) bad.push(`${file}: id ${id} on two sites (also in ${seen.get(id)})`);
+        seen.set(id, file);
+        if (!hit.has(id)) bad.push(`${file}: refusal ${id} has no case`);
+      }
+    }
+    return bad;
+  };
+  { // the audit itself: a sound source passes; a raw throw, a built id, a shared id and an untested id are each caught
+    const def = 'export function refuse(id, msg) { throw Object.assign(new Error(msg), { refusal: id }); }\n', one = new Set(["a.one"]);
+    assert.deepEqual(audit({ "a.js": def + 'if (x) refuse("a.one", "m"); // a comment that says throw' }, one), [], "a sound source passes");
+    assert.deepEqual(audit({ "a.js": def + 'if (x) refuse("a.one", "m");\nif (y) throw new Error("raw");' }, one), ["a.js: 1 throw outside refuse()"], "a raw throw");
+    assert.deepEqual(audit({ "a.js": def + 'if (x) refuse("a." + k, "m");' }, one), ["a.js: a refuse() id that is not a literal"], "an id built at run time");
+    assert.deepEqual(audit({ "a.js": def + 'if (x) refuse("a.one", "m");', "b.js": 'if (y) refuse("a.one", "n");' }, one), ["b.js: id a.one on two sites (also in a.js)"], "one id on two sites");
+    assert.deepEqual(audit({ "a.js": def + 'if (x) refuse("a.one", "m");\nif (y) refuse("a.two", "n");' }, one), ["a.js: refusal a.two has no case"], "a refusal without its case");
+  }
+  // Scaling: the same Froude number at 4x the leg length is half the stride frequency, f = Fr^0.2·sqrt(g/h)/2.3.
+  for (const [name, h, v] of [["walk", 0.25, 0.4], ["tripod", 0.02, 0.05], ["sprawl", 0.02, 0.05]]) {
+    const a = gait(name, { h, v }), b = gait(name, { h: h * 4, v: v * 2 }), Fr = (v * v) / (g * h);
+    assert.ok(Math.abs(b.f / a.f - 0.5) < 1e-9, `${name}: 4x the leg at the same Fr halves the stride frequency: ${b.f / a.f}`);
+    assert.ok(Math.abs(a.f / ((Fr ** 0.2 * Math.sqrt(g / h)) / 2.3) - 1) < 0.01, `${name}: f = Fr^0.2·sqrt(g/h)/2.3: ${a.f}`);
+    assert.ok(Math.abs(a.f * a.stride - v) < 1e-9 && Math.abs(a.Fr - Fr) < 1e-9, `${name}: f·stride = v`);
+  }
+  assert.throws(() => gait("walk", { h: 0.25, v: 3 }), R("gait.froude", /trot/), "faster than a walk");
+  assert.throws(() => gait("gallop", { h: 0.25, v: 1 }), R("gait.name", /walk|trot|sprawl|tripod/), "an unknown gait names the four");
+  assert.throws(() => gait("trot", { h: 0.25, v: 0 }), R("gait.v", /speed|v/), "no speed");
+  for (const h of [0, -0.25, NaN, Infinity, "0.25", undefined]) assert.throws(() => gait("walk", { h, v: 0.4 }), R("gait.h", /h is the leg length/), "a leg length of " + h);
+  assert.ok(gait("walk", { h: 0.25, v: 0.4 }).f > 0, "a leg length of 0.25 m is taken");
+  assert.throws(() => gait("trot", { h: 0.25, v: 1, duty: 0.95 }), R("gait.duty", /duty/), "duty out of range");
+  { // no gravity, no Froude number
+    K.makeKit(new THREE.Scene(), { mpu: 2, gravity: 0 });
+    try { assert.throws(() => gait("walk", { h: 0.25, v: 0.4 }), R("gait.gravity", /gravity/), "no gravity"); } finally { K.makeKit(new THREE.Scene(), { mpu: 2 }); }
+  }
+
+  // A set: a floor and a wall (axis aligned, the wall's face at x = 0.3 m) in scene units, and a path across the corner.
+  const s = new THREE.Scene(), solid = (w, h, d, x, y, name) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w / M, h / M, d / M), new THREE.MeshStandardMaterial());
+    m.position.set(x / M, y / M, 0); m.name = name; s.add(m); return m;
+  };
+  solid(0.6, 0.02, 0.3, 0, -0.01, "floor"); solid(0.02, 0.3, 0.3, 0.31, 0.15, "wall"); s.updateMatrixWorld(true);
+  const V = (x, y) => new THREE.Vector3(x / M, y / M, 0), line = (a, b) => new THREE.LineCurve3(V(...a), V(...b));
+  const route = (r, top) => {
+    const c = new THREE.CurvePath();
+    c.add(line([0.02, 0], [0.3 - r, 0])); c.add(new THREE.QuadraticBezierCurve3(V(0.3 - r, 0), V(0.3, 0), V(0.3, r))); c.add(line([0.3, r], [0.3, top]));
+    return c;
+  };
+  const leg = (name, x, z) => ({ name, hip: [x, 0.008, z], foot: [x, 2.75 * z], segments: [0.013, 0.013], bend: "out" });
+  const gecko = (over = {}) => rig(null, { legs: [leg("LF", 0.022, -0.008), leg("RF", 0.022, 0.008), leg("LH", -0.022, -0.008), leg("RH", -0.022, 0.008)], spine: { length: 0.07, sway: 12 }, cling: true, ...over });
+  const walk = creaturePath(gecko(), route(0.07, 0.2), { scene: s, speed: 0.05, gait: "sprawl" });
+  assert.ok(walk.duration > 8 && walk.gait.name === "sprawl", "about 0.5 m at 5 cm/s");
+
+  // A planted foot stays within 1 mm of where it landed while loaded; no segment stretches.
+  let drift = 0, stretch = 0, planted = 0;
+  const seg = [0.013, 0.013];
+  for (let t = 0; t <= walk.duration; t += 1 / 240) {
+    const st = walk.at(t);
+    for (const l of st.legs) {
+      assert.ok(l.joints.flat().every(Number.isFinite), "joints are finite at " + t);
+      for (let j = 0; j < l.joints.length - 1; j++) stretch = Math.max(stretch, Math.abs(Math.hypot(...l.joints[j].map((c, i) => c - l.joints[j + 1][i])) - seg[j]));
+      if (!l.planted) continue;
+      planted++;
+      const hold = walk.footholds[l.name].find((h) => h.k === l.k), foot = l.joints[l.joints.length - 1];
+      drift = Math.max(drift, Math.hypot(...foot.map((c, i) => c - hold.p[i])));
+    }
+  }
+  assert.ok(planted > 1000 && drift < 0.001, `a planted foot drifts ${(drift * 1000).toFixed(3)} mm (limit 1 mm) over ${planted} samples`);
+  assert.ok(stretch < 1e-4, `no segment stretches: ${stretch} m`);
+
+  // Floor to wall: every foothold is on a collider, stances on both, the body ends up along the wall's normal.
+  const rc = new THREE.Raycaster(), onSet = [], names = new Set();
+  s.traverse((o) => o.isMesh && onSet.push(o));
+  for (const [name, list] of Object.entries(walk.footholds)) for (const h of list) {
+    names.add(h.on);
+    assert.ok(h.on === "floor" || h.on === "wall", `${name} stance ${h.k} is on ${h.on}`);
+    const n = new THREE.Vector3(...h.n), o = new THREE.Vector3(...h.p).addScaledVector(n, 0.005);
+    rc.set(o.divideScalar(M), n.clone().negate()); rc.far = 0.02 / M;
+    const hit = rc.intersectObjects(onSet, false)[0];
+    assert.ok(hit && Math.abs(hit.distance * M - 0.005) < 0.001, `${name} stance ${h.k} sits on the collider (${hit && (hit.distance * M * 1000).toFixed(2)} mm off 5 mm)`);
+  }
+  assert.ok(names.has("floor") && names.has("wall"), "stances on both the floor and the wall");
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(new THREE.Quaternion(...walk.at(walk.duration).body.q));
+  assert.ok(up.dot(new THREE.Vector3(-1, 0, 0)) > 0.95, "the body ends up along the wall's normal: " + up.toArray());
+  const tog = walk.together("floor", "wall");
+  assert.ok(Number.isFinite(tog) && tog > 0 && tog < walk.duration, "feet on the floor and the wall together at " + tog);
+  assert.deepEqual(walk.touching(0), ["floor"], "standing on the floor at the start");
+  assert.deepEqual(walk.touching(walk.duration), ["wall"], "standing on the wall at the end");
+  assert.ok(walk.steps.length > 40 && walk.steps.every((e, i, a) => (i === 0 || a[i - 1].t <= e.t) && (e.on === "floor" || e.on === "wall") && e.at.length === 3), "touchdowns, sorted, on the set");
+  assert.ok(walk.together("floor", "nowhere") === null, "never on a thing that is not there");
+  // The footholds' times are finite (a JSON export keeps them), inside the walk.
+  for (const [name, list] of Object.entries(walk.footholds)) for (const h of list) assert.ok(Number.isFinite(h.t0) && Number.isFinite(h.t1) && h.t0 <= h.t1 && h.t0 >= 0 && h.t1 <= walk.duration, `${name} stance ${h.k} has a finite time inside the walk: ${h.t0}..${h.t1}`);
+
+  // Together from the first step: a walk that starts with the left feet on one solid and the right feet on another touches both at the
+  // start of the walk (a finite time, never -Infinity), and not before `start`. Mid-walk (above) and never (null) are the other two answers.
+  {
+    const s2 = new THREE.Scene(), slab = (z0, z1, name) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.6 / M, 0.02 / M, (z1 - z0) / M), new THREE.MeshStandardMaterial()); m.position.set(0, -0.01 / M, (z0 + z1) / 2 / M); m.name = name; s2.add(m); };
+    slab(-0.15, 0.001, "A"); slab(-0.001, 0.15, "B"); s2.updateMatrixWorld(true);
+    const run = new THREE.CurvePath(); run.add(line([-0.2, 0], [0.2, 0]));
+    for (const start of [0, 2.5]) {
+      const w = creaturePath(gecko(), run, { scene: s2, speed: 0.05, gait: "sprawl", start }), both = w.together("A", "B");
+      assert.ok(Number.isFinite(both), `left feet on A and right feet on B, start ${start}: together is a time: ${both}`);
+      assert.ok(both >= start && both <= start + 0.5 && w.together("B", "A") === both, `together is the start of the walk, ${start}: ${both}`);
+      assert.deepEqual(w.touching(start + 1), ["A", "B"], "both are touched while walking");
+      for (const [name, list] of Object.entries(w.footholds)) for (const h of list) assert.ok(Number.isFinite(h.t0) && Number.isFinite(h.t1), `${name} stance ${h.k}: finite times`);
+      assert.ok(w.together("A", "nowhere") === null, "never on a thing that is not there");
+    }
+  }
+
+  // An insect: six legs of three segments in alternating tripods, on the floor alone (no cling needed).
+  {
+    const sg = [0.005, 0.005, 0.004], six = [["L1", 0.006, -1], ["L2", 0, -1], ["L3", -0.006, -1], ["R1", 0.006, 1], ["R2", 0, 1], ["R3", -0.006, 1]]
+      .map(([name, x, side]) => ({ name, hip: [x, 0.004, side * 0.003], foot: [x, side * 0.009], segments: sg, bend: "up" }));
+    const straight = new THREE.CurvePath(); straight.add(line([0.02, 0], [0.2, 0]));
+    const bug = rig(null, { legs: six, spine: { length: 0.02 } }), w = creaturePath(bug, straight, { scene: s, speed: 0.02, gait: "tripod" });
+    let dr = 0, st = 0, lifted = 0;
+    for (let t = 0; t <= w.duration; t += 1 / 240) {
+      const at = w.at(t);
+      for (const l of at.legs) {
+        for (let j = 0; j < 3; j++) st = Math.max(st, Math.abs(Math.hypot(...l.joints[j].map((c, i) => c - l.joints[j + 1][i])) - sg[j]));
+        if (l.planted) dr = Math.max(dr, Math.hypot(...l.joints[3].map((c, i) => c - w.footholds[l.name].find((h) => h.k === l.k).p[i])));
+      }
+      if (t > 1 && t < w.duration - 1 && at.legs.filter((l) => l.planted).length < 3) lifted++;
+    }
+    assert.ok(dr < 0.001 && st < 1e-4 && lifted === 0, `a tripod gait keeps three feet down and no foot drifts: ${dr} m, stretch ${st} m, ${lifted} frames with fewer than three planted`);
+  }
+
+  // Drawn (examples/lizard.js): a lizard on a swept body with swept limbs. Its drawn foot is on the foothold while planted, the chest
+  // breathes and the tail does not, the trunk sways, the head turns toward a stimulus when told to and only then.
+  {
+    const rate = 1.5, depth = 0.04, L = makeLizard({ breath: { rate, depth } }), w = wallClimb({ scene: s }, L, { scene: s, wall: { x: 0.3 / M }, from: V(0.02, 0), height: 0.2 / M, speed: 0.05 });
+    s.add(L.creature.group);
+    try {
+      let off = 0, planted = 0, sway = 0;
+      const tail = L.body.geometry.attributes.position, restTail = tail.array.slice(), vt = tail.count - 5;
+      for (let t = 0; t <= w.duration; t += 1 / 120) {
+        w.apply(t); s.updateMatrixWorld(true);
+        for (const l of w.at(t).legs) {
+          const segs = L.creature.limbs[l.name], last = segs[segs.length - 1];
+          const tip = last.localToWorld(new THREE.Vector3(last.userData.length, 0, 0)).multiplyScalar(M);
+          assert.ok(Number.isFinite(tip.x + tip.y + tip.z), "the drawn foot is finite at " + t);
+          if (!l.planted) continue;
+          planted++;
+          off = Math.max(off, tip.distanceTo(new THREE.Vector3(...w.footholds[l.name].find((h) => h.k === l.k).p)));
+        }
+        sway = Math.max(sway, Math.abs(tail.getZ(vt) - restTail[vt * 3 + 2]));
+      }
+      assert.ok(planted > 1000 && off < 0.001, `the drawn foot is ${(off * 1000).toFixed(3)} mm off its foothold (limit 1 mm) over ${planted} samples`);
+      assert.ok(tail.array.every(Number.isFinite), "the body's vertices are finite");
+      assert.ok(sway > 0.001, `the trunk sways: the tail moves ${(sway * 1000).toFixed(2)} mm sideways`);
+      assert.ok(L.body.frustumCulled === false, "a body whose vertices move every frame is not culled");
+      // Breathing: before the walk starts the trunk does not sway, so the chest girth alone changes, by the depth, and the tail not at all.
+      const { pts, seg } = L.body.geometry.userData.sweep, centre = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+      const rad = L.body.geometry.userData.sweep.rad, ring = (i) => centre.getPointAt(i / seg);
+      let mid = 0; for (let i = 0; i <= seg; i++) if (Math.abs(ring(i).x) < Math.abs(ring(mid).x)) mid = i;
+      const girth = (i) => { const p = L.body.geometry.attributes.position, v = i * (rad + 1); return new THREE.Vector3(p.getX(v), p.getY(v), p.getZ(v)).distanceTo(ring(i)); };
+      const tailVert = () => Array.from(tail.array.slice((seg - 3) * (rad + 1) * 3, (seg - 3) * (rad + 1) * 3 + 3));
+      w.apply(-1); const g0 = girth(mid), t0 = tailVert();
+      w.apply(-1 + 1 / (4 * rate)); const g1 = girth(mid), t1 = tailVert();
+      assert.ok(Math.abs(Math.abs(g1 / g0 - 1) - depth) < 1e-3, `the chest girth changes by the depth: ${g1 / g0}`);
+      assert.deepEqual(t1, t0, "the tail does not breathe");
+      // The head turns toward a stimulus on a call, eased over dur, clamped, and never before.
+      const aim = new THREE.Vector3(0.05 / M, 0, -0.3 / M), lim = 70 * Math.PI / 180;
+      assert.equal(w.at(0.6).head, 0, "no call, no turn");
+      w.look(aim, 0.5, { dur: 0.25 });
+      assert.equal(w.at(0.5).head, 0, "still at the call");
+      const mid2 = w.at(0.625).head;
+      assert.ok(mid2 > 0.2 * lim && mid2 < 0.8 * lim, "turning half way at half the time: " + mid2);
+      for (const t of [0.75, 2, 6]) assert.ok(Math.abs(w.at(t).head - lim) < 1e-9, `the head is at the clamp at ${t} s: ${w.at(t).head}`);
+      w.apply(2);
+      assert.ok(Math.abs(L.head.rotation.y - lim) < 1e-9, "apply turns the head");
+    } finally { s.remove(L.creature.group); }
+    assert.throws(() => rig(new THREE.Mesh(new THREE.BoxGeometry()), { legs: [leg("LF", 0.02, -0.008)], spine: { length: 0.07 } }), R("rig.body", /sweep/), "a body that is not a sweep");
+    assert.ok(Math.abs(restingBreath(4) - (53.5 * 4 ** -0.26) / 60) < 1e-12 && restingBreath(40) < restingBreath(4), "a bigger animal breathes slower");
+  }
+
+  // Cling: a wall holds only an animal that grips.
+  assert.throws(() => creaturePath(gecko({ cling: false }), route(0.07, 0.2), { scene: s, speed: 0.05, gait: "sprawl" }), R("path.cling", /cling/), "no cling, no wall");
+  // The bake is deterministic.
+  const again = creaturePath(gecko(), route(0.07, 0.2), { scene: s, speed: 0.05, gait: "sprawl" });
+  assert.equal(JSON.stringify(again.footholds), JSON.stringify(walk.footholds), "two builds place the same feet");
+  // Wrong inputs are refused, with the fix named.
+  assert.throws(() => creaturePath(gecko(), route(0.07, 0.2), { scene: s, speed: 0.05, gait: "tripod" }), R("path.legs", /L1/), "a tripod needs six legs");
+  assert.throws(() => creaturePath(gecko(), { getLength: () => 1 }, { scene: s, speed: 0.05, gait: "sprawl" }), R("path.curve", /curve/), "a curve needs getPointAt");
+  assert.throws(() => rig(null, { legs: [{ ...leg("LF", 0.02, -0.008), segments: [0.013] }], spine: { length: 0.07 } }), R("rig.leg.segments", /segments/), "one segment");
+  assert.throws(() => rig(null, { legs: [], spine: { length: 0.07 } }), R("rig.legs", /legs/), "no legs");
+  for (const name of ["", undefined, 3]) assert.throws(() => rig(null, { legs: [{ ...leg("LF", 0.02, -0.008), name }], spine: { length: 0.07 } }), R("rig.leg.name", /every leg has a name/), "a leg named " + JSON.stringify(name));
+  assert.equal(rig(null, { legs: [leg("LF", 0.02, -0.008)], spine: { length: 0.07 } }).legs[0].name, "LF", "a named leg is taken");
+  assert.throws(() => rig(null, { legs: [leg("LF", 0.02, -0.008), leg("LF", 0.02, 0.008)], spine: { length: 0.07 } }), R("rig.leg.twice", /LF/), "a duplicate leg");
+  assert.throws(() => rig(null, { legs: [{ ...leg("LF", 0.02, -0.008), foot: [0.02, -0.2] }], spine: { length: 0.07 } }), R("rig.leg.reach", /reach/), "a rest foot out of reach");
+  const off = new THREE.CurvePath(); off.add(line([0.02, 0], [1.0, 0]));
+  assert.throws(() => creaturePath(gecko(), off, { scene: s, speed: 0.05, gait: "sprawl" }), R("path.body.surface", /no surface within the legs' reach of the curve/), "a path that leaves the set");
+  // A foot that finds no surface where the body does: a curve along the top of a 4 mm rail, the body frame on the rail at every sample,
+  // the feet out past its sides. The same curve along a plank the feet reach walks.
+  {
+    const rail = (w) => {
+      const r = new THREE.Scene(), m = new THREE.Mesh(new THREE.BoxGeometry(0.3 / M, 0.01 / M, w / M), new THREE.MeshStandardMaterial());
+      m.position.set(0, -0.005 / M, 0); m.name = "rail"; r.add(m); r.updateMatrixWorld(true); return r;
+    };
+    const along = new THREE.CurvePath(); along.add(line([-0.1, 0], [0.1, 0]));
+    assert.throws(() => creaturePath(gecko(), along, { scene: rail(0.004), speed: 0.05, gait: "sprawl" }), R("path.foot.surface", /leg [LR][FH] finds no surface/), "feet past the sides of a narrow rail");
+    assert.ok(creaturePath(gecko(), along, { scene: rail(0.08), speed: 0.05, gait: "sprawl" }).duration > 1, "the same curve along a plank the feet reach");
+  }
+
+  // A leg that cannot reach its foothold during the walk is refused, not stretched. A corner wider than the legs reach lifts the body off
+  // both surfaces (examples/lizard.js wallClimb); the same legs on a narrow corner (above) reach at every sample.
+  assert.throws(() => creaturePath(gecko(), route(0.15, 0.28), { scene: s, speed: 0.05, gait: "sprawl" }), R("path.reach", /cannot reach its foothold/), "a corner wider than the legs reach");
+  assert.throws(() => creaturePath(gecko(), route(0.07, 0.25), { scene: s, speed: 0.4, gait: "sprawl" }), R("path.reach", /cannot reach its foothold/), "a stride longer than the legs reach");
+  assert.throws(() => wallClimb({ scene: s }, makeLizard(), { scene: s, wall: { x: 0.3 / M }, from: V(0.02, 0), height: 0.25 / M, radius: 0.14 }), R("path.reach", /cannot reach its foothold/), "wallClimb with a corner wider than the legs reach");
+  assert.ok(creaturePath(gecko(), route(0.07, 0.25), { scene: s, speed: 0.2, gait: "sprawl" }).duration > 2, "half that speed still reaches");
+  // The path's own refusals, each with its legitimate case on the other side.
+  {
+    const ch = new THREE.Scene(), box = (y, name) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.6 / M, 0.02 / M, 0.3 / M), new THREE.MeshStandardMaterial()); m.position.set(0, y / M, 0); m.name = name; ch.add(m); };
+    box(-0.01, "floor"); box(0.03, "ceiling"); ch.updateMatrixWorld(true); // a 20 mm channel, floor at y 0, ceiling at 20 mm
+    const pl = (...pts) => { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(line(pts[i - 1], pts[i])); return c; };
+    // Normals that cancel: a curve near the floor, then near the ceiling, under a body longer than the whole run (the smoothing window
+    // sums as many floor normals as ceiling normals). A straight run along the floor under the same body is fine.
+    const long = () => gecko({ spine: { length: 0.3, sway: 12 } });
+    assert.throws(() => creaturePath(long(), pl([-0.04, 0.004], [0, 0.004], [0, 0.016], [0.04, 0.016]), { scene: ch, speed: 0.05, gait: "sprawl" }), R("path.normals", /normals cancel/), "floor then ceiling under a long body");
+    assert.ok(creaturePath(long(), pl([-0.04, 0.004], [0.04, 0.004]), { scene: ch, speed: 0.05, gait: "sprawl" }).duration > 1, "the same long body along the floor alone");
+    // A curve that runs straight into the surface has no direction along it. Along the surface it has.
+    assert.throws(() => creaturePath(gecko(), pl([0, 0.03], [0, 0.0005]), { scene: s, speed: 0.05, gait: "sprawl" }), R("path.dive", /straight into the surface/), "a curve that dives into the floor");
+    assert.ok(creaturePath(gecko(), pl([0, 0.0005], [0.1, 0.0005]), { scene: s, speed: 0.05, gait: "sprawl" }).duration > 1, "a curve along the floor");
+    // More than 5000 strides is refused; the same curve at a walking speed is not.
+    const lo = pl([0.02, 0], [0.2, 0]);
+    assert.throws(() => creaturePath(gecko(), lo, { scene: s, speed: 1e-6, gait: "sprawl" }), R("path.strides", /5000 strides/), "a walk of more than 5000 strides");
+    assert.ok(creaturePath(gecko(), lo, { scene: s, speed: 0.05, gait: "sprawl" }).duration > 1, "the same curve at a walking speed");
+  }
+  // wallClimb lays only a route that fits the lizard; each refusal names its fix, and the route it accepts walks.
+  {
+    const L = makeLizard(), W = { x: 0.3 / M }, ok = { scene: s, wall: W, from: V(0.02, 0), height: 0.2 / M };
+    assert.throws(() => wallClimb({ scene: null }, L, { ...ok, scene: undefined }), R("wallClimb.scene", /scene/), "no scene");
+    assert.throws(() => wallClimb({ scene: s }, L, { ...ok, wall: undefined }), R("wallClimb.wall", /wall is \{ x \}/), "no wall");
+    assert.throws(() => wallClimb({ scene: s }, L, { ...ok, wall: { x: NaN } }), R("wallClimb.wall", /wall is \{ x \}/), "a wall at NaN");
+    assert.throws(() => wallClimb({ scene: s }, L, { ...ok, from: [0.02, 0, 0] }), R("wallClimb.from", /from is a THREE.Vector3/), "from is not a vector");
+    assert.throws(() => wallClimb({ scene: s }, L, { ...ok, from: V(0.25, 0) }), R("wallClimb.run", /short of the corner/), "a floor run shorter than the corner");
+    assert.throws(() => wallClimb({ scene: s }, L, { ...ok, height: 0.05 / M }), R("wallClimb.height", /height/), "a climb shorter than the corner");
+    assert.ok(wallClimb({ scene: s }, L, ok).duration > 5, "the same call with a run and a climb that fit");
+  }
+  // Inputs: a bad one is refused with the quantity named; the good one beside it is taken.
+  {
+    const sound = leg("LF", 0.02, -0.008), mk = (over, spine = { length: 0.07 }) => () => rig(null, { legs: [{ ...sound, ...over }], spine });
+    for (const [what, bad, re] of [["hip", { hip: [0.02, 0, -0.008] }, /hip/], ["hip", { hip: [0.02, NaN, -0.008] }, /hip/], ["foot", { foot: [0.02] }, /foot/], ["bend", { bend: "sideways" }, /bend/],
+      ["ankle", { ankle: 2 }, /ankle/], ["radius", { radius: [0.001] }, /radius/], ["radius", { radius: -1 }, /radius/], ["segments", { segments: [0.013, 0] }, /segments/]]) assert.throws(mk(bad), R("rig.leg." + what, re), "a bad " + what);
+    assert.throws(mk({}, { length: 0 }), R("rig.length", /spine\.length/), "a body of no length");
+    assert.throws(mk({}, { length: 0.07, sway: NaN }), R("rig.sway", /sway/), "a sway of NaN");
+    assert.throws(() => rig(null, { legs: [sound], spine: { length: 0.07 }, breath: { rate: 0 } }), R("rig.breath", /breath/), "no breath rate");
+    assert.throws(() => rig(null, { legs: [sound], spine: { length: 0.07 }, breath: { rate: 1, depth: 0.5 } }), R("rig.breath", /breath/), "a breath too deep");
+    assert.ok(mk({ bend: "forward", ankle: 0.5, radius: [0.002, 0.001] })().legs.length === 1, "the good ones beside them");
+    for (const bad of [0, -3, NaN, Infinity, "4", undefined]) assert.throws(() => restingBreath(bad), R("breath.mass", /restingBreath/), "a body mass of " + bad);
+    const cv = new THREE.CurvePath(); cv.add(line([0.02, 0], [0.2, 0]));
+    const w = creaturePath(gecko(), cv, { scene: s, speed: 0.05, gait: "sprawl" }), tgt = new THREE.Vector3(0.1 / M, 0, 0.1 / M);
+    for (const [what, args, id] of [["a target of NaN", [[NaN, 0, 0], 1], "target"], ["no target", [undefined, 1], "target"], ["a string for a target", ["there", 1], "target"], ["a time of NaN", [tgt, NaN], "t0"], ["no time", [tgt, undefined], "t0"],
+      ["a turn of no time", [tgt, 1, { dur: 0 }], "dur"], ["a turn of NaN", [tgt, 1, { dur: NaN }], "dur"]]) assert.throws(() => w.look(...args), R("look." + id, /look\(\)/), what);
+    assert.equal(w.look(tgt, 1, { dur: 0.3 }), w, "a good call is taken and chains");
+    assert.throws(() => creaturePath(gecko(), cv, { speed: 0.05, gait: "sprawl" }), R("path.scene", /scene/), "no scene");
+    assert.throws(() => creaturePath(gecko(), cv, { scene: s, start: NaN, speed: 0.05, gait: "sprawl" }), R("path.start", /start/), "a start of NaN");
+    assert.throws(() => creaturePath({}, cv, { scene: s, speed: 0.05, gait: "sprawl" }), R("path.rig", /rig\(\)/), "not a rig");
+    assert.throws(() => creaturePath(gecko(), new THREE.CurvePath(), { scene: s, speed: 0.05, gait: "sprawl" }), R("path.length", /no length/), "a curve of no length");
+  }
+  // Every refusal of the module and the example has its case above, on its own site.
+  const src = (f) => readFileSync(join(fileURLToPath(dir), f), "utf8");
+  assert.deepEqual(audit({ "creature.js": src("creature.js"), "examples/lizard.js": src("examples/lizard.js") }, hits), [], "every creature refusal has a case");
+  assert.ok(hits.size >= 40, `the audit read the refusals: ${hits.size} ids`);
 }
 // Type: shared captions and pinned labels. phrases() splits like craft-rules §6 in several languages (CJK by
 // characters) and holds each through the pause that follows; drawCaption picks its ink from the ground under its own
@@ -2265,4 +2550,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const row = JSON.parse(readFileSync(join(built, ".engine.json"), "utf8")).find((r) => r.file === "draco/draco_decoder.wasm");
   assert.ok(row && row.licence === "Apache-2.0" && /draco/i.test(row.source), "the decoder is listed with its origin and licence");
 }
-console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), any scale and gravity");
+console.log("selfcheck ok:surfaces, physics in real units, bake cache, holds, sparse poses, island bakes, loose hull, cloth, fur normals, wind, jet, bending, plants, rain, steam, steam contrast, room draught, water (M = " + M + "), cutaway, grains, mechanisms (slide, hinge, spring, latch, gear, belt, chain, cam), transmissions (involute gears without interference, belt and chain paths, links at ω·r), a bicycle drivetrain changing gear, time remap, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), creatures (gait scaling, planted feet, floor to wall), any scale and gravity");
