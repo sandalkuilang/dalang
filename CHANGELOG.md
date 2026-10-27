@@ -48,6 +48,22 @@ that reads as:
   (not yet measured: the ~85k figure is from the heavy setups of the runs that prompted this). Gate step
   `tests/workspace.mjs`.
 
+- **Kokoro-82M, a light commercial-OK local voice** (`voice.md` "Setup — Kokoro"): `tts_timestamps.mjs --engine kokoro
+  --language <en|en-gb>` speaks one sentence per call through `scripts/kokoro_tts.py`
+  (Apache-2.0 weights), joins them with pauses and takes every word time from `align.py` forced alignment (no
+  estimate ships; a language without an aligner model stops with its note). Only en and en-gb: their text front end is
+  the one proven to fetch nothing on first use. Every other language (es, fr, it, pt-br, ja, zh, hi) is refused with a
+  message naming VoiceStudio, before anything runs: never MISSING, never a download offer. ja, zh and hi are a recorded
+  follow-up. `--retake changed|<n>|auto` work as on a
+  VoiceStudio take. It never downloads or installs on its own: outside `--download` one audit hook in the helper refuses every network
+  reach and child process, whatever library asks (misaki would pip-install the spaCy model unasked), exit 6. A host counts as local by its address (a loopback literal, or the name `localhost`), never by how a name looks (`127.mirror.example` or `x.localhost` can resolve to a public address), and a child started through multiprocessing (spawn, forkserver, a process pool) is refused too: it is an unguarded Python. The weights
+  and the ~13 MB spaCy `en_core_web_sm` text model come once with `--download`, only with the user's consent, who is told the whole install first (`pip install kokoro soundfile torchaudio` pulls torch and the rest: ~0.3 GB on macOS arm64, ~3 GB on Linux with CUDA wheels, plus the ~330 MB weights);
+  `--check` and preflight report the text model. Kokoro lives in a separate `DALANG_PYTHON`, never VoiceStudio's venv (unset = MISSING; the venv is recognised through a symlinked folder too). Exit 5
+  (not installed) is only a missing `kokoro` / `soundfile`, exit 4 only a weights miss: a broken torch, an unreadable
+  cache or a missing libsndfile is exit 1, WARN "rerun". Preflight
+  gains a `Kokoro (voice)` row and `--check-kokoro` (MISSING with size and licence, WARN "rerun" when unreadable),
+  `voice_licences.mjs` a Kokoro-82M row, and Brief Call 0 offers it next to VoxCPM2 for English and a
+  monetised channel. Checks: `tests/kokoro.mjs`, `tests/kokoro-helper.mjs` (the real helper vs fake packages), `tests/preflight-mock.mjs`.
 - **Pilot, then shot groups in parallel** (`look-build.md` "Parallel build"; `SKILL.md` "Batch and parallelise"): a film
   of 3 or more shot groups builds its first group (the pilot) in the main context, renders it as a 10 fps draft and has
   a subagent check it against the style frames; then one subagent per other group, all in one message, gets `SPEC.md`,

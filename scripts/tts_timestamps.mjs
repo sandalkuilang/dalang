@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Generate narration, then compute the timing of every word and every {beat}.
-// Two engines:
+// Three engines:
 //   voicestudio  (free, local VoiceStudio app, default) — timing comes from transcribing the audio
 //                back with word timestamps, matched word by word to the narration
+//   kokoro       (free, local Kokoro-82M via scripts/kokoro_tts.py, Apache-2.0; only with --engine kokoro) — one
+//                sentence per call; timing from forced alignment (align.py) only, never a transcript or an estimate
 //   elevenlabs   (paid API, only with --engine elevenlabs) — timing from the API's character alignment
 //
 // Usage:
@@ -12,6 +14,13 @@
 //                              -> designed voice; the same --seed gives the same timbre in the full take
 //   node tts_timestamps.mjs --input narration.txt --out audio --voice <profile> --language en
 //   node tts_timestamps.mjs --engine elevenlabs --input narration.txt --out audio --voice "Chris" --language en
+//   node tts_timestamps.mjs --engine kokoro --input narration.txt --out audio --language en [--voice af_heart] [--speed 1]
+//                              -> Kokoro speaks its built-in voices (--list-voices --engine kokoro); --language is en or
+//                                 en-gb only (any other language is refused before anything runs: use VoiceStudio). It never
+//                                 downloads: the helper refuses any network reach outside --download; the weights and the
+//                                 spaCy text model come once, with consent (kokoro_tts.py --download). DALANG_PYTHON
+//                                 (required, never VoiceStudio's venv) points at the Python that has kokoro;
+//                                 the same Python runs align.py.
 //   node tts_timestamps.mjs --input narration.txt --out audio --from-response audio/narration.response.json
 //                              -> re-time after moving {} markers, no new audio (language read from the response)
 //   node tts_timestamps.mjs --input dialogue.txt --out audio --from-audio recording.mp4 --language en --own-recording
@@ -79,11 +88,11 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync } from 'node
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { voiceModel, unknownVoice, vsModelName } from './voice_licences.mjs';
 
 let API = 'https://api.elevenlabs.io'; // --api-url replaces it (a mock in tests/voice-licence.mjs)
-const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000 };
+const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000, kokoro: 4000 };
 // ISO 639-1 → Whisper language code, only where they differ.
 const WHISPER_LANG = { jv: 'jw', iw: 'he', 'zh-tw': 'zh', 'zh-cn': 'zh', 'pt-br': 'pt' };
 
@@ -129,12 +138,18 @@ function parseArgs(argv) {
       default: die(`Unknown option: ${k} (see --help)`);
     }
   }
-  if (!['elevenlabs', 'voicestudio'].includes(a.engine)) die(`Unknown --engine ${a.engine}. Use elevenlabs or voicestudio.`);
-  if (a.retake && a.engine === 'elevenlabs') die('--retake re-speaks with VoiceStudio; an ElevenLabs take is regenerated whole.');
+  if (!['elevenlabs', 'voicestudio', 'kokoro'].includes(a.engine)) die(`Unknown --engine ${a.engine}. Use voicestudio, kokoro or elevenlabs.`);
+  if (a.retake && a.engine === 'elevenlabs') die('--retake re-speaks with VoiceStudio or Kokoro; an ElevenLabs take is regenerated whole.');
   if (a.tempo !== undefined && a.engine === 'elevenlabs') die('--tempo works on a VoiceStudio take; for ElevenLabs regenerate with --speed (0.7-1.2).');
   if (a.tempo !== undefined && (a.retake || a.sample || a.fromAudio || a.speed !== undefined)) die("--tempo changes the take on disk by itself: do not combine it with --retake, --sample, --from-audio or --speed. Run --tempo first; a later --retake keeps the take's tempo.");
+  if (a.engine === 'kokoro') {
+    if (a.align === 'off') die('--align off: a Kokoro take is timed only by forced alignment (align.py); keep --align auto.');
+    if (a.instructions) die('--instructions designs a VoiceStudio voice; Kokoro speaks its built-in voices: --voice <name> (references/voice.md "Setup — Kokoro").');
+    if (a.model && !/kokoro/i.test(a.model)) die('--engine kokoro speaks with Kokoro-82M; --model names a VoiceStudio or ElevenLabs model.');
+  }
   a.modelFrom = a.model ? '--model' : null;
   if (a.engine === 'elevenlabs') a.model ??= 'eleven_v4'; // VoiceStudio: the active model, read in main()
+  if (a.engine === 'kokoro') { a.model ??= 'Kokoro-82M'; a.modelFrom ??= '--engine kokoro'; a.format = 'wav'; }
   if (a.engine === 'voicestudio') a.format = 'wav'; // parts are joined losslessly, then measured
   a.format ??= 'mp3_44100_128';
   return a;
@@ -357,6 +372,79 @@ async function joinWavs(parts, audioPath) {
   try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', audioPath]); }
   catch (e) { die(`ffmpeg could not join the ${parts.length} audio parts: ${e.message}`); }
   await Promise.all([list, ...parts].map(f => rm(f, { force: true })));
+}
+
+// Why the Kokoro helper (scripts/kokoro_tts.py) stopped: 5 = not installed, 4 = weights or voice not downloaded,
+// 6 = the spaCy en_core_web_sm text model not installed, or the helper refused a network reach (outside --download it
+// reaches nothing), 2 = bad input. Anything else is an error to rerun, never "not installed".
+// Kokoro goes in a separate Python, never in VoiceStudio's venv (references/voice.md "Setup — Kokoro").
+const kokoroPkgSize = "about 0.3 GB to download on macOS arm64, about 3 GB on Linux with the default CUDA wheels";
+const kokoroApart = `set DALANG_PYTHON to a separate Python that has kokoro, never VoiceStudio's venv (references/voice.md "Setup — Kokoro"; its packages, torch, transformers, spaCy and the rest, are ${kokoroPkgSize}, plus ~330 MB of weights); install nothing without the user's consent.`;
+const kokoroText = () => 'the spaCy English text model en_core_web_sm (about 13 MB, a pip install from GitHub)';
+// The same file, with the folder's symlinks followed on both sides (never the file's own: a venv's python is a link to
+// the base interpreter, which is not that venv).
+const samePython = (x, y) => {
+  const f = q => { const r = path.resolve(q); try { return path.join(realpathSync(path.dirname(r)), path.basename(r)); } catch { return r; } };
+  return f(x) === f(y);
+};
+const kokoroWhy = (e, py, voice, code) => [4, 5, 6].includes(e.status) && samePython(py, VS_PY)
+  ? `DALANG_PYTHON is VoiceStudio's venv, where Kokoro does not go: ${kokoroApart}`
+  : e.status === 5
+  ? `Kokoro is not installed in ${py} (pip packages kokoro, soundfile). It is optional, Apache-2.0. The install is pip kokoro soundfile torchaudio into that Python, which pulls torch, transformers, spaCy and the rest (${kokoroPkgSize}), then ~330 MB of weights — install it only with the user's consent (references/voice.md "Setup — Kokoro"), or use VoiceStudio.`
+  : e.status === 4 ? `Kokoro's weights or voice "${voice}" are not downloaded (once, with the user's consent: ${py} scripts/kokoro_tts.py --download --lang ${code} --voice ${voice}; ~330 MB, Apache-2.0; it also installs ${kokoroText()}).`
+  : e.status === 6 && /^refused /m.test(String(e.stderr)) ? `Kokoro stopped the take before it reached the network (${String(e.stderr).trim().split('\n').pop().split(': without --download')[0].slice(0, 160)}): a take fetches nothing, and something it needs for this language may not be installed. Ask the user first; once, with consent: ${py} scripts/kokoro_tts.py --download --lang ${code} --voice ${voice} (~330 MB of weights if absent and ${kokoroText()}). Install nothing else.`
+  : e.status === 6 ? `Kokoro needs ${kokoroText()}, which is not installed, and the take does not fetch it: once, with the user's consent, ${py} scripts/kokoro_tts.py --download --lang ${code} --voice ${voice} (plus the ~330 MB weights if absent).`
+  : e.status === 2 ? `Kokoro helper refused its input: ${String(e.stderr).trim().split('\n').pop().slice(0, 200)}`
+  : `Kokoro failed (${String(e.stderr || e.message).trim().split('\n').pop().slice(0, 160)}) — rerun; this is not "not installed".`;
+
+// Speak `text` with Kokoro one sentence per call (a retake re-speaks one the same way), joined with a pause:
+// 0.35 s after a sentence, 0.7 s at a line break. The alignment spreads each sentence over its own clip: an
+// estimate that forced alignment replaces (timeTake).
+async function kokoroSpeak(a, text, audioPath) {
+  const py = process.env.DALANG_PYTHON, code = kokoroCode(a), voice = kokoroVoice(a);
+  if (!py) die(`no Python chosen for Kokoro: ${kokoroApart}`);
+  if (!existsSync(py)) die(`no Python for Kokoro at ${py}: ${kokoroApart}`);
+  const spans = splitSentences(text).filter(([s, e]) => /[\p{L}\p{N}]/u.test(text.slice(s, e)));
+  const dir = `${audioPath}.kokoro`;
+  mkdirSync(dir, { recursive: true });
+  const parts = [], characters = [], starts = [], ends = [];
+  let t = 0;
+  try {
+    for (const [k, [s, e]] of spans.entries()) {
+      const txt = path.join(dir, `s${k}.txt`), clip = path.join(dir, `s${k}.wav`);
+      writeFileSync(txt, text.slice(s, e));
+      try { execFileSync(py, [fileURLToPath(new URL('kokoro_tts.py', import.meta.url)), '--text', txt, '--lang', code, '--voice', voice, '--speed', String(a.speed ?? 1), '--out', clip], { stdio: ['ignore', 'ignore', 'pipe'] }); }
+      catch (err) { die(kokoroWhy(err, py, voice, code)); }
+      const d = probeDuration(clip);
+      if (!d) die(`Kokoro wrote no audio for sentence ${k + 1} (${clip}) — rerun.`);
+      for (let i = s; i < e; i++) { characters.push(text[i]); starts.push(round(t + (i - s) / (e - s) * d)); ends.push(round(t + (i - s + 1) / (e - s) * d)); }
+      parts.push(clip); t += d;
+      const next = spans[k + 1];
+      if (!next) continue;
+      const p = /\n/.test(text.slice(e, next[0])) ? 0.7 : 0.35, gap = path.join(dir, `p${k}.wav`);
+      writePcm(gap, new Int16Array(Math.round(p * RATE)));
+      for (let i = e; i < next[0]; i++) { characters.push(text[i]); starts.push(round(t)); ends.push(round(t + p)); }
+      parts.push(gap); t += p;
+    }
+    if (parts.length === 1) renameSync(parts[0], audioPath); else await joinWavs(parts, audioPath);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  return { audio_file: path.basename(audioPath), alignment: { characters, character_start_times_seconds: starts, character_end_times_seconds: ends } };
+}
+
+// A spliced Kokoro take has no per-sentence clips: its characters spread over the whole file (aligned afterwards).
+function spreadAlignment(audioPath, text) {
+  const d = probeDuration(audioPath) ?? 0, n = Math.max(text.length, 1), characters = text.split('');
+  return { characters, character_start_times_seconds: characters.map((_, i) => round(i / n * d)), character_end_times_seconds: characters.map((_, i) => round((i + 1) / n * d)) };
+}
+
+// Where the speech runs in a re-spoken clip (its leading and trailing silences cut off), in vsTranscribe's word shape.
+function clipSpan(file) {
+  const d = probeDuration(file) ?? 0, q = silences(file);
+  let r0 = 0, r1 = d;
+  if (q[0] && q[0][0] <= 0.02) r0 = q[0][1];
+  const z = q[q.length - 1];
+  if (z && z[1] >= d - 0.02 && z[0] > r0) r1 = z[0];
+  return r1 > r0 ? [{ start: r0, end: r1 }] : [];
 }
 
 // Dialogue: each line in its speaker's voice, "(1.5)" lines as real silence, then one transcription.
@@ -691,6 +779,14 @@ function buildWords(clean, times, quiet = [], gaps = []) {
 // and no rewritten numbers. Falls back silently to transcribe-and-match: no Python deps, no model
 // for the language, or the model not downloaded. Overwrites word times and the char times beats use.
 const VS_PY = path.join(process.env.HOME || '', 'Library/Application Support/VoiceStudio/runtime/project/.venv/bin/python');
+// Kokoro-82M (Apache-2.0): a narration language -> its pipeline code, and the default voice per code (model card).
+// Only en and en-gb: their text front end is the one proven to fetch nothing. Any other language is refused (KOKORO_ONLY)
+// before a helper call; Kokoro for es, fr, hi, it, ja, pt-br, zh is a recorded follow-up.
+const KOKORO_LANG = { en: 'a', 'en-us': 'a', 'en-gb': 'b' };
+const KOKORO_VOICE = { a: 'af_heart', b: 'bf_emma' };
+const KOKORO_ONLY = lang => `Kokoro speaks only en and en-gb here (--language en or en-gb); ${lang ? `"${lang}" is not one of them. ` : 'this take names no language. '}For another language use VoiceStudio (--engine voicestudio). Nothing was run.`;
+const kokoroCode = a => KOKORO_LANG[String(a.language || '').toLowerCase()];
+const kokoroVoice = a => a.voice && a.voice !== 'default' ? a.voice : KOKORO_VOICE[kokoroCode(a)];
 function forceAlign(a, audioPath, clean, words, times) {
   const tmp = path.join(a.out, '_align');
   try {
@@ -775,11 +871,16 @@ function probeDuration(file) {
 // `align` lets a caller time a take without running the aligner.
 function timeTake(a, response, clean, gaps, audioPath, align = a.align) {
   const alignment = response.alignment || response.normalized_alignment;
+  const kokoro = response._meta?.engine === 'kokoro';
+  const heard = !!response.transcript || kokoro; // timing read from the audio, not given by the engine
   const { times, exact } = mapTimes(clean, alignment);
-  let { words, missing } = buildWords(clean, times, response.transcript ? silences(audioPath) : [], gaps);
-  // ElevenLabs returns exact character times; only transcribed timing benefits from alignment.
-  const aligned = !response.transcript || align === 'off' ? null
+  let { words, missing } = buildWords(clean, times, heard ? silences(audioPath) : [], gaps);
+  // A Kokoro take's times are spread over each sentence's clip: estimates until the aligner times them.
+  if (kokoro) for (const w of words) w.est = true;
+  // ElevenLabs returns exact character times; only transcribed (or spread) timing benefits from alignment.
+  const aligned = !heard || align === 'off' ? null
     : a.language ? forceAlign(a, audioPath, clean, words, times) : { note: 'no --language, so no alignment model' };
+  if (kokoro && align !== 'off' && !aligned?.ok) die(`the Kokoro take ${audioPath} is on disk, but a Kokoro take is timed only by forced alignment (align.py) and that did not run: ${aligned?.note}. Fix that, then time it again with --from-response ${path.join(a.out, `${a.name}.response.json`)}.`);
   if (aligned?.ok) { missing = words.filter(w => w.est).length; for (const w of words) { w.start = round(w.start); w.end = round(w.end); } }
   return { times, exact, words, missing, aligned };
 }
@@ -984,13 +1085,16 @@ function changedPlan(oldTexts, newTexts) {
 async function retake(a, ctx) {
   let { response, t } = ctx;
   const { clean, gaps, audioPath } = ctx;
+  const kokoro = response._meta?.engine === 'kokoro';
   let cleanNow = clean; // the text the take on disk was made from: the script's, except for --retake changed before the first splice
   let plan = null;
   if (a.retake === 'changed') {
     const oldClean = response._meta?.text;
     if (typeof oldClean !== 'string') die('--retake changed compares the script with the text the take was made from, and this take does not record it. Use --retake <sentence numbers>, or make the take again.');
     cleanNow = oldClean;
-    t = timeTake(a, response, oldClean, [], audioPath, 'off'); // the old take, timed on its own words and never aligned
+    // the old take, timed on its own words: a VoiceStudio take is never aligned; a Kokoro take has no transcript, so
+    // its words are timed by aligning the text it was made from
+    t = timeTake(a, response, oldClean, [], audioPath, kokoro ? a.align : 'off');
     const oldSents = sentencesOf(oldClean, t.words);
     const newTexts = splitSentences(clean).map(([s, e]) => stripTags(clean.slice(s, e)).trim()).filter(x => /[\p{L}\p{N}]/u.test(x));
     plan = changedPlan(oldSents.map(s => s.text), newTexts);
@@ -1034,7 +1138,9 @@ async function retake(a, ctx) {
   const medians = { lead: median(regions.map(r => r.lead)), trail: median(regions.map(r => r.trail)) };
   mkdirSync(dir, { recursive: true });
   try {
-    for (let round = 1; round <= 2 && (targets.length || plan); round++) {
+    // Kokoro says the same text the same way every time, so a second try would be the same audio: one round, then the
+    // WARNING says to respell the sentence and --retake changed.
+    for (let round = 1; round <= (kokoro ? 1 : 2) && (targets.length || plan); round++) {
       const seed = round === 1 ? a.seed : a.seed + 1;
       const old = normalisePcm(audioPath, path.join(dir, 'take.wav'));
       // jobs: the sentences to speak, by their number in the new take, with the old pauses they inherit
@@ -1051,13 +1157,12 @@ async function retake(a, ctx) {
       let spliced = 0;
       for (const { n, text, r, k } of jobs) {
         const raw = path.join(dir, `s${n}.raw.wav`);
-        await vsSpeak(a, text, raw, seed);
+        if (kokoro) await kokoroSpeak(a, text, raw); else await vsSpeak(a, text, raw, seed);
         // the take's tempo, so a re-spoken sentence matches the rest
         const tempo = response._meta?.tempo;
         if (Number.isFinite(tempo) && tempo !== 1) { const slow = path.join(dir, `s${n}.tempo.wav`); atempoFile(raw, slow, tempo); renameSync(slow, raw); }
         tries.set(n, round);
-        const heard = await vsTranscribe(a, raw, text, true);
-        const ws = heard?.transcript.words;
+        const ws = kokoro ? clipSpan(raw) : (await vsTranscribe(a, raw, text, true))?.transcript.words;
         if (!ws?.length) { failed.add(n); console.log(`Retake     : sentence ${n} "${short(text)}" came back without words (try ${round}, seed ${seed}); the old audio stays.`); continue; }
         failed.delete(n);
         pieces[k] = { clip: normalisePcm(raw, path.join(dir, `s${n}.wav`)), r0: ws[0].start, r1: ws[ws.length - 1].end, lead: r.lead, trail: r.trail };
@@ -1066,7 +1171,7 @@ async function retake(a, ctx) {
       }
       if (!spliced && !plan) continue; // no clip had words: nothing to splice; the next round is the second try (seed + 1)
       writePcm(tmpAudio, assemble(old, regions, pieces.filter(Boolean)));
-      const fresh = await vsTranscribe(a, tmpAudio, stripTags(clean));
+      const fresh = kokoro ? { audio_file: path.basename(tmpAudio), alignment: spreadAlignment(tmpAudio, stripTags(clean)) } : await vsTranscribe(a, tmpAudio, stripTags(clean));
       fresh.audio_file = path.basename(audioPath);
       fresh._meta = { ...response._meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
       writeFileSync(tmpJson, JSON.stringify(fresh));
@@ -1101,6 +1206,10 @@ async function main() {
     console.log(src.slice(1, src.findIndex(l => l.startsWith('import'))).map(l => l.replace(/^\/\/ ?/, '')).join('\n').trim());
     return;
   }
+  if (a.listVoices && a.engine === 'kokoro') {
+    console.log(Object.entries(KOKORO_LANG).map(([l, c]) => `${l.padEnd(6)} ${KOKORO_VOICE[c]}`).join('\n') + '\nAll voices: huggingface.co/hexgrad/Kokoro-82M (VOICES.md); --voice <name>.');
+    return;
+  }
   if (a.listVoices) return a.engine === 'voicestudio' ? vsListVoices(a) : listVoices();
   if (a.saveProfile) return vsSaveProfile(a);
   if (!a.input) die('Needs --input narration.txt');
@@ -1112,7 +1221,8 @@ async function main() {
   if (a.ownRecording && !a.fromAudio) die('--own-recording states the origin of a --from-audio file; it needs --from-audio.');
   if (!a.fromAudio && !order.length && clean.length > limit) die(`Narration is ${clean.length} characters, over the ${a.engine} limit of ${limit}. Split it into one file per section.`);
   if (order.length && !a.fromAudio && !a.fromResponse && !a.sample && a.engine !== 'voicestudio') die('Multi-voice dialogue is generated with --engine voicestudio --voices name=voice,...; or record it and pass --from-audio.');
-  if (a.retake && (a.sample || a.fromAudio || order.length)) die('--retake works on a single-voice VoiceStudio narration take, not on a sample, a --from-audio file or a dialogue.');
+  if (a.engine === 'kokoro' && !a.fromResponse && !a.fromAudio && !kokoroCode(a)) die(KOKORO_ONLY(a.language));
+  if (a.retake && (a.sample || a.fromAudio || order.length)) die('--retake works on a single-voice VoiceStudio or Kokoro narration take, not on a sample, a --from-audio file or a dialogue.');
   if (a.retake && a.retake !== 'auto') {
     // a numbered or changed retake works on the take that is on disk: no full take
     a.fromResponse ??= path.join(a.out, `${a.name}.response.json`);
@@ -1138,23 +1248,34 @@ async function main() {
     if (!a.model) { a.model = await vsActiveModel(a); a.modelFrom = "VoiceStudio's active TTS model"; }
     modelLine(a, { engine: 'voicestudio', model: a.model }, a.modelFrom);
   }
+  if (a.engine === 'kokoro' && !a.fromResponse && !a.fromAudio) modelLine(a, { engine: 'kokoro', model: a.model }, a.modelFrom);
   if (a.fromResponse) {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
     a.language ??= response._meta?.language ?? null;
+    if (response._meta?.engine === 'kokoro' && a.align === 'off') die('--align off: a Kokoro take is timed only by forced alignment (align.py); keep --align auto.');
     if (a.tempo !== undefined) response = await changeTempo(a, response);
     if (a.retake) {
       // the sentences are re-spoken by the voice and settings that made the take
       const m = response._meta || {};
-      if (m.engine !== 'voicestudio') die('--retake re-speaks with VoiceStudio; this take was not made by it (an ElevenLabs or recorded take is regenerated whole).');
-      a.model = m.model ?? a.model;
-      if (!a.model) die('--retake: the take does not record its model; pass --model <name>.');
-      a.voice = m.voice_id ?? a.voice; a.voiceId = null;
-      a.instructions ??= m.instructions;
-      if (Number.isInteger(m.seed)) a.seed = m.seed;
-      if (a.speed === undefined && m.speed && m.speed !== 1) a.speed = m.speed;
-      if (Number.isInteger(m.steps)) a.steps = m.steps;
-      modelLine(a, { engine: 'voicestudio', model: a.model }, 'the take being retaken');
+      if (m.engine === 'kokoro') {
+        if (a.align === 'off') die('--align off: a Kokoro take is timed only by forced alignment (align.py); keep --align auto.');
+        a.engine = 'kokoro'; a.model = m.model || 'Kokoro-82M';
+        a.voice = m.voice_id ?? a.voice;
+        if (a.speed === undefined && m.speed && m.speed !== 1) a.speed = m.speed;
+        if (!kokoroCode(a)) die(`--retake: the Kokoro take records no language Kokoro speaks. ${KOKORO_ONLY(a.language)}`);
+        modelLine(a, { engine: 'kokoro', model: a.model }, 'the take being retaken');
+      } else {
+        if (m.engine !== 'voicestudio') die('--retake re-speaks with VoiceStudio or Kokoro; this take was not made by either (an ElevenLabs or recorded take is regenerated whole).');
+        a.model = m.model ?? a.model;
+        if (!a.model) die('--retake: the take does not record its model; pass --model <name>.');
+        a.voice = m.voice_id ?? a.voice; a.voiceId = null;
+        a.instructions ??= m.instructions;
+        if (Number.isInteger(m.seed)) a.seed = m.seed;
+        if (a.speed === undefined && m.speed && m.speed !== 1) a.speed = m.speed;
+        if (Number.isInteger(m.steps)) a.steps = m.steps;
+        modelLine(a, { engine: 'voicestudio', model: a.model }, 'the take being retaken');
+      }
     }
     if (response._meta?.text && response._meta.text !== clean && a.retake !== 'changed') {
       console.warn('WARNING: the narration words differ from when this response was made. Timing may be off; regenerate the audio if the words changed.');
@@ -1183,6 +1304,15 @@ async function main() {
     response = await vsDialogue(a, order, audioPath, stripTags(clean));
     console.log('done.');
     response._meta = { engine: 'voicestudio', voices: a.voices, seed: a.seed, model: a.model, language: a.language, speed: a.speed ?? 1, text: clean, characters: stripTags(clean).length, created: new Date().toISOString() };
+  } else if (a.engine === 'kokoro') {
+    voiceId = kokoroVoice(a); a.voice = voiceId;
+    const spoken = stripTags(clean);
+    if (spoken !== clean.trim()) console.warn('Note: [tags] are ElevenLabs-only and were not sent to Kokoro.');
+    const audioPath = path.join(a.out, `${baseFor(voiceId)}.wav`);
+    process.stdout.write(`Speaking ${spoken.length} characters with Kokoro-82M (voice ${voiceId}, language ${a.language}), one sentence at a time; timing by forced alignment... `);
+    response = await kokoroSpeak(a, spoken, audioPath);
+    console.log('done.');
+    response._meta = { engine: 'kokoro', model: a.model, voice_id: voiceId, language: a.language, speed: a.speed ?? 1, text: clean, characters: spoken.length, created: new Date().toISOString() };
   } else if (a.engine === 'voicestudio') {
     voiceId = a.voiceId || a.voice || 'default';
     const spoken = stripTags(clean);
@@ -1265,7 +1395,7 @@ async function main() {
   console.log(`\nAudio      : ${audioPath} (${duration} s)`);
   console.log(`Words      : ${nWords} spoken words (tags excluded), ${(nWords / Math.max(duration, 0.001)).toFixed(2)} words/s, ${(stripTags(clean).replace(/\s/g, '').length / Math.max(duration, 0.001)).toFixed(2)} chars/s`);
   if (!a.sample) console.log(`Beats      : ${beatList.length} | Sections: ${sectionList.length}${lineList.length ? ` | Dialogue lines: ${lineList.length} (${[...new Set(lineList.map(l => l.speaker))].join(', ')})` : ''}`);
-  if (!a.fromResponse) console.log(a.fromAudio || a.engine === 'voicestudio' ? 'Billed     : 0 (local)' : `Billed     : ${clean.length} ElevenLabs characters`);
+  if (!a.fromResponse) console.log(a.fromAudio || a.engine !== 'elevenlabs' ? 'Billed     : 0 (local)' : `Billed     : ${clean.length} ElevenLabs characters`);
   const silent = lineList.filter(l => l.start === null);
   if (silent.length) console.log(`WARNING    : ${silent.length} dialogue line(s) matched no word in the audio: ${silent.map(l => `${l.speaker}: "${l.text.slice(0, 30)}"`).join('; ')}`);
   if (response.transcript) {
@@ -1289,13 +1419,17 @@ async function main() {
     const hit = beatList.filter(b => b.word_index !== undefined && publicWords[b.word_index]?.est);
     if (hit.length) console.log(`WARNING    : beat(s) starting on an estimated word: ${hit.map(b => b.name).join(', ')} — --retake auto, or check them in words.json.`);
   }
-  if (!a.sample && !a.fromAudio && !order.length && response._meta?.engine === 'voicestudio' && response.transcript) {
+  const isKokoro = response._meta?.engine === 'kokoro';
+  if (!a.sample && !a.fromAudio && !order.length && ((response._meta?.engine === 'voicestudio' && response.transcript) || isKokoro)) {
     const sents = sentencesOf(clean, words);
     const regions = regionsOf(sents, silences(audioPath), duration);
-    const flags = flagsOf(a, sents, regions, response.transcript.words, aligned);
+    const flags = flagsOf(a, sents, regions, response.transcript?.words, aligned);
     const hit = sents.filter((s, k) => flags[k].length && !warned.has(s.n));
     // After a --retake run a sentence still open is a WARNING: an unattended run never delivers a take with an open flag.
-    if (hit.length) console.log(`${a.retake ? 'WARNING    ' : 'Retake     '}: sentence${hit.length > 1 ? 's' : ''} ${hit.map(s => s.n).join(', ')} may not say the script (${[...new Set(hit.flatMap(s => flags[s.n - 1]))].join(', ')}) — run again with --retake auto --from-response ${a.fromResponse || path.join(a.out, `${base}.response.json`)}: only those are re-spoken.`);
+    const fix = isKokoro
+      ? `respell ${hit.length > 1 ? 'them' : 'it'} in narration.txt, then --retake changed (Kokoro says the same text the same way, so --retake auto alone cannot fix it).`
+      : `run again with --retake auto --from-response ${a.fromResponse || path.join(a.out, `${base}.response.json`)}: only those are re-spoken.`;
+    if (hit.length) console.log(`${a.retake ? 'WARNING    ' : 'Retake     '}: sentence${hit.length > 1 ? 's' : ''} ${hit.map(s => s.n).join(', ')} may not say the script (${[...new Set(hit.flatMap(s => flags[s.n - 1]))].join(', ')}) — ${fix}`);
   }
   const bad = beatList.filter(b => b.start === null);
   if (bad.length) console.log(`WARNING    : ${bad.length} beat(s) matched no word: ${bad.map(b => b.text).join(', ')}`);

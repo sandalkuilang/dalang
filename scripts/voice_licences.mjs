@@ -22,6 +22,7 @@ export const checkRows = rows => {
 export const VOICE_MODELS = checkRows([
   { name: 'OmniVoice', licence: 'CC-BY-NC-4.0', nc: true, match: { model: /omnivoice/i } },
   { name: 'VoxCPM2', licence: 'Apache-2.0', nc: false, match: { model: /voxcpm/i } },
+  { name: 'Kokoro-82M', licence: 'Apache-2.0', nc: false, match: { model: /kokoro/i } },
   { name: 'ElevenLabs free tier', licence: 'ElevenLabs free tier: non-commercial, attribution', nc: true, match: { engine: 'elevenlabs', tier: 'free' } },
   { name: 'ElevenLabs paid plan', licence: 'ElevenLabs paid plan: commercial use', nc: false, match: { engine: 'elevenlabs', tier: ELEVENLABS_PAID } },
   // Stated only by tts_timestamps.mjs --from-audio --own-recording: a human recording the user may use.

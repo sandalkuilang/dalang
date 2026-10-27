@@ -6,6 +6,8 @@
 // a git shim fails each of its reads in turn: a failed read is always "could not check".
 // The Workspace row (is the videos folder lean?) reads workspace.mjs status against a fixture HOME: not lean is INFO, lean OK,
 // unreadable settings WARN.
+// `--check-kokoro` checks the Kokoro row against a fake Python: present, package or weights missing, no Python, and
+// a crash, odd reply or hang (those are "could not check", never MISSING, and never suggest an install).
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -98,6 +100,81 @@ for (const [args, why] of [[["--vs-url"], "missing URL"], [["--vs-url=foo"], "in
   const { code, out } = await run(args);
   if (code !== 2 || !/--vs-url needs a URL/.test(out)) failures.push(`✗ --vs-url with a ${why}: exit ${code}\n    ${out.trim()}`);
 }
+// The Kokoro row (--check-kokoro): a fake Python answers `<helper> --check` as the real helper would (exit 0 + JSON,
+// 5 = package missing, 4 = weights not downloaded). A crash, odd reply or timeout is "could not check", never MISSING.
+const fakePy = path.join(tmp, "fake-python");
+fs.writeFileSync(fakePy, `#!/usr/bin/env node
+const m = process.env.DALANG_TEST_KOKORO;
+if (process.env.DALANG_TEST_CALLS) require("fs").appendFileSync(process.env.DALANG_TEST_CALLS, "called\\n");
+if (m === "ok") { console.log(JSON.stringify({ ok: true, version: "0.9.4" })); process.exit(0); }
+if (m === "ok-noen") { console.log(JSON.stringify({ ok: true, version: "0.9.4", english_model: false })); process.exit(0); }
+if (m === "refused") { console.error("refused a download of http://example.invalid/x"); process.exit(6); }
+if (m === "nopkg") process.exit(5);
+if (m === "noweights") process.exit(4);
+if (m === "crash") { console.error("Traceback (most recent call last):\\n  boom"); process.exit(1); }
+if (m === "garbage") { console.log("hello"); process.exit(0); }
+if (m === "hang") setTimeout(() => {}, 1e9);
+`, { mode: 0o755 });
+const kokoroCases = [
+  ["kokoro present, only en and en-gb, the other engine named", "ok", "OK", /Apache-2\.0.*commercial OK/],
+  ["kokoro present, English text model absent", "ok-noen", "OK", /en_core_web_sm.*consent.*--download/],
+  ["kokoro check refused a fetch", "refused", "WARN", /could not check.*refused.*rerun/],
+  ["kokoro package missing", "nopkg", "MISSING", /Apache-2\.0.*330 MB.*consent/],
+  // the consented install is pip kokoro soundfile into that Python: it pulls torch and the rest, so the note states that size too
+  ["kokoro package missing states the whole install, not only the weights", "nopkg", "MISSING", /torch.*\d\s?GB.*330 MB.*consent/s],
+  ["kokoro weights missing", "noweights", "MISSING", /--download --lang a.*330 MB/],
+  // the packages are already there: only the weights are left to download, so no package size is claimed
+  ["kokoro weights missing claims no package size", "noweights", "MISSING", /330 MB/, { not: /torch|\d\s?GB/ }],
+  ["kokoro no Python", "ok", "MISSING", /consent/, { py: path.join(tmp, "no-such-python") }],
+  ["kokoro no Python states the whole install", "ok", "MISSING", /torch.*\d\s?GB.*consent/s, { py: path.join(tmp, "no-such-python") }],
+  ["kokoro helper crashes", "crash", "WARN", /could not check.*rerun/],
+  ["kokoro odd reply", "garbage", "WARN", /could not check.*rerun/],
+  ["kokoro helper hangs", "hang", "WARN", /could not check.*rerun/],
+];
+for (const [name, mode, status, note, o = {}] of kokoroCases) {
+  const { out } = await run(["--check-kokoro"], seal, { DALANG_PYTHON: o.py || fakePy, DALANG_TEST_KOKORO: mode, DALANG_PREFLIGHT_KOKORO_MS: "1500" });
+  try {
+    const got = parse(out), row = got.rows["Kokoro (voice)"];
+    assert.equal(row?.status, status, "status");
+    assert.match(row.note, note, "note");
+    if (o.not) assert.doesNotMatch(row.note, o.not, "note");
+    if (status !== "WARN") assert.match(row.note, /only en and en-gb.*VoiceStudio/s, "the row lists exactly the supported languages and names the other engine");
+    assert.doesNotMatch(row.note, /OpenJTalk|\bja\b|japanese|--lang j|\bzh\b|\bhi\b/i, "no other language is listed as supported or offered");
+    if (status === "WARN") assert.doesNotMatch(row.note, /pip|--download|MISSING/, "unknown must not read as missing or suggest an install");
+    assert.deepEqual(Object.keys(got.rows), ["Kokoro (voice)"], "only the Kokoro row");
+  } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
+}
+// Kokoro never lives in VoiceStudio's venv (references/voice.md "Setup — Kokoro"). With DALANG_PYTHON unset the row does
+// not borrow that venv (it runs nothing there and names no install into it); with DALANG_PYTHON pointed at it, a
+// missing package or weights is told to go to a separate Python.
+const vsHome = path.join(tmp, "vs-home"), vsPy = path.join(vsHome, "Library/Application Support/VoiceStudio/runtime/project/.venv/bin/python");
+fs.mkdirSync(path.dirname(vsPy), { recursive: true });
+fs.copyFileSync(fakePy, vsPy);
+fs.chmodSync(vsPy, 0o755);
+const vsLinkDir = path.join(tmp, "vs-link-bin");
+fs.symlinkSync(path.dirname(vsPy), vsLinkDir);
+const vsLinked = path.join(vsLinkDir, "python");
+for (const [name, py, mode, note] of [
+  ["kokoro, DALANG_PYTHON unset: no VoiceStudio venv", "", "nopkg", /DALANG_PYTHON.*separate Python.*torch.*\d\s?GB/s],
+  ["kokoro, DALANG_PYTHON unset, kokoro present in the venv is still not used", "", "ok", /DALANG_PYTHON.*separate Python/],
+  ["kokoro, DALANG_PYTHON = VoiceStudio's venv, package missing", vsPy, "nopkg", /separate Python.*torch.*\d\s?GB/s],
+  ["kokoro, DALANG_PYTHON = VoiceStudio's venv, weights missing", vsPy, "noweights", /separate Python/],
+  // the same venv reached through a symlinked folder (realpath of the folder, on both sides): still that venv
+  ["kokoro, DALANG_PYTHON = VoiceStudio's venv through a symlinked folder, package missing", vsLinked, "nopkg", /separate Python/],
+  ["kokoro, DALANG_PYTHON = VoiceStudio's venv through a symlinked folder, weights missing", vsLinked, "noweights", /separate Python/],
+]) {
+  const calls = path.join(tmp, `calls-${Math.random().toString(36).slice(2)}`);
+  const { out } = await run(["--check-kokoro"], seal, { HOME: vsHome, DALANG_PYTHON: py, DALANG_TEST_KOKORO: mode, DALANG_TEST_CALLS: calls, DALANG_PREFLIGHT_KOKORO_MS: "1500" });
+  try {
+    const row = parse(out).rows["Kokoro (voice)"];
+    assert.equal(row?.status, "MISSING", "status");
+    assert.match(row.note, note, "note");
+    assert.doesNotMatch(row.note, /VoiceStudio\/runtime|\.venv|pip kokoro|install(?:ed)? in|--download/, "no install or download offer into that venv");
+    if (!py) assert.ok(!fs.existsSync(calls), "the VoiceStudio venv's Python was run");
+  } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
+}
+// A separate Python that DALANG_PYTHON names legitimately reports its own missing package (the case above, "kokoro
+// package missing"), with the pip line.
 // The skill's own clone: a fixture remote and clone per case; the check fetches, reads counts and never pulls.
 const git = (cwd, ...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...a], { cwd, stdio: "pipe" }).toString().trim();
 let fx = 0;
@@ -205,4 +282,4 @@ for (const [name, setup, status, note, not] of skillCases) {
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2 + skillCases.length + 3} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + skillCases.length + 3} cases`);
