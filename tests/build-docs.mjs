@@ -367,19 +367,22 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     { const b = tu("Bash", { command: "sleep 30", run_in_background: true }); r = go(file(line(b), result(b.id), note(b.id), builder()), file(read(), write()));
       assert.equal(r.status, 1, "a background command that makes no board never counts: flagged"); }
     // The class "unknown read as missing", for notifications: a background maker's fate is read from its <status> tag
-    // alone (completed = made, failed = none), never from free text (<summary>, <result>: a background Agent's own words,
-    // a command's description). Free text that says "exit code 1", "failed" or "error" never makes a completed maker
-    // "no board"; a status the check cannot read (another word, none, two that disagree) is unknown (exit 2), never 1.
+    // (completed = made, failed = none), and for a Bash command also from the trailer "completed (exit code N)" that ends
+    // its <summary>; never from other free text (a background Agent's <result>, a command or its description quoted in the
+    // summary). Free text that says "exit code 1", "failed" or "error" never makes a completed maker "no board"; a status
+    // the check cannot read (another word, none, two that disagree) is unknown (exit 2), never 1.
     const raw = (tid, body) => JSON.stringify({ type: "user", isSidechain: false, message: { role: "user", content: [{ type: "text", text: `<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>${tid}</tool-use-id>\n${body}\n</task-notification>` }] } });
     const free = ["<result>Board written to review/refs-board-hook.jpg. First ffmpeg try failed with exit code 1 (bad filter), the retry succeeded.</result>",
       `<summary>Background command "tile, retry once if it fails with exit code 1" completed (exit code 0)</summary>`,
       "<summary>Agent \"screen\" finished</summary>\n<result>error: one still was unreadable, failed (exit code 2); the board is written</result>",
-      "<summary>Background command \"tile\" completed (exit code 1: No matches found)</summary>"];
+      "<summary>Background command \"tile\" completed (exit code 1: No matches found)</summary>",
+      "<summary>Background command \"Tile board (exit code 1 = no stills, rerun)\" completed (exit code 0)</summary>",
+      "<summary>Background command \"ffmpeg ... refs-board-hook.jpg || echo 'tile failed (exit code 1)'\" completed (exit code 0)</summary>"];
     for (const [name, text] of free.flatMap((t) => [["Bash", t], ["Agent", t]])) {
       const [m, tid] = maker({ run_in_background: true }, name);
       r = go(file(m, result(tid), raw(tid, `<status>completed</status>\n${text}`), builder()), file(read(), write()));
       // Only a Bash command's own "(exit code N)" in <summary> says it failed; an Agent's words (summary or result) never do.
-      const failedBash = name === "Bash" && /\(exit code [1-9]/.test(/<summary>([^<]*)<\/summary>/.exec(text)?.[1] ?? "");
+      const failedBash = name === "Bash" && /completed \(exit code [1-9]\d*[^)]*\)\s*$/.test(/<summary>([^<]*)<\/summary>/.exec(text)?.[1] ?? "");
       if (failedBash) assert.ok(r.status === 1 && /builder started before/.test(r.out), `a completed Bash maker whose summary says exit code 1 made no board: flagged (got ${r.status} "${r.out}")`);
       else assert.ok(r.status === 0 && r.out === "", `a completed background ${name} maker is made whatever its free text says (${text.slice(0, 40)}…): clean (got ${r.status} "${r.out}")`);
     }
