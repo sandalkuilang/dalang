@@ -32,6 +32,8 @@ that reads as:
 
 ### Changed
 
+- **SKILL.md a third shorter** (18.4 → 12.8 KB, the description too): the same rules, gates and model table in fewer
+  words; it rides along on every call of a film and its description in every session's skill list.
 - **Step 5 planner subagent** (`look-build.md` Step 5, `SKILL.md` model table): a new subagent on the strongest model
   reads the look, direction, craft and camera rules and writes `SPEC.md` and `storyboard.md`; the main agent reads only
   those files, so ~100 KB of rules no longer ride along on every later call. Same rules, same model, same output.
