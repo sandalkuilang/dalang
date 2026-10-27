@@ -77,6 +77,12 @@
 // checks the narration's ASSETS.json licence against it (scripts/voice_licences.mjs is the one table).
 // DALANG_VS_BUSY_WAIT_S (env, default 180): seconds to wait after a VoiceStudio 503 (a job ran over its compute limit and
 // still holds the device) before the one retry. Still busy: "WARN … rerun in a few minutes" and exit code 3 (never FAILED).
+// A dropped request (reset, timeout) is retried once too, then the same WARN and exit 3.
+// Resume: every chunk of a take is kept in <out>/.tts-parts/ until the take is transcribed, so rerunning the same command
+// after a stop (503, dropped request, closed laptop) speaks only the chunks not on disk. A heavy model (VoxCPM2) also
+// checks the backend answers and that memory is free before it starts (under 4 GB: chunks start at 60 characters), shrinks
+// the remaining chunks when one took over half of VoiceStudio's compute limit (DALANG_VS_LIMIT_S, default 300) and
+// splits a chunk that answered 503. A new take never overwrites the last one: that pair moves to <out>/takes/<n>/.
 // --steps (VoiceStudio OmniVoice, default 32 = the model's documented quality preset; the app default is 16; 32 takes longer).
 // Outputs: <out>/words.json ({ i, text, start, end, est?, score? } — est = timing estimated), beats.json,
 // beats.js (BEATS, BEATS_LIST, SECTIONS, WORDS, NARRATION_DURATION[, LINES]), narration.srt (sidecar subtitles). The last line is "DONE <audio>".
@@ -84,7 +90,8 @@
 
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, readdirSync, copyFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -178,29 +185,40 @@ async function api(pathname, { method = 'GET', body } = {}) {
 }
 
 // ── VoiceStudio (local, OpenAI-compatible API) ──────────────────────────────
-async function vs(a, pathname, init = {}, retried = false) {
+const BUSY_WAIT_S = () => Number(process.env.DALANG_VS_BUSY_WAIT_S ?? 180);
+const sleep = s => new Promise(r => setTimeout(r, s * 1000));
+// Still busy after the retry: an unknown state, never a failure. `kept` says what a rerun resumes from.
+function busyExit(pathname, why, kept = '') {
+  console.error(`WARN: VoiceStudio is still busy on ${pathname} (${why}) — it is still finishing a job; rerun in a few minutes with the same command${kept}. Nothing is missing: do not restart VoiceStudio, install nothing, keep the engine.`);
+  process.exit(3);
+}
+// `busy: 'return'` hands a 503 to the caller (vsSpeak splits the chunk and keeps what is done) instead of retrying here.
+async function vs(a, pathname, init = {}, { retried = false, busy } = {}) {
   let res;
   try { res = await fetch(a.vsUrl + pathname, init); }
   catch (e) {
     const code = e.cause?.code || '';
     if (code === 'ECONNREFUSED') die(`VoiceStudio is not running at ${a.vsUrl}. Open the VoiceStudio app and wait until GET ${a.vsUrl}/health answers.`);
-    if (code === 'UND_ERR_HEADERS_TIMEOUT') die(`VoiceStudio took over 5 minutes on ${pathname}. A first run may still be downloading a model; check the app, then retry.`);
-    die(`VoiceStudio dropped the request on ${pathname} (${code || e.message}). The app restarts its backend when it stops answering — usually a model still downloading. Check the app, then retry.`);
+    // A reset or a timeout is a backend that is busy, loading a model or restarting itself: retry once, then rerun.
+    const why = code === 'UND_ERR_HEADERS_TIMEOUT' ? 'no answer in 5 minutes' : `dropped: ${code || e.message}`;
+    if (retried) busyExit(pathname, why, a.kept || '');
+    const s = Math.min(10, BUSY_WAIT_S());
+    console.log(`\nBUSY       : VoiceStudio ${why} on ${pathname} — retrying once in ${s} s.`);
+    await sleep(s);
+    return vs(a, pathname, init, { retried: true, busy });
   }
   if (!res.ok) {
-    const body = await res.text();
     // 503: the server abandoned a job that ran over its compute limit and keeps the device until it finishes, so an
     // immediate retry competes with it. That is BUSY, not a failure: wait, retry once, then say "rerun" (exit 3).
+    if (res.status === 503 && busy === 'return') return res;
+    const body = await res.text();
     if (res.status === 503) {
       const short = body.replace(/\s+/g, ' ').slice(0, 200);
-      if (!retried) {
-        const s = Number(process.env.DALANG_VS_BUSY_WAIT_S ?? 180);
-        console.log(`\nBUSY       : VoiceStudio answered 503 on ${pathname} (${short}) — waiting ${s} s for the device to finish its job, then retrying once.`);
-        await new Promise(r => setTimeout(r, s * 1000));
-        return vs(a, pathname, init, true);
-      }
-      console.error(`WARN: VoiceStudio is still busy on ${pathname} (${short}) — it is still finishing an abandoned job; rerun in a few minutes. Nothing is missing: do not restart VoiceStudio, install nothing, keep the engine.`);
-      process.exit(3);
+      if (retried) busyExit(pathname, short, a.kept || '');
+      const s = BUSY_WAIT_S();
+      console.log(`\nBUSY       : VoiceStudio answered 503 on ${pathname} (${short}) — waiting ${s} s for the device to finish its job, then retrying once.`);
+      await sleep(s);
+      return vs(a, pathname, init, { retried: true, busy });
     }
     let detail = null; try { detail = JSON.parse(body).detail; } catch { /* not JSON */ }
     if (detail?.error === 'asr_model_missing') {
@@ -218,7 +236,10 @@ async function vs(a, pathname, init = {}, retried = false) {
 // VoiceStudio's 4,096-character cap and its 300 s compute limit per request. VoxCPM2 on a 16 GB Mac
 // runs ~22× slower than real time, so its chunks stay near 120 characters (~9 s of speech) and never over: a sentence
 // still longer than the limit splits after a comma (or another clause mark), then at a space.
-const chunkMax = model => /voxcpm/i.test(model || '') ? 120 : 700;
+const HEAVY = /voxcpm/i;
+const chunkMax = model => HEAVY.test(model || '') ? 120 : 700;
+const LIMIT_S = () => Number(process.env.DALANG_VS_LIMIT_S ?? 300); // VoiceStudio abandons a request past this much compute
+const PARTS = '.tts-parts';
 function fit(s, max) {
   if (s.length <= max) return [s];
   const out = [];
@@ -339,39 +360,123 @@ function modelLine(a, meta, from) {
 
 async function vsGenerate(a, text, audioPath) {
   await vsSpeak(a, text, audioPath);
-  return vsTranscribe(a, audioPath, text);
+  a.kept = `: the take's chunks are kept in ${path.join(path.dirname(audioPath), PARTS)} and are not spoken again`;
+  const r = await vsTranscribe(a, audioPath, text, false, !a.sample);
+  delete a.kept;
+  rmSync(path.join(path.dirname(audioPath), PARTS), { recursive: true, force: true }); // the take is whole: no resume left
+  return r;
+}
+
+// Free memory where VoiceStudio runs, in GB: undefined for a remote backend (not this machine), null when unread.
+function freeGB(a) {
+  if (process.env.DALANG_FREE_GB) return Number(process.env.DALANG_FREE_GB);
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(a.vsUrl)) return undefined;
+  try {
+    if (process.platform !== 'darwin') return os.freemem() / 2 ** 30; // Linux: MemAvailable
+    // macOS counts inactive and speculative pages as reclaimable; os.freemem() reports only the free ones
+    const s = execFileSync('vm_stat', { encoding: 'utf8' });
+    const n = k => Number(new RegExp(`Pages ${k}:\\s+(\\d+)`).exec(s)?.[1]);
+    const gb = (n('free') + n('inactive') + n('speculative')) * Number(/page size of (\d+)/.exec(s)?.[1]) / 2 ** 30;
+    return Number.isFinite(gb) ? gb : null;
+  } catch { return null; }
+}
+
+// Before a heavy take: a backend that does not answer /health is running another job, so a take now would compete
+// with it and time out. Unknown, not missing: WARN, rerun later (exit 3). Low memory starts with smaller chunks.
+let heavyMax;
+async function heavyCheck(a) {
+  if (heavyMax) return heavyMax;
+  heavyMax = chunkMax(a.model);
+  try { await fetch(`${a.vsUrl}/health`, { signal: AbortSignal.timeout(Math.min(10, BUSY_WAIT_S()) * 1000) }); }
+  catch (e) { if (e.cause?.code !== 'ECONNREFUSED') busyExit('/health', `no answer: ${e.cause?.code || e.name} — another job holds the backend`); }
+  const gb = freeGB(a);
+  if (gb === null) console.log('\nWARN       : could not read free memory; chunks start at full size (a stopped take resumes on rerun).');
+  else if (gb !== undefined && gb < 4) {
+    console.log(`\nWARN       : ${gb.toFixed(1)} GB of memory free — ${a.model} may run past VoiceStudio's ${LIMIT_S()} s limit per request, so chunks start at 60 characters. Another heavy job (a render, another model) slows the take; nothing is missing.`);
+    heavyMax = 60;
+  }
+  return heavyMax;
 }
 
 // Speak `text` into `audioPath` (chunked for the engine, joined). `seed` lets a retake try another voice sample.
+// Every chunk is kept in <dir>/.tts-parts/ under a hash of its request, beside the chunk plan, until the caller drops
+// the folder: a take stopped by a 503, a dropped request or a closed laptop resumes on rerun and speaks only what is
+// not on disk (never a hand-written generation script). A heavy model shrinks the remaining chunks when one took over
+// half the compute limit, and splits a chunk that answered 503 before its one retry.
 async function vsSpeak(a, text, audioPath, seed = a.seed) {
-  const chunks = chunkLines(text, chunkMax(a.model));
-  const parts = [];
   const voice = await vsVoiceId(a, a.voiceId || a.voice);
-  for (const [k, input] of chunks.entries()) {
-    const body = { model: a.model, input, voice, response_format: 'wav' };
-    if (a.language) body.language = a.language;
-    if (a.speed) body.speed = a.speed;
-    // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
-    if (a.instructions) body[/voxcpm/i.test(a.model || '') ? 'description' : 'instructions'] = a.instructions;
-    if (Number.isInteger(seed)) body.seed = seed;
-    if (Number.isInteger(a.steps)) body.num_step = a.steps;
-    const res = await vs(a, '/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const heavy = HEAVY.test(a.model || '');
+  const base = { model: a.model, voice, response_format: 'wav' };
+  if (a.language) base.language = a.language;
+  if (a.speed) base.speed = a.speed;
+  // VoxCPM2 designs a voice from `description`; OmniVoice reads `instructions`.
+  if (a.instructions) base[/voxcpm/i.test(a.model || '') ? 'description' : 'instructions'] = a.instructions;
+  if (Number.isInteger(seed)) base.seed = seed;
+  if (Number.isInteger(a.steps)) base.num_step = a.steps;
+  const dir = path.join(path.dirname(audioPath), PARTS);
+  mkdirSync(dir, { recursive: true });
+  const hash = x => createHash('sha1').update(JSON.stringify(x)).digest('hex').slice(0, 16);
+  const file = input => path.join(dir, `${hash({ ...base, input })}.wav`);
+  const planFile = path.join(dir, `plan-${hash({ ...base, input: text })}.json`);
+  let chunks;
+  try { chunks = JSON.parse(readFileSync(planFile, 'utf8')); } catch { chunks = chunkLines(text, heavy ? await heavyCheck(a) : chunkMax(a.model)); }
+  const save = () => writeFileSync(planFile, JSON.stringify(chunks));
+  save();
+  const done = () => chunks.filter(c => existsSync(file(c))).length;
+  const resumed = done();
+  if (resumed) console.log(`\nResume     : ${resumed} of ${chunks.length} chunks are on disk from a stopped run; only the rest are spoken.`);
+  let secs = 0, chars = 0;
+  for (let k = 0, busy = 0; k < chunks.length; k++) {
+    const input = chunks[k], part = file(input);
+    if (existsSync(part)) continue;
+    a.kept = done() ? `: ${done()} of ${chunks.length} chunks are kept in ${dir} and are not spoken again` : '';
+    const t0 = Date.now();
+    const res = await vs(a, '/v1/audio/speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...base, input }) }, { busy: 'return' });
+    if (res.status === 503) {
+      const short = (await res.text()).replace(/\s+/g, ' ').slice(0, 200);
+      if (busy++) busyExit('/v1/audio/speech', short, a.kept);
+      // over the compute limit: the same chunk would run over again, so a heavy model retries it in halves
+      const half = Math.max(40, Math.ceil(input.length / 2));
+      const split = heavy && input.length > half ? chunkLines(input, half) : [input];
+      chunks.splice(k, 1, ...split); save();
+      const s = BUSY_WAIT_S();
+      console.log(`\nBUSY       : VoiceStudio answered 503 on /v1/audio/speech (${short}) — waiting ${s} s for the device to finish its job, then retrying once${split.length > 1 ? ` with the chunk in ${split.length} parts` : ''}.`);
+      await sleep(s);
+      k--; continue;
+    }
+    busy = 0;
     if ((res.headers.get('content-type') || '').includes('json')) die(`VoiceStudio returned JSON instead of audio: ${(await res.text()).slice(0, 400)}`);
-    const part = chunks.length === 1 ? audioPath : `${audioPath}.part${k}.wav`;
     await writeFile(part, Buffer.from(await res.arrayBuffer()));
-    parts.push(part);
-    if (chunks.length > 1) process.stdout.write(`${k + 1}/${chunks.length} `);
+    const took = (Date.now() - t0) / 1000;
+    secs += took; chars += input.length;
+    // a chunk that took over half the limit: the next ones aim at a third of it, so a slower moment does not cross it
+    if (heavy && took > LIMIT_S() / 2 && k + 1 < chunks.length) {
+      const max = Math.max(40, Math.floor(input.length * LIMIT_S() / 3 / took));
+      const rest = chunkLines(chunks.slice(k + 1).join('\n'), max);
+      if (rest.length > chunks.length - k - 1) { chunks.splice(k + 1, Infinity, ...rest); save(); console.log(`\nChunks     : one took ${Math.round(took)} s of the ${LIMIT_S()} s limit — the rest go at ≤ ${max} characters.`); }
+    }
+    if (chunks.length > 1) {
+      const left = chunks.slice(k + 1).filter(c => !existsSync(file(c))).join('').length * secs / chars;
+      process.stdout.write(`${k + 1}/${chunks.length}${heavy && left > 60 ? ` (~${Math.ceil(left / 60)} min left)` : ''} `);
+    }
   }
-  if (parts.length > 1) await joinWavs(parts, audioPath);
+  delete a.kept;
+  const parts = chunks.map(file);
+  if (parts.length > 1) await joinWavs(parts, audioPath, false);
+  else copyFileSync(parts[0], audioPath);
 }
 
-async function joinWavs(parts, audioPath) {
+// Each part is resampled to 24 kHz mono first: the concat demuxer reads every part at the first one's rate, so a
+// 48 kHz part beside 24 kHz silence would play at the wrong speed. `drop` removes the parts once joined.
+async function joinWavs(parts, audioPath, drop = true) {
   const list = `${audioPath}.parts.txt`;
-  await writeFile(list, parts.map(p => `file '${path.resolve(p).replace(/'/g, "'\\''")}'`).join('\n'));
-  // Re-encode so parts with different rates or channel counts (speech vs generated silence) still join.
-  try { execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', audioPath]); }
-  catch (e) { die(`ffmpeg could not join the ${parts.length} audio parts: ${e.message}`); }
-  await Promise.all([list, ...parts].map(f => rm(f, { force: true })));
+  const norm = parts.map((p, k) => `${audioPath}.n${k}.wav`);
+  try {
+    parts.forEach((p, k) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', p, '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', norm[k]]));
+    await writeFile(list, norm.map(p => `file '${path.resolve(p).replace(/'/g, "'\\''")}'`).join('\n'));
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-ac', '1', '-ar', '24000', '-c:a', 'pcm_s16le', audioPath]);
+  } catch (e) { die(`ffmpeg could not join the ${parts.length} audio parts: ${e.message}`); }
+  finally { await Promise.all([list, ...norm, ...(drop ? parts : [])].map(f => rm(f, { force: true }))); }
 }
 
 // Why the Kokoro helper (scripts/kokoro_tts.py) stopped: 5 = not installed, 4 = weights or voice not downloaded,
@@ -478,7 +583,9 @@ async function vsDialogue(a, seq, audioPath, text) {
 
 // Transcribe an audio file back with word timestamps and turn the words into an
 // ElevenLabs-shaped character alignment, so the rest of the pipeline stays the same.
-async function vsTranscribe(a, audioPath, text, soft = false) {
+// `plain` adds a second pass without the prompt (transcript.plain): the prompt makes Whisper hear a clipped or garbled
+// sentence start as the written word, so only the plain pass shows it (flagsOf "clipped start").
+async function vsTranscribe(a, audioPath, text, soft = false, plain = false) {
   const form = new FormData();
   form.append('file', new Blob([await readFile(audioPath)]), path.basename(audioPath));
   form.append('model', 'whisper-1');
@@ -488,9 +595,12 @@ async function vsTranscribe(a, audioPath, text, soft = false) {
   if (a.language) form.append('language', WHISPER_LANG[a.language.toLowerCase()] || a.language.toLowerCase().split('-')[0]);
   // The narration as prompt nudges Whisper to spell words as written (numbers stay words),
   // so more words match exactly instead of being interpolated. Whisper keeps ~224 tokens.
+  const bare = new FormData();
+  for (const [k, v] of form) bare.append(k, v);
   form.append('prompt', text.replace(/\s+/g, ' ').slice(0, 600));
+  const timed = tr => (tr.words || []).filter(w => Number.isFinite(w.start) && Number.isFinite(w.end));
   const tr = await (await vs(a, '/v1/audio/transcriptions', { method: 'POST', body: form })).json();
-  const words = (tr.words || []).filter(w => Number.isFinite(w.start) && Number.isFinite(w.end));
+  const words = timed(tr);
   if (!words.length && soft) return null; // a retake's clip with no words: that try failed, the caller keeps the old audio
   if (!words.length) die('VoiceStudio transcription returned no word timestamps. Check that a speech-to-text model is installed (GET /models).');
 
@@ -504,7 +614,7 @@ async function vsTranscribe(a, audioPath, text, soft = false) {
   return {
     audio_file: path.basename(audioPath),
     alignment: { characters, character_start_times_seconds: starts, character_end_times_seconds: ends },
-    transcript: { text: tr.text, language: tr.language, words },
+    transcript: { text: tr.text, language: tr.language, words, ...(plain && { plain: timed(await (await vs(a, '/v1/audio/transcriptions', { method: 'POST', body: bare })).json()) }) },
   };
 }
 
@@ -934,8 +1044,9 @@ function regionsOf(sents, quiet, dur) {
 }
 
 // Why a sentence is flagged (an empty list = fine).
-function flagsOf(a, sents, regions, transcriptWords, aligned) {
-  const heardAll = (transcriptWords || []).map(w => ({ t: stripPunct(String(w.word).trim()).toLowerCase(), mid: (w.start + w.end) / 2 })).filter(w => w.t);
+function flagsOf(a, sents, regions, transcriptWords, aligned, plainWords) {
+  const heardOf = ws => (ws || []).map(w => ({ t: stripPunct(String(w.word).trim()).toLowerCase(), mid: (w.start + w.end) / 2 })).filter(w => w.t);
+  const heardAll = heardOf(transcriptWords), plainAll = heardOf(plainWords);
   return sents.map((s, k) => {
     const why = [];
     if (s.words.some(w => w.est)) why.push('untimed words');
@@ -951,6 +1062,10 @@ function flagsOf(a, sents, regions, transcriptWords, aligned) {
       const extra = minus(heard, script), missing = minus(script, heard);
       // digits heard for a spelled-out number are harmless (the existing word-count warning says so)
       if (extra.some(t => !/\d/.test(t)) || (missing.length && !extra.length)) why.push('heard ≠ script');
+      // the first word heard without the prompt: a garbage syllable before it or a lost first consonant shows here
+      const first = plainAll.find(w => w.mid >= regions[k].a && w.mid < regions[k].b)?.t;
+      const want = stripPunct(s.words[0].text).toLowerCase();
+      if (first && first !== want && !/\d/.test(first + want)) why.push('clipped start');
     }
     return why;
   });
@@ -1115,7 +1230,7 @@ async function retake(a, ctx) {
   const survey = () => {
     const sents = sentencesOf(cleanNow, t.words);
     const regions = regionsOf(sents, silences(audioPath), dur());
-    return { sents, regions, flags: flagsOf(a, sents, regions, response.transcript?.words, t.aligned) };
+    return { sents, regions, flags: flagsOf(a, sents, regions, response.transcript?.words, t.aligned, response.transcript?.plain) };
   };
   let { sents, regions, flags } = survey();
   const flagged = () => sents.filter((s, k) => flags[k].length).map(s => s.n);
@@ -1171,7 +1286,7 @@ async function retake(a, ctx) {
       }
       if (!spliced && !plan) continue; // no clip had words: nothing to splice; the next round is the second try (seed + 1)
       writePcm(tmpAudio, assemble(old, regions, pieces.filter(Boolean)));
-      const fresh = kokoro ? { audio_file: path.basename(tmpAudio), alignment: spreadAlignment(tmpAudio, stripTags(clean)) } : await vsTranscribe(a, tmpAudio, stripTags(clean));
+      const fresh = kokoro ? { audio_file: path.basename(tmpAudio), alignment: spreadAlignment(tmpAudio, stripTags(clean)) } : await vsTranscribe(a, tmpAudio, stripTags(clean), false, true);
       fresh.audio_file = path.basename(audioPath);
       fresh._meta = { ...response._meta, text: clean, characters: stripTags(clean).length, steps: a.steps, created: new Date().toISOString(), retakes: [...tries].map(([n, k]) => ({ n, tries: k, reasons: why.get(n) })) };
       writeFileSync(tmpJson, JSON.stringify(fresh));
@@ -1197,6 +1312,20 @@ async function retake(a, ctx) {
     }
   } finally { cleanup(); process.removeListener('exit', cleanup); }
   return { response, t, warned };
+}
+
+// A new take never overwrites the last one: its audio and response move to <out>/takes/<n>/ (check_assets reads only
+// <out>/*.response.json), so a worse new take can be swapped back by hand.
+function keepTake(a) {
+  const json = path.join(a.out, `${a.name}.response.json`);
+  if (!existsSync(json)) return;
+  let audio = null; try { audio = JSON.parse(readFileSync(json, 'utf8')).audio_file; } catch { /* moved without its audio */ }
+  const root = path.join(a.out, 'takes');
+  const dir = path.join(root, String((existsSync(root) ? readdirSync(root).length : 0) + 1));
+  mkdirSync(dir, { recursive: true });
+  renameSync(json, path.join(dir, path.basename(json)));
+  if (audio && existsSync(path.join(a.out, audio))) renameSync(path.join(a.out, audio), path.join(dir, audio));
+  console.log(`Kept       : the previous take in ${dir}/`);
 }
 
 async function main() {
@@ -1249,6 +1378,7 @@ async function main() {
     modelLine(a, { engine: 'voicestudio', model: a.model }, a.modelFrom);
   }
   if (a.engine === 'kokoro' && !a.fromResponse && !a.fromAudio) modelLine(a, { engine: 'kokoro', model: a.model }, a.modelFrom);
+  if (!a.sample && !a.fromResponse && !a.fromAudio) keepTake(a);
   if (a.fromResponse) {
     response = JSON.parse(await readFile(a.fromResponse, 'utf8'));
     voiceId = response._meta?.voice_id ?? null;
@@ -1423,7 +1553,7 @@ async function main() {
   if (!a.sample && !a.fromAudio && !order.length && ((response._meta?.engine === 'voicestudio' && response.transcript) || isKokoro)) {
     const sents = sentencesOf(clean, words);
     const regions = regionsOf(sents, silences(audioPath), duration);
-    const flags = flagsOf(a, sents, regions, response.transcript?.words, aligned);
+    const flags = flagsOf(a, sents, regions, response.transcript?.words, aligned, response.transcript?.plain);
     const hit = sents.filter((s, k) => flags[k].length && !warned.has(s.n));
     // After a --retake run a sentence still open is a WARNING: an unattended run never delivers a take with an open flag.
     const fix = isKokoro
