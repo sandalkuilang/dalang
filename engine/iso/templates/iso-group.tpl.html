@@ -1,5 +1,6 @@
 <!-- isometric-world group __GROUP__: copy to src/compositions/__GROUP__.tpl.html, replace __GROUP__, __FROM__ and __TO__
-     (beat names) and __ILLUSTRATION__, then fill COLORS, WORLD, values, CAMERA, the layers and the overlays from SPEC.md.
+     (beat names) and __ILLUSTRATION__, then fill values, CAMERA, the layers and the overlays from SPEC.md. The world
+     (COLORS, WORLD, VALUES) is assets/world.js, shared by every group: imported, never copied or redrawn here.
      Every time is a cue (w, we, b); every value is a pure function of t, so a seek renders the same frame. -->
 <template id="__GROUP__-template">
   <style>
@@ -16,6 +17,7 @@
     import { drawLayers } from "./assets/parallax.js";
     import { camAt, handheld, motionBlur, makeFinish } from "./assets/cinema.js";
     import { makeOverlay, w, we, b } from "./assets/editorial.js";
+    import { COLORS, WORLD, VALUES } from "./assets/world.js";
 
     const G0 = b("__FROM__"), G1 = b("__TO__"), DUR = G1 - G0;   // absolute seconds; t below is local (0 at G0)
     const L = (abs) => abs - G0;
@@ -23,17 +25,9 @@
     const g = cv.getContext("2d"), gb = bf.getContext("2d");
     const iso = new Iso(g, 1080, 1920), isoB = new Iso(gb, 1080, 1920), fin = makeFinish(1080, 1920);
 
-    // SPEC palette: one base colour per material; tri(base) gives its three tones where a primitive needs them
-    const COLORS = { ground: "#B8C2C6", subject: "#009B7D", accent: "#B57300", ink: "#22333B" };
-
-    // the world: build() specs from each object's reference, real sizes in metres, z up (iso README "Objects without
-    // drawing code"); a number may name a key of values(t) ("h": "level") so the timeline drives it
-    const WORLD = [
-      { at: [0, 0, 0], parts: [{ name: "slab", form: "box", at: [0, 0, -0.3], w: 8, d: 8, h: 0.3, color: COLORS.ground }] },
-      // { at: [0, 0, 0], focus: "tank", parts: [{ name: "tank", form: "cyl", at: [0, 0, 0], r: 1, h: "level", color: COLORS.subject }] },
-    ];
-    // what acts, from local t and the cues: e.g. level: 0.2 + 1.6 * eo(seg(t, L(w("fills")), L(we("fills"))))
-    const values = (t) => ({});
+    // what acts in this group, from local t and the cues; only the WORLD keys it animates (the rest stay at VALUES):
+    // e.g. level: 0.2 + 1.6 * eo(seg(t, L(w("fills")), L(we("fills"))))
+    const values = (t) => ({ ...VALUES });
 
     // the camera: keyed poses { t, x, y, z, k (px per metre), ease }, eased, zoom in log; handheld life ~1 cm.
     // OPEN is the previous group's CLOSE and CLOSE the next group's OPEN, as SPEC CAMERA writes them: seams match by

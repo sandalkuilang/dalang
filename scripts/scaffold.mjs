@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // The film's frame, written by code instead of a model: the engine into assets/, the host (src/index.tpl.html) with one
-// line per group, and each group's template (src/compositions/<group>.tpl.html) from the look's group template, its beat
-// names filled in. Builders then only fill each group's data (world, values, camera, overlays) with Edit: no builder
-// writes boilerplate, none waits on another to copy the engine, and every group meets its neighbours on the host's times.
+// line per group, each group's template (src/compositions/<group>.tpl.html) from the look's group template, its beat
+// names filled in, the isometric look's one shared world (assets/world.js, filled once by the first group's builder) and
+// each builder's whole brief (review/builder-<group>.md: what to read, the exact checks). Builders then only fill data
+// with Edit: no builder writes boilerplate or a copy of the world, none guesses a command, and every group meets its
+// neighbours on the host's times.
 // Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
 //
 // Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
@@ -116,5 +118,34 @@ groups.forEach((g, i) => {
   put(`src/compositions/${g.name}.tpl.html`, t);
 });
 mkdirSync(path.join(dir, 'compositions'), { recursive: true });
+// the isometric look's one world, imported by every group: written once, never one copy per group
+if (iso) put('assets/world.js', readFileSync(path.join(tplDir, 'iso-world.tpl.js'), 'utf8'));
+
+// each builder's whole brief, so the main agent sends one line and no builder guesses a command or reads a source
+const q = x => `'${String(x).replace(/'/g, `'\\''`)}'`, sk = q(SKILL), card = `${sk}/engine/${iso ? 'iso' : 'three'}/templates/${iso ? 'iso' : 'object-studio'}-API.md`;
+groups.forEach((g, i) => {
+  const next = groups[i + 1]?.from, own = beats.slice(beats.indexOf(g.from), next ? beats.indexOf(next) : beats.length);
+  const others = groups.filter(o => o !== g).map(o => o.name).join(', ') || 'none';
+  const world = !iso ? `The set is the engine's object-studio kit, imported unchanged (API card).`
+    : i === 0 ? `**First, before anything else:** fill \`assets/world.js\` once from SPEC.md OBJECTS: every object any group shows, as build() specs (the card's forms, real sizes, true parts), COLORS from the SPEC palette, VALUES at rest. Data only, no drawing code. The other groups (${others}) import it; they start at the same time, so write it in your first Write.`
+    : `\`assets/world.js\` (COLORS, WORLD, VALUES) is written by the \`${groups[0].name}\` builder: import it, never copy, redraw or edit it; an object it lacks goes in your report. Your work is CAMERA (SPEC poses), values(t) for the keys you animate, the layers and the overlays. Wait for it (one \`ls assets/world.js\` between jobs) only before your snapshot.`;
+  put(`review/builder-${g.name}.md`, [
+    `# Builder brief: group \`${g.name}\` (beats ${own.join(', ')})`,
+    '',
+    `Film: ${dir}. Skill: ${SKILL}. Other groups at the same time: ${others}.`,
+    `Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js` (one Write: it is a stub)' : ''}, with Edit (never a whole-file rewrite, never \`sed -i\` or a script).`,
+    '',
+    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template. No engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`words.json\`, no other group's file, no other film.`,
+    `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`: each word as its \`w("word", n)\` call. Every time is a cue; never a number of seconds.`,
+    '',
+    world,
+    '',
+    `**Check, one Bash per round:** \`node ${sk}/scripts/fill_times.mjs src/compositions/${g.name}.tpl.html compositions/${g.name}.html && node ${sk}/scripts/fill_times.mjs src/index.tpl.html index.html >/dev/null && node ${sk}/scripts/lint_scene.mjs . 2>&1 | tail -8\``,
+    `**Look, at most 2 rounds:** \`npx hyperframes snapshot --at <first beat start + 1>,<last beat start + 1> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\` (seconds from the cue table), then open its contact sheet (\`style-frames/${g.name}/contact-sheet*.jpg\`) once: recompose on text on a plain ground, low contrast, text outside the safe zone, a shape untrue to its reference. All of a round's fixes in one message.`,
+    '',
+    'Budget: about 25 turns. Report in at most 12 lines: files, checks and results, open issues (a SPEC number you needed changed: report it, never edit SPEC.md).',
+    '',
+  ].join('\n'));
+});
 console.log(`groups  ${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(' · ')}`);
-console.log(`next    each builder Edits only its src/compositions/<group>.tpl.html (API: ${path.relative(SKILL, tplDir)}/${iso ? 'iso' : 'object-studio'}-API.md)`);
+console.log(`next    one dalang-builder per group, all in one message, each prompt only: Read review/builder-<group>.md in ${dir} and follow it.`);

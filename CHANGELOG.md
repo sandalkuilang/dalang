@@ -30,6 +30,20 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Builders no longer write the world once per group.** The isometric look's world (palette, every object as
+  `build()` specs, resting values) is one file, `assets/world.js`, written by `scaffold.mjs`, filled once by the first
+  group's builder and imported by every group template. Each group's builder had rebuilt the whole world in its own
+  file, with hand-drawn code beside `build()`, so three builders wrote three copies (most of their output) and read
+  the engine sources to do it.
+- **The builder's brief is written by `scaffold.mjs`**, `review/builder-<group>.md`: its beats, what to read and
+  nothing else (no engine source, README, `references/` or `words.json`), its cue table, its part of the world, the
+  exact check chain and snapshot command, at most 2 look rounds. The main agent sends one line per builder. A
+  hand-written brief had sent builders to engine sources and the camera reference, named a snapshot flag that does not
+  exist and a sheet command that did not match, each costing turns.
+- `iso-API.md` no longer tells the first builder to copy the engine and write the host: `scaffold.mjs` already has.
+
 ## [3.7.1] - 2026-10-28
 
 ### Added
