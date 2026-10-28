@@ -16,10 +16,11 @@
   <canvas id="out" width="1280" height="720"></canvas>
 </div>
 <script type="module">
-import { THREE, EffectComposer, RenderPass, EffectPass, N8AOPostPass, SMAAEffect, DepthOfFieldEffect, ToneMappingEffect, ToneMappingMode, RoomEnvironment } from "./assets/engine/three-vendor.js";
+import { THREE } from "./assets/engine/three-vendor.js";
+import { isoStudio } from "./assets/engine/studio.js";
 import { makeFinisher } from "./assets/engine/finish.js";
 import { drawCaption, pinLabel, layoutFrame, inkFor, luminance } from "./assets/engine/type.js";
-import { heroBox } from "./assets/engine/camera.js";
+import { heroBox, isoCamera } from "./assets/engine/camera.js";
 import { CONFIG, CAPTIONS, buildScene } from "./src/scene.js";
 
 const W = CONFIG.width, H = CONFIG.height, FORMAT = CONFIG.format;
@@ -52,43 +53,21 @@ function dimLine(ctx, camera, from, to, text) {
   return { from: p[0], to: p[1] };
 }
 
-const S = buildScene({ aspect: W / H });
-const camera = new THREE.PerspectiveCamera(30, W / H, 0.005, 12);
+const S = buildScene({ W, H });
+const camera = isoCamera(W, H);
 const gl = document.createElement("canvas");
 gl.width = W; gl.height = H;
-const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: false, stencil: true, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, stencil: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
 renderer.setSize(W, H, false);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 S.flask.cut.ready(renderer);
-const pmrem = new THREE.PMREMGenerator(renderer);
-S.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-S.scene.environmentIntensity = 0.8;
-
-const composer = new EffectComposer(renderer, { stencilBuffer: true, multisampling: 0 });
-composer.addPass(new RenderPass(S.scene, camera));
-const ao = new N8AOPostPass(S.scene, camera, W, H);
-ao.configuration.aoRadius = 0.04 / S.mpu; // 4 cm
-ao.configuration.distanceFalloff = 1;
-ao.configuration.intensity = 2.5;
-ao.configuration.halfRes = false;
-composer.addPass(ao);
-const dof = new DepthOfFieldEffect(camera, { focusDistance: 0, focusRange: 3, bokehScale: 0.4 });
-composer.addPass(new EffectPass(camera, dof, new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
-composer.addPass(new EffectPass(camera, new SMAAEffect()));
+const rig = isoStudio(renderer, S.scene, camera);
 
 const finish = makeFinisher(out, { grain: 0.06, fps: CONFIG.fps });
 const LABEL_OPTS = { format: FORMAT, font: "Montserrat" };
 
 function renderAt(t) {
-  S.at(t, camera);
-  const d = S.dof(t);
-  dof.target = d.focusPoint;
-  dof.bokehScale = d.bokehScale;
-  dof.circleOfConfusionMaterial.focusRange = d.focusRange;
-  composer.render();
+  rig.render(t, S.at(t, camera));
   finish.layer(gl, 0);
   finish.grade(t);
   // Overlays last, on the finished frame: the ink reads the ground under each box.

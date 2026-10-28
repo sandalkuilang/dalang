@@ -32,10 +32,52 @@ const vec = (v, what) => {
   throw new Error(what + " must be a THREE.Vector3 or { x, y, z } of numbers in scene units");
 };
 const fovOf = (f, what) => { if (!(num(f) && f > 1 && f < 179)) throw new Error(what + ": fov is the vertical field of view in degrees, between 1 and 179 (got " + f + ")"); return f; };
+const kOf = (k, what) => { if (!(num(k) && k > 0)) throw new Error(what + ": k is the zoom in px per scene unit, > 0 (got " + k + ")"); return k; };
 const station = (name, s) => {
-  if (!s || typeof s !== "object") throw new Error('station "' + name + '" must be { position, target, fov }');
+  if (!s || typeof s !== "object") throw new Error('station "' + name + '" must be { position, target, fov } or an iso { target, k }');
+  if (s.k !== undefined) return Object.freeze({ name, target: vec(s.target, 'station "' + name + '" target'), k: kOf(s.k, 'station "' + name + '"') });
   return Object.freeze({ name, position: vec(s.position, 'station "' + name + '" position'), target: vec(s.target, 'station "' + name + '" target'), fov: fovOf(s.fov ?? 30, 'station "' + name + '"') });
 };
+export const poseOf = (s) => (s.k !== undefined ? { target: s.target.clone(), k: s.k } : { position: s.position.clone(), target: s.target.clone(), fov: s.fov });
+
+// The isometric-world view (references/looks.md): one true-isometric direction for every film, Express's projection
+// in 3D. An OrthographicCamera whose frustum is the frame in px, so `k` (zoom) is px per scene unit, like engine/iso's
+// cam.k. The view never tilts or turns: a pose is { target, k } and the camera only pans and zooms (zoom in log).
+// Seen from +x +y +z: the top (+y) is the lightest face, the left (+z) mid, the right (+x) the darkest.
+export const ISO = Object.freeze({ azimuth: 45, elevation: Math.atan(Math.SQRT1_2) / DEG, far: 100 }); // 35.264 deg; far: scene units
+const isoAxes = () => {
+  const back = new THREE.Vector3(1, 1, 1).normalize(); // toward the camera: azimuth 45, elevation 35.264
+  const right = new THREE.Vector3(1, 0, -1).normalize();
+  return { back, right, up: back.clone().cross(right) };
+};
+// ponytail: the camera stands ISO.far/2 units from its target; a set over ~50 units (100 m at M = 2) needs a larger ISO.far.
+export function isoCamera(W, H) {
+  if (!(num(W) && W > 0 && num(H) && H > 0)) throw new Error("isoCamera(W, H): the frame in px");
+  const c = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, 0, ISO.far);
+  c.userData.iso = true;
+  return c;
+}
+// isoFrame(objectOrBox3, { W, H, margin }): the iso station { target, k } that fits the object's projected box in a W x H
+// frame, `margin` times over, centred.
+export function isoFrame(target, { W, H, margin = 1.15 } = {}) {
+  if (!(num(W) && W > 0 && num(H) && H > 0 && num(margin) && margin >= 1)) throw new Error("isoFrame(): W and H in px, margin >= 1");
+  let box;
+  if (target && target.isBox3) box = target.clone();
+  else if (target && target.isObject3D) { target.updateWorldMatrix(true, true); box = new THREE.Box3().setFromObject(target); }
+  else throw new Error("isoFrame() takes an Object3D or a Box3");
+  if (box.isEmpty()) throw new Error("isoFrame(): the object has no geometry (an empty box)");
+  const { right, up } = isoAxes(), v = new THREE.Vector3();
+  let r0 = Infinity, r1 = -Infinity, u0 = Infinity, u1 = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+    const r = v.dot(right), u = v.dot(up);
+    r0 = Math.min(r0, r); r1 = Math.max(r1, r); u0 = Math.min(u0, u); u1 = Math.max(u1, u);
+  }
+  if (!(r1 - r0 > 0 || u1 - u0 > 0)) throw new Error("isoFrame(): the object has no size");
+  const c = box.getCenter(new THREE.Vector3());
+  const k = Math.min(W / ((r1 - r0) * margin || Infinity), H / ((u1 - u0) * margin || Infinity));
+  return { target: c.addScaledVector(right, (r0 + r1) / 2 - c.dot(right)).addScaledVector(up, (u0 + u1) / 2 - c.dot(up)), k };
+}
 
 // stations({ home, ...named }): { name: { name, position, target, fov } }, frozen. `home` is required: it is the
 // pose the film opens on and, with loopEnd(), ends on. frame() makes one from an object.
@@ -77,6 +119,17 @@ export function travel(t, from, to, { start = 0, dur, ease = "inOut", lift, over
   if (!(num(dur) && dur > 0)) throw new Error("travel(): dur (seconds) must be greater than 0, or the leg is a cut (got " + dur + ")");
   const f = typeof ease === "function" ? ease : EASE[ease];
   if (!f) throw new Error('travel(): unknown ease "' + ease + '" (use ' + Object.keys(EASE).join(", ") + " or a function u -> u)");
+  if (from?.k !== undefined || to?.k !== undefined) { // iso: the target pans, k zooms in log, the direction never changes
+    for (const [n, s] of [["from", from], ["to", to]]) if (!s?.target?.isVector3 || !(num(s.k) && s.k > 0)) throw new Error("travel(): " + n + " is not an iso station { target, k } (both ends of a leg are iso, or neither)");
+    const at = (x) => {
+      const raw = Math.min(1, Math.max(0, (x - start) / dur)), u = raw <= 0 ? 0 : raw >= 1 ? 1 : f(raw);
+      if (u === 1) return { u, target: to.target.clone(), k: to.k };
+      return { u, target: from.target.clone().lerp(to.target, u), k: Math.exp(Math.log(from.k) + (Math.log(to.k) - Math.log(from.k)) * u) };
+    };
+    const pose = at(t), t0 = Math.max(start, t - 1e-3), t1 = Math.min(start + dur, t + 1e-3);
+    pose.speed = t < start || t > start + dur || !(t1 > t0) ? 0 : (at(t1).target.distanceTo(at(t0).target) / (t1 - t0)) * M; // m/s
+    return pose;
+  }
   for (const [n, s] of [["from", from], ["to", to]]) if (!s || !s.position?.isVector3 || !s.target?.isVector3 || !num(s.fov)) throw new Error("travel(): " + n + " is not a station { position, target, fov }");
   if (lift !== undefined && !num(lift)) throw new Error("travel(): lift is a number of metres");
   const p0 = from.position, p2 = to.position, mid = p0.clone().add(p2).multiplyScalar(0.5);
@@ -128,7 +181,7 @@ export function route(st, legs) {
     from = l.to; free = l.start + l.dur;
   });
   const opts = (l) => ({ start: l.start, dur: l.dur, ease: l.ease, lift: l.lift, over: l.over, clear: l.clear });
-  const hold = (name, leg) => { const s = st[name]; return { u: 1, position: s.position.clone(), target: s.target.clone(), fov: s.fov, speed: 0, leg, station: name }; };
+  const hold = (name, leg) => ({ u: 1, ...poseOf(st[name]), speed: 0, leg, station: name });
   const api = {
     legs: out, end: out.length ? out.at(-1).end : 0,
     at(t) {
@@ -157,6 +210,15 @@ export function loopEnd(st, { end, dur = 1.5, ...opts } = {}) {
 // place(camera, pose): the camera onto a pose: position, fov (the projection updates only when it changed), aim.
 // Aspect is the set's own. Returns the camera.
 export function place(camera, pose) {
+  if (pose.k !== undefined) { // iso: stand back along the one iso direction, zoom = k
+    if (!camera.isOrthographicCamera) throw new Error("place(): an iso pose { target, k } needs isoCamera(W, H)");
+    camera.position.copy(pose.target).addScaledVector(isoAxes().back, ISO.far / 2);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(pose.target);
+    if (camera.zoom !== pose.k) { camera.zoom = pose.k; camera.updateProjectionMatrix(); }
+    camera.updateMatrixWorld();
+    return camera;
+  }
   camera.position.copy(pose.position);
   if (camera.fov !== pose.fov) { camera.fov = pose.fov; camera.updateProjectionMatrix(); }
   camera.lookAt(pose.target);

@@ -68,8 +68,9 @@ const smooth = (u) => u * u * (3 - 2 * u);
 // cutaway(root, { normal, offset, color, hatch }): normal (world) points INTO the removed half, toward the camera that
 // looks into the section (default +z); offset: metres along it from root's world origin (0 cuts through the origin);
 // color: a flat tint for every cap (else each part's own colour, darkened); hatch: metres per tile of diagonal lines
-// on the caps (off by default). Returns { plane, group, parts, uncut, nocap, add, set, on, off, at, ready }.
-export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0, color, hatch } = {}) {
+// on the caps (off by default); flat: unlit caps (MeshBasicMaterial), for the iso look, which has no lights (studio.js
+// isoStudio). Returns { plane, group, parts, uncut, nocap, add, set, on, off, at, ready }.
+export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0, color, hatch, flat = false } = {}) {
   const n = normal.clone().normalize(), plane = new THREE.Plane(n.clone().negate(), 0); // keeps n·p <= constant
   const group = new THREE.Group(); // the caps and their stencils; never under `root`, so its size and physics stay the assembly's
   group.name = "cutaway"; group.userData.cutaway = true;
@@ -141,7 +142,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     const s = o.matrixWorld.getMaxScaleOnAxis() || 1, geo = shell ? thicken(o.geometry, (shell / M) / s) : o.geometry, order = 10000 + 2 * parts.length; // thickness: metres → the mesh's local units
     const stencil = (side, op) => quiet(Object.assign(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side, clippingPlanes: [plane], stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op })), { renderOrder: order }));
     const own = color === undefined && !!mats(o)[0].color, tint = color !== undefined ? new THREE.Color(color) : own ? mats(o)[0].color.clone().multiplyScalar(0.8) : new THREE.Color(0x888888);
-    const cap = quiet(new THREE.Mesh(capGeo, new THREE.MeshStandardMaterial({ color: tint, map: tex, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4, depthFunc: THREE.LessEqualDepth, stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp })));
+    const cap = quiet(new THREE.Mesh(capGeo, new (flat ? THREE.MeshBasicMaterial : THREE.MeshStandardMaterial)({ color: tint, map: tex, ...(flat ? {} : { roughness: 0.9, metalness: 0 }), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4, depthFunc: THREE.LessEqualDepth, stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp })));
     cap.renderOrder = order + 1;
     cap.onAfterRender = (renderer) => renderer.clearStencil(); // each part is counted alone
     parts.push({ mesh: o, stencil: geo, shell, own, back: stencil(THREE.BackSide, THREE.IncrementWrapStencilOp), front: stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp), cap });

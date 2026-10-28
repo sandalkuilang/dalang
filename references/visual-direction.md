@@ -6,7 +6,7 @@ Left alone, code-made video lands on one look: flat shapes on a cream or dark gr
 
 Every film is **stylized**: a designed look, one style per film, never footage or a photoreal render. The subject is still true to reality: right anatomy, parts, proportions, scale and behaviour, in a world dressed with what is really there. DALANG installs no image or video model and films nothing; a generated still or clip is not part of the pipeline.
 
-The hero is made one of three ways: **drawn** as true shapes (Express); **built** in three.js from its own law and real measures (Studio: C, I, J, K); or a **CC0 / public-domain 3D model** re-dressed into the film's style (below). Vector or CSS shapes stand in for what has no real appearance (diagrams, charts, maps, UI, icons, type, abstract ideas) and sit beside the subject, never instead of it.
+The hero is made one of three ways: **drawn** as true shapes (Express); **built** in three.js from its own law and real measures (Studio, the same isometric world); or a **CC0 / public-domain 3D model** re-dressed into the film's style (below). Vector or CSS shapes stand in for what has no real appearance (diagrams, charts, maps, UI, icons, type, abstract ideas) and sit beside the subject, never instead of it.
 
 ### 1.1 Per subject: machines, models, people, checks
 
@@ -20,7 +20,7 @@ The hero is made one of three ways: **drawn** as true shapes (Express); **built*
 
 ## 2. Looks
 
-The seven looks, how they mix, and how to offer them in Step 1: `looks.md`. Step 5 needs only the chosen look's row.
+One look for every film, Express and Studio: `isometric-world` (`looks.md`). Step 5 reads it there and in `engine/epic/languages/isometric-world.md`.
 
 ## 3. Energy (the Step 1 "Energy" option)
 
@@ -46,7 +46,7 @@ The classic principles of animation, translated into what a timeline can do:
 - **Anticipation** — before a big move, a counter-move of 3–6 % of the distance for 80–120 ms.
 - **Follow-through & overlap** — parts of one object settle 60–120 ms after the main body; the next element starts when the previous is 30–50 % done.
 - **Arcs** — organic things (hands, thrown objects, characters, cameras) travel on curves, never straight diagonals. Machines and UI may move straight.
-- **Squash & stretch** — stylised characters only, ≤ 8 % (C, G). Never on a real subject, products, text, or UI: real things deform only as they really do.
+- **Squash & stretch** — stylised characters only, ≤ 8 %. Never on a real subject, products, text, or UI: real things deform only as they really do.
 - **Secondary action** — one, at 50–70 % of the main move's distance, starting 100–200 ms later.
 - **Staging** — one idea per shot; the eye knows where to look within 0.3 s (contrast, size, motion, and the accent all point at the same thing).
 - **Exaggeration** — restrained: overshoot ≤ 4 % on arrivals (spring damping ζ ≥ 0.72), none on text, numbers or data. Physical timing (gravity, mass, √distance durations, springs): `camera-motion.md` §5.
@@ -56,11 +56,11 @@ The classic principles of animation, translated into what a timeline can do:
 
 - **One hero move per shot.** Everything else holds still or moves as secondary action.
 - At most **two** things move at once, not counting the background or camera.
-- The accent colour appears on **one** element per shot. Look J keeps a legend for the whole film (yellow labels and AC current, blue DC, data or cold, orange heat, red warning), each hue only for its meaning; the shot's one accent element is the caption's key-word box.
+- The accent colour appears on **one** element per shot. Colour is a legend for the whole film (one hue per material or role, e.g. heat, current, cold, a warning), each hue only for its meaning; the shot's one accent element is the caption's key-word box.
 - Text besides the caption follows the layers of §12: one claim headline (at most 8 words) and at most 3 cards on screen at once; an evidence or calculation card is sized by its own rule. The caption never repeats any of them word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns when it does).
 - 3–5 kinds of transition in a film, each caused by something on screen (`/hyperframes` `references/motion.md`). Never the same entrance two beats in a row.
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`).
-- Banned: glow, bloom, particles as decoration (a glow caused by current or heat, `circuit.js`, is the subject, not decoration; a light shaft or caustic traced by `optics.js` is the subject too), lens flares, glass cards, pill chips (a caption's own per-line backing, `drawCaption` `pill`, and look J's label pills on a leader line, `pinLabel` `pill`, are not chips), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax, the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
+- Banned: glow, bloom, particles as decoration (a glow caused by current or heat, `circuit.js`, is the subject, not decoration; a light shaft or caustic traced by `optics.js` is the subject too), lens flares, glass cards, pill chips (a caption's own per-line backing, `drawCaption` `pill`, and a label pill on a leader line, `pinLabel` `pill`, are not chips), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax, the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
 - One "wow" moment per film; a second cancels the first.
 - Continuous motion comes first from the **subject acting** (§3 "Minimum motion"), supported by the **camera** (a real move, `camera-motion.md` §10–11) and the **light** (a sweep, a shadow passing). Never from breathing or pulsing text and UI.
 
@@ -143,7 +143,7 @@ With the sound off, on-screen text is how the viewer follows the argument. Up to
 |---|---|---|---|
 | Claim headline | the current claim as a takeaway, its key term styled (italic + underline, in ink); over it a kicker (section or source, monospace caps, tracked +8–12 %); under it an optional status tag that says what the picture is: ILLUSTRATION (`[illus]`, `script-voice.md` §3), SPED UP (time compressed), OUR MODEL (`[calc]`), in the narration language, one colour per tag kept for the film | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes on each claim beat (about one every 3–5 s); read alone, the headlines tell the argument; `textBand()` draws kicker, headline and tag on a light scrim when the ground behind is busy |
 | Data card | one option's value, counting in sync with what happens in the world (a reading on the object, a gauge filling segment by segment) | ≤ 30 % of the frame width; value 72–110 px tabular figures, label 36 px | beside its subject: option A left, option B right, one hue per option for the whole film (§6 screen direction) |
-| World label | names a part ("PART · size") with a leader line | ≥ 36 px (`pinLabel`) | on its part, above the caption; look J: a yellow pill, dark text, a dark leader ending in a ringed dot on the part, ≤ 3 per frame (`pinLabel` `pill`) |
+| World label | names a part ("PART · size") with a leader line | ≥ 36 px (`pinLabel`) | on its part, above the caption; the language's label pin (dot → leader → rule → text) in its ink, never over the subject, ≤ 3 per frame |
 | Caption | the spoken words | 54–64 px (`drawCaption`) | its target position (`craft-rules.md` §6) |
 
 Card types that carry the argument (each counts as one of the 3 cards):

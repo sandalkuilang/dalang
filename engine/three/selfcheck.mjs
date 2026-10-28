@@ -17,10 +17,10 @@ const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
 const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
-const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
+const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
-const { studio, aoFor, fitShadow, LOOKS, PRESETS } = await use("studio.js");
+const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
@@ -1708,7 +1708,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     }
   }
 }
-// Look J (engineering cutaway): the torch example at real size, the look's lens set and framing (subject low), and the
+// The torch example (a perspective engineering cutaway): at real size, its lens set and framing (subject low), and the
 // drafting-style text on the frame: a dimension line, pill labels and a text band, all inside the safe area.
 {
   const W = 1080, H = 1920, em = 0.55;
@@ -2201,4 +2201,44 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   K.makeKit(new THREE.Scene(), { mpu: 2 });
 }
 
-console.log("selfcheck ok:surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), look J torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
+// The isometric-world look: true iso (looking along (1, 1, 1)), the camera only pans and zooms (zoom in log, the
+// direction never changes along a route), k is px per unit, three tones by face (top > left > right), isoLook keeps
+// colour and clipping so a cutaway still cuts it, and the dry rig refuses a perspective pose.
+{
+  assert.ok(Math.abs(ISO.elevation - 35.2644) < 1e-3 && ISO.azimuth === 45, "true iso: azimuth 45, elevation 35.264");
+  const W = 1080, H = 1920, cam = isoCamera(W, H), box = new THREE.Box3(new THREE.Vector3(-1, 0, -0.5), new THREE.Vector3(1, 1.5, 0.5));
+  const wide = isoFrame(box, { W, H, margin: 1.2 }), close = isoFrame(new THREE.Box3(new THREE.Vector3(0.2, 0.2, 0), new THREE.Vector3(0.4, 0.4, 0.2)), { W, H });
+  placeCamera(cam, wide);
+  const dir = new THREE.Vector3(), iso = new THREE.Vector3(-1, -1, -1).normalize();
+  assert.ok(cam.getWorldDirection(dir).distanceTo(iso) < 1e-9, "the iso camera looks along -(1, 1, 1)");
+  const hb = heroBox(cam, new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 1).translate(0, 0.75, 0)), W, H);
+  assert.ok(hb && Math.abs((hb.x0 + hb.x1) / 2 - W / 2) < 1 && Math.abs((hb.y0 + hb.y1) / 2 - H / 2) < 1, "isoFrame centres the box: " + JSON.stringify(hb));
+  assert.ok(Math.abs(Math.max((hb.x1 - hb.x0) / W, (hb.y1 - hb.y0) / H) - 1 / 1.2) < 0.01, "isoFrame fills the frame to its margin");
+  const st = stations({ home: wide, close }), r = route(st, [{ to: "close", start: 1, dur: 2 }]);
+  for (const t of [0, 1.5, 2, 2.7, 3, 4]) { placeCamera(cam, r.at(t)); assert.ok(cam.getWorldDirection(dir).distanceTo(iso) < 1e-9, "the view never tilts or turns at " + t + " s"); }
+  const mid = travel(2, st.home, st.close, { start: 1, dur: 2, ease: "linear" });
+  assert.ok(Math.abs(mid.k - Math.sqrt(wide.k * close.k)) < 1e-9 && mid.speed > 0, "zoom in log: halfway is the geometric mean");
+  assert.ok(r.at(3).k === close.k && r.at(0).k === wide.k && r.at(0).position === undefined, "the holds are the stations' iso poses");
+  assert.throws(() => travel(1, st.home, { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 30 }, { dur: 1 }), /iso/, "a leg is iso at both ends or neither");
+  assert.throws(() => placeCamera(new THREE.PerspectiveCamera(), wide), /isoCamera/, "an iso pose needs the ortho camera");
+  // Three tones: top > left (+z) > right (+x), a slanted face in between, the shared matcap agrees at its centre.
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  assert.ok(isoTone(V(0, 1, 0)) === ISO_TONES.top && isoTone(V(0, 0, 1)) === ISO_TONES.left && isoTone(V(1, 0, 0)) === ISO_TONES.right && ISO_TONES.top > ISO_TONES.left && ISO_TONES.left > ISO_TONES.right, "top lightest, left mid, right darkest");
+  const tex = isoMatcap(64), c = tex.image.data[(32 * 64 + 32) * 4] / 255;
+  assert.ok(Math.abs(c - isoTone(V(1, 1, 1))) < 0.03, "the matcap's centre is the tone of a face square to the view");
+  assert.ok(isoTone(V(1, 1, 0)) < ISO_TONES.top && isoTone(V(1, 1, 0)) > ISO_TONES.right, "a slanted face blends");
+  // isoLook: colour and clipping kept, one material per shared original, a glowing part left alone; a cutaway still cuts it.
+  const shared = new THREE.MeshStandardMaterial({ color: 0xd9503f }), glowM = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xff8800 });
+  const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared), new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared), new THREE.Mesh(new THREE.SphereGeometry(0.2), glowM));
+  isoLook(g);
+  const [a, b, lamp] = g.children;
+  assert.ok(a.material.isMeshMatcapMaterial && a.material === b.material && a.material.color.getHex() === 0xd9503f && lamp.material === glowM, "isoLook: matcap, colour kept, shared stays shared, glow kept");
+  const cut = cutaway(g, { flat: true });
+  assert.ok(a.material.clippingPlanes?.includes(cut.plane) && a.material.isMeshMatcapMaterial, "a cutaway cuts an iso material");
+  assert.ok(cut.group.children.filter((o) => o.material.colorWrite !== false).every((o) => o.material.isMeshBasicMaterial), "flat caps are unlit (the iso look has no lights)");
+  const sc = new THREE.Scene(), rig = isoStudio(null, sc, cam, { ground: "#E8EDEF" });
+  assert.ok(sc.background.getHexString() === "e8edef" && rig.frame(0, wide).k === wide.k, "the dry iso rig places the camera and sets the sky");
+  assert.throws(() => rig.frame(0, { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 30 }), /iso/, "the iso rig refuses a perspective pose");
+}
+
+console.log("selfcheck ok:iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");

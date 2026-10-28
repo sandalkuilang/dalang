@@ -242,24 +242,23 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   console.log("ok  the evals.md scene-code check flags src/ and assets/*.js, not the Step 5 style frames");
 }
 
-// Look J's row and visual-direction §13 agree with quantity.js: dimension() is drawn on the frame's 2D canvas, over everything,
-// so no part hides it; current (circuit.js flow) is a scene object and the nearer part does hide it.
+// One look for every film: isometric-world, in both modes. The language folder holds only it, the Brief asks no look
+// question, looks.md and express.md name it, and the iso camera never tilts in the docs that drive it. §13's dimension row
+// still agrees with quantity.js: dimension() is drawn on the frame's 2D canvas, over the parts.
 {
   const looks = read("references/looks.md"), vd = read("references/visual-direction.md"), qty = read("engine/three/quantity.js");
-  assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update the look J and §13 text with it");
-  const rowJ = looks.split("\n").find((l) => l.startsWith("| **J. Engineering cutaway**")) ?? "";
-  assert.ok(rowJ, "looks.md has no look J row");
-  assert.match(rowJ, /36 mm gauge.*textBand.*pinLabel.*torch\.js/, "look J's row must carry its defaults (lens, text band, pill labels) and the reference piece");
-  assert.match(read("references/brief.md"), /engineering cutaway/i, "brief.md Step 1 must offer look J");
-  const dimClause = rowJ.split(";").find((c) => /dimension lines/i.test(c)) ?? "";
-  assert.ok(dimClause, "look J's row must mention dimension lines");
-  assert.doesNotMatch(dimClause, /in the world|occlud|hidden by|behind (?:a|the|another) part/i, "look J's row says dimension lines are drawn in the world / hidden by parts, but dimension() is a canvas overlay");
-  assert.match(rowJ, /dimension lines.{0,120}(?:over|on top of).{0,40}(?:part|frame)/i, "look J's row must say a dimension line is drawn over the frame, on top of parts");
-  assert.match(rowJ, /current.{0,120}part.{0,20}(?:occlud|hides)/i, "look J's row must still say the current is in the world, hidden by a nearer part");
+  assert.deepEqual(fs.readdirSync(new URL("../engine/epic/languages", import.meta.url)), ["isometric-world.md"], "engine/epic/languages holds only isometric-world");
+  assert.match(looks, /^# The look: isometric-world/, "looks.md is the one look");
+  assert.match(looks, /isoCamera.*isoLook.*isoStudio/s, "looks.md names the three.js iso recipe");
+  assert.match(read("references/brief.md"), /`look: isometric-world`/, "the Brief saves look: isometric-world without a question");
+  assert.match(read("references/express.md"), /The look is `isometric-world`, every film/, "express.md uses the one look");
+  for (const f of ["references/brief.md", "references/express.md", "engine/epic/README.md", "SKILL.md"]) assert.doesNotMatch(read(f), /`blueprint`|`cutaway` design|More looks/, `${f} still offers another language or look`);
+  assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update §13 with it");
   const dimRow = vd.split("\n").find((l) => l.startsWith("| Dimension line |")) ?? "";
   assert.match(dimRow, /(?:over|on top of) (?:the )?(?:parts|frame)|no part hides/i, "§13's dimension row must say the line is drawn over the parts");
-  console.log("ok  look J's row and §13 agree with quantity.js: dimension lines are a canvas overlay, current is occluded");
+  console.log("ok  one look (isometric-world) in both modes; §13 agrees with quantity.js");
 }
+
 
 // Style frames are built FROM their reference (an object modelled in code): Step 5 waits for the OBJECTS stills, the media
 // screening writes one board per frame and a parts line per object, the author opens the board before its first write.
