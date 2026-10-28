@@ -126,7 +126,7 @@ const READING = {
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Call 4 — Extras (the last call; only the questions that apply)', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
-  3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
+  3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...of('script-voice.md', '### Narration craft: one idea, followed on one hearing'), ...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
   4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)'), ...SFX_MUSIC], sub: [] },
   5: {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),

@@ -34,7 +34,7 @@ flowchart TD
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
 | 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, energy, audience, voice, extras such as the second-language cut), so the user can leave afterwards | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
-| 3 Script | `script.md` (opens with `Promise:` and `Takeaway:`), `narration.txt` with `{beat\|name}` markers, followable by ear (`narration_lint.mjs`, text-only read-through); every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
+| 3 Script | `script.md` (opens with `Promise:` and `Takeaway:`), `narration.txt` with `{beat\|name}` markers, followable by ear (one idea within a word budget, the voice says why while the picture shows what; `narration_lint.mjs`, text-only read-through); every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills), built from `review/refs-board-*.jpg` | **3** |
 | 6 Build | HyperFrames composition: builder subagents only, writing the set and its shot data (`shots.js`) rather than per-shot code: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
