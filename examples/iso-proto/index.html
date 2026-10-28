@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>iso prototype</title>
+<style>html, body { margin: 0; overflow: hidden; } canvas { display: block; }</style>
+</head>
+<body>
+<!-- One still per load: ?engine=three|iso|isomodel&shot=wide|medium|close[&orbit=deg]. render.mjs screenshots it.
+     three: engine/three isoWorld (CC0 models). iso: engine/iso build() (primitives). isomodel: engine/iso with the same
+     CC0 models (drawModel), to tell what the models bring from what the renderer brings. -->
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+import { W, H, COLORS, PALETTE, ROLES, MODELS, THREE_WORLD, ISO_WORLD, SHOTS, GROUND } from "./scene.js";
+const q = new URLSearchParams(location.search), engine = q.get("engine") || "three", shot = SHOTS[q.get("shot") || "wide"];
+const cv = document.getElementById("c");
+
+if (engine === "three") {
+  const { THREE } = await import("./assets/engine/three-vendor.js");
+  const { isoCamera } = await import("./assets/engine/camera.js");
+  const { isoStudio } = await import("./assets/engine/studio.js");
+  const { loadModels, buildWorld, isoPose, placeIso } = await import("./assets/engine/isoWorld.js");
+  const scene = new THREE.Scene(), camera = isoCamera(W, H);
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false);
+  isoStudio(renderer, scene, camera, { ground: COLORS.bg, stencil: false });
+  const world = buildWorld(THREE_WORLD, { models: await loadModels(MODELS), palette: PALETTE, roles: ROLES, ink: COLORS.ink });
+  scene.add(world.root);
+  placeIso(camera, isoPose(shot), +(q.get("orbit") || 0));
+  renderer.render(scene, camera);
+} else {
+  const { Iso } = await import("./iso/iso.js");
+  const { build } = await import("./iso/build.js");
+  const g = cv.getContext("2d"), iso = new Iso(g, W, H);
+  let specs = ISO_WORLD, models = {};
+  if (engine === "isomodel") {
+    const { loadModel } = await import("./iso/model.js");
+    const keys = Object.keys(MODELS);
+    const loaded = await Promise.all(keys.map((k) => loadModel(MODELS[k])));
+    keys.forEach((k, i) => (models[k] = loaded[i]));
+    const ROT = { "+y": 0, "+x": 1, "-y": 2, "-x": 3 };
+    specs = THREE_WORLD.map((e) => {
+      const key = e.model ?? e.figure;
+      if (!key) return { parts: [e] };
+      const m = models[key], height = m.box.max[2] - m.box.min[2];
+      return { at: e.at, rot: ROT[e.face ?? "+y"] ?? 0, parts: [{ name: e.name, form: "model", model: key, modelScale: e.h / height, palette: { ...ROLES, ...e.roles }, color: e.color, texels: !!e.figure, max: 6000 }] };
+    });
+  }
+  g.fillStyle = COLORS.bg; g.fillRect(0, 0, W, H);
+  iso.cam = { ...shot };
+  // ponytail: the ground gets its own flush first (a careful builder's workaround); the template's one pass paints the
+  // slab over every prop, since build() sorts parts only inside one call
+  // (&onepass=1 shows the template's own pass)
+  specs.forEach((s, i) => { build(iso, s, { models }); if (i === GROUND - 1 && !q.get("onepass")) iso.flush(); });
+  iso.flush();
+}
+document.title = "done";
+</script>
+</body>
+</html>

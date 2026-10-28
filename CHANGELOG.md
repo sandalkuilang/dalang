@@ -30,6 +30,14 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `engine/three/isoWorld.js` (prototype, used by no mode yet): the `isometric-world` set written as data on the three.js
+  iso rig: ready CC0 models at their real height, recoloured to the film palette in three tones, contact shadows,
+  posed figures, primitives for mechanisms, engine/iso's cam and a one-way orbit. `examples/iso-proto/` renders one
+  generic scene in engine/iso and on it; `review/iso-three-proto/` holds the stills and the verdict on moving Express
+  to one engine. Checked in `engine/three/selfcheck.mjs`.
+
 ## [3.9.1] - 2026-10-29
 
 ### Fixed

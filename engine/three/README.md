@@ -81,6 +81,16 @@ in this table.
 | `examples/torch.js` | A perspective engineering-cutaway piece (from before the iso look; its systems still apply): `openTorch(k, { at, state, speed, timeScale, full, cutOn })`, a torch opened along its axis on a grey-blue mat with a 10 mm grid (cell, spring, driver board with its SMD parts, LED on its star board, reflector, lens, all real sizes), a dc flow from the cell to the LED caused by the model's `state(t)` → `{ I }`, the LED lit by the current. Returns `{ group, mat, ground, parts, dims, flows, cut, frames({ W, H }), place(camera, station, W, H), lights(scene, radius), at(t) }`: `frames` gives the look's three style frames (wide 70 mm, medium 100 mm, macro 135 mm on a 36 mm gauge, 3/4 high angle, the macro with its depth-of-field options), `place` puts the camera on one with the view offset that sets the subject low (so the text band sits on clean ground), `dims` the edges to dimension, `parts` the anchors to label. Also exports `LOOK` (the look's defaults as data: ground, mat, accent meanings, grain, bloom threshold, lens set, view offset, depth of field) and `lensFov(mm, aspect)`. A small three-light rig stands in for the studio rig; AgX tone mapping, ambient occlusion, grain, bloom and the depth-of-field pass are the set's renderer choices. No printed markings yet. |
 | `examples/twin.js` | `twinSets(k, build, { values: [a, b], at, gap, axis })`: one set built twice by `build(group, value, index)`, differing only in the value, placed `gap` m apart along `axis` with the gap centred on `at` (twin sets for an A/B comparison, `visual-direction.md` §13). |
 
+## Iso set as data (`isoWorld.js`, a prototype)
+
+Express's `isometric-world` set on this engine, for the decision to run both modes on one engine (evidence and verdict:
+`review/iso-three-proto/`; the scene: `examples/iso-proto/`). Not used by any mode yet. `buildWorld(WORLD, { models,
+palette, roles, ink })` places entries written as data in engine/iso's coordinates (metres, z up): a ready CC0 model at
+its real height (`model`, `h`, `face`), recoloured by material name, then by `color`, then snapped to the palette, on
+the three-tone iso material, with a soft contact shadow; a rigged figure (`figure`, `pose: stand | point`, `look`); or a
+primitive for mechanisms and cutaways (`form: box | cyl | sweep | lathe | extrude`). `isoPose({ x, y, z, k })` reads
+engine/iso's cam, `isoOrbit` is the film's one slow orbit, `placeIso` turns the view by it.
+
 ## Object-studio kit (`objectStudio.js`, `editorial.js`)
 
 The `object-studio` look ready-made: real objects as clean 3D on a light grey studio sweep through a perspective lens,

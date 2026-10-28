@@ -39,6 +39,7 @@ const O = await use("optics.js");
 const { makeStrawGlass } = await use("examples/straw.js");
 const OS = await use("objectStudio.js");
 const ED = await use("editorial.js");
+const IW = await use("isoWorld.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -2349,4 +2350,47 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
 }
 
-console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
+// The iso set as data (isoWorld.js, the Express-on-three prototype): a model lands at its real height on its base
+// centre in engine/iso's z-up coordinates, recoloured by material name, then by colour, then snapped to the palette,
+// with a contact shadow under it; a figure turns to what it looks at; a rigged model is placed once; the orbit goes one way.
+{
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), PAL = ["#B98557", "#4A55C8", "#9AA6AB"];
+  assert.equal(IW.nearest("#C09060", PAL).getHexString(), new THREE.Color("#B98557").getHexString(), "nearest: a tan snaps to the wood colour");
+  const mk = () => { const g = new THREE.Group(), a = new THREE.MeshStandardMaterial({ color: 0xc09060, name: "wood" }), b = new THREE.MeshStandardMaterial({ color: 0x9aa0a8, name: "steel" });
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1).translate(5, 3, 0), a), new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2).translate(5, 3.35, 0), b)); return g; };
+  const w = IW.buildWorld([{ name: "crate", model: "crate", at: [1, 2, 0.1], h: 1, face: "+x", roles: { wood: "#4A55C8" } }], { models: { crate: mk() }, palette: PAL });
+  const crate = w.parts.crate, box = new THREE.Box3().setFromObject(crate);
+  assert.ok(Math.abs(box.max.y - box.min.y - 1) < 1e-6 && Math.abs(box.min.y - 0.1) < 1e-6, "a model stands at its real height on at's z: " + box.min.y + ".." + box.max.y);
+  const c = box.getCenter(V(0, 0, 0)); assert.ok(Math.abs(c.x - 1) < 1e-6 && Math.abs(c.z - 2) < 1e-6, "iso (x, y) is three (x, z), footprint centred");
+  assert.ok(Math.abs(crate.rotation.y - Math.PI / 2) < 1e-9, "face +x turns a glTF front (+Z) to iso +x");
+  const mats = []; crate.traverse((o) => o.isMesh && mats.push(o.material));
+  assert.ok(mats.every((m) => m.isMeshMatcapMaterial) && mats[0].color.getHexString() === "4a55c8" && mats[1].color.getHexString() === new THREE.Color("#9AA6AB").getHexString(), "roles by material name, the rest snapped to the palette, on the iso material");
+  assert.ok(w.root.children.some((o) => o.userData.shadow) && w.at.crate.y > 1, "a contact shadow under a model; at is its top centre");
+  const tint = []; IW.buildWorld([{ name: "t", model: "c", at: [0, 0, 0], h: 1, color: "#4A55C8" }], { models: { c: mk() }, palette: PAL }).parts.t.traverse((o) => o.isMesh && tint.push(o.material.color.getHexString()));
+  assert.ok(tint[0] === "4a55c8" && tint[1] !== "4a55c8", "color recolours the model's first material only");
+  const look = IW.buildWorld([{ name: "p", model: "c", at: [0, 0, 0], h: 1, look: [1, 0], shadow: false }], { models: { c: mk() }, palette: PAL });
+  assert.ok(Math.abs(look.parts.p.rotation.y - Math.PI / 2) < 1e-9 && look.root.children.length === 1, "look turns the front toward the point; shadow: false drops it");
+  const rig = new THREE.Group(), bone = new THREE.Bone(), boneL = new THREE.Bone(); bone.name = "arm-right"; boneL.name = "arm-left"; rig.add(bone, boneL);
+  const skg = new THREE.BoxGeometry(0.3, 1.7, 0.3), nv = skg.attributes.position.count;
+  skg.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(new Uint16Array(nv * 4), 4)); skg.setAttribute("skinWeight", new THREE.Float32BufferAttribute(new Float32Array(nv * 4).map((_, i) => (i % 4 ? 0 : 1)), 4));
+  const sk = new THREE.SkinnedMesh(skg, new THREE.MeshStandardMaterial({ color: 0xe9b996 })); sk.bind(new THREE.Skeleton([bone, boneL])); rig.add(sk);
+  const fig = IW.buildWorld([{ name: "g", figure: "g", at: [0, 0, 0], h: 1.7, pose: "point" }], { models: { g: rig }, palette: PAL });
+  assert.ok(fig.parts.g.getObjectByName("arm-right").rotation.y === Math.PI / 2, "point swings the right arm forward");
+  assert.throws(() => IW.buildWorld([{ figure: "g", at: [0, 0, 0], h: 1.7 }, { figure: "g", at: [1, 0, 0], h: 1.7 }], { models: { g: rig }, palette: PAL }), /rigged/, "a rigged model is placed once");
+  assert.throws(() => IW.buildWorld([{ model: "c", at: [0, 0, 0] }], { models: { c: mk() }, palette: PAL }), /real height/, "a model needs its real height");
+  assert.throws(() => IW.buildWorld([{ model: "nope", at: [0, 0, 0], h: 1 }], { palette: PAL }), /not loaded/, "a missing model throws");
+  assert.throws(() => IW.buildWorld([{ form: "box", at: [0, 0, 0], w: 1, d: 1 }], { palette: PAL }), /needs h/, "a form needs its sizes");
+  const lay = IW.buildWorld([{ name: "m", form: "cyl", axis: "x", at: [0, 0, 0], r: 0.2, h: 1 }], { palette: PAL }).parts.m, lb = new THREE.Box3().setFromObject(lay);
+  assert.ok(Math.abs(lb.min.y) < 1e-6 && Math.abs(lb.max.x - lb.min.x - 1) < 1e-6, "a lying cylinder rests on at along x");
+  const p = IW.buildWorld([{ name: "pipe", form: "sweep", r: 0.05, path: [[0, 0, 1], [2, 0, 1], [2, 2, 1]] }], { palette: PAL }).parts.pipe, pb = new THREE.Box3().setFromObject(p);
+  assert.ok(Math.abs(pb.max.x - 2.05) < 0.01 && Math.abs(pb.max.z - 2) < 0.01 && Math.abs(pb.min.y - 0.95) < 0.01, "a pipe runs its path in world coordinates, bent, never kinked: " + pb.max.toArray());
+  assert.ok(Math.abs(IW.isoPose({ x: 1, y: 2, z: 3, k: 100 }).k - 100 * Math.sqrt(1.5)) < 1e-9 && IW.isoPose({ x: 1, y: 2, z: 3, k: 1 }).target.equals(V(1, 3, 2)), "isoPose: engine/iso's cam to a three iso pose");
+  const o = [0, 2, 5, 9, 10, 12].map((t) => IW.isoOrbit(t, { start: 2, dur: 8, deg: 8 }));
+  assert.ok(o[0] === 0 && o[1] === 0 && o.every((v, i) => i === 0 || v >= o[i - 1]) && o[4] === 8 && o[5] === 8, "the orbit goes one way and holds at its end");
+  assert.throws(() => IW.isoOrbit(1, { dur: 5, dir: 0 }), /one way/, "an orbit has one direction");
+  const cam = isoCamera(1080, 1920), pose = IW.isoPose({ x: 0, y: 0, z: 0, k: 50 });
+  IW.placeIso(cam, pose, 8); const d = cam.position.clone().sub(pose.target);
+  assert.ok(Math.abs(Math.atan2(d.x, d.z) * 180 / Math.PI - 53) < 1e-6 && Math.abs(cam.zoom - pose.k) < 1e-9, "placeIso turns the iso view about the vertical");
+}
+
+console.log("selfcheck ok:iso set as data (real height, recolour, contact shadow, look, one-way orbit), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
