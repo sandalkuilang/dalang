@@ -10,11 +10,13 @@
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir]
-//          hyperframes check and check_assets first (no render on a failure), render (BRIEF.md fps, --quality looks),
-//          gate 4, the metrics table
+//          the files changed since assemble (review/assembled.json: the world and every group, by sha256), for the main
+//          agent to check against the fix round's assignments; hyperframes check and check_assets first (no render on a
+//          failure), render (BRIEF.md fps, --quality looks), gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -41,6 +43,10 @@ const step = (name, bin, argv, { keep = 6, quiet = false, filter } = {}) => {
   return { ok, out };
 };
 const node = (script, ...a) => [process.execPath, [path.join(HERE, script), ...a]];
+// the work a fix round may touch: the world and every built group, each by its sha256
+const LOCK = path.join(dir, 'review', 'assembled.json');
+const sha = f => createHash('sha256').update(readFileSync(path.join(dir, f))).digest('hex');
+const locked = () => ['assets/world.js', ...(existsSync(path.join(dir, 'compositions')) ? readdirSync(path.join(dir, 'compositions')).filter(f => f.endsWith('.html')).map(f => `compositions/${f}`) : [])].filter(f => existsSync(path.join(dir, f)));
 const gate = n => {
   if (spawnSync(process.execPath, [path.join(HERE, 'state.mjs'), 'check', String(n), dir]).status === 0) return console.log(`OK     gate ${n} (approved, fresh)`);
   step(`gate ${n} by agent`, ...node('state.mjs', 'approve', String(n), dir, '--by', 'agent'), { keep: 2 });
@@ -72,6 +78,8 @@ if (cmd === 'after-voice') {
   const hf = step('hyperframes lint (errors)', 'npx', ['hyperframes', 'lint'], { quiet: true, keep: 20, filter: l => /✗|error/i.test(l) });
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
   if (!failed) gate(3);
+  mkdirSync(path.dirname(LOCK), { recursive: true });
+  writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');
   // the session's spend so far decides the fix round (express.md "Fix rounds"): main and subagents together, read from
   // tokens.mjs; unread is a WARN to rerun, never "nothing spent"
   const tk = spawnSync(process.execPath, [path.join(HERE, 'tokens.mjs'), '.', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
@@ -82,6 +90,15 @@ if (cmd === 'after-voice') {
   else if (spent > 8e6) console.log(`SKIP   fix round: ${M(spent)} of the 10M used (over 8M): express.mjs final now, the findings named in the hand-off`);
   else console.log(`OK     tokens ${M(spent)} of 10M: one fix round fits (10 turns each, effort medium, the world's owner first)`);
 } else {
+  // what the fix round changed: each file against its assemble sha256 (no record: say so, never "nothing changed")
+  let was = null;
+  try { was = JSON.parse(readFileSync(LOCK, 'utf8')); } catch { console.log('WARN   no review/assembled.json: the files changed since assemble cannot be listed (run express.mjs assemble first)'); }
+  if (was) {
+    const now = locked(), changed = now.filter(f => was[f] !== sha(f)), gone = Object.keys(was).filter(f => !now.includes(f));
+    if (!changed.length && !gone.length) console.log('OK     nothing changed since assemble');
+    for (const f of changed) console.log(`CHANGED since assemble: ${f}${f === 'assets/world.js' ? ' (the world: its owner only)' : ''}`);
+    for (const f of gone) console.log(`CHANGED since assemble: ${f} removed`);
+  }
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
   // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress
