@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.8.2] - 2026-10-28
+
 ### Fixed
 
 - Express: no group snapshots an empty world. `assets/world.js` starts with a `STUB` line; the builders of the other
@@ -1492,7 +1494,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.1...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...HEAD
+[3.8.2]: https://github.com/sandalkuilang/dalang/compare/v3.8.1...v3.8.2
 [3.8.1]: https://github.com/sandalkuilang/dalang/compare/v3.8.0...v3.8.1
 [3.8.0]: https://github.com/sandalkuilang/dalang/compare/v3.7.1...v3.8.0
 [3.7.1]: https://github.com/sandalkuilang/dalang/compare/v3.7.0...v3.7.1
