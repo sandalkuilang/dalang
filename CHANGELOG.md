@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.9.1] - 2026-10-29
+
 ### Fixed
 
 - The Express planner's brief carries the rules a pale, cropped test film lacked: figure-ground first (the subject 25 L*
@@ -1553,7 +1555,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...HEAD
+[3.9.1]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...v3.9.0
 [3.8.4]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...v3.8.4
 [3.8.3]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...v3.8.3
