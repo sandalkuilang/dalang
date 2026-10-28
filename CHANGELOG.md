@@ -30,6 +30,26 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/cues.mjs`: the builder's cue table.** One line per beat, each word as its `w("word", n)` call (n counted
+  film-wide, as the engine does) with its start; `--beats` for one group. The Express builder brief names it, so no
+  builder prints or parses `words.json` to find a word's index.
+
+### Changed
+
+- **The lean-workspace question is asked in plain words** (`brief.md` "Lean workspace"): "Turn off the tools videos
+  don't need, in this folder only?", with what it saves, that only this folder changes and can be undone, and that it
+  loads in a new session. No "lean", "workspace", "plugins" or "MCP" in the question.
+- **A yes to it ends the session before the Brief.** The settings and DALANG's lean subagent types load only when a
+  session starts, so a run that went on after `init` built the whole film on the heavy setup with general-purpose
+  agents. The agent now asks the user to open a new session in the folder and send the request again.
+- **Express has no planner.** The main agent writes the short `SPEC.md` (4 KB at most) and `storyboard.md` (one row per
+  beat, `| # | Beat | Subject action | Camera | Overlay |`, so `storyboard_lint.mjs` reads it) from the Express Step 5
+  text and the language's palette and type, and opens no other reference. The Studio planner and its ~100 KB of
+  reading had been run for Express films too (SKILL.md's model table named it without a mode), at several times the
+  output of the rest of the run.
+
 ## [3.7.0] - 2026-10-28
 
 ### Added
