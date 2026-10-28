@@ -6,7 +6,8 @@
 // Usage: node express.mjs after-voice [dir] [--log <file>]   (default: the newest voice-*.log, the last retake's)
 //          the take's WARNING lines (none → go on), pad_voice, captions (format from BRIEF.md), gates 1–2 by agent
 //        node express.mjs assemble [dir]
-//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), gate 3;
+//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), gate 3,
+//          the tokens spent so far (over 3M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir]
 //          hyperframes check and check_assets first (no render on a failure), render (BRIEF.md fps, --quality looks),
@@ -71,6 +72,15 @@ if (cmd === 'after-voice') {
   const hf = step('hyperframes lint (errors)', 'npx', ['hyperframes', 'lint'], { quiet: true, keep: 20, filter: l => /✗|error/i.test(l) });
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
   if (!failed) gate(3);
+  // the session's spend so far decides the fix round (express.md "Fix rounds"): main and subagents together, read from
+  // tokens.mjs; unread is a WARN to rerun, never "nothing spent"
+  const tk = spawnSync(process.execPath, [path.join(HERE, 'tokens.mjs'), '.', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
+  let spent = null;
+  try { const r = JSON.parse(tk.stdout.slice(0, tk.stdout.lastIndexOf('}') + 1)); spent = r.main.total + r.subagentTotal; } catch { /* not read */ }
+  const M = n => `${(n / 1e6).toFixed(1)}M`;
+  if (spent === null) console.log('WARN   tokens not read (node tokens.mjs . says why): rerun before a fix round');
+  else if (spent > 3e6) console.log(`SKIP   fix round: ${M(spent)} of the 4M used (over 3M): express.mjs final now, the findings named in the hand-off`);
+  else console.log(`OK     tokens ${M(spent)} of 4M: one fix round fits`);
 } else {
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws

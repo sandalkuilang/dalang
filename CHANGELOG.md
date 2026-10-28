@@ -30,6 +30,14 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- Express fix rounds stop eating the budget. There is one fix round, one fixer per group. A fix that changes
+  `assets/world.js` goes to the world's owner first, alone, and the other groups' fixers start after it reports.
+  Before, a fixer framed its camera on a world that another fixer was moving, and its whole round was thrown away.
+  `express.mjs assemble` prints the tokens the session has spent so far: over 3M it prints SKIP, and the film goes
+  straight to `final` with the findings named in the hand-off.
+
 ## [3.8.3] - 2026-10-28
 
 ### Fixed
