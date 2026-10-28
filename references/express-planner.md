@@ -26,7 +26,10 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   `-1` left, the same in every group); each group's OPEN and CLOSE pose `{ x, y, z, k }`, a group's OPEN the previous
   group's CLOSE.
 - **MOTION:** what moves, its cause and its timing rule; the claim's mechanism shown as the thing itself (what flows,
-  leaks, breaks, fills, turns), drawn and moving on screen, never only said.
+  leaks, breaks, fills, turns), drawn and moving on screen, never only said. Name what owns each phase (a staged
+  reveal, a camera move, the subject acting): paused anywhere, something meaningful is mid-flight. The pause before an
+  impact is 0.3–0.75 s. **SEAMS:** one row per cut (time, exit vector, entry vector, what carries across); exit and
+  entry match, and a mismatch is fixed here, never in an ease (`camera-motion.md` §3).
 - **OBJECTS:** each place with 6 or more set props named (furniture, fixtures, plants, tools, signs, cables) and its
   ground and wall materials; each made object at real size with the parts that make it known at a glance (a pump:
   body, impeller housing, flanges, bolts; a laptop: lid, hinge, keys, ports); each person with height, clothes that

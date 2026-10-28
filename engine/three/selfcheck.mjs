@@ -2329,6 +2329,16 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.throws(() => ED.cues({ beats: [{ name: "a", start: 1 }] }).b("b"), /no beat/, "a missing beat throws (beats.json array)");
   // Pure parts: the envelope, the accent word, the tag's fall and swing, the karaoke state.
   assert.ok(ED.envelope(0.99, 1, 2).a === 0 && ED.envelope(1.5, 1, 2).a === 1 && ED.envelope(2, 1, 2).a === 0 && ED.envelope(1.05, 1, 2).s < 1, "envelope: in, hold, out");
+  { // overlay motion: a strong ease-out in, an accelerating exit at 0.7 of the entrance, durations by size, nothing from nothing
+    const lin = ED.bezier(0, 0, 1, 1), so = ED.bezier(0.23, 1, 0.32, 1);
+    assert.ok(Math.abs(lin(0.37) - 0.37) < 1e-4 && so(0) === 0 && so(1) === 1 && so(0.3) > 1 - 0.7 ** 3, "bezier: linear is identity, the strong ease-out beats a cubic at 30 %");
+    assert.ok(ED.EASE.out(0.5) < 0.5 && ED.EASE.in(0.5) > 0.5, "exits accelerate away, reveals decelerate in");
+    const D = ED.IN_DUR;
+    assert.ok(D.chip < D.card && D.card < D.hl && Object.values(D).every((x) => x > 0 && x <= 0.8), "entrance grows with size, never over 0.8 s");
+    assert.ok(ED.envelope(1.85, 1, 2, { inDur: 0.2 }).a === 1 && ED.envelope(1.93, 1, 2, { inDur: 0.2 }).a > 0.5 && ED.envelope(1.999, 1, 2, { inDur: 0.2 }).a < 0.1 && [1.9, 1.93, 1.96, 1.99].every((t, i, T) => !i || ED.envelope(t, 1, 2, { inDur: 0.2 }).a < ED.envelope(T[i - 1], 1, 2, { inDur: 0.2 }).a), "the exit takes 0.14 s (0.7 of 0.2), falling faster as it goes");
+    const late = ED.envelope(1.99, 1, 2, { inDur: 0.2 });
+    assert.ok(late.s < 1 && late.s >= 0.96, "an exit shrinks back toward 0.96: it leaves the way it came");
+  }
   assert.equal(ED.accentHtml("a <b> [word]<br>x"), 'a &lt;b> <span class="ov-acc">word</span><br>x', "accent word on a chip, markup escaped, line break kept");
   const sw0 = ED.tagSwing(0, 0), swF = ED.tagSwing(0.42, 0), sw9 = ED.tagSwing(9, 0);
   assert.ok(sw0.y === -560 && swF.y === 0 && Math.abs(sw9.deg) < 0.01 && Math.abs(sw9.y) < 0.01 && ED.tagSwing(1, 1).deg === -ED.tagSwing(1, 0).deg, "tag: falls, catches, swings to rest; neighbours mirror");
