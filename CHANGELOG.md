@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-10-28
+
 ### Added
 
 - **Narration craft** (`script-voice.md` "Narration craft", read at Step 3 in both modes): narration a viewer follows on
@@ -1404,7 +1406,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.6.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.7.0...HEAD
+[3.7.0]: https://github.com/sandalkuilang/dalang/compare/v3.6.0...v3.7.0
 [3.6.0]: https://github.com/sandalkuilang/dalang/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/sandalkuilang/dalang/compare/v3.4.0...v3.5.0
 [3.4.0]: https://github.com/sandalkuilang/dalang/compare/v3.3.0...v3.4.0
