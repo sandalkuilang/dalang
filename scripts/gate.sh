@@ -45,6 +45,7 @@ if [ $fast -eq 0 ]; then
   step "cinema (camera keys, handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
   step "numbers lint (spoken model numbers = numbers.json)" node tests/numbers-lint.mjs
+  step "narration lint (no ; : ( ) /, sentences <= 22 words, Promise + Takeaway)" node tests/narration-lint.mjs
   step "beats lint (two narrations: same named beats, same order)" node tests/beats-lint.mjs
   step "fill_times --lang (times from audio/<lang>, language variants, plain run unchanged)" node tests/fill-times.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs

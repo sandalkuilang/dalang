@@ -42,6 +42,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 | Studio builder: the pilot (it sets the pattern) | top | high |
 | Studio builder: other shot groups, assembly, each QC fix round | top | medium |
 | Express builder (the whole film, or each group; `express.md`) | mid | medium |
+| Narration read-through at Gate 1 (`narration.txt` only) | mid | medium |
 | Fact research: ≤ 8 searches and 15 fetches, original sources first; every number with its source, an unsourced one `[unknown]` for Gate 1 | mid | medium |
 | Fix check (pass/fail + one line per fix), asset pair check, contact-sheet triage | mid | low |
 | Media screening of `find_media` candidates and the Step 5 reference boards (text only) | light | low |
@@ -78,7 +79,7 @@ Before each step run `node <skill-dir>/scripts/state.mjs next`: it prints the se
 | 0 Setup | `preflight.mjs`; fix only what it reports (installs and first launches are Call 0 questions, with size and licence); create the project folder | `PRODUCTION.md` | `references/brief.md` §0 |
 | 1 Brief | Topic first (ask, never guess). Kits exist → "Which series?" first. AskUserQuestion, all of it now and in English: Call 0 for setup choices and consents preflight left; platform, language, angle; duration, energy, audience; voice (Call 3) when there is a real choice; Call 4 extras (second-language cut, photos, recording permission) | `BRIEF.md` | `references/brief.md` §1 |
 | 2 Reference (optional) | Measure a reference's craft, never copy its images or script | `reference-measurements.md` | `references/measure-reference.md` |
-| 3 Script | `script.md` + `narration.txt` with `{text\|name}` beats; facts verified, every number tagged `[src]`/`[calc]`/`[assume]`/`[illus]`/`[unknown]`, never invented; `[calc]` from `model.mjs`; `numbers_lint.mjs` clean; `review/quiz.md` | **Gate 1** | `references/script-voice.md` §3 |
+| 3 Script | `script.md` + `narration.txt` with `{text\|name}` beats; facts verified, every number tagged `[src]`/`[calc]`/`[assume]`/`[illus]`/`[unknown]`, never invented; `[calc]` from `model.mjs`; `numbers_lint.mjs` clean; `Promise:` + `Takeaway:` lines, `narration_lint.mjs` clean, read-through; `review/quiz.md` | **Gate 1** | `references/script-voice.md` §3 |
 | 4 Voice | `tts_timestamps.mjs` (VoiceStudio): `--sample`, same `--seed` for the take, `--retake auto` for every flagged sentence | **Gate 2** | `references/script-voice.md` §4, `references/voice.md` "Use" |
 | 5 Look | `SPEC.md` (LOOK, MOTION, OBJECTS with source + reference, BANNED), `storyboard.md` (overlay column; `storyboard_lint.mjs` clean), assets, three style frames, `review/benchmark.md` (Gate 3 refused on a row > 1 point behind) | **Gate 3** | `references/look-build.md` §5 |
 | 6 Build | needs Gate 3; `/hyperframes`; every time from `BEATS`/`WORDS`; builders only: pilot, then groups in parallel; blocking, polish, audio mix | `index.html`, `hyperframes lint` + `lint_scene.mjs` clean | `references/look-build.md` §6 |

@@ -1,12 +1,12 @@
 # Workflow
 
-Nine steps, four approval gates. Nothing renders at final quality before Gate 4.
+Nine steps, four gates (the agent passes each once its checks pass). Nothing renders at final quality before Gate 4.
 
 ## Pipeline
 
 ```mermaid
 flowchart TD
-    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>setup choices, series kit, platform, language, angle, duration, look, voice"]
+    S0["Step 0 · Setup<br/>preflight.mjs"] --> S1["Step 1 · Brief<br/>setup choices, series kit, platform, language, angle, duration, voice"]
     S1 --> S2{"Reference video?"}
     S2 -- yes --> M["Step 2 · Measure reference<br/>numbers only, never reuse"]
     S2 -- no --> S3
@@ -34,7 +34,7 @@ flowchart TD
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
 | 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, energy, audience, voice, extras such as the second-language cut), so the user can leave afterwards | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
-| 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
+| 3 Script | `script.md` (opens with `Promise:` and `Takeaway:`), `narration.txt` with `{beat\|name}` markers, followable by ear (`narration_lint.mjs`, text-only read-through); every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
 | 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills), built from `review/refs-board-*.jpg` | **3** |
 | 6 Build | HyperFrames composition: builder subagents only, writing the set and its shot data (`shots.js`) rather than per-shot code: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
@@ -94,7 +94,7 @@ Anything with no input from another job starts in the same message; only heavy j
 
 (A test run the user names as a test or draft gets one review round, lean; autonomous mode alone never does.)
 
-Given only a topic, the skill uses defaults (16:9, 60–90 s — 9:16 when a short is asked for — user's language, modern balanced energy), logs "defaults used" in `PRODUCTION.md`, passes the gates on its own judgement and stops at a draft that passes Step 7. A fresh-eyes reviewer subagent stands in for the human eye. The final render happens only if the user said "just finish it", in any language.
+Given only a topic, the skill uses defaults (16:9, 60–90 s — 9:16 when a short is asked for — user's language, modern balanced energy), logs "defaults used" in `PRODUCTION.md`, passes the gates itself and runs to the finished film. A fresh-eyes reviewer subagent stands in for the human eye.
 
 ## CI
 
