@@ -32,6 +32,7 @@ that reads as:
 
 ### Changed
 
+- Express prompts cleaned: `express.md` no longer repeats or contradicts the builder brief (stale single-composition build, a one-frame first look, a 10-line report, a builder waiting on the voice it never waits on, a builder reading language files only the planner reads); the pure-function-of-t rule (no CSS keyframes, `requestAnimationFrame` or timers) moved onto the iso API card the builder reads; the world template imports `triad`.
 - **Builders report evidence, not "done"** (the builder brief, `express.md`). Each check is reported as one of:
   - PASS, with its command's result line;
   - FAIL;

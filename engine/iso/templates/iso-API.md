@@ -1,7 +1,8 @@
 # isometric-world kit: the whole API a builder needs
 
 Read this, `SPEC.md` and the templates. Never print the engine's sources: every signature is here. Times are absolute
-narration seconds from cues; lengths in metres, z up; the frame is 1080 × 1920 (16:9: 1920 × 1080, pass W, H).
+narration seconds from cues; lengths in metres, z up; the frame is 1080 × 1920 (16:9: 1920 × 1080, pass W, H). Every
+value is a pure function of t on the template's GSAP timeline: never CSS keyframes, `requestAnimationFrame` or a timer.
 
 **Already written by `scaffold.mjs`:** the engine in `assets/`, the host `src/index.tpl.html` (fonts and captions
 included), each group's `src/compositions/<group>.tpl.html` and the shared `assets/world.js`. Never copy, rewrite or
