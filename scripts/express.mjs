@@ -6,7 +6,8 @@
 // Usage: node express.mjs after-voice [dir] [--log <file>]   (default: the newest voice-*.log, the last retake's)
 //          the take's WARNING lines (none → go on), pad_voice, captions (format from BRIEF.md), gates 1–2 by agent
 //        node express.mjs assemble [dir]
-//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), gate 3,
+//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), the seams
+//          (seam_gate.mjs, isometric looks with 2+ groups), gate 3,
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir]
@@ -77,6 +78,8 @@ if (cmd === 'after-voice') {
   step('timing_lint', ...node('timing_lint.mjs', 'index.html'), { quiet: true, keep: 10 });
   const hf = step('hyperframes lint (errors)', 'npx', ['hyperframes', 'lint'], { quiet: true, keep: 20, filter: l => /✗|error/i.test(l) });
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
+  // the seams measured from each group's camera (no seam reviewer): a jump or a turn back fails, a dead stop is a NOTE
+  if (groups.length > 1 && existsSync(path.join(dir, 'assets/iso.js'))) step('seam_gate', ...node('seam_gate.mjs', '.'), { keep: 8, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
   writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');
