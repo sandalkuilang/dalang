@@ -8,6 +8,8 @@
   <div id="root" data-composition-id="__GROUP__" data-start="0" data-duration="{{__TO__ - __FROM__}}" data-width="1080" data-height="1920">
     <canvas id="__GROUP__-cv" width="1080" height="1920"></canvas>
   </div>
+  <!-- the bundled three.js, the same module objectStudio.js imports (loaded once); hyperframes lint looks for it -->
+  <script type="module" src="assets/three-vendor.js"></script>
   <script type="module">
     import { THREE, makeSet, mat, cam, contact, backdrop, w, wc, b } from "./assets/objectStudio.js";
     import { makeOverlay } from "./assets/editorial.js";

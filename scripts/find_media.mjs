@@ -10,6 +10,8 @@
 //   node find_media.mjs --type model --query "<1-2 English words>" --out review/models [--max 8] [--source polyhaven|smithsonian|nasa|kenney]
 //   node find_media.mjs --type sfx --bundled [--query "<words>"] [--media-use <sfx dir>] --out review/<dir>
 //   node find_media.mjs --take review/<dir>/<file> --as assets/<path> [--project .]
+//   a search with --as assets/<path> takes its first result at once (the music bed: --as assets/music.mp3; another audio
+//   format is converted with ffmpeg, never renamed)
 //
 // --type model: downloads .glb / .gltf (with the textures a .gltf names, kept at their relative paths) or .obj, prints the size
 //   on disk, the triangle count, the stated real size (when the source states one) and the licence, and writes contact.jpg from
@@ -49,6 +51,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdir
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const UA = 'dalang-find-media (https://github.com/sandalkuilang/dalang)';
 const OPENVERSE = (process.env.OPENVERSE_API || 'https://api.openverse.org/v1').replace(/\/$/, '');
@@ -221,7 +224,13 @@ if (args.take !== undefined) {
     }
   }
   local(`copying to ${dest}`, () => {
-    mkdirSync(path.dirname(dest), { recursive: true }); copyFileSync(src, dest);
+    mkdirSync(path.dirname(dest), { recursive: true });
+    // a sound saved under another audio extension (a music bed the host names as .mp3) is converted, never renamed
+    const AUD = /^\.(mp3|wav|ogg|oga|flac|m4a|aac)$/i, ea = path.extname(as).toLowerCase(), es = path.extname(src).toLowerCase();
+    if (!isModel && AUD.test(ea) && AUD.test(es) && ea !== es) {
+      const c = spawnSync('ffmpeg', ['-y', '-v', 'error', '-i', src, '-vn', dest], { timeout: 120000 });
+      if (c.status !== 0) throw new Error(`ffmpeg could not convert ${src} to ${ea} (${String(c.stderr || c.error?.code || '').trim().split('\n').pop()})`);
+    } else copyFileSync(src, dest);
     for (const rel of incs) { const d = path.join(path.dirname(dest), rel); mkdirSync(path.dirname(d), { recursive: true }); copyFileSync(path.join(path.dirname(src), rel), d); }
   });
   const who = { source: hit.landing || hit.url, licence: hit.licence, ...(hit.author ? { author: hit.author } : {}) };
@@ -318,6 +327,11 @@ function finish(results, warns) {
   }
   if (type === 'model') contactSheet(results);
   if (results.some(r => r.provider === 'nasa')) console.log('NASA: no NASA logo or insignia may imply endorsement (NASA media usage guidelines)');
+  // --as with a search: take the first result at once (one call, no listening, no second look); its ASSETS.json row too
+  if (args.as) {
+    const t = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--take', path.join(out, results[0].file), '--as', String(args.as), '--project', args.project ?? '.'], { encoding: 'utf8' });
+    process.stdout.write(t.stdout); process.stderr.write(t.stderr); process.exit(t.status ?? 1);
+  }
   console.log(hint);
   process.exit(0);
 }

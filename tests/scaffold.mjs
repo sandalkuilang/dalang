@@ -29,6 +29,17 @@ try {
   assert.match(read(d, "src/compositions/end.tpl.html"), /G1 = window\.NARRATION_DURATION/);
   assert.match(read(d, "src/compositions/end.tpl.html"), /illustration: "DRAWING"/);
   for (const f of ["iso.js", "build.js", "parallax.js", "cinema.js", "editorial.js"]) assert.ok(fs.existsSync(path.join(d, "assets", f)), `assets/${f} copied`);
+  // the engine's origin for check_assets, the padded voice, and a music bed by default with its licence row
+  assert.ok(JSON.parse(read(d, "assets/.engine.json")).some((r) => r.file === "iso.js" && r.licence === "MIT"), "engine files listed with their licence");
+  assert.match(host, /src="audio\/voice\.wav"/, "the host plays the padded voice");
+  assert.match(host, /id="music" [^>]*src="assets\/music\.mp3"[^>]*data-volume="0\.14"[^>]*data-fade-out/, "a music bed under the voice, with fades");
+  assert.ok(fs.existsSync(path.join(d, "assets/music.mp3")));
+  const row = JSON.parse(read(d, "ASSETS.json")).find((r) => r.file === "assets/music.mp3");
+  assert.equal(row.licence, "CC0"); assert.match(row.source, /^https:\/\/commons\.wikimedia\.org\//, "calm by default, its licence row written");
+  const quiet = proj("quiet");
+  assert.equal(run(quiet, "--look", "isometric-world", "--groups", "a:hook", "--music", "none").code, 0);
+  assert.doesNotMatch(read(quiet, "src/index.tpl.html"), /id="music"/, "--music none: no bed");
+  assert.match(run(proj("loud"), "--look", "isometric-world", "--groups", "a:hook", "--music", "metal").out, /--music must be one of/);
 
   // a rerun keeps every file, edits included
   fs.appendFileSync(path.join(d, "src/compositions/body.tpl.html"), "<!-- edited -->\n");

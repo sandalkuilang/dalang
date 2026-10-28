@@ -6,7 +6,9 @@
 // Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
 //
 // Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
-//                          [--title "…"] [--illustration "label in the narration language"]
+//                          [--title "…"] [--illustration "label in the narration language"] [--music calm|bright|tense|none]
+//   --music   the bundled music bed (engine/music, public domain / CC0, free for any use), default calm: copied as
+//             assets/music.mp3 with its ASSETS.json row, under the voice at a low level with fades. No search, no listening.
 //   --groups  each group's name and first beat, in narration order; a group ends where the next starts, the last at the
 //             narration's end, and the first starts at 0 so the opening frame is never blank.
 // A file that exists is kept, never overwritten (so a rerun is safe); exit 1 on a bad group list, nothing written.
@@ -19,12 +21,14 @@ import { fileURLToPath } from 'node:url';
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
-const look = opt('--look'), groupArg = opt('--groups'), title = opt('--title') ?? 'DALANG film', label = opt('--illustration') ?? 'ILLUSTRATION';
+const music = opt('--music') ?? 'calm', look = opt('--look'), groupArg = opt('--groups'), title = opt('--title') ?? 'DALANG film', label = opt('--illustration') ?? 'ILLUSTRATION';
 const dir = path.resolve(args[0] ?? '.');
 const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
 const ISO = ['isometric-world', 'cutaway', 'blueprint'];
 if (!ISO.includes(look) && look !== 'object-studio') die(`--look must be one of ${[...ISO, 'object-studio'].join(', ')}`);
 if (!groupArg) die('--groups a:firstBeat,b:firstBeat,… is required');
+const MUSIC = { calm: 'J. S. Bach, Goldberg Variations, Aria (Kimiko Ishizaka, Musopen)', bright: 'E. Grieg, Morning Mood (Musopen Symphony Orchestra)', tense: 'E. Grieg, In the Hall of the Mountain King (Musopen Symphony Orchestra)' };
+if (music !== 'none' && !MUSIC[music]) die(`--music must be one of ${Object.keys(MUSIC).join(', ')} or none`);
 
 const narr = path.join(dir, 'narration.txt');
 if (!existsSync(narr)) die(`${narr} not found: the beat names come from its {text|name} markers`);
@@ -54,6 +58,17 @@ if (iso) {
   const fresh = src.filter(f => !existsSync(path.join(assets, path.basename(f))));
   fresh.forEach(f => cpSync(f, path.join(assets, path.basename(f))));
   console.log(`engine  ${fresh.length} file(s) copied to assets/ (${src.length - fresh.length} kept)`);
+  // their origin and licence for check_assets.mjs, as engine/three/build.mjs writes for its own files
+  const man = path.join(assets, '.engine.json');
+  let eng = []; try { eng = JSON.parse(readFileSync(man, 'utf8')); } catch { /* none yet */ }
+  if (!Array.isArray(eng)) eng = [];
+  const REPO = 'https://github.com/sandalkuilang/dalang';
+  for (const f of src) {
+    const file = path.basename(f), from = path.relative(SKILL, f).split(path.sep).join('/');
+    eng = eng.filter(r => r.file !== file);
+    eng.push({ file, source: file === 'iso.js' ? `lemo-opuscar iso-infographic engine, vendored in DALANG (${REPO}, ${from})` : `DALANG engine, ${REPO} (${from})`, licence: 'MIT' });
+  }
+  writeFileSync(man, JSON.stringify(eng, null, 2) + '\n');
 } else if (!existsSync(path.join(assets, 'objectStudio.js'))) {
   const r = spawnSync(process.execPath, [path.join(SKILL, 'engine', 'three', 'build.mjs'), assets], { encoding: 'utf8' });
   if (r.status !== 0) die(`engine/three/build.mjs: ${(r.stderr || r.stdout).trim().split('\n').pop()}`);
@@ -73,7 +88,21 @@ host = host.replace(/^ *<!-- one line per group:.*-->$/m, groups.map((g, i) => {
 if (iso) host = host
   .replace('<style>', '<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet">\n<style>')
   .replace('{ prefix: "cap" }', '{ prefix: "cap", fonts: { body: "\'Nunito Sans\', sans-serif" } }');
+if (music !== 'none') host = host.replace('  <!-- music -->', '  <audio id="music" class="clip" src="assets/music.mp3" data-start="0" data-duration="{{END}}" data-volume="0.14" data-fade-in="1.2" data-fade-out="2" data-track-index="3"></audio>');
 put('src/index.tpl.html', host);
+
+// the music bed: a bundled public-domain / CC0 track and its licence row, so check_assets.mjs passes
+if (music !== 'none' && !existsSync(path.join(assets, 'music.mp3'))) {
+  cpSync(path.join(SKILL, 'engine', 'music', `${music}.mp3`), path.join(assets, 'music.mp3'));
+  const credits = readFileSync(path.join(SKILL, 'engine', 'music', 'CREDITS.md'), 'utf8').split('\n').find(l => l.startsWith(`| ${music}.mp3 `)).split('|').map(s => s.trim());
+  const mf = path.join(dir, 'ASSETS.json');
+  let rows = []; try { rows = JSON.parse(readFileSync(mf, 'utf8')); } catch { /* none yet */ }
+  if (!Array.isArray(rows)) die(`${mf} is not a JSON list`);
+  rows = rows.filter(r => r.file !== 'assets/music.mp3');
+  rows.push({ file: 'assets/music.mp3', source: credits[6], licence: credits[5], author: credits[4], title: MUSIC[music] });
+  writeFileSync(mf, JSON.stringify(rows, null, 2) + '\n');
+  console.log(`music   assets/music.mp3: ${MUSIC[music]} (${credits[5]}), at 0.14 under the voice`);
+}
 
 // each group from the look's template; the first opens at 0, the last closes at the narration's end
 const gtpl = readFileSync(path.join(tplDir, iso ? 'iso-group.tpl.html' : 'object-studio-group.tpl.html'), 'utf8');
