@@ -30,6 +30,16 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- The Express planner's brief carries the rules a pale, cropped test film lacked: figure-ground first (the subject 25 L*
+  or more from what is behind it, light objects on mid-dark grounds and walls, each ground's L* written beside its hex),
+  one headline system for the whole film (a card in one fixed place on every claim beat, the key word at 160 px or
+  more), every section opening on a shot of the whole place before its close shots, close shots framing one focal part,
+  and fonts only from the language's `## Typography` (another face has no `@font-face` and fails `hyperframes lint`).
+- Express fix rounds stop at 10 turns, effort medium, with no escalation (two 20-turn rounds at high effort cost as
+  much as the build), and an error every group shares is one fix for all groups.
+
 ## [3.9.0] - 2026-10-29
 
 ### Added
