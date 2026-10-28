@@ -30,6 +30,29 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `references/express-planner.md`: Express has a planner again (top, high). Once the take is final and `after-voice`
+  passes, one subagent writes `SPEC.md` and a shot-by-shot `storyboard.md` from a fixed brief, so the main agent sends
+  one line. The brief holds the film's quality rules in writing: shot 1 hooks with a close or medium shot and its words
+  on screen, shots of 2–3 s whose sizes vary, the subject a third of the frame height or more, the mechanism drawn and
+  moving, overlay sizes in px (labels 40, headlines 64, big words 160 on the 1080 px canvas), each card with its
+  source, each place with 6 or more props, focus that greys the context and never the subject.
+
+### Changed
+
+- Express aims at quality first: a film is 10M tokens (was 4M). On a test film the 4M design, one storyboard row per
+  beat written by the main agent and builders held to 15 turns, came out with a weak hook, one shot size for half the
+  film, unreadable labels and no visible mechanism. The cuts that were pure waste stay: the right subagent types, one
+  shared world, briefs written by `scaffold.mjs`, the wait for the world, one fix round with the world's owner first,
+  `final` checking before it renders.
+- Budgets: main agent 2M, planner 3M, each builder 1.5M (about 25 turns, 30 at most, context under 150K; a fix round
+  10 turns). `tokens.mjs` flags an Express builder over 30 turns or 150K and a film over 10M; `express.mjs assemble`
+  skips the fix round over 8M.
+- Builders may read `assets/examples.js` (finished specs, for their density and part count), snapshot every one of
+  their storyboard rows (3 rounds at most) and check each frame against its row: its size and move, overlay text at its
+  SPEC size and contrast, no frame greyed whole. The `dalang-builder` agent type plans as well as builds.
+
 ## [3.8.4] - 2026-10-28
 
 ### Fixed

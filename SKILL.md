@@ -39,7 +39,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 |---|---|---|
 | Fresh-eyes review, second Set / Reality check, style-frame check, Gate 3 benchmark, sound-off quiz | top | high (quiz: medium) |
 | Scopes verdict | top | medium |
-| Planner, Studio only: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5; Express has none, the main agent writes short ones, `express.md`) | top | high |
+| Planner: Step 5 `SPEC.md` and `storyboard.md`, shot by shot (`look-build.md` Step 5; Express: `express-planner.md`, after the take) | top | high |
 | Studio builder: the pilot (it sets the pattern) | top | high |
 | Studio builder: other shot groups, assembly, each QC fix round | top | medium |
 | Express builder (the whole film, or each group; `express.md`) and its fix rounds | mid | medium |
@@ -57,7 +57,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 |---|---|
 | 0–1 | `preflight.mjs` in the background ‖ the first Brief question (the topic) |
 | 2–3 | reference measurement ‖ fact research; research split into strands (≤ 3, Express ≤ 2), one mid-tier agent per strand, the search and fetch budget divided between them |
-| After Gate 1 | the voice take (the one heavy job) ‖ `SPEC.md` + `storyboard.md` (Express now, by the main agent; Studio's planner needs `beats.json`, so it starts at Gate 2) ‖ facts, assets, music (after Gate 2) and OBJECTS stills (once `storyboard.md` exists), never scenes |
+| After Gate 1 | the voice take (the one heavy job) ‖ `SPEC.md` + `storyboard.md` (the planner needs `beats.json`, so it starts at Gate 2 in both modes) ‖ facts, assets, music (after Gate 2) and OBJECTS stills (once `storyboard.md` exists), never scenes |
 | 6 | Studio: pilot, then every other group at once. Express: every group at once, no pilot: one builder under 45 s, 2 from 45 s, 3 above 75 s (`express.md`) |
 | 7 | after the draft: stillness, loudness, `audio_qc.mjs`, `qc.mjs`, `scopes.mjs`, `timing_lint.mjs`, `lint_scene.mjs` in one message; once the strips exist: fresh-eyes reviewer ‖ sound-off quiz ‖ second Set / Reality check |
 | 8 | `POST.md` written while the final render runs |
