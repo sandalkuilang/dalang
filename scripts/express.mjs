@@ -9,7 +9,8 @@
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), gate 3;
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir]
-//          render (BRIEF.md fps, --quality looks), hyperframes check, check_assets, gate 4, the metrics table
+//          hyperframes check and check_assets first (no render on a failure), render (BRIEF.md fps, --quality looks),
+//          gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -72,9 +73,11 @@ if (cmd === 'after-voice') {
   if (!failed) gate(3);
 } else {
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
-  step(`render (${fps} fps, looks)`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', 'looks', '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
-  if (!failed) step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 8 });
+  // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
+  // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress
+  step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 12, filter: l => /✗|error:|Error/.test(l) && !/\b0 error/.test(l) });
   step('check_assets', ...node('check_assets.mjs', '.'), { quiet: true, keep: 6 });
+  if (!failed) step(`render (${fps} fps, looks)`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', 'looks', '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
   if (!failed) { gate(4); step('metrics', ...node('state.mjs', 'metrics', dir), { keep: 40 }); }
 }
 console.log(failed ? `Result: ${failed} step(s) FAILED` : 'Result: OK');

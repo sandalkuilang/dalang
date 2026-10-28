@@ -30,6 +30,18 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- `express.mjs final` runs `hyperframes check` and `check_assets` before the render, and renders only when both pass:
+  check reads the composition, so a group whose script throws (and draws nothing for its whole run) now fails in one
+  check instead of after a full render. The check's own ✗ lines are printed, not its progress lines, so the failure
+  names its cause.
+- Express Step 15 runs `final` with the Bash tool's `run_in_background`, never `nohup` or `&`: a detached job never
+  wakes the agent, so a FAILED result could go unread and a broken film reach the user.
+- `scaffold.mjs` lists the film's `assets/world.js` in the engine manifest (`licence: own`), so `check_assets` no longer
+  fails on the file it wrote itself.
+- `check_assets` accepts the SIL Open Font License (`OFL`, `OFL-1.1`), which lets a font be embedded in any work.
+
 ## [3.8.2] - 2026-10-28
 
 ### Fixed
