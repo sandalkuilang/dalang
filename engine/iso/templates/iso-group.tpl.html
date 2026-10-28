@@ -15,7 +15,7 @@
     import { Iso, tri, clamp, lerp, seg, ss, eo, eio, back } from "./assets/iso.js";
     import { build } from "./assets/build.js";
     import { drawLayers } from "./assets/parallax.js";
-    import { camAt, orbit25, motionBlur, makeFinish } from "./assets/cinema.js";
+    import { camAt, orbit25, filmOrbit, motionBlur, makeFinish } from "./assets/cinema.js";
     import { makeOverlay, w, we, b } from "./assets/editorial.js";
     import { COLORS, WORLD, VALUES } from "./assets/world.js";
 
@@ -37,7 +37,7 @@
     const camera = (t) => camAt(t, CAMERA);
     // its life is a slow orbit, never a handheld shake: one direction for the whole film (SPEC CAMERA: 1 right, -1 left,
     // the same in every group), on film time, so the world keeps sliding the same way across every seam
-    const ORBIT = 1;
+    const ORBIT = filmOrbit(1);   // every orbit25 in this film then goes this way, a shot's arrive-and-orbit included
     const orbit = (t) => orbit25(t + G0, { rest: REST, sweep: 0.08, width: 1080, from: 0, to: ORBIT, start: 0, dur: window.NARRATION_DURATION, ease: "linear" }).rest;
 
     // layers far to near (parallax.js): depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; one draw per layer

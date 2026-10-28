@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { Iso } from "../engine/iso/iso.js";
 import { drawLayers, isoLayer } from "../engine/iso/parallax.js";
 import * as cinema from "../engine/iso/cinema.js";
-import { EASE, camAt, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs, hold, focusRing } from "../engine/iso/cinema.js";
+import { EASE, camAt, ramp, filmOrbit, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs, hold, focusRing } from "../engine/iso/cinema.js";
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
 for (const [n, f] of Object.entries(EASE)) assert.ok(near(f(0), 0) && near(f(1), 1), `ease ${n} runs 0 → 1`);
@@ -122,3 +122,18 @@ assert.throws(() => bokeh(0), /fstop/); assert.throws(() => bokeh(2, { mm: -1 })
   draws.length = 0; focusRing(T, B, { cx: 0, cy: 0, fstop: 5.6 }); assert.ok(draws.some((c) => c[2] === "filter" && /^blur\(3\.0\d*px\)$/.test(c[3])), "f5.6 blurs far less");
 }
 console.log("iso-cinema ok");
+
+// one orbit direction per film: once set, an orbit the other way throws; the same direction twice is fine
+{
+  const rest = { x: 0, y: 0, z: 0, k: 100 };
+  assert.doesNotThrow(() => orbit25(1, { rest, from: 0, to: -1 }), "no film direction yet: either way");
+  assert.equal(filmOrbit(1), 1); assert.equal(filmOrbit(1), 1, "every group sets the same direction");
+  assert.throws(() => filmOrbit(-1), /one direction for the whole film/, "a group with the other direction throws");
+  assert.throws(() => orbit25(1, { rest, from: 0, to: -1 }), /goes left .* the film orbits right/, "a shot's orbit against the film's throws");
+  assert.doesNotThrow(() => orbit25(1, { rest, from: 0, to: 1 }), "a shot's orbit with the film's");
+  // 1 is right on screen: the camera goes round to the right, so a far layer slides left (its camera x − y grows)
+  const far = (t) => { const o = orbit25(t, { rest, from: 0, to: 1, start: 0, dur: 1 }), c = isoLayer(o, o.rest, 0.3); return c.x - c.y; };
+  assert.ok(far(1) > far(0), "orbit 1: the far layer slides left, the camera goes right");
+  assert.throws(() => filmOrbit(0), /1 \(right\) or -1/);
+}
+console.log("iso-cinema orbit lock ok");
