@@ -32,6 +32,25 @@ that reads as:
 
 ### Changed
 
+- **Builders report evidence, not "done"** (the builder brief, `express.md`). Each check is reported as one of:
+  - PASS, with its command's result line;
+  - FAIL;
+  - UNVERIFIED, when it was not run or its output was unreadable.
+
+  A missing result is never a PASS, and a PASS from before the last edit of that file does not count.
+- **A recurring defect gets a different route.** The same defect twice means another form, a simpler part or a changed
+  shot, never a third try of the same fix. This caps fix rounds. A builder stops once every check passes.
+- **The seam check is not led.** Its reviewer gets the frames and storyboard rows only, never a builder's report or a list
+  of what to look for.
+- **The fix round's changes are listed** (`express.mjs`). `assemble` records the world and every group by sha256 in
+  `review/assembled.json`. `final` names each file changed since then, the world flagged as its owner's only, for the
+  main agent to check against the round's assignments. No record is a WARN, never "nothing changed".
+
+  These working rules come from elithrar/dotfiles' engineering-drawings and animated-sprites skills (MIT); only the
+  ideas are used.
+
+### Changed
+
 - **Overlay motion** (`engine/three/editorial.js`):
   - Each overlay enters on a strong ease-out (`EASE.in`, cubic-bezier 0.23, 1, 0.32, 1).
   - The entrance grows with its size (`IN_DUR`): chip 0.2 s, pill 0.25, card 0.3, headline 0.4, never over 0.8.

@@ -40,6 +40,8 @@ try {
   assert.match(bIntro, /fill `assets\/world\.js` once/, "the first group's builder writes the world");
   assert.match(bIntro, /scripts\/iso_audit\.mjs \. --ground/, "the first builder proves the world before any snapshot");
   assert.doesNotMatch(bBody, /iso_audit/, "only the world's owner runs the audit");
+  assert.match(bBody, /PASS \(its command and the result line it printed\), FAIL .* or UNVERIFIED/, "a builder reports evidence per check, never 'done'");
+  assert.match(bBody, /The same defect twice means a different route/, "a recurring defect changes the approach");
   assert.match(read(d, "assets/world.js"), /^export const STUB/m, "the world starts as a stub the other groups can wait on");
   assert.ok(JSON.parse(read(d, "assets/.engine.json")).some(r => r.file === "world.js" && r.licence === "own"), "the film's world is in the engine manifest, so check_assets passes it");
   assert.match(bIntro, /6 or more set props/, "the world's builder gets the density bar");

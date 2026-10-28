@@ -32,5 +32,15 @@ assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never
 assert.match(r.out, /^(WARN   tokens not read|SKIP   fix round|OK     tokens)/m, "assemble says whether a fix round fits the budget");
 r = run("final", tmp);
 assert.match(r.out, /FAILED hyperframes check/, "a film that fails check fails final");
+// assemble records the world and every group by sha256; final lists what the fix round changed
+const lock = JSON.parse(fs.readFileSync(path.join(tmp, "review/assembled.json"), "utf8"));
+assert.ok(lock["assets/world.js"], "assemble records the world");
+assert.match(r.out, /OK     nothing changed since assemble/, "nothing touched: nothing listed");
+fs.appendFileSync(path.join(tmp, "assets/world.js"), "// a fixer's edit\n");
+r = run("final", tmp);
+assert.match(r.out, /CHANGED since assemble: assets\/world\.js \(the world: its owner only\)/, "a changed world is named");
+fs.rmSync(path.join(tmp, "review/assembled.json"));
+r = run("final", tmp);
+assert.match(r.out, /WARN   no review\/assembled\.json/, "no record: a WARN, never 'nothing changed'");
 assert.doesNotMatch(r.out, /render \(/, "no render after a failed check: check reads the composition, not the mp4");
 console.log("express: OK");
