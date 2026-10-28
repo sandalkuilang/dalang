@@ -49,6 +49,8 @@ A clean final encode can measure stiller than the draft; over target → add mot
 
 ## Step 8 — Hand-off
 
+**Run metrics, last:** `node <skill-dir>/scripts/state.mjs metrics` writes `review/metrics.md`; paste it at the end of the report: start, end and total time, the output folder, minutes per step, each subagent's job, model, effort and tokens. A step logged without `state.mjs log` has no times; tokens that read "not checked" are reported so, never as 0.
+
 Deliver `final.mp4` with `audio/narration.srt` (sidecar subtitles; upload it as the caption track), `CREDITS.md` and `POST.md`, the post description (below; the report links it, an upload pastes it as is). Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless the user chose a paid service); licences that limit use (e.g. a non-commercial voice model); **known bugs**; the top improvement. The second-language cut was asked in the Brief (Call 4); do not offer it here.
 
 **Open P1s:** list every P1 still open in `QC-REVIEW.md` with its rubric test and why it stays (cosmetic, or two rounds failed on it).

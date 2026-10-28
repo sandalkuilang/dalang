@@ -27,8 +27,9 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 ## Work fast, spend few tokens
 
 - **One video = one session.** State lives in the project files. Resume: `node <skill-dir>/scripts/state.mjs next`, then `BRIEF.md` and the end of `PRODUCTION.md`; never replay old chat.
-- **Lean workspace.** Video sessions start in a folder made lean with `workspace.mjs init` (Step 0, asked in Brief Call 0).
-- **Read lazily.** Each step: run `state.mjs next` and read only what it prints (sections as `sed` commands, the step's lessons). "Look up when needed" lines run only when the text sends you there. Never `cat`/`Read` a reference, the engine README or `lessons.md` whole; never re-read a section in context. From `/hyperframes`, only the type guides this video needs.
+- **Lean workspace.** Video sessions start in a folder made lean with `workspace.mjs init` (Step 0, asked in Brief Call 0); it also installs DALANG's subagent types (`dalang-builder`, `dalang-checker`, `dalang-research`: only the tools each job uses, so every turn starts at ~15K tokens, not ~50K). Use them whenever they are listed: builders and fix rounds `dalang-builder`, every look or text verdict `dalang-checker`, fact strands `dalang-research`; otherwise general-purpose.
+- **Few turns: every turn re-reads the whole context.** Calls that do not need each other's output go in one message. The skill version is preflight's DALANG row, never a `git` check of your own.
+- **Read lazily.** Each step: run `state.mjs next --print` and read only what it prints (the step's sections as text, in one call, and its lessons). "Look up when needed" lines run only when the text sends you there. Never `cat`/`Read` a reference, the engine README or `lessons.md` whole; never re-read a section in context. From `/hyperframes`, only the type guides this video needs.
 - **Small tool output.** Filter `--json` in a one-liner; never print `words.json`, `*.response.json` or full logs; `grep` logs; `render --quiet`; background output by bytes (`tail -c 1500 <file>`), never by lines. Scene changes are `Edit` calls, never `sed -i`, an inline script or a whole-file Write (`lint_scene.mjs` catches a swallowed line).
 - **Scene code stays in builder subagents.** The main agent never writes, patches or reads `src/` or `assets/*.js` (generated data aside; the Step 5 style frames in `style-frames/src/` are the main agent's own, `look-build.md` §5); it holds the gates, `BRIEF.md`, `storyboard.md`, `SPEC.md`, the beat map and the verdicts. The pilot, each shot group, the assembly and each QC fix round go to a **new** builder (last report + file paths, under the builder budget in `look-build.md`) that returns ≤ 15 lines; `state.mjs log` records each. A 3D builder writes the set and shot list as data for `engine/three/shots.js`. The reviewer is never a builder.
 - **Images stay in subagents.** The main agent never `Read`s a still, strip, contact sheet, scope or style frame: every "look at this" is a subagent given the paths and the `state.mjs next` "For the subagent" commands, returning a text verdict. One exception: the author of `style-frames/src/` opens each `review/refs-board-<frame>.jpg` once before its first write.
@@ -41,7 +42,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 | Planner: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5) | top | high |
 | Studio builder: the pilot (it sets the pattern) | top | high |
 | Studio builder: other shot groups, assembly, each QC fix round | top | medium |
-| Express builder (the whole film, or each group; `express.md`) | mid | medium |
+| Express builder (the whole film, or each group; `express.md`) and its fix rounds | mid | medium |
 | Narration read-through at Gate 1 (`narration.txt` only) | mid | medium |
 | Fact research: ≤ 8 searches and 15 fetches, original sources first; every number with its source, an unsourced one `[unknown]` for Gate 1 | mid | medium |
 | Fix check (pass/fail + one line per fix), asset pair check, contact-sheet triage | mid | low |
@@ -72,7 +73,7 @@ The folder **is** the HyperFrames project; run commands from it. Edit only the t
 
 ## Steps
 
-Before each step run `node <skill-dir>/scripts/state.mjs next`: it prints the sections in the last column with their exact commands and checks.
+Before each step run `node <skill-dir>/scripts/state.mjs next --print`: it prints the sections in the last column, their text and checks, in one call.
 
 | Step | Do | Ends with | Read |
 |---|---|---|---|

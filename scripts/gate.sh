@@ -50,6 +50,7 @@ if [ $fast -eq 0 ]; then
   step "fill_times --lang (times from audio/<lang>, language variants, plain run unchanged)" node tests/fill-times.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
   step "token report (dedupe, builder budget WARN, shared session, not checked, recorded at approve)" node tests/tokens.mjs
+  step "scaffold (engine, host and group templates from narration beats; first from 0, last to END; refusals write nothing)" node tests/scaffold.mjs
   step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs
   step "layout lint (canvas text: safe area, hero overlap, min size, caption over label)" node tests/layout-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs

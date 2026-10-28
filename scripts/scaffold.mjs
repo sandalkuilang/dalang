@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+// The film's frame, written by code instead of a model: the engine into assets/, the host (src/index.tpl.html) with one
+// line per group, and each group's template (src/compositions/<group>.tpl.html) from the look's group template, its beat
+// names filled in. Builders then only fill each group's data (world, values, camera, overlays) with Edit: no builder
+// writes boilerplate, none waits on another to copy the engine, and every group meets its neighbours on the host's times.
+// Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
+//
+// Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
+//                          [--title "…"] [--illustration "label in the narration language"]
+//   --groups  each group's name and first beat, in narration order; a group ends where the next starts, the last at the
+//             narration's end, and the first starts at 0 so the opening frame is never blank.
+// A file that exists is kept, never overwritten (so a rerun is safe); exit 1 on a bad group list, nothing written.
+
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
+const look = opt('--look'), groupArg = opt('--groups'), title = opt('--title') ?? 'DALANG film', label = opt('--illustration') ?? 'ILLUSTRATION';
+const dir = path.resolve(args[0] ?? '.');
+const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
+const ISO = ['isometric-world', 'cutaway', 'blueprint'];
+if (!ISO.includes(look) && look !== 'object-studio') die(`--look must be one of ${[...ISO, 'object-studio'].join(', ')}`);
+if (!groupArg) die('--groups a:firstBeat,b:firstBeat,… is required');
+
+const narr = path.join(dir, 'narration.txt');
+if (!existsSync(narr)) die(`${narr} not found: the beat names come from its {text|name} markers`);
+const beats = [...readFileSync(narr, 'utf8').matchAll(/\{[^|}]*\|([^}]+)\}/g)].map(m => m[1].trim());
+const groups = groupArg.split(',').map(s => { const [name, from] = s.split(':').map(x => x?.trim()); return { name, from }; });
+for (const g of groups) {
+  if (!/^[a-z][a-z0-9-]*$/.test(g.name ?? '')) die(`group name "${g.name}": lower case letters, digits and - only (it is an id prefix)`);
+  if (!beats.includes(g.from)) die(`group ${g.name}: no beat "${g.from}" in narration.txt (beats: ${beats.join(', ')})`);
+}
+if (new Set(groups.map(g => g.name)).size !== groups.length) die('a group name is used twice');
+const order = groups.map(g => beats.indexOf(g.from));
+if (order.some((x, i) => i && x <= order[i - 1])) die('groups must follow narration order, each starting on a later beat');
+
+const iso = ISO.includes(look);
+const tplDir = path.join(SKILL, 'engine', iso ? 'iso' : 'three', 'templates');
+const put = (rel, text) => {
+  const p = path.join(dir, rel);
+  if (existsSync(p)) return console.log(`kept    ${rel} (exists)`);
+  mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, text); console.log(`wrote   ${rel}`);
+};
+
+// the engine, once
+const assets = path.join(dir, 'assets');
+mkdirSync(assets, { recursive: true });
+if (iso) {
+  const src = [...readdirSync(path.join(SKILL, 'engine', 'iso')).filter(f => f.endsWith('.js')).map(f => path.join(SKILL, 'engine', 'iso', f)), path.join(SKILL, 'engine', 'three', 'editorial.js')];
+  const fresh = src.filter(f => !existsSync(path.join(assets, path.basename(f))));
+  fresh.forEach(f => cpSync(f, path.join(assets, path.basename(f))));
+  console.log(`engine  ${fresh.length} file(s) copied to assets/ (${src.length - fresh.length} kept)`);
+} else if (!existsSync(path.join(assets, 'objectStudio.js'))) {
+  const r = spawnSync(process.execPath, [path.join(SKILL, 'engine', 'three', 'build.mjs'), assets], { encoding: 'utf8' });
+  if (r.status !== 0) die(`engine/three/build.mjs: ${(r.stderr || r.stdout).trim().split('\n').pop()}`);
+  console.log('engine  engine/three installed in assets/');
+} else console.log('engine  assets/objectStudio.js exists: kept');
+
+// the host: one line per group on the narration's times
+const span = (g, i) => {
+  const next = groups[i + 1]?.from;
+  return { start: i ? `{{${g.from}}}` : '0', dur: i ? `{{${next ?? 'END'} - ${g.from}}}` : `{{${next ?? 'END'}}}` };
+};
+let host = readFileSync(path.join(SKILL, 'engine', 'three', 'templates', 'host.tpl.html'), 'utf8').replace('__TITLE__', title);
+host = host.replace(/^ *<!-- one line per group:.*-->$/m, groups.map((g, i) => {
+  const s = span(g, i);
+  return `  <div id="${g.name}" data-composition-id="${g.name}" data-composition-src="compositions/${g.name}.html" data-start="${s.start}" data-duration="${s.dur}" data-track-index="1"></div>`;
+}).join('\n'));
+if (iso) host = host
+  .replace('<style>', '<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet">\n<style>')
+  .replace('{ prefix: "cap" }', '{ prefix: "cap", fonts: { body: "\'Nunito Sans\', sans-serif" } }');
+put('src/index.tpl.html', host);
+
+// each group from the look's template; the first opens at 0, the last closes at the narration's end
+const gtpl = readFileSync(path.join(tplDir, iso ? 'iso-group.tpl.html' : 'object-studio-group.tpl.html'), 'utf8');
+groups.forEach((g, i) => {
+  const next = groups[i + 1]?.from;
+  let t = gtpl.replace(/\{\{__TO__ - __FROM__\}\}/g, span(g, i).dur)
+    .replace(/b\("__TO__"\)/g, next ? `b("${next}")` : 'window.NARRATION_DURATION')
+    .replace(/b\("__FROM__"\)/g, i ? `b("${g.from}")` : '0')
+    .replace(/__GROUP__/g, g.name).replace(/__FROM__/g, g.from).replace(/__ILLUSTRATION__/g, label);
+  t = t.replace(/__TO__/g, next ?? 'END').replace(/^<!--[\s\S]*?-->\n/, `<!-- group ${g.name}: ${g.from} → ${next ?? 'END'}, written by scaffold.mjs; fill its data from SPEC.md with Edit -->\n`);
+  put(`src/compositions/${g.name}.tpl.html`, t);
+});
+mkdirSync(path.join(dir, 'compositions'), { recursive: true });
+console.log(`groups  ${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(' · ')}`);
+console.log(`next    each builder Edits only its src/compositions/<group>.tpl.html (API: ${path.relative(SKILL, tplDir)}/${iso ? 'iso' : 'object-studio'}-API.md)`);

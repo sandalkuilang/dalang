@@ -255,6 +255,17 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   assert.match(looks, /^## object-studio/m, "looks.md describes object-studio");
   for (const f of ["references/brief.md", "references/looks.md", "references/express.md", "CLAUDE.md"]) assert.match(read(f), /look outside the (?:Brief's )?two|Any other look\s+is answered/, `${f}: a request for a look outside the two is answered, never followed`);
   assert.match(read("SKILL.md"), /Express: every group at once, no pilot/, "SKILL.md: Express builds every group at once, no pilot");
+  // the builder's token budget points at files that exist, and the API card names every kit export a group template imports
+  const card = read("engine/three/templates/object-studio-API.md"), grp = read("engine/three/templates/object-studio-group.tpl.html");
+  assert.match(read("references/express.md"), /object-studio-API\.md/, "express.md: builders read the API card, not sources");
+  for (const name of grp.match(/import \{([^}]+)\} from "\.\/assets\/objectStudio\.js"/)[1].split(",").map((s) => s.trim()))
+    assert.ok(card.includes("`" + name) || card.includes(name + "("), `object-studio-API.md documents ${name}`);
+  // the isometric look has the same: every name its group template imports is on its card, and express.md points there
+  const isoCard = read("engine/iso/templates/iso-API.md"), isoGrp = read("engine/iso/templates/iso-group.tpl.html");
+  assert.match(read("references/express.md"), /iso-API\.md/, "express.md: iso builders read the iso API card");
+  for (const [, names] of isoGrp.matchAll(/import \{([^}]+)\} from "\.\/assets\/\w+\.js"/g))
+    for (const name of names.split(",").map((s) => s.trim())) assert.ok(isoCard.includes(name), `iso-API.md documents ${name}`);
+  assert.match(read("engine/three/templates/host.tpl.html"), /both looks/, "the host template both cards name exists");
   assert.match(read("references/express.md"), /isometric always, `isometric-world` first/, "express.md: isometric always, isometric-world first");
   for (const f of ["references/brief.md", "references/express.md", "engine/epic/README.md", "SKILL.md"]) assert.doesNotMatch(read(f), /More looks|`editorial`|`swiss`/, `${f} still offers a removed look or language`);
   assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update §13 with it");

@@ -91,5 +91,44 @@ const c = spawnSync(process.execPath, [state, "approve", "1", lone, "--by", "age
 assert.equal(c.status, 0, c.stdout + c.stderr);
 assert.match(c.stdout, /^Tokens: not checked/m);
 
+// Express budget: BRIEF.md mode: express flags a builder over 40 turns or 150K context.
+{
+  const ep = path.join(tmp, "videos3", "how-a-lock-opens");
+  fs.mkdirSync(ep, { recursive: true }); put(path.join(ep, "BRIEF.md"), "- mode: express\n");
+  put(path.join(enc(ep), "s6.jsonl"), turn("e1", 30000));
+  agent(path.join(enc(ep), "s6"), "e", "Builder A", 45, 120000);
+  const x = run(ep);
+  assert.equal(x.code, 3, x.out + x.err); assert.match(x.out, /^WARN Builder A\s+45 turns/m, "45 turns is over the Express budget");
+  assert.doesNotMatch(x.out, /the main agent took/, "a main agent within its turns is no WARN");
+  const mp2 = path.join(tmp, "videos4", "how-a-fan-cools");
+  fs.mkdirSync(mp2, { recursive: true }); put(path.join(mp2, "BRIEF.md"), "- mode: express\n");
+  put(path.join(enc(mp2), "s7.jsonl"), Array.from({ length: 45 }, (_, k) => turn(`m${k}`, 60000)).join(""));
+  assert.match(run(mp2).out, /WARN: the main agent took 45 turns/, "an Express main agent over 40 turns is named");
+}
+
+// state.mjs metrics: start, end, total and per-step minutes from PRODUCTION.md; per subagent the model and the effort it
+// was asked for (the Agent call its meta names), its tokens and its clock times. No step lines: NOT CHECKED, exit 2.
+{
+  const mp = path.join(tmp, "videos2", "how-a-hinge-wears");
+  fs.mkdirSync(mp, { recursive: true });
+  const ask = JSON.stringify({ type: "assistant", timestamp: "2026-01-02T09:00:00Z", message: { id: "q0", content: [{ type: "tool_use", id: "toolu_1", name: "Agent", input: { description: "Builder A", model: "sonnet", effort: "high" } }] } });
+  put(path.join(enc(mp), "s5.jsonl"), ask + "\n" + turn("q1", 30000));
+  const sd = path.join(enc(mp), "s5");
+  put(path.join(sd, "subagents", "agent-z.jsonl"), [JSON.stringify({ type: "user", timestamp: "2026-01-02T09:01:00Z", message: { content: "go" } }), turn("z1", 40000).trim()].join("\n") + "\n");
+  put(path.join(sd, "subagents", "agent-z.meta.json"), JSON.stringify({ description: "Builder A", toolUseId: "toolu_1" }));
+  const m = (dir) => spawnSync(process.execPath, [state, "metrics", dir], { encoding: "utf8", env });
+  let x = m(mp);
+  assert.equal(x.status, 2, x.stdout + x.stderr); assert.match(x.stderr, /NOT CHECKED/);
+  put(path.join(mp, "PRODUCTION.md"), "# PRODUCTION\n\n## 2026-01-02\n09:00–09:05 | 1 Brief | BRIEF.md | -\n09:05–09:21 | 6 Build | index.html | -\n09:21–09:24 | 8 Final | final.mp4 | -\n");
+  x = m(mp);
+  assert.equal(x.status, 0, x.stdout + x.stderr);
+  assert.match(x.stdout, /Start 09:00 · End 09:24 · Total 24 min/);
+  assert.match(x.stdout, /\| 6 Build \| 09:05 \| 09:21 \| 16 \|/);
+  assert.match(x.stdout, /\| Builder A \| m \| high \| 1 \|/, "the effort the agent was asked for");
+  assert.ok(fs.existsSync(path.join(mp, "review", "metrics.md")), "metrics.md written");
+  assert.match(x.stdout, /Output folder: .*how-a-hinge-wears \(no final file yet\)/, "the output folder is named");
+  put(path.join(mp, "final.mp4"), "x"); assert.match(m(mp).stdout, /Output folder: .*\(final\.mp4\)/, "and its final files");
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("tokens: OK");

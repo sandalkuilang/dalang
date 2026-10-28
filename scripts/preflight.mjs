@@ -330,8 +330,9 @@ async function workspace() {
   if (!r.ok || !j || typeof j.lean !== 'boolean' || !Array.isArray(j.items))
     return [[item, 'WARN', `could not read the settings (${clean(j?.error || (r.killed ? 'timeout' : r.err.split('\n')[0]) || 'odd reply')}) — rerun preflight; this is not "nothing enabled"`]];
   const on = j.items.filter(i => i.on && !i.video).length;
-  if (j.lean) return [[item, 'OK', `lean: nothing a video never uses is on in ${clean(wsDir)}`]];
-  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}`]];
+  const agents = Array.isArray(j.agentsMissing) && j.agentsMissing.length ? ` DALANG's lean subagent types are not installed (${j.agentsMissing.length}): each turn of a builder or checker starts at ~50K tokens instead of ~15K — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}` : '';
+  if (j.lean) return [[item, agents ? 'INFO' : 'OK', `lean: nothing a video never uses is on in ${clean(wsDir)}.${agents}`]];
+  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}${agents ? '; it also installs the lean subagent types' : ''}`]];
 }
 
 const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), elevenlabs(), media()]);
