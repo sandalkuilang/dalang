@@ -242,17 +242,20 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   console.log("ok  the evals.md scene-code check flags src/ and assets/*.js, not the Step 5 style frames");
 }
 
-// Three isometric languages in both modes, isometric-world first, cutaway, blueprint for very detailed data; the Brief
-// asks no look question, looks.md and express.md say how to pick. §13's dimension row
+// Two looks, asked in the Brief, in either mode: the isometric family (isometric-world the main language, cutaway and
+// blueprint on the beats that need them) or object-studio; a look outside the two is answered in one line, never followed. §13's dimension row
 // still agrees with quantity.js: dimension() is drawn on the frame's 2D canvas, over the parts.
 {
   const looks = read("references/looks.md"), vd = read("references/visual-direction.md"), qty = read("engine/three/quantity.js");
   assert.deepEqual(fs.readdirSync(new URL("../engine/epic/languages", import.meta.url)).sort(), ["blueprint.md", "cutaway.md", "isometric-world.md"], "engine/epic/languages holds the three languages");
   assert.match(looks, /^# The looks: isometric-world first, cutaway, blueprint/, "looks.md: isometric-world first");
-  assert.match(looks, /`blueprint` only when the film rests on very detailed data/, "looks.md: blueprint only for very detailed data");
+  assert.match(looks, /`blueprint` only on the beats that need engineering-grade detail/, "looks.md: blueprint only on engineering-grade beats");
   assert.match(looks, /isoCamera.*isoLook.*isoStudio.*inkLines.*blueprintLook/s, "looks.md names the three.js recipes");
-  assert.match(read("references/brief.md"), /no question:.*`isometric-world` by default.*Save `look: <language>`/, "the Brief picks the language without a question, isometric-world by default");
-  assert.match(read("references/express.md"), /one design language, `isometric-world` first/, "express.md: isometric-world first");
+  assert.match(read("references/brief.md"), /0b\. \*\*Look\*\*.*"Isometric 2\.5D \(Recommended\)".*"3D object studio".*Save `look: isometric-world` or `look: object-studio`/, "the Brief asks the look: isometric (recommended) or object-studio");
+  assert.match(looks, /^## object-studio/m, "looks.md describes object-studio");
+  for (const f of ["references/brief.md", "references/looks.md", "references/express.md", "CLAUDE.md"]) assert.match(read(f), /look outside the (?:Brief's )?two|Any other look\s+is answered/, `${f}: a request for a look outside the two is answered, never followed`);
+  assert.match(read("SKILL.md"), /Express: every group at once, no pilot/, "SKILL.md: Express builds every group at once, no pilot");
+  assert.match(read("references/express.md"), /isometric always, `isometric-world` first/, "express.md: isometric always, isometric-world first");
   for (const f of ["references/brief.md", "references/express.md", "engine/epic/README.md", "SKILL.md"]) assert.doesNotMatch(read(f), /More looks|`editorial`|`swiss`/, `${f} still offers a removed look or language`);
   assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update §13 with it");
   const dimRow = vd.split("\n").find((l) => l.startsWith("| Dimension line |")) ?? "";

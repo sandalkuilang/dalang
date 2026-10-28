@@ -76,7 +76,7 @@ const rrect = (ctx, x, y, w, h, r, color) => { ctx.fillStyle = color; ctx.beginP
 // is split by characters, its time spread over them). A phrase stays up until the next one starts; the last one `hold`
 // s past its last word.
 // -> [{ text, start, end, words: [{ text, start, end, gap }] }]
-export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3, hold = 0.5, pause = 0.3 } = {}) {
+export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3, hold = 0.5, pause = 0.3, breath = 0.12 } = {}) {
   const lines = String(narrationTxt).replace(/\r\n/g, "\n").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && !PAUSE.test(l));
   const spoken = (lines.length >= 2 && lines.every((l) => SPEAKER.test(l)) ? lines.map((l) => l.match(SPEAKER)[2].trim()) : lines)
     .map((l) => l.replace(/\{([^{}|]*)(?:\|[^{}]*)?\}/g, "$1").replace(/\[[^\]]*\]/g, " "));
@@ -107,12 +107,17 @@ export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3
     for (let j = 0; j < k; j++) { const n = base + (j < extra ? 1 : 0); out.push(seg.slice(at, at + n)); at += n; }
     return out;
   };
-  const split = (seg, lim, minPart) => { // a run over lim: at its longest pause with minPart units each side, then each side again; no pause: balanced
+  const split = (seg, lim, minPart) => { // a run over lim: at its longest pause with minPart units each side, then each side again;
+    // a pause of `pause` s or more first, else the longest breath of `breath` s or more (a speaker's micro-pause marks a
+    // clause edge, so the split never lands mid-clause on an even word count); no breath at all: balanced
     if (seg.length <= lim) return [seg];
     let cutAt = -1, gap = -Infinity;
-    for (let i = minPart; i <= seg.length - minPart; i++) {
-      const g = seg[i].start - seg[i - 1].end;
-      if (g >= pause && (g > gap + 1e-9 || (Math.abs(g - gap) <= 1e-9 && Math.abs(i - seg.length / 2) < Math.abs(cutAt - seg.length / 2)))) { cutAt = i; gap = g; }
+    for (const floor of [pause, breath]) {
+      for (let i = minPart; i <= seg.length - minPart; i++) {
+        const g = seg[i].start - seg[i - 1].end;
+        if (g >= floor && (g > gap + 1e-9 || (Math.abs(g - gap) <= 1e-9 && Math.abs(i - seg.length / 2) < Math.abs(cutAt - seg.length / 2)))) { cutAt = i; gap = g; }
+      }
+      if (cutAt >= 0) break;
     }
     return cutAt < 0 ? balanced(seg, lim) : [...split(seg.slice(0, cutAt), lim, minPart), ...split(seg.slice(cutAt), lim, minPart)];
   };

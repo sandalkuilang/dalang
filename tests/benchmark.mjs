@@ -52,6 +52,21 @@ const refused = (p, re, why, ...extra) => {
 };
 
 try {
+  // A0 Express: Gate 3 needs neither a benchmark nor style frames (Express makes none); Studio still needs them
+  {
+    const e = path.join(tmp, "express");
+    put(e, "BRIEF.md", "- mode: express\n"); put(e, "script.md"); put(e, "narration.txt"); put(e, "audio/beats.json", "[]\n");
+    for (const g of ["1", "2"]) assert.equal(run("approve", g, e).code, 0);
+    put(e, "SPEC.md"); put(e, "storyboard.md");
+    const r = run("approve", "3", e, "--by", "agent");
+    assert.equal(r.code, 0, `express gate 3 without style frames: ${r.out}${r.err}`);
+    const s = path.join(tmp, "studio-nosf");
+    put(s, "script.md"); put(s, "narration.txt"); put(s, "audio/beats.json", "[]\n");
+    for (const g of ["1", "2"]) assert.equal(run("approve", g, s).code, 0);
+    put(s, "SPEC.md"); put(s, "storyboard.md");
+    assert.match(run("approve", "3", s).err, /missing files: style-frames/, "studio still needs style frames");
+  }
+
   // A1 no verdict
   let p = project();
   refused(p, /benchmark/i, "no verdict");

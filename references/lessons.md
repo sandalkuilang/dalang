@@ -3,6 +3,9 @@
 Each line is a failure that already happened, tagged with the steps it belongs to (`[5]`, `[5,6]`); `state.mjs next` names a step's lines; a line without a tag fails the gate. Never read this file whole: when something goes wrong, `grep -n -i '<word>'` it. The fixes are already built into `SKILL.md`; this file says why.
 
 ## Script and facts
+- [1,6] **A look that looked 3D moved the film to Studio on its own**, and Studio's pilot made two group builders wait about 20 minutes. Mode is the workflow and look the drawing: both are asked in the Brief and locked after it; Express starts every group at once.
+- [5] **A title block on a 9:16 film made it read as coursework** (the viewer called it a thesis). Sheet furniture (title block, sheet number) only on 16:9.
+- [1,5] **The look was guessed, never asked**: the user's references were 3D renders on a sweep, the agent tried a print look, a blueprint, then isometric before 3D (four looks, about 2.5 h of rebuilds). The look is now asked in the Brief, one of two, and a reference gives palette, type and overlays.
 - [3,4] **Narration that did not say where it was going**, read with semicolons and colons as pauses of unknown length, in one long sentence after another: viewers could not tell the topic, the direction or what they learned. Every check was on the pictures (sound-off quiz); none on the words. Now `Promise:` / `Takeaway:`, `narration_lint.mjs` and a text-only read-through at Gate 1.
 - [3] **Comparing numbers measured by different methods** and turning a tiny gap into a "narrow win" twist. A small gap with different methods is a tie.
 - [1] **The format was never asked**, so the user wanted a vertical short but the brief stayed 16:9. Platform always goes through AskUserQuestion.

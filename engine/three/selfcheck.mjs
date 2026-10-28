@@ -37,6 +37,8 @@ const FLD = await use("fields.js");
 const { makeMagnetDemo } = await use("examples/magnet.js");
 const O = await use("optics.js");
 const { makeStrawGlass } = await use("examples/straw.js");
+const OS = await use("objectStudio.js");
+const ED = await use("editorial.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -424,6 +426,11 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   // Spanish: accents, a comma after 1 word is no break, a run of 8 balanced.
   const es = "Sí, claro. La presión baja y el agua hierve antes, más o menos a noventa grados.";
   assert.deepEqual(texts(phrases(es, toWords(es))), ["Sí, claro.", "La presión baja y", "el agua hierve antes,", "más o menos a noventa grados."], "Spanish splits");
+  // A long run with no full pause splits at the speaker's longest breath (a clause edge), not at an even word count.
+  const br = "Without air nothing touches the wall and nothing carries the heat out.";
+  const brWords = toWords(br).map((w) => ({ ...w })); // then open a 0.2 s breath after "wall" (word 5)
+  for (let i = 6; i < brWords.length; i++) { brWords[i].start += 0.2; brWords[i].end += 0.2; }
+  assert.deepEqual(texts(phrases(br, brWords)), ["Without air nothing touches the wall", "and nothing carries the heat out."], "a breath, not a word count, decides the split");
   // Ellipsis and a token of punctuation only; dialogue lines lose their speaker.
   const dl = phrases("A: Wait ... then it boils.\nB: Yes.", toWords("Wait then it boils. Yes."));
   assert.deepEqual(texts(dl), ["Wait ...", "then it boils.", "Yes."], "ellipsis breaks, the speaker label is not caption text");
@@ -439,7 +446,8 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const eight = "one two three four five six seven eight", ew = toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: +(w.start + 1).toFixed(3), end: +(w.end + 1).toFixed(3) } : w));
   assert.deepEqual(texts(phrases(eight, ew)), ["one two three four five six", "seven eight"], "a long run breaks at its pause: 6 + 2");
   assert.deepEqual(texts(phrases(eight, toWords(eight))), ["one two three four", "five six seven eight"], "no pause: balanced 4 + 4");
-  assert.deepEqual(texts(phrases(eight, toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: w.start + 0.2, end: w.end + 0.2 } : w)))), ["one two three four", "five six seven eight"], "a gap under 0.3 s is not a pause");
+  assert.deepEqual(texts(phrases(eight, toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: w.start + 0.2, end: w.end + 0.2 } : w)))), ["one two three four five six", "seven eight"], "a breath (0.12-0.3 s) decides the split when there is no full pause");
+  assert.deepEqual(texts(phrases(eight, toWords(eight).map((w, i) => (i >= 6 ? { ...w, start: w.start + 0.05, end: w.end + 0.05 } : w)))), ["one two three four", "five six seven eight"], "a gap under a breath is not one: balanced");
   const six = "one two three four five six", sw = toWords(six).map((w, i) => (i >= 3 ? { ...w, start: w.start + 1, end: w.end + 1 } : w));
   assert.deepEqual(texts(phrases(six, sw)), [six], "a pause inside a short sentence breaks nothing");
   const ten = "one two three four five six seven eight nine ten", shift = (i) => (i >= 1 ? 0.6 : 0) + (i >= 5 ? 1.2 : 0), tw = toWords(ten).map((w, i) => ({ ...w, start: +(w.start + shift(i)).toFixed(3), end: +(w.end + shift(i)).toFixed(3) }));
@@ -2278,4 +2286,67 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.throws(() => rig.frame(0, { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 30 }), /iso/, "the iso rig refuses a perspective pose");
 }
 
-console.log("selfcheck ok:iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
+// The object-studio kit (objectStudio.js + editorial.js): groups import it unchanged, so its traps are pinned here.
+{
+  for (const k of ["makeSet", "cam", "mat", "halfLathe", "contact", "backdrop", "canvasTex", "makeSweep", "w", "we", "wc", "b"]) assert.ok(OS[k], "objectStudio exports " + k);
+  for (const k of ["makeOverlay", "captions", "envelope", "accentHtml", "tagSwing", "captionAt", "cues"]) assert.ok(ED[k], "editorial exports " + k);
+  assert.throws(() => OS.makeSet(), /canvas/, "makeSet refuses a missing canvas");
+  { // shot-list camera moves: a move window overrides the station travel; outside it the base run is untouched
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const base = { pose: (t) => ({ position: V(0, 1, 5), target: V(0, 0, 0), fov: 30, speed: 0 }), at: (t) => ({ t }) };
+    const mv = { from: 2, to: 4, pose: (t) => ({ position: V(t, 1, 5), target: V(0, 0, 0), fov: 30 }) };
+    const r = OS.withMoves(base, [mv], 30);
+    assert.equal(r.pose(1).position.x, 0, "outside a move: the station pose");
+    assert.equal(r.pose(3).position.x, 3, "inside a move: the move's pose");
+    assert.ok(Math.abs(r.pose(3).speed - 1) < 1e-6, "speed from the move itself (1 m/s)");
+    const cam = new THREE.PerspectiveCamera(30, 9 / 16, 0.01, 100); r.at(3, cam);
+    assert.ok(Math.abs(cam.position.x - 3) < 1e-9, "at(t, camera) places the camera on the move");
+    assert.throws(() => OS.withMoves(base, [{ from: 2, to: 1, pose: mv.pose }]), /to > from/, "a move with to <= from is refused");
+  }
+  assert.throws(() => OS.makeSet({}), /canvas/, "makeSet refuses something that is not a canvas");
+  // A liquid is plain alpha (a transmission pass renders it opaque); a clear shell adds reflections only (an alpha shell veils the liquid).
+  const liq = OS.mat.liquid("#E0A020");
+  assert.ok(liq.transmission === 0 && liq.transparent && liq.opacity < 1 && liq.blending === THREE.NormalBlending && !liq.depthWrite, "mat.liquid: alpha, no transmission");
+  assert.throws(() => OS.mat.liquid(), /colour/, "mat.liquid needs its colour");
+  for (const [n, m] of [["clearPlastic", OS.mat.clearPlastic()], ["glass", OS.mat.glass()]])
+    assert.ok(m.blending === THREE.AdditiveBlending && m.depthWrite === false && m.transmission === 0 && m.color.getHex() === 0, "mat." + n + ": additive reflections only, no depth write");
+  assert.ok(OS.mat.steel().metalness > 0.8 && OS.mat.haze(0.3).transparent && OS.mat.matte(0x888888).isMeshStandardMaterial && OS.mat.plastic(0x888888).isMeshPhysicalMaterial, "steel, haze, matte, plastic");
+  // The lens: 36 mm on the long side; a wider lens sees more; dof from an f-stop goes through camera.js dofFor.
+  const st = OS.cam([0, 0.3, 1], [0, 0.1, 0], 50), wide = OS.cam([0, 0.3, 1], [0, 0.1, 0], 24);
+  assert.ok(Math.abs(st.fov - fovFromMm(50, 36)) < 1e-9 && wide.fov > st.fov && !st.dof, "cam(): portrait lens on the long side, sharp without dof");
+  const macro = OS.cam([0, 0.1, 0.3], [0, 0.1, 0], 100, { dof: { fstop: 2.8 } }), r = dofFor({ mm: 100, fstop: 2.8, focusM: 0.3 });
+  assert.ok(Math.abs(macro.dof.range - r.focusRange) < 1e-12 && Math.abs(macro.dof.bokeh - r.bokehScale) < 1e-12, "cam(): dof from fstop and the focus distance");
+  assert.throws(() => OS.cam([0, 0, 1], [0, 0, 0], 50, { dof: {} }), /dof/, "cam(): a dof with neither range nor fstop is refused");
+  // halfLathe: the back half only (z <= 0), closed at the cut.
+  const hl = OS.halfLathe([[0, 0], [0.04, 0], [0.04, 0.1], [0, 0.1]]).attributes.position.array;
+  let zmax = -Infinity; for (let i = 2; i < hl.length; i += 3) zmax = Math.max(zmax, hl[i]);
+  assert.ok(finite(hl) && zmax <= 1e-6, "halfLathe: the back half, z <= 0");
+  // Cues: a word by text (case and punctuation ignored, nth occurrence), a beat by name; a missing one throws.
+  const CU = ED.cues({ words: [{ text: "First,", start: 0.5, end: 0.9 }, { text: "first", start: 2, end: 2.4 }], beats: { hook: { start: 0, end: 3 } } });
+  assert.ok(CU.w("FIRST") === 0.5 && CU.we("first", 1) === 2.4 && CU.wc("first", 1) === "w1" && CU.b("hook") === 0, "cues: words and beats");
+  assert.throws(() => CU.b("nope"), /no beat "nope"/, "a missing beat throws");
+  assert.throws(() => CU.w("absent"), /no word "absent"/, "a missing word throws");
+  assert.throws(() => ED.cues({ beats: [{ name: "a", start: 1 }] }).b("b"), /no beat/, "a missing beat throws (beats.json array)");
+  // Pure parts: the envelope, the accent word, the tag's fall and swing, the karaoke state.
+  assert.ok(ED.envelope(0.99, 1, 2).a === 0 && ED.envelope(1.5, 1, 2).a === 1 && ED.envelope(2, 1, 2).a === 0 && ED.envelope(1.05, 1, 2).s < 1, "envelope: in, hold, out");
+  assert.equal(ED.accentHtml("a <b> [word]<br>x"), 'a &lt;b> <span class="ov-acc">word</span><br>x', "accent word on a chip, markup escaped, line break kept");
+  const sw0 = ED.tagSwing(0, 0), swF = ED.tagSwing(0.42, 0), sw9 = ED.tagSwing(9, 0);
+  assert.ok(sw0.y === -560 && swF.y === 0 && Math.abs(sw9.deg) < 0.01 && Math.abs(sw9.y) < 0.01 && ED.tagSwing(1, 1).deg === -ED.tagSwing(1, 0).deg, "tag: falls, catches, swings to rest; neighbours mirror");
+  const CAPS = [{ start: 0, end: 1, words: [{ text: "a", start: 0 }, { text: "b", start: 0.5 }] }];
+  assert.deepEqual([ED.captionAt(CAPS, 0.6), ED.captionAt(CAPS, 1.2)], [{ phrase: 0, word: 1 }, { phrase: -1, word: -1 }], "karaoke: the spoken word");
+  // makeOverlay into a minimal fake document: a card and a headline are built and shown in their windows only.
+  const fake = () => { const e = { children: [], style: { setProperty(k, v) { this[k] = v; } }, attrs: {}, classList: { add() {}, remove() {}, toggle() {} }, appendChild(c) { this.children.push(c); if (!this.firstChild) this.firstChild = c; return c; }, setAttribute(k, v) { this.attrs[k] = v; } }; return e; };
+  const doc = { head: fake(), getElementById: () => null, createElement: fake, createElementNS: fake, createTextNode: fake };
+  const root = fake(); root.ownerDocument = doc;
+  const ov = ED.makeOverlay(root, { prefix: "t", G0: 10, accent: "#00AAFF", illustration: "ILUSTRASI" });
+  assert.throws(() => ED.makeOverlay(root, { prefix: "u", G0: 10 }).chip({ from: 11, to: 12 }), /illustration label/, "the illustration chip needs its label in the narration language");
+  const hlE = ov.headline({ kicker: "kicker", text: "a [b]", from: 11, to: 13 }), cardE = ov.card({ label: "L", rows: [{ k: "x", v: "1", hi: true }], source: "S", from: 12, to: 14 }), chipE = ov.chip({ from: 11, to: 12 });
+  assert.ok(hlE.innerHTML.includes('class="ov-acc">b<') && cardE.innerHTML.includes('class="ov-src">S<') && chipE.innerHTML.includes("ILUSTRASI") && ov.layer.style["--ov-acc"] === "#00AAFF", "overlay: headline accent, card source line, chip label as given, accent colour");
+  assert.throws(() => ov.card({ label: "L", value: "1", from: 12, to: 14 }), /source/, "a card without a source line is refused");
+  assert.throws(() => ov.headline({ text: "x", from: 2, to: 1 }), /to > from/, "a window that ends before it starts is refused");
+  assert.throws(() => ED.makeOverlay(root, {}), /prefix/, "makeOverlay needs a prefix");
+  ov.update(1.5, null); // t = 11.5: the headline is on, the card not yet
+  assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
+}
+
+console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");

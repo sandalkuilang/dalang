@@ -61,8 +61,10 @@ const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
 // Gate 3's benchmark (review.md "Benchmark review"): the fresh reviewer's table, written by the main agent to
 // review/benchmark.md as `| Row | Reference | Style frames | … |`, scores 1–5. A row more than 1 point behind the board
 // blocks the gate; so does a verdict that is missing, unreadable or older than the style frames (never read as passed).
-// Express (BRIEF.md "mode: express", references/express.md): Steps 5–7 read express.md and Gate 3 needs no benchmark.
+// Express (BRIEF.md "mode: express", references/express.md): Steps 5–7 read express.md and Gate 3 needs no benchmark
+// and no style frames (Express makes none).
 const express = cmd !== 'reading' && existsSync(path.join(dir, 'BRIEF.md')) && /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(dir, 'BRIEF.md'), 'utf8'));
+if (express) GATES[3].files = GATES[3].files.filter(f => f !== 'style-frames');
 const BENCH = 'review/benchmark.md';
 const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'text system', 'overlays caused by physics', 'framing', 'macro quality'];
 const newest = p => statSync(p).isDirectory() ? Math.max(0, ...readdirSync(p).map(f => newest(path.join(p, f)))) : statSync(p).mtimeMs;

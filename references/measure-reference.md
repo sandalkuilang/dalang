@@ -14,6 +14,8 @@ About the file: use a video the user is allowed to access, or one the user provi
 
 ## How to measure
 
+A link only (a reel or a page that will not download to a file): a subagent opens it in Claude's built-in browser, watches it to the end and writes `reference-measurements.md` from what it sees: cut rhythm, palette, type, overlay system, caption style, camera. Craft only, no brand; what it could not measure is `[unknown]`. With a file, measure as below.
+
 ### 1. Full transcript (read to the end)
 
 - Auto-captions often have gaps, and the gaps are often exactly the sentences with the important numbers. When in doubt, transcribe again from the audio (Whisper, or the transcription path in `/media-use`).

@@ -44,10 +44,12 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
   cause. Real scale, real materials, real mass. Studio is three.js 3D; Express (the default, `references/express.md`)
   is 2.5D illustration in HTML/SVG with the same caused motion, true shapes, and a hard budget of 20 minutes of work
   per film.
-- **Stylized only, one world.** No hyperreal look, no filmed footage, no photoreal render, no generated still
-  or clip. Express and Studio share three languages (`references/looks.md`): `isometric-world` first,
-  `cutaway` for the inside of one thing, `blueprint` for very detailed data; always true to how the subject looks and works. The camera is cinematic and planned by the agent per film
-  (`references/camera-motion.md`): real perspective in Studio, honest 2.5D in Express, true isometric only for `blueprint`.
+- **Stylized only, two looks.** No hyperreal look, no filmed footage, no photoreal render, no generated still
+  or clip. Express and Studio share three languages (`references/looks.md`): `isometric-world` is the
+  main language, flat drawing made to read as 3D (2.5D) through layers and colour, `cutaway` on the beats that open a thing
+  up, `blueprint` on beats that need engineering-grade detail; always true to how the subject looks and works. The second look,
+  `object-studio`, is the real object as clean 3D on a light grey sweep (`engine/three`), in either mode. Any other look
+  is answered in one line, never followed. The agent plans the camera (`references/camera-motion.md`).
 - **Never read "unknown" as "missing".** A tool that cannot read a state (timeout, error, odd reply) reports WARN
   and says to rerun. It never reports MISSING, never says "none" and never suggests installing.
 - **Installs only with consent.** The skill never installs a model, app or key on its own. It states size and
