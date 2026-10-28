@@ -51,12 +51,30 @@ export const { wordIndex, w, we, wc, b } = G;
 
 // ---------- pure parts (no DOM) ----------
 const clamp = (x, a = 0, z = 1) => Math.min(z, Math.max(a, x));
-// envelope(t, from, to): in power3.out (fade + scale 0.96 -> 1 over inDur), out fade over outDur ending at `to`
-export function envelope(t, from, to, { inDur = 0.2, outDur = 0.2 } = {}) {
+// bezier(x1, y1, x2, y2): a CSS cubic-bezier as a pure function of progress 0-1 (Newton, then bisection)
+export function bezier(x1, y1, x2, y2) {
+  const f = (a, b, s) => 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3, d = (a, b, s) => 3 * a * (1 - s) ** 2 + 6 * (b - a) * s * (1 - s) + 3 * (1 - b) * s * s;
+  return (x) => {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    let s = x;
+    for (let i = 0; i < 8; i++) { const g = f(x1, x2, s) - x, k = d(x1, x2, s); if (Math.abs(g) < 1e-7) break; if (Math.abs(k) < 1e-6) { s = NaN; break; } s -= g / k; }
+    if (!(s >= 0 && s <= 1)) { let lo = 0, hi = 1; for (let i = 0; i < 40; i++) { s = (lo + hi) / 2; if (f(x1, x2, s) < x) lo = s; else hi = s; } }
+    return f(y1, y2, s);
+  };
+}
+// One ease table for the overlays: a reveal lands with a strong ease-out, an exit accelerates away.
+export const EASE = Object.freeze({ in: bezier(0.23, 1, 0.32, 1), out: bezier(0.3, 0, 0.8, 0.15) });
+// Entrance by size (s): a chip or pill is quick, a card longer, a headline longest (all under 0.8 s); an exit takes
+// 0.7 of its entrance and leaves the way it came (scale back toward 0.96), so nothing appears from or vanishes into nothing.
+export const IN_DUR = Object.freeze({ chip: 0.2, pill: 0.25, big: 0.3, card: 0.3, hl: 0.4, tag: 0.3 });
+export const OUT_SHARE = 0.7;
+// envelope(t, from, to, { inDur, outDur }): fade + scale 0.96 -> 1 over inDur on EASE.in, back out over outDur on
+// EASE.out, ending at `to`
+export function envelope(t, from, to, { inDur = 0.2, outDur = inDur * OUT_SHARE } = {}) {
   if (!(t >= from && t < to)) return { a: 0, s: 0.96, u: 0 };
-  const u = clamp((t - from) / inDur), e = 1 - (1 - u) ** 3;
-  const o = to === Infinity ? 1 : clamp((to - t) / outDur);
-  return { a: e * o, s: 0.96 + 0.04 * e, u: e };
+  const e = EASE.in(clamp((t - from) / inDur));
+  const o = to === Infinity ? 1 : 1 - EASE.out(1 - clamp((to - t) / outDur));
+  return { a: e * o, s: 0.96 + 0.04 * e * o, u: e };
 }
 // accentHtml(s): escaped text, "[word]" on the accent chip, "<br>" kept as a line break
 export const accentHtml = (s, cls = "ov-acc") => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/&lt;br\s*\/?>/g, "<br>").replace(/\[(.+?)\]/g, `<span class="${cls}">$1</span>`);
@@ -219,7 +237,7 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
     update(tl, project) {
       const t = tl + G0;
       for (const it of items) {
-        const v = envelope(t, it.from, it.to);
+        const v = envelope(t, it.from, it.to, { inDur: IN_DUR[it.kind] ?? 0.25 });
         const on = v.a > 0.001;
         it.e.style.opacity = on ? v.a.toFixed(3) : "0";
         if (it.line) it.line.style.opacity = it.dot.style.opacity = on ? v.a.toFixed(3) : "0";

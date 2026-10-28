@@ -30,6 +30,26 @@ that reads as:
 
 ## [Unreleased]
 
+### Changed
+
+- **Overlay motion** (`engine/three/editorial.js`):
+  - Each overlay enters on a strong ease-out (`EASE.in`, cubic-bezier 0.23, 1, 0.32, 1).
+  - The entrance grows with its size (`IN_DUR`): chip 0.2 s, pill 0.25, card 0.3, headline 0.4, never over 0.8.
+  - The exit takes 0.7 of the entrance, accelerating away (`EASE.out`), and shrinks back toward 0.96, so it leaves the
+    way it came. Before, every overlay faded linearly in and out over the same 0.2 s.
+  - `bezier()` gives any CSS curve as a pure function of progress.
+- **Seams and timing** (`camera-motion.md` §3 and §7, `express-planner.md` MOTION):
+  - A cut keeps the motion going on both sides, and a zoom keeps its sign across it.
+  - One seam direction per film, with up, push-through and pull-back kept for their meaning.
+  - Two or three seam types per film.
+  - The planner writes a SEAMS row per cut and names what owns each phase, and the pause before an impact is
+    0.3–0.75 s.
+  - Overlays never appear from nothing, recurring furniture gets the quietest entrance, and a two-state crossfade takes
+    2–5 px of blur at its middle.
+
+  These rules come from emilkowalski/skills (MIT) and HyperFrames' motion-doctrine (Apache-2.0); only the ideas are
+  used, and no code is copied.
+
 ### Added
 
 - **An Express world is proved before it is drawn** (`scripts/iso_audit.mjs`, `engine/anatomy/`). The geometry audit
