@@ -27,7 +27,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 ## Work fast, spend few tokens
 
 - **One video = one session.** State lives in the project files. Resume: `node <skill-dir>/scripts/state.mjs next`, then `BRIEF.md` and the end of `PRODUCTION.md`; never replay old chat.
-- **Lean workspace.** Video sessions start in a folder made lean with `workspace.mjs init` (Step 0, asked in Brief Call 0); it also installs DALANG's subagent types (`dalang-builder`, `dalang-checker`, `dalang-research`: only the tools each job uses, so every turn starts at ~15K tokens, not ~50K). Use them whenever they are listed: builders and fix rounds `dalang-builder`, every look or text verdict `dalang-checker`, fact strands `dalang-research`; otherwise general-purpose.
+- **Lean workspace.** Video sessions start in a folder made lean with `workspace.mjs init` (Step 0, asked in Brief Call 0; it loads only in a new session, so a "yes" ends this one before the Brief: the user reopens the folder and sends the request again); it also installs DALANG's subagent types (`dalang-builder`, `dalang-checker`, `dalang-research`: only the tools each job uses, so every turn starts at ~15K tokens, not ~50K). Use them whenever they are listed: builders and fix rounds `dalang-builder`, every look or text verdict `dalang-checker`, fact strands `dalang-research`; otherwise general-purpose.
 - **Few turns: every turn re-reads the whole context.** Calls that do not need each other's output go in one message. The skill version is preflight's DALANG row, never a `git` check of your own.
 - **Read lazily.** Each step: run `state.mjs next --print` and read only what it prints (the step's sections as text, in one call, and its lessons). "Look up when needed" lines run only when the text sends you there. Never `cat`/`Read` a reference, the engine README or `lessons.md` whole; never re-read a section in context. From `/hyperframes`, only the type guides this video needs.
 - **Small tool output.** Filter `--json` in a one-liner; never print `words.json`, `*.response.json` or full logs; `grep` logs; `render --quiet`; background output by bytes (`tail -c 1500 <file>`), never by lines. Scene changes are `Edit` calls, never `sed -i`, an inline script or a whole-file Write (`lint_scene.mjs` catches a swallowed line).
@@ -39,7 +39,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 |---|---|---|
 | Fresh-eyes review, second Set / Reality check, style-frame check, Gate 3 benchmark, sound-off quiz | top | high (quiz: medium) |
 | Scopes verdict | top | medium |
-| Planner: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5) | top | high |
+| Planner, Studio only: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5; Express has none, the main agent writes short ones, `express.md`) | top | high |
 | Studio builder: the pilot (it sets the pattern) | top | high |
 | Studio builder: other shot groups, assembly, each QC fix round | top | medium |
 | Express builder (the whole film, or each group; `express.md`) and its fix rounds | mid | medium |
@@ -57,7 +57,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 |---|---|
 | 0–1 | `preflight.mjs` in the background ‖ the first Brief question (the topic) |
 | 2–3 | reference measurement ‖ fact research; research split into strands (≤ 3, Express ≤ 2), one mid-tier agent per strand, the search and fetch budget divided between them |
-| After Gate 1 | the voice take (the one heavy job) ‖ `SPEC.md` + `storyboard.md` (Express now; Studio's planner needs `beats.json`, so it starts at Gate 2) ‖ facts, assets, music (after Gate 2) and OBJECTS stills (once `storyboard.md` exists), never scenes |
+| After Gate 1 | the voice take (the one heavy job) ‖ `SPEC.md` + `storyboard.md` (Express now, by the main agent; Studio's planner needs `beats.json`, so it starts at Gate 2) ‖ facts, assets, music (after Gate 2) and OBJECTS stills (once `storyboard.md` exists), never scenes |
 | 6 | Studio: pilot, then every other group at once. Express: every group at once, no pilot: one builder, or 2–3 from 6 beats or 45 s (`express.md`) |
 | 7 | after the draft: stillness, loudness, `audio_qc.mjs`, `qc.mjs`, `scopes.mjs`, `timing_lint.mjs`, `lint_scene.mjs` in one message; once the strips exist: fresh-eyes reviewer ‖ sound-off quiz ‖ second Set / Reality check |
 | 8 | `POST.md` written while the final render runs |
