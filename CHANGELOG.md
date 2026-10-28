@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-28
+
 ### Added
 
 - **Run metrics at the hand-off** (`state.mjs metrics`, `qc.md` Step 8, `express.md` Step 7): start, end and total time,
@@ -1348,7 +1350,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/sandalkuilang/dalang/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/sandalkuilang/dalang/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/sandalkuilang/dalang/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/sandalkuilang/dalang/compare/v3.0.0...v3.1.0
