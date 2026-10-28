@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-10-28
+
 ### Added
 
 - **`scripts/express.mjs`: Express's mechanical steps as one call each.** `after-voice` (the take's WARNING lines,
@@ -1467,7 +1469,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.7.1...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.0...HEAD
+[3.8.0]: https://github.com/sandalkuilang/dalang/compare/v3.7.1...v3.8.0
 [3.7.1]: https://github.com/sandalkuilang/dalang/compare/v3.7.0...v3.7.1
 [3.7.0]: https://github.com/sandalkuilang/dalang/compare/v3.6.0...v3.7.0
 [3.6.0]: https://github.com/sandalkuilang/dalang/compare/v3.5.0...v3.6.0
