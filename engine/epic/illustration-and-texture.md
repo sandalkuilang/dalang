@@ -35,8 +35,9 @@ reads crude, more reads fussy.
 - Build front-facing or in straight profile; avoid 3/4 perspective (hard
   to get right, always looks off).
 - Use the style's palette only; big shapes in quiet colors, one accent.
-- Outlines: none (isometric-world, the one language kept: three tones per
-  face).
+- Outlines are a style decision, set by the language file: isometric-world =
+  none (three tones per face), cutaway = fine ink linework, blueprint = thin
+  linework only.
 - Cast a ground: a flat ellipse shadow or a horizontal rule stops objects
   floating.
 - Details that sell a drawing: a highlight sliver on curved surfaces

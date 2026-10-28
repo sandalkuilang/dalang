@@ -1,6 +1,6 @@
 // The golden scene: one fixed scene, built only from engine parts, that every skill version renders, so a change in how
 // the films LOOK shows up as a number and a contact sheet (scripts/golden.mjs), not only in a user's eyes.
-// A vacuum flask cut open at real size (30 cm) on an isometric-world slab, in the one look every film uses (true iso,
+// A vacuum flask cut open at real size (30 cm) on an isometric-world slab, the main look (true iso,
 // three tones per face, no lights), three iso stations (wide, medium with a flow arrow, close on the gap), a caption,
 // pinned labels and a dimension line. Fixed text, no narration, no physics.
 //

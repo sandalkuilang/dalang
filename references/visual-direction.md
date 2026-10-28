@@ -20,7 +20,7 @@ The hero is made one of three ways: **drawn** as true shapes (Express); **built*
 
 ## 2. Looks
 
-One look for every film, Express and Studio: `isometric-world` (`looks.md`). Step 5 reads it there and in `engine/epic/languages/isometric-world.md`.
+Express and Studio share three isometric design languages, `isometric-world` first, `cutaway` for the inside of one thing, `blueprint` for very detailed data (`looks.md`, which also says how to pick). Step 5 reads it there and in the chosen `engine/epic/languages/<name>.md`.
 
 ## 3. Energy (the Step 1 "Energy" option)
 

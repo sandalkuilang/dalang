@@ -2,7 +2,7 @@
 
 Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`; there is no §6 or §9: the numbers keep their old names) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
-**Every film is true isometric** (`looks.md`, Express and Studio alike): the view pans and zooms (zoom in log) and never tilts, turns or changes its projection. Below, a dolly, push, crane, drone, fly-through or tracking move is a pan or a zoom of the iso view; a focal length, a lens set, an orbit, a top shot and a dolly-zoom do not exist; a subject shows its other side by turning itself, with a visible cause (a turntable, a hand), never by the camera going round it. Perspective notes that remain below are for the engine's own checks and examples.
+**Every film is true isometric** (`looks.md`, all three languages, Express and Studio alike): the view pans and zooms (zoom in log) and never tilts, turns or changes its projection. Below, a dolly, push, crane, drone, fly-through or tracking move is a pan or a zoom of the iso view; a focal length, a lens set, an orbit, a top shot and a dolly-zoom do not exist; a subject shows its other side by turning itself, with a visible cause (a turntable, a hand), never by the camera going round it. Perspective notes that remain below are for the engine's own checks and examples.
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 

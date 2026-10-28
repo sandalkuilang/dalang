@@ -20,7 +20,7 @@ const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, rea
 const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
-const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio } = await use("studio.js");
+const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
@@ -2236,6 +2236,15 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const cut = cutaway(g, { flat: true });
   assert.ok(a.material.clippingPlanes?.includes(cut.plane) && a.material.isMeshMatcapMaterial, "a cutaway cuts an iso material");
   assert.ok(cut.group.children.filter((o) => o.material.colorWrite !== false).every((o) => o.material.isMeshBasicMaterial), "flat caps are unlit (the iso look has no lights)");
+  // Ink lines after the cut share its planes (the removed half loses its lines); blueprint faces are the ground colour.
+  inkLines(g);
+  const ln = a.children.find((o) => o.userData.inkLine);
+  assert.ok(ln && ln.material.clippingPlanes?.includes(cut.plane) && ln.geometry.attributes.position.count === 24, "ink lines: a box's 12 edges, cut with its mesh");
+  inkLines(g); assert.equal(a.children.filter((o) => o.userData.inkLine).length, 1, "inkLines twice never doubles the lines");
+  const bp = new THREE.Group(); bp.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 })));
+  const dataM = new THREE.MeshBasicMaterial({ color: 0x3e9bd6 }), bar = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), dataM); bar.userData.data = true; bp.add(bar);
+  blueprintLook(bp, { bg: "#123A66" });
+  assert.ok(bp.children[0].material.isMeshBasicMaterial && bp.children[0].material.color.getHexString() === "123a66" && bar.material === dataM, "blueprint: faces in the ground colour, a data mark keeps its colour");
   const sc = new THREE.Scene(), rig = isoStudio(null, sc, cam, { ground: "#E8EDEF" });
   assert.ok(sc.background.getHexString() === "e8edef" && rig.frame(0, wide).k === wide.k, "the dry iso rig places the camera and sets the sky");
   assert.throws(() => rig.frame(0, { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 30 }), /iso/, "the iso rig refuses a perspective pose");
