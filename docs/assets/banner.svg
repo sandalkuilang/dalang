@@ -38,6 +38,14 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 </style>
 <defs>
 <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#b9bfcc"/></linearGradient>
+<linearGradient id="mark" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f7b878"/><stop offset="100%" stop-color="#e2863a"/></linearGradient>
+<!-- each letter of the name arrives out of focus and sharpens -->
+<filter id="bl0" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.30s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
+<filter id="bl1" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.37s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
+<filter id="bl2" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.44s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
+<filter id="bl3" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.51s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
+<filter id="bl4" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.58s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
+<filter id="bl5" filterUnits="userSpaceOnUse" x="140" y="60" width="420" height="220"><feGaussianBlur stdDeviation="0"><animate attributeName="stdDeviation" values="12;0" keyTimes="0;1" calcMode="spline" keySplines=".3 .7 .3 1" begin="0.65s" dur=".7s" fill="freeze"/></feGaussianBlur></filter>
 <radialGradient id="lamp" cx="50%" cy="0%" r="70%"><stop offset="0%" stop-color="#f0a05a" stop-opacity=".16"/><stop offset="100%" stop-color="#f0a05a" stop-opacity="0"/></radialGradient>
 <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#f0a05a" stop-opacity="0"/><stop offset="50%" stop-color="#f0a05a" stop-opacity=".6"/><stop offset="100%" stop-color="#f0a05a" stop-opacity="0"/></linearGradient>
 <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#ffffff" fill-opacity=".05"/></pattern>
@@ -54,7 +62,10 @@ text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Robot
 <!-- left: the name and the promise -->
 <rect class="pill" x="64" y="56" width="224" height="32" rx="16"/><circle class="knot" cx="84" cy="72" r="4"/>
 <text class="pill-t" x="98" y="77">CLAUDE CODE SKILL</text>
-<text class="word" x="58" y="198">Dalang</text>
+<!-- the mark (logo.svg) arrives first, then the name letter by letter -->
+<g transform="translate(64 118) scale(1.25)" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="0s" dur=".45s" fill="freeze"/>
+<rect width="64" height="64" rx="16" fill="url(#mark)"/><path d="M17 13H32a19 19 0 0 1 0 38H17Z" fill="#0b0d13"/><path d="M26 23.5 40 32 26 40.5Z" fill="#f0a05a"/></g>
+<text class="word" x="162"><tspan y="198" fill-opacity="0" filter="url(#bl0)">D<animate attributeName="fill-opacity" from="0" to="1" begin="0.30s" dur=".7s" fill="freeze"/></tspan><tspan y="198" fill-opacity="0" filter="url(#bl1)">a<animate attributeName="fill-opacity" from="0" to="1" begin="0.37s" dur=".7s" fill="freeze"/></tspan><tspan y="198" fill-opacity="0" filter="url(#bl2)">l<animate attributeName="fill-opacity" from="0" to="1" begin="0.44s" dur=".7s" fill="freeze"/></tspan><tspan y="198" fill-opacity="0" filter="url(#bl3)">a<animate attributeName="fill-opacity" from="0" to="1" begin="0.51s" dur=".7s" fill="freeze"/></tspan><tspan y="198" fill-opacity="0" filter="url(#bl4)">n<animate attributeName="fill-opacity" from="0" to="1" begin="0.58s" dur=".7s" fill="freeze"/></tspan><tspan y="198" fill-opacity="0" filter="url(#bl5)">g<animate attributeName="fill-opacity" from="0" to="1" begin="0.65s" dur=".7s" fill="freeze"/></tspan></text>
 <text class="tag" x="64" y="250">Any topic →</text>
 <text class="tag tag-b" x="64" y="290">a finished animated video.</text>
 <text class="thesis" x="64" y="330"><tspan fill="var(--amber)">◆</tspan>  every cut lands on a spoken word</text>
