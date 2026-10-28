@@ -90,7 +90,7 @@ else {
   console.log(`${'main'.padEnd(44)} ${String(main.turns).padStart(4)} turns  ${M(main.total).padStart(7)}  ctx max ${M(main.maxCtx)}`);
   for (const a of agents) console.log(`${a.over ? 'WARN' : '    '} ${a.desc.slice(0, 39).padEnd(39)} ${String(a.turns).padStart(4)} turns  ${M(a.total).padStart(7)}  ctx max ${M(a.maxCtx)}${a.model ? `  ${a.model}` : ''}`);
   if (unreadable) console.log(`WARN: ${unreadable} subagent transcript(s) could not be read: rerun`);
-  if (main.lastCtx > maxCtx) console.log(`WARN: the main context is ${M(main.lastCtx)}: tell the user /compact is safe at this gate (SKILL.md "Compact at Gates 3 and 4")`);
+  if (main.lastCtx > maxCtx) console.log(`WARN: the main context is ${M(main.lastCtx)}: tell the user /compact is safe at this gate (SKILL.md "Compact at Gates 2, 3 and 4")`);
   if (over.length) console.log(`WARN: over budget (> ${maxTurns} turns or > ${M(maxCtx)} context): give the rest of that job to a new builder (look-build.md "Builder budget")`);
 }
 console.log(`Result: ${summary}`);

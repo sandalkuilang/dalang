@@ -83,7 +83,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 ### 5.3 Hits, sound, blur
 
 - **Hits drive sound and reactions:** a contact's time comes from its cause (the fall time `√(2h/g)`, the push, the cue), never from the eye. A living thing reacts ~150 ms after the loudest hit (a book landing on the floor, not the first touch).
-- **Sound on the contact, verified** (CC0 from Openverse, `look-build.md` §7): each `<audio>` starts at its contact time and the cause's time (the push), written in the HTML with the computed time in a comment. Contacts within ~40 ms are one sound (the hardest keeps it).
+- **Sound on the contact, verified** (CC0 from Openverse, `look-build.md` "Sound effects and music"): each `<audio>` starts at its contact time and the cause's time (the push), written in the HTML with the computed time in a comment. Contacts within ~40 ms are one sound (the hardest keeps it).
 - **Motion blur:** a frame where a part travels ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter (each pose at `t + k·dt`, so it stays deterministic); still frames render once.
 
 ### 5.4 Air, any subject's own law, rest, groups, frames

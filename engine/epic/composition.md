@@ -17,7 +17,7 @@ on a plain ground. **Flat graphic minimalism is a slop signal in itself.**
 
 Before choosing a pattern, answer in one phrase: *where is the reader
 standing?* ("looking at an engineer's drawing", "floating in the launch
-plume", "leafing through a naturalist's field book"). Everything on the
+plume", "leafing through a surveyor's field book"). Everything on the
 canvas — background, texture, chrome, the way data is drawn — must belong
 to that place. If the answer is "looking at a well-designed page", start
 over.
@@ -75,7 +75,7 @@ A hard asymmetric split (1/3 : 2/3 or 1/4 : 3/4, never 50:50): one column
 is a single towering element (number, vertical text, tall illustration),
 the other carries the sections. The thin column is the anchor — biggest
 type on the canvas lives there, possibly rotated 90°.
-*Best for:* corporate/swiss subjects that must stay sober but not boring.
+*Best for:* sober subjects that still need a strong layout.
 
 ### 6. The specimen sheet
 Many small drawn items in a strict grid, each labeled — like a butterfly
@@ -98,7 +98,6 @@ highlighted).
   subtle, but not flat `#FFF`.
 - **Rotate at most one system of elements** (a badge family, a marquee
   band). Everything slightly rotated = chaos; nothing rotated = static.
-  (Swiss is the exception: rotation 0, tension from scale + the grid.)
 
 ## Litmus tests before you render
 

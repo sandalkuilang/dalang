@@ -108,7 +108,7 @@ const VD_HERO = of('visual-direction.md', '## 1. The hero is true (real referenc
 const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
 const VD_QUANTITY = of('visual-direction.md', '## 13. Showing a quantity: twin sets, flow arrows, the formula on the set, tags, sound words, gauges');
 const NUMBERS_MODEL = of('script-voice.md', '### Numbers model (model.mjs → numbers.json)');
-const SECOND_CUT = [...of('script-voice.md', '### Second-language cut (offered once at the hand-off; Steps 3b and 4)'), ...of('look-build.md', '### Second-language cut: build (Step 6 again, same storyboard)'), ...of('qc.md', '### Second-language cut: QC and delivery')];
+const SECOND_CUT = [...of('script-voice.md', '### Second-language cut (asked once in the Brief; Steps 3b and 4)'), ...of('look-build.md', '### Second-language cut: build (Step 6 again, same storyboard)'), ...of('qc.md', '### Second-language cut: QC and delivery')];
 const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
 const SFX_MUSIC = of('look-build.md', '### Sound effects and music (Step 6, item 7)');
 const LEAN_WORKSPACE = of('brief.md', '### Lean workspace (workspace.mjs)');
@@ -117,7 +117,7 @@ const READING = {
   1: {
     name: 'Brief', sub: [],
     refs: [...of('express.md', '# Express mode (the default)'), ...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
-    read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Save the brief'),
+    read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Call 4 — Extras (the last call; only the questions that apply)', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
   3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },

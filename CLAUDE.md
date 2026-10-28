@@ -11,7 +11,8 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
 - `scripts/`: the pipeline's tools (`preflight.mjs`, `tts_timestamps.mjs`, `state.mjs`, QC scripts).
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
-  `selfcheck.mjs`. `examples/` holds ready pieces built on it.
+  `selfcheck.mjs`. `examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
+  as data, parallax, cinema). `engine/epic/`: Express's design languages (cutaway, isometric-world, blueprint).
 - `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
   committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).

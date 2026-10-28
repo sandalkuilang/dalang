@@ -43,7 +43,7 @@ The fresh-eyes review (Step 7) finds defects; nothing else measures taste: wheth
 
 ## Model per job
 
-Which model each subagent job uses: `SKILL.md` "Work fast". The review, the Gate 3 benchmark and the second Set / Reality check keep the session's (strongest) model; fix checks and asset pairs run on the mid tier.
+Which model and effort each subagent job uses: `SKILL.md` "Work fast" (the table, with escalation). The review, the Gate 3 benchmark and the second Set / Reality check keep the session's (strongest) model; fix checks and asset pairs run on the mid tier.
 
 ## Autonomous mode
 
