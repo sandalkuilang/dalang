@@ -30,6 +30,22 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/express.mjs`: Express's mechanical steps as one call each.** `after-voice` (the take's WARNING lines,
+  padding, captions in the brief's format, Gates 1–2), `assemble` (every template filled, every lint, Gate 3, a
+  failure printed under its group) and `final` (render at the brief's fps, `hyperframes check`, `check_assets.mjs`,
+  Gate 4, the metrics table). The main agent's run is about 16 messages, and no assembly builder is started.
+
+### Changed
+
+- **An Express film has a budget of 4M tokens**, main agent and subagents together, and `tokens.mjs` names a film
+  over it: the main agent ≤ 1.5M (≤ 30 turns), each builder ≤ 0.7M (about 15 turns, 20 at most, context under 80K;
+  was 40 turns and 150K), research ≤ 0.3M. A measured 52 s Express film had used 24M: three builders at up to 260K
+  context for 20 turns each, the main agent at 190K for 63 turns.
+- **Builders per Express film:** one under 45 s, 2 from 45 s, 3 only above 75 s (was 2–3 from 6 beats or 45 s). Each
+  extra builder reads the brief, SPEC, API card and world again.
+
 ### Fixed
 
 - **Builders no longer write the world once per group.** The isometric look's world (palette, every object as
@@ -43,6 +59,8 @@ that reads as:
   hand-written brief had sent builders to engine sources and the camera reference, named a snapshot flag that does not
   exist and a sheet command that did not match, each costing turns.
 - `iso-API.md` no longer tells the first builder to copy the engine and write the host: `scaffold.mjs` already has.
+- **The bundled music beds ship with the skill.** `.gitignore`'s `*.mp3` had kept `engine/music/*.mp3` out of the
+  repository, so `scaffold.mjs --music` found no track in an installed copy and films went out with no music.
 
 ## [3.7.1] - 2026-10-28
 

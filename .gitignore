@@ -11,6 +11,7 @@ renders/
 *.mov
 *.wav
 *.mp3
+!engine/music/*.mp3
 *.response.json
 words.json
 beats.json

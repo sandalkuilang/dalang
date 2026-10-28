@@ -91,7 +91,7 @@ const c = spawnSync(process.execPath, [state, "approve", "1", lone, "--by", "age
 assert.equal(c.status, 0, c.stdout + c.stderr);
 assert.match(c.stdout, /^Tokens: not checked/m);
 
-// Express budget: BRIEF.md mode: express flags a builder over 40 turns or 150K context.
+// Express budget: BRIEF.md mode: express flags a builder over 20 turns or 80K context, and a film over 4M tokens.
 {
   const ep = path.join(tmp, "videos3", "how-a-lock-opens");
   fs.mkdirSync(ep, { recursive: true }); put(path.join(ep, "BRIEF.md"), "- mode: express\n");
@@ -100,10 +100,11 @@ assert.match(c.stdout, /^Tokens: not checked/m);
   const x = run(ep);
   assert.equal(x.code, 3, x.out + x.err); assert.match(x.out, /^WARN Builder A\s+45 turns/m, "45 turns is over the Express budget");
   assert.doesNotMatch(x.out, /the main agent took/, "a main agent within its turns is no WARN");
+  assert.match(x.out, /WARN: this film used [\d.]+M tokens \(Express budget 4\.0M\)/, "an Express film over 4M tokens is named");
   const mp2 = path.join(tmp, "videos4", "how-a-fan-cools");
   fs.mkdirSync(mp2, { recursive: true }); put(path.join(mp2, "BRIEF.md"), "- mode: express\n");
   put(path.join(enc(mp2), "s7.jsonl"), Array.from({ length: 45 }, (_, k) => turn(`m${k}`, 60000)).join(""));
-  assert.match(run(mp2).out, /WARN: the main agent took 45 turns/, "an Express main agent over 40 turns is named");
+  assert.match(run(mp2).out, /WARN: the main agent took 45 turns/, "an Express main agent over 30 turns is named");
 }
 
 // state.mjs metrics: start, end, total and per-step minutes from PRODUCTION.md; per subagent the model and the effort it
