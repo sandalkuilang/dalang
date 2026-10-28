@@ -38,6 +38,8 @@ try {
   const bIntro = read(d, "review/builder-intro.md"), bBody = read(d, "review/builder-body.md");
   assert.match(bIntro, /beats hook\)/, "a brief names its own beats");
   assert.match(bIntro, /fill `assets\/world\.js` once/, "the first group's builder writes the world");
+  assert.match(bIntro, /scripts\/iso_audit\.mjs \. --ground/, "the first builder proves the world before any snapshot");
+  assert.doesNotMatch(bBody, /iso_audit/, "only the world's owner runs the audit");
   assert.match(read(d, "assets/world.js"), /^export const STUB/m, "the world starts as a stub the other groups can wait on");
   assert.ok(JSON.parse(read(d, "assets/.engine.json")).some(r => r.file === "world.js" && r.licence === "own"), "the film's world is in the engine manifest, so check_assets passes it");
   assert.match(bIntro, /6 or more set props/, "the world's builder gets the density bar");

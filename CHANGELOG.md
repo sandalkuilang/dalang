@@ -30,6 +30,19 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **An Express world is proved before it is drawn** (`scripts/iso_audit.mjs`, `engine/anatomy/`). The geometry audit
+  of Anatomy (MIT, vendored unchanged: `audit.mjs` with its `iso-kit.mjs`, `lathe.mjs`, `tube.mjs`) runs on the true
+  shapes of every `build()` spec, through DALANG's adapter `engine/anatomy/world.mjs`. It names:
+  - a part that floats;
+  - two objects sunk into each other;
+  - a pipe that passes through a solid or ends in mid-air.
+
+  The first builder runs it after writing `assets/world.js` and fixes the geometry until it exits 0 (`express.md`,
+  `iso-API.md`, the builder brief). Exit 2 is a WARN, never clean. On a test set it caught a sofa built 10 cm above the
+  floor that no still had shown. Checked in `tests/iso-audit.mjs`.
+
 ## [3.9.1] - 2026-10-29
 
 ### Fixed
