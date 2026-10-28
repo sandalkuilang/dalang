@@ -48,6 +48,11 @@ that reads as:
 
 ### Fixed
 
+- **The Express camera no longer wobbles left and right on a close-up.** `handheld()` shook in world units, so a push
+  from 100 to 560 px per metre made the same shake five times bigger on screen; it is now held to the same size on
+  screen at every zoom (`amp` is world units at k = 100). And `camAt` refuses keys that travel right and then left (or
+  the reverse) with no hold ≥ 0.5 s between: a move, and an orbit round a subject, goes one way. The rule is in
+  `iso-API.md` and `camera-motion.md` "Orbit".
 - **Builders no longer write the world once per group.** The isometric look's world (palette, every object as
   `build()` specs, resting values) is one file, `assets/world.js`, written by `scaffold.mjs`, filled once by the first
   group's builder and imported by every group template. Each group's builder had rebuilt the whole world in its own
