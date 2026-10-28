@@ -44,7 +44,7 @@ if [ $fast -eq 0 ]; then
   step "iso.js (vendored) loads, three tones per face, back-to-front paint" node tests/iso.mjs
   step "iso forms, build() specs and the glTF reader (ratio, cutaway, paint order, axes, refusals)" node tests/iso-build.mjs
   step "parallax (layer cameras by depth, far to near, SVG and HTML transforms)" node tests/iso-parallax.mjs
-  step "cinema (camera keys, handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
+  step "cinema (camera keys one way, no handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
   step "numbers lint (spoken model numbers = numbers.json)" node tests/numbers-lint.mjs
   step "narration lint (no ; : ( ) /, sentences <= 22 words, Promise + Takeaway)" node tests/narration-lint.mjs

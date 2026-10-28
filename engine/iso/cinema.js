@@ -1,11 +1,12 @@
 // cinema.js — a film camera and a film finish for a Canvas 2D frame (DALANG, MIT), so an Express film is shot, not
-// slid: a camera that moves between keyed poses like an operated rig, handheld life, speed ramps, whip pans with
+// slid: a camera that moves between keyed poses like an operated rig, a slow one-way orbit as its life (never a
+// handheld shake: a sum of sines reads as a wobble, worst on a close-up), speed ramps, whip pans with
 // motion blur, and the finish a cinematographer grades with (contrast, warmth, bloom, a light sweep, vignette, grain,
 // letterbox bars). Every function is a pure function of t (grain and shake are seeded), so a seek renders the same
 // frame. Use them on purpose: each technique does a story job (camera-motion.md §11–12), 4–6 per film.
 //
-//   const cam = handheld(camAt(tau, keys), tau, { amp: 0.03 });          // the operated camera at the remapped time
-//   drawLayers(iso, cam, rest, layers, { focus, aperture: 6, haze });   // parallax.js: depth, rack focus, haze
+//   const cam = camAt(tau, keys), o = orbit25(tau, { rest, from: 0, to: 1, dur });   // keyed poses, a one-way orbit
+//   drawLayers(iso, cam, o.rest, layers, { focus, aperture: 6, haze });   // parallax.js: depth, rack focus, haze
 //   finish.apply(canvas, t, { grade: { contrast: 1.08, warmth: 0.06 }, bloom: 0.25, vignette: 0.35, grain: 0.05 });
 
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -55,15 +56,6 @@ function oneWay(keys) {
   }
 }
 
-// Handheld life on a camera: three incommensurate sines per axis with seeded phases. amp is world units at k = 100 px
-// per metre (a few cm reads as a person holding the camera; 0 is a locked tripod), and the shake is held to the same
-// size ON SCREEN at every zoom: a hand shakes the lens by an angle, so a close-up must not swing more than the wide
-// shot (world-unit shake times a zoom of 5x is a left-right wobble). Tension raises it, calm lowers it.
-export function handheld(cam, t, { amp = 0.02, freq = 0.6, seed = 1 } = {}) {
-  const n = (axis) => [1, 2.13, 3.71].reduce((s, f, i) => s + Math.sin(TAU * freq * f * t + hash(seed * 31 + axis * 7 + i) * TAU) / (i + 1), 0) / 1.83;
-  const a = amp * (cam.k > 0 ? 100 / cam.k : 1);
-  return { ...cam, x: cam.x + a * n(1), y: cam.y + a * n(2), z: cam.z + a * 0.5 * n(3) };
-}
 const TAU = Math.PI * 2;
 
 // Speed ramp: keys [{ t, speed }] (1 normal, 0.25 slow motion, 0 a freeze), linear between keys, held outside. Returns

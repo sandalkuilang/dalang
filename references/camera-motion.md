@@ -11,7 +11,7 @@ Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`; there 
 | Mechanism | a push-in with a rack focus cause → effect, `bokeh(2.8)`; a `cutaway` beat opens the thing; a close part named in the narration: `focusRing` at f1.2–2.8 on it |
 | Arrival on a subject (a zoom in or out that lands) | arrive and orbit (§11.3): the zoom with `focusRing`, then a slow orbit from the landing pose |
 | Crack | the one `dollyZoom25` |
-| Acceleration | shorter shots, `whip`, `handheld` |
+| Acceleration | shorter shots, `whip`, a faster orbit (one way) |
 | Impact | a close zoom, `bokeh(1.4)` + `discs` on the lights, a speed ramp; a `blueprint` inset when the claim is a measure |
 | Aftermath, bookend | `crane25` up to the wide, ending on the opening framing |
 
@@ -53,7 +53,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Crash zoom:** scale 1.0 → 1.2–1.3 in 4–6 frames, `expo.out`, motion blur on; punchy energy only, once per film.
 - **Dolly-zoom:** one realisation beat only. Hero layer constant, background scales 1.00 → 1.15 over 0.6–1.2 s (in 3D: `fov = 2·atan(tan(fov0/2)·d0/d)`).
 - **Rack focus with breathing:** while focus moves, scale the frame 1.00 → 1.01–1.02 (stills lenses breathe; skip it for a "cine lens" look). A focus puller eases `power2.inOut` and lands slightly early. Pre-render 3–4 blur levels with `media-treatment` and crossfade along the ease.
-- **Handheld (anxiety, pressure, phone feel; never calm or premium) [O]:** a sum of sines on the camera wrapper — drift 0.5–1 Hz (60 % of the amplitude), body 3–5 Hz (30 %), tremor 8–12 Hz (10 %), incommensurate frequencies, fixed phases, driven by timeline time (never `Math.random()`). Calm: translate 0.15–0.4 % of the frame width, roll 0.1–0.3°; walking: 0.6–1.2 % plus a 1.7–2 Hz bob. Overscan ≈ 1.02. Never under text meant to be read.
+- **No handheld, ever [2.5D][3D]:** a shake made of sines reads as a wobble, left and right, and worst on a close-up. A camera's life is a slow orbit in one direction (Express `orbit25`, the film's `ORBIT`; Studio `orbit`, `from` → `to`), and tension is a faster orbit, shorter shots and whips, never a shake.
 - **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam. A rolling-shutter skew (`skewX(atan(v·readout/H))`, readout 9–28 ms) sells "phone or mirrorless"; leave it off for "cinema camera".
 - Orbit, crane, aerial, tracking, fly-through: a real camera only (§10), never faked on a still.
 
@@ -140,7 +140,7 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 | Push / dolly, slider, tracking, gimbal follow, crane, orbit, drone, dolly zoom | the 2.5D layer moves (table above), or a pan or zoom of the iso view |
 | Over a still | drift, push ≤ 1.06, rack focus, layered parallax — accents inside a shot, never its move |
 
-**Every camera moves like a rig:** Studio: `isoFrame` stations and a `route` of legs (one ease per leg, no stop mid-leg); Express: `engine/iso/cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped), so the frame is operated, not glued; `handheld` life at 10–20 % of §2's amplitude, rising with tension; depth of field by layer (`cinema.js` `focus`), the focus pull on the beat word; motion blur on a fast leg (`pose.speed`).
+**Every camera moves like a rig:** Studio: `isoFrame` stations and a `route` of legs (one ease per leg, no stop mid-leg); Express: `engine/iso/cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped), so the frame is operated, not glued; its life a slow orbit in one direction, never a handheld shake; depth of field by layer (`cinema.js` `focus`), the focus pull on the beat word; motion blur on a fast leg (`pose.speed`).
 
 **Frame rate and speed:** 30 fps is the default: the platforms play at 30, and a 24 fps upload repeats one frame in four and judders on pans and dollies. 24 fps with a 180° shutter (motion blur on every layer above ~8 px/frame, §5) reads as film: a look the user picks (`BRIEF.md` fps 24), never the default for rendered 3D. **24 fps with 3D motion needs blur:** a three.js frame is a sharp instant, so 24 sharp frames per second strobe on camera moves and fast bodies (a falling object, a spinning part). When the brief is 24 and the film has camera moves or fast bodies, average 4–8 sub-frames across a 180° shutter (`finish.layer`; §5.3 for bodies, a camera leg the same way); at 30 the same applies to any move that still strobes. **No 60:** rendering 60 for a 30 fps platform doubles the render time and is re-encoded to 30; a 60 fps source is for slow motion only. Slow motion in three.js runs at any speed: render the sub-frames you need, or a `rate` lane speed ramp (`/hyperframes` `motion.md`, registry `beat-freeze-cut`).
 
@@ -216,17 +216,17 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 | Intimacy, tenderness | MCU, CU | eye | 35–50 mm, close | shallow | static or very slow push | soft, 2:1, warm practicals | warm, low saturation | 180° | 1.37 / 1.66 |
 | Isolation, loneliness | WS, EWS | eye or slightly high | 85–135 mm from far, or 24 mm static | deep, or shallow on a tiny subject | static; slow pull-out | one source, 6:1+ | cool, desaturated, one warm accent | 180° | 2.39 or 1.37 (headroom) |
 | Dread, tension | MS → CU, tightening | eye, slightly low | 35–40 mm | medium | static long take or creeping push | short-side key, 8:1, top light | desaturated green-teal, crushed shadows | 180° | 1.85 / 2.39 |
-| Panic, chaos | MCU, CU | shifting | 18–28 mm close | deep | handheld 2–3, whips | hard, mixed temperatures | dirty, clashing | 45–90° | 1.85 |
+| Panic, chaos | MCU, CU | shifting | 18–28 mm close | deep | a fast one-way orbit, whips | hard, mixed temperatures | dirty, clashing | 45–90° | 1.85 |
 | Power, dominance | MS, FS | low | 24–35 mm | deep | static symmetry or slow crane up | hard top or edge | high contrast, rich blacks | 180° | 2.39 |
 | Vulnerability | MS, CU with headroom | high | 85 mm+ | shallow | static | soft, low key | pale, cold | 180° | 1.37 |
-| Memory, nostalgia | inserts, CU details | varied | 50 mm, soft | shallow | drifting handheld 0.5–1 | backlight, flare, halation | warm, faded blacks, more grain | 270–360° | 1.33 / 1.37 |
+| Memory, nostalgia | inserts, CU details | varied | 50 mm, soft | shallow | a slow one-way orbit | backlight, flare, halation | warm, faded blacks, more grain | 270–360° | 1.33 / 1.37 |
 | Awe, freedom | EWS, WS | eye or ground | 24–35 mm, or 135 mm landscape compression | deep | slow lateral or crane | low-sun backlight | golden, natural | 180° | 2.39 |
 | Unease, surreal | CU, centred WS | dead centre | 14–24 mm very close | deep | static or slow arc | hard, unmotivated colour | one unnatural hue | 180° | 1.19 / 1:1 |
 | Joy, curiosity | FS, MS | child's-eye (~1 m) | 28–35 mm | medium | follow at walking pace | bright, soft, open shade | saturated pastels | 180° | 1.85 |
 | Grief | WS, one CU late | eye; high at the collapse | 50 mm | medium | static, long holds | low key, overcast or window | desaturated, cool | 180° | 1.85 |
 | Revelation | MS → CU | eye | 35–50 mm | rack focus to the discovery | slow push, or the one dolly-zoom | the light changes mid-shot | the palette shifts from this shot on | 180° | same, or opens wider |
 
-**The rulebook** is the CAMERA line of `SPEC.md` (§8), 5–10 rules: the frame ratio, the zoom levels (2–3: the wide, the medium, the close, the closest reserved for the climax), the movement rule ("static unless the inner state changes, then a slow push"), the light rule (motivated sources only, short-side key, ratio), the palette (2–3 hues + 1 accent) and its arc across sections, the texture (grain, halation), the shutter, and what is never shown. **Rule breaks** are logged under it with their story reason, one per turning point at most: a change of rules *is* the turning point (the first handheld shot when control is lost, the first colour shift, the frame ratio opening wider at a release).
+**The rulebook** is the CAMERA line of `SPEC.md` (§8), 5–10 rules: the frame ratio, the zoom levels (2–3: the wide, the medium, the close, the closest reserved for the climax), the movement rule ("static unless the inner state changes, then a slow push"), the light rule (motivated sources only, short-side key, ratio), the palette (2–3 hues + 1 accent) and its arc across sections, the texture (grain, halation), the shutter, and what is never shown. **Rule breaks** are logged under it with their story reason, one per turning point at most: a change of rules *is* the turning point (the orbit turning faster when control is lost, the first colour shift, the frame ratio opening wider at a release).
 
 **Structure:** establish wide, tighten as the feeling rises, keep the tightest size and the longest lens for the climax; rhyme the final image with the opening composition so the change in meaning is felt; one idea per shot (two ideas = two shots); hold a beat after the line — the reaction is often the story; keep key action off screen when sound can carry it.
 
@@ -287,7 +287,7 @@ Apply them in the finisher pass.
 
 | Preset | After | Ratio | Lens · move | Light · colour |
 |---|---|---|---|---|
-| intimate-realism | *The Florida Project*, *American Honey* | 1.37 / 1.85 | 28–35 mm close at child's-eye height, handheld 1, follow | open shade; saturated pastels, fine grain |
+| intimate-realism | *The Florida Project*, *American Honey* | 1.37 / 1.85 | 28–35 mm close at child's-eye height, a slow one-way orbit, follow | open shade; saturated pastels, fine grain |
 | austere-portrait | *Ida* | 1.37 | 35–50 mm, deep, static | soft, diffuse; subjects low under huge headroom |
 | subjective-tunnel | *Son of Saul* | 1.37 | one 40 mm, very shallow, follows behind the head | available light; the background horror out of focus, carried by sound |
 | lyrical-colour | *Moonlight* | 2.39 | close, slow arcs | glowing skin, saturated backlight; cyan and magenta, deep blacks |
