@@ -12,7 +12,8 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
   `selfcheck.mjs`. `examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
-  as data, parallax, cinema). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
+  as data, parallax, cinema). `engine/anatomy/`: Anatomy's geometry audit (MIT, vendored unchanged) and `world.mjs`,
+  which proves an Express world (`scripts/iso_audit.mjs`). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
 - `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
   committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).

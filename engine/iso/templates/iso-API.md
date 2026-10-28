@@ -15,6 +15,10 @@ gone: the other groups wait on that line before a snapshot), furnished and true:
 by the parts that make it known, each person a `figure`; every group imports it and never copies,
 redraws or edits it (a missing object goes in the report). A group's `values(t)` returns `{ ...VALUES, key: … }` for
 the keys it animates.
+**Prove the world** once it is written: `node <skill>/scripts/iso_audit.mjs . --ground <slab>` (0 clean; 3 names a part
+that floats, two objects drawing through each other, a pipe through a solid or ending in mid-air; 2 WARN, rerun). Every
+part rests on another part down to the ground (feet, brackets, a base, never a gap); objects touch, never sink into each
+other; a pipe or cable ends on a port and runs beside structure, held by brackets; fix the geometry, never nudge it by eye.
 `build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
 - `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, parts: [part, …] }`
 - `part = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides off with
