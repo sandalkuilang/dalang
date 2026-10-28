@@ -29,6 +29,18 @@ try {
   assert.match(read(d, "src/compositions/end.tpl.html"), /G1 = window\.NARRATION_DURATION/);
   assert.match(read(d, "src/compositions/end.tpl.html"), /illustration: "DRAWING"/);
   for (const f of ["iso.js", "build.js", "parallax.js", "cinema.js", "editorial.js"]) assert.ok(fs.existsSync(path.join(d, "assets", f)), `assets/${f} copied`);
+  // one shared world, imported by every group (never one copy per group), and each builder's whole brief
+  assert.match(read(d, "assets/world.js"), /export const WORLD/, "the isometric look's one world is written");
+  for (const g of ["intro", "body", "end"]) {
+    assert.match(read(d, `src/compositions/${g}.tpl.html`), /import \{ COLORS, WORLD, VALUES \} from "\.\/assets\/world\.js"/, `${g} imports the shared world`);
+    assert.doesNotMatch(read(d, `src/compositions/${g}.tpl.html`), /const WORLD =/, `${g} holds no copy of the world`);
+  }
+  const bIntro = read(d, "review/builder-intro.md"), bBody = read(d, "review/builder-body.md");
+  assert.match(bIntro, /beats hook\)/, "a brief names its own beats");
+  assert.match(bIntro, /fill `assets\/world\.js` once/, "the first group's builder writes the world");
+  assert.match(bBody, /written by the `intro` builder: import it, never copy/, "every other builder imports it");
+  assert.match(bBody, /cues\.mjs \. --beats middle/, "a brief names its cue table");
+  assert.match(bBody, /No engine source in `assets\/`/, "a brief forbids reading engine sources");
   // the engine's origin for check_assets, the padded voice, and a music bed by default with its licence row
   assert.ok(JSON.parse(read(d, "assets/.engine.json")).some((r) => r.file === "iso.js" && r.licence === "MIT"), "engine files listed with their licence");
   assert.match(host, /src="audio\/voice\.wav"/, "the host plays the padded voice");

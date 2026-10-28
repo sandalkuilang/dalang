@@ -3,12 +3,16 @@
 Read this, `SPEC.md` and the templates. Never print the engine's sources: every signature is here. Times are absolute
 narration seconds from cues; lengths in metres, z up; the frame is 1080 × 1920 (16:9: 1920 × 1080, pass W, H).
 
-**Setup (once, by the first group's builder):** `cp <skill-dir>/engine/iso/*.js <skill-dir>/engine/three/editorial.js assets/`.
-Host: `<skill-dir>/engine/three/templates/host.tpl.html` → `src/index.tpl.html`; add the language's Google Fonts `<link>`
-(Fredoka + Nunito Sans for `isometric-world`) to its `<head>` and pass `fonts`/`accent`/`ink` to `captions()`. Never
-search the disk for fonts. Group: `iso-group.tpl.html` beside this card → `src/compositions/<group>.tpl.html`.
+**Already written by `scaffold.mjs`:** the engine in `assets/`, the host `src/index.tpl.html` (fonts and captions
+included), each group's `src/compositions/<group>.tpl.html` and the shared `assets/world.js`. Never copy, rewrite or
+search the disk for them.
 
-## The world (`build.js`)
+## The world (`assets/world.js`, `build.js`)
+One world for the whole film: `assets/world.js` exports `COLORS` (the SPEC palette, one base per material), `WORLD` (the
+`build()` specs of every object any group shows) and `VALUES` (the resting value of every key a spec names). The first
+group's builder fills it once from `SPEC.md` OBJECTS, first of all its work; every group imports it and never copies,
+redraws or edits it (a missing object goes in the report). A group's `values(t)` returns `{ ...VALUES, key: … }` for
+the keys it animates.
 `build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
 - `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, parts: [part, …] }`
 - `part = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides off with
