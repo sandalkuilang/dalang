@@ -26,14 +26,14 @@ const has = (base, rel) => fs.existsSync(path.join(base, rel));
 
 const BRIEF = [
   "# Brief", "", "- Topic: how a siphon works", "- Platform: YouTube Shorts", "- Ratio & resolution: 9:16, 1080×1920", "- fps: 30",
-  "- Narration language: en", "- Angle: Step by step", "- Realism: stylized", "- Look: G. Stylised 3D diorama", "- Energy: Punchy social",
+  "- Narration language: en", "- Angle: Step by step", "- Look: G. Stylised 3D diorama", "- Energy: Punchy social",
   "- Audience: General public", "- Voice engine: VoiceStudio", "- Voice model: omnivoice", "- Voice: narrator-a", "- Duration: 60 s",
   "- Signoff: see you next time", "",
 ].join("\n");
 const OVERLAYS = 'import { drawCaption } from "../assets/engine/type.js"; export const hud = 1;\n';
 const PALETTE = '{"ground":"#f3ede4"}\n';
 const FILM = 'import * as THREE from "../assets/engine/three-vendor.js"; const s = new THREE.Scene();\n';
-const SET = 'import { bakeCached } from "../assets/engine/physics.js"; bakeCached();\n';
+const SET = 'import { makeKit } from "../assets/engine/kit.js"; makeKit();\n';
 
 const fixture = () => {
   const p = mkdir("src");

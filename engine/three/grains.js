@@ -6,7 +6,7 @@ import { surface } from "./surfaces.js";
 // its separate grains, at the surface and at a cut. A smooth slab with a noise texture reads as foam or gravel, and
 // capsules read as pills. Grains here are plump ellipsoids (angular stones for sugar, sand and gravel) at their real
 // size, in two or more jittered layers, each its own tone, over a body whose faces wear the same packed-grain texture
-// (surfaces.js `grains`). It is static dressing: a pour or a spill is a Rapier bake of a few hundred grains, not this.
+// (surfaces.js `grains`). It is static dressing, not a pour or a spill.
 //
 // grains(k, { preset | l, t, w, shape, colors, rough, at, radius | width + depth, bottom, height, layers = 2,
 //   jitter = 0.5, cut: { normal, offset }, instances = true, max = 40000, seed = 9 })

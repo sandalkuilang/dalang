@@ -1,7 +1,7 @@
 import { THREE } from "./three-vendor.js";
 
-// Geometry of transmissions: what gear(), belt() and chain() (mechanism.js) tie together, drawn at the real size. The couplings
-// carry the motion in the bake; this file only shapes it.
+// Geometry of transmissions: gears, belts and chains drawn at the real size, and the ratios that drive them: a part's
+// angle comes from its driver's by the tooth ratio (angleOf, phaseOf), so a train turns as one, never animated wheel by wheel.
 //   - involute() / meshing() / gearGeometry(): a spur gear at a real module and tooth count, and the centre distance and phase at
 //     which two of them mesh (an interfering pair is refused, with the fix named).
 //   - loopPath() / openLength() / centreFor() / linkPoses(): the closed path of a belt or chain around its wheels, the centre

@@ -310,7 +310,7 @@ function jag(p, q, levels, seed) {
 // Sparks are ballistic points flung from the middle in real time (closed form, gravity G, no drag), born at t0 at
 // 1–4 m/s over the upper hemisphere, cooling from `sparkTemp` K with time constant `cool` s; they show by black-body
 // colour until they cool below the Draper point; `ground` (scene units, height) stops them. These speeds and the
-// 2000 K are typical, not cited: override from the event. `events` is the sfx.js event row of the flash.
+// 2000 K are typical, not cited: override from the event. `events` is the event row of the flash.
 // `k` (the kit) is accepted for symmetry with the other builders and not needed. Returns
 // { group, light, channel, sparks: { points }, at(t), on(t), events, label }; `at` → { on, intensity, sparksLit }.
 export function arc(k, { from, to, t0, dur, energy, efficacy, timeScale = 1, fps = 30, seed = 1, branches = 3, sparks = 40, sparkSpeed = [1, 4], sparkTemp = 2000, cool = 0.25, ground } = {}) {

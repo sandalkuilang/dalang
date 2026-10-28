@@ -30,7 +30,7 @@ const build = (rows, { nocam = false, step = 2.5 } = {}) => {
   const at = {};
   rows.forEach((r, i) => {
     const k = i + 1;
-    const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow push-in, the valve fills the frame", act: "water flows out of the valve (3D, Rapier)", ...r };
+    const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow push-in, the valve fills the frame", act: "water flows out of the valve (3D, physics)", ...r };
     at[k] = lines.length + 1;
     const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, "cut", "-", "-"];
     lines.push(`| ${cells.join(" | ")} |`);
@@ -72,7 +72,7 @@ const check = (rows, args = [], opts, brief) => {
   let r = check(clean(12, three), [], { step: 2 });
   assert.equal(r.code, 1, r.out); assert.match(r.out, /3 of 12 rows/); assert.equal(found(r.out).length, 1, r.out);
   r = check(clean(12, { 2: text }), [], { step: 2 }); assert.equal(r.code, 0, r.out);
-  r = check(clean(12, { 2: { ...text, act: "headline built as a three.js mesh, Rapier drop" }, 5: text }), [], { step: 2 });
+  r = check(clean(12, { 2: { ...text, act: "headline built as a three.js mesh, physical drop" }, 5: text }), [], { step: 2 });
   assert.equal(r.code, 0, r.out);
   r = check(clean(12, three), ["--energy", "punchy"], { step: 1 });
   assert.equal(r.code, 0, r.out); // 3 of 12 = 25 %, at the punchy limit

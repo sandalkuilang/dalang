@@ -232,9 +232,7 @@ async function media() {
     if (bad.length) stale = bad.join(', ');
   } catch { stale = lines.find(l => /skill.*(out of date|missing)/i.test(l))?.trim() || null; }
   const out = [
-    // No image or music generator in the default path (references/brief.md): footage, photos, three.js and licensed tracks. HeyGen spends metered credits, so it is listed as paid.
-    // Real motion footage: Pexels and Pixabay have free APIs (commercial-OK licences) but need a key the user signs up for.
-    ['Stock video', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? 'OK' : 'WARN', process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY ? `${['PEXELS_API_KEY', 'PIXABAY_API_KEY'].filter(k => process.env[k]).join(', ')} set (free, real motion footage)` : 'no key — asked in Brief Call 0: a free PEXELS_API_KEY (pexels.com/api) or PIXABAY_API_KEY; real footage is the cheapest way to make the subject move (references/visual-direction.md §1 rung 2)'],
+    // No image or music generator in the default path (references/brief.md): licensed stills, three.js and licensed tracks. HeyGen spends metered credits, so it is listed as paid.
     ...(heygen ? [['HeyGen (paid)', 'PAID', 'signed in — metered credits; optional, only if the user asks']] : []),
   ];
   // Forced aligner (tts_timestamps.mjs): which languages have a local model.

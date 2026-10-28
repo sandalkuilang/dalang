@@ -10,8 +10,8 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   read lazily by the agent.
 - `scripts/`: the pipeline's tools (`preflight.mjs`, `tts_timestamps.mjs`, `state.mjs`, QC scripts).
   `scripts/gate.sh` is the gate.
-- `engine/three/`: the generic three.js + Rapier engine copied into each video project (`build.mjs`), with
-  `selfcheck.mjs` and `bake.mjs`. `examples/` holds ready pieces built on it.
+- `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
+  `selfcheck.mjs`. `examples/` holds ready pieces built on it.
 - `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
   committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
@@ -37,13 +37,14 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - **Behaviour first, then docs in step.** A change to what the agent does updates every place that says it:
   `SKILL.md`, the step's `references/*.md`, `README.md`, `docs/`, and the CHANGELOG's `Unreleased` section
   (Added / Changed / Fixed / Removed). Semantic versions follow the table at the top of `CHANGELOG.md`.
-- **Motion is three.js, physical and caused.** No local image or video generation models. Things that touch, fall
-  or collide are simulated (Rapier, baked once and replayed: `bakeCached` + `bake.mjs`), never keyframed; nothing
-  floats, drifts or loops without a visible cause. Real scale, real materials, real mass. Express mode (the default,
-  `references/express.md`) is the one exception: 2.5D illustration in HTML/SVG, motion still caused (gravity easing,
-  contact squash), true shapes, and a hard budget of 20 minutes of work per film.
-- **Realism is the user's choice** (hyperreal or stylized, Brief Step 1). Stylized is first-class and still true
-  to how the subject looks and works.
+- **Motion is light, physical and caused.** No local image or video generation models, no physics engine. Things
+  that touch, fall or collide are posed from their cause as a pure function of t (fall time from the place's gravity,
+  an eased landing with contact squash, stops, tooth ratios); nothing floats, drifts or loops without a visible
+  cause. Real scale, real materials, real mass. Studio is three.js 3D; Express (the default, `references/express.md`)
+  is 2.5D illustration in HTML/SVG with the same caused motion, true shapes, and a hard budget of 20 minutes of work
+  per film.
+- **Stylized only.** No hyperreal look, no filmed footage, no photoreal render, no generated still or clip. A
+  film is drawn, diorama, x-ray or toon, and always true to how the subject looks and works.
 - **Never read "unknown" as "missing".** A tool that cannot read a state (timeout, error, odd reply) reports WARN
   and says to rerun. It never reports MISSING, never says "none" and never suggests installing.
 - **Installs only with consent.** The skill never installs a model, app or key on its own. It states size and
