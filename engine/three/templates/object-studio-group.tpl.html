@@ -1,0 +1,46 @@
+<!-- object-studio group __GROUP__: copy to src/compositions/__GROUP__.tpl.html, replace __GROUP__, __FROM__ and __TO__
+     (beat names), then build the set, the shots and the overlays from SPEC.md. Every time is a cue (w, wc, b). -->
+<template id="__GROUP__-template">
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #ECECEA; }
+    #__GROUP__-cv { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  </style>
+  <div id="root" data-composition-id="__GROUP__" data-start="0" data-duration="{{__TO__ - __FROM__}}" data-width="1080" data-height="1920">
+    <canvas id="__GROUP__-cv" width="1080" height="1920"></canvas>
+  </div>
+  <script type="module">
+    import { THREE, makeSet, mat, cam, contact, backdrop, w, wc, b } from "./assets/objectStudio.js";
+    import { makeOverlay } from "./assets/editorial.js";
+    // import the shared models SPEC names (one owner each), e.g. import { makeThing } from "./assets/thing.js";
+
+    const G0 = b("__FROM__"), G1 = b("__TO__");
+    const canvas = document.getElementById("__GROUP__-cv"), host = canvas.parentElement;
+    const S = makeSet(canvas, { G0, G1 });
+
+    // the set, in metres: subjects into S.world, then the light
+    // S.world.add(thing.group); S.scene.add(contact([0, 0, 0], { w: 0.2, d: 0.2 }), backdrop([0, 0.2, -0.5], { w: 1.2, h: 1.2 }));
+    S.light();
+    S.audit("__GROUP__");
+
+    // stations: cam(position, target, mm, { dof: { fstop, focus } }) — a wide at 35 mm f5.6, a close at 85 mm f1.4-2.8
+    const st = {
+      wide: cam([0.6, 0.45, 0.9], [0, 0.15, 0], 35, { dof: { fstop: 5.6, focus: 1.1 } }),
+      close: cam([0.25, 0.25, 0.35], [0, 0.18, 0], 85, { dof: { fstop: 2, focus: 0.45 } }),
+    };
+    // one row per storyboard row; camera moves of camera.js go in { moves: [{ from, to, pose(t) }] }
+    const SHOTS = [
+      { name: "1", beat: "__FROM__", action: "act", transition: "cut", camera: [{ station: "wide" }, { station: "close", at: "__FROM__", arrive: "__FROM__.end", ease: "inOut", lift: 0 }] },
+    ];
+    S.shots(SHOTS, { stations: st, parts: {}, actions: ["act"], at: (t) => { /* pose the subjects from t */ } }, { moves: [] });
+
+    // overlays in the narration language (SPEC OVERLAYS); the illustration label is required
+    const ov = makeOverlay(host, { prefix: "__GROUP__", G0, illustration: "__ILLUSTRATION__" });
+    // ov.headline({ kicker: "KICKER", text: "Sentence [accent]", from: b("__FROM__"), to: b("__TO__") });
+    S.loop({ overlay: ov, key: "__GROUP__" });
+
+    const tl = gsap.timeline({ paused: true });
+    tl.set({}, {}, G1 - G0);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["__GROUP__"] = tl;
+  </script>
+</template>

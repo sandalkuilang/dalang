@@ -85,6 +85,15 @@ try {
   ok(proj, "approve", "4");
   at(proj, 8);
   at(proj, 2, ["--step", "2"]);
+  // --print: the same sections as text in one call, each headed by its file and first line, no sed commands
+  {
+    const p = run("next", proj, "--step", "6", "--print");
+    assert.equal(p.code, 0, p.err);
+    assert.doesNotMatch(p.out.split(/\nLessons for|\nLook up when needed/)[0], /^sed -n /m, "the Read now block is text, not commands");
+    const heads = [...p.out.matchAll(/^===== (\S+):(\d+)$/gm)].map((m) => `${m[1]}:${m[2]}`);
+    assert.deepEqual(heads, json.steps[6].read.map((e) => `${e.file}:${e.from}`), "--print prints every section of the step");
+    for (const e of json.steps[6].read) if (e.heading) assert.ok(p.out.includes(`\n${e.heading}\n`), `${e.heading} text printed`);
+  }
   const bad = run("next", proj, "--step", "9");
   assert.equal(bad.code, 1, "--step 9 is refused");
   assert.match(bad.err, /--step must be 0–8/);

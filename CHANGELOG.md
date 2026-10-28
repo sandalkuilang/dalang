@@ -30,6 +30,52 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Run metrics at the hand-off** (`state.mjs metrics`, `qc.md` Step 8, `express.md` Step 7): start, end and total time,
+  minutes per step from `PRODUCTION.md`, the output folder and its final files, and each subagent's job, model, effort and tokens; `tokens.mjs` now records the
+  effort each subagent was asked for and its clock times (`tests/tokens.mjs`).
+- **Lean subagent types** (`agents/dalang-{builder,checker,research}.md`, installed by `workspace.mjs init --yes`, removed
+  by `undo`): each has only the tools its job uses, so every turn starts at ~15K tokens of context instead of ~50K for a
+  general-purpose subagent (measured: 14.4K vs 48–58K). The builder's working rules live in its definition, so briefs
+  stay short. `SKILL.md` uses them whenever they are listed.
+- **`scaffold.mjs`: the film's frame is written by code, not a model.** From `narration.txt`'s beat names, before the
+  voice is done: the engine into `assets/`, the host with every group on the narration's times (the first from 0, the
+  last to the end), each group's template with its beats filled. Builders only Edit their group's data, none writes
+  boilerplate or waits on another to copy the engine (`tests/scaffold.mjs`).
+- **Isometric templates and API card** (`engine/iso/templates/iso-group.tpl.html`, `iso-API.md`): the main look now has
+  what object-studio has, a working group (world as `build()` specs, keyed camera, parallax layers, finish, overlays
+  anchored to world points, timeline) and every signature on one page. Builders of a test film each read the engine
+  sources and the `/hyperframes` skill, then wrote 20–32 KB groups from scratch; a fix round later read all three whole.
+  The host template is shared by both looks (`engine/three/templates/host.tpl.html`, was `object-studio-host`).
+- **Overlay fonts per language** (`editorial.js`): `makeOverlay` and `captions` take `fonts: { display, body, mono }`;
+  left out, the object-studio type is unchanged.
+- **`state.mjs next --print`** prints the step's sections as text in one call; the main agent of a test film spent 14 of
+  its 58 turns reading sections one `sed` at a time and checking the skill version by hand.
+
+### Changed
+
+- **object-studio subject box** (`looks.md`): on 9:16 the subject and its action stay between 18 % and 60 % of the
+  height, above the caption band; cards beside it, never over it.
+- **Material effects get two snapshot passes**, then are logged and left.
+- **Aperture follows the shot size** (`camera-motion.md`, `looks.md`): a wide at f5.6, a zoom-in or macro at f1.2–2.8 with
+  the background blurred as the lens would.
+- **Builders spend far fewer tokens** (`express.md` Step 6, `tokens.mjs`, `engine/three/templates/`): measured on a test
+  film, two builders spent 21M tokens: a third on engine and example sources printed in their first turns and carried
+  through every later one, a third on the ~50K session base paid by each of 115 turns, a fifth on files written whole
+  and rewritten, 3 % on screenshots. Now: a one-page `object-studio-API.md` holds every kit signature (no source is
+  read), host and group templates, about 25 turns (40 at most, `tokens.mjs` WARNs from BRIEF.md `mode: express`),
+  150K context, write once then edit, one Bash per check round with outputs cut to errors, stills as one contact sheet.
+  Fix rounds, which cost more than the builds: one per group, every finding of the round at once, all groups in
+  parallel, 12 turns, only the changed lines read; Express fix rounds stay on the mid model.
+- **Seams by construction** (`express.md` Parallel build): `SPEC.md` gives each group's first and last camera pose and
+  one `build()` spec per shared object, so groups meet without an assembly builder reading every group.
+- **Few turns in the main agent too** (`SKILL.md`, `express.md`): calls that do not need each other's output go in one
+  message, the skill version comes from preflight, and Express has a turn schedule, about 25 and 40 at most
+  (`tokens.mjs` WARNs); the main agent of a test film took 58 and was two thirds of the remaining cost.
+- **Preflight offers the lean subagent types** even in a folder already lean (`workspace.mjs status --json` gives
+  `agentsMissing`).
+
 ## [3.3.0] - 2026-10-28
 
 ### Added

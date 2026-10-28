@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>__TITLE__</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script src="audio/beats.js"></script>
+<script src="audio/captions.js"></script>
+<style>
+  /* The host, both looks: the groups (sub-compositions), karaoke captions on top, the narration. Copy to src/index.tpl.html,
+     replace __TITLE__, one group line per SPEC group (data-start / data-duration from beats), then fill_times.
+     isometric-world: pass the language's fonts and colours to captions() and set the background to its ground. */
+  html, body { margin: 0; background: #ECECEA; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #ECECEA; font-family: "Inter", sans-serif; }
+  #captions { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 40; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="{{END}}" data-width="1080" data-height="1920" data-fps="30">
+  <!-- one line per group: <div id="g" data-composition-id="g" data-composition-src="compositions/g.html" data-start="{{beatA}}" data-duration="{{beatB - beatA}}" data-track-index="1"></div> -->
+  <div id="captions" class="clip" data-start="0" data-duration="{{END}}" data-track-index="6" data-track-kind="captions" data-layout-allow-caption-zone></div>
+  <audio id="vo" class="clip" src="audio/narration.wav" data-start="0" data-duration="{{END}}" data-volume="1" data-track-index="2"></audio>
+</div>
+<script type="module">
+import { captions } from "./assets/editorial.js";
+const END = window.NARRATION_DURATION;
+const cap = captions(document.getElementById("captions"), window.CAPTIONS, { prefix: "cap" });
+const tl = gsap.timeline({ paused: true });
+tl.set({}, {}, END);
+window.__timelines = window.__timelines || {};
+window.__timelines["main"] = tl;
+cap.update(0);
+window.addEventListener("hf-seek", (e) => cap.update(e.detail.time));
+</script>
+</body>
+</html>

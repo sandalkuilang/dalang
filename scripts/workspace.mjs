@@ -77,6 +77,11 @@ let localFiles = []; // the settings.local.json files items() found and read (th
 const sha = b => createHash('sha256').update(b).digest('hex');
 const q = s => (/[^\w@%+=:,./-]/.test(s) ? `'${s.replace(/'/g, `'\\''`)}'` : s); // shell-safe in a printed command
 const self = fileURLToPath(import.meta.url);
+// DALANG's own subagent types (agents/dalang-*.md): a builder, checker or researcher with only the tools it uses starts at
+// ~15K tokens of context instead of ~50K for general-purpose, on every turn. init --yes copies them to <folder>/.claude/agents.
+const AGENTS = path.join(path.dirname(self), '..', 'agents'), agentDir = path.join(dir, '.claude', 'agents');
+const agentNames = existsSync(AGENTS) ? readdirSync(AGENTS).filter(f => /^dalang-.+\.md$/.test(f)) : [];
+const agentsStale = () => agentNames.filter(f => !existsSync(path.join(agentDir, f)) || !readFileSync(path.join(agentDir, f)).equals(readFileSync(path.join(AGENTS, f))));
 
 // The git repository a session started in `start` belongs to. Claude Code (v2.1.211+) keeps settings.local.json at its root
 // (a worktree: the main checkout's root) and reads it as well as the folder's own. Returns { local, keys } or null:
@@ -210,10 +215,12 @@ if (cmd === 'status') {
   let list;
   try { list = items(); } catch (e) { fail(e); }
   const toOff = list.filter(i => i.on && !i.video), lean = toOff.length === 0;
-  if (asJson) console.log(JSON.stringify({ dir, lean, items: list, overridden: list.filter(i => i.overridden).map(i => i.name) }));
+  if (asJson) console.log(JSON.stringify({ dir, lean, items: list, overridden: list.filter(i => i.overridden).map(i => i.name), agentsMissing: agentsStale() }));
   else {
     for (const i of list) console.log(line(i));
     console.log(`Lean: ${lean ? 'yes' : 'no'} — ${toOff.length} item${toOff.length === 1 ? '' : 's'} a video never uses ${toOff.length === 1 ? 'is' : 'are'} on`);
+    const stale = agentsStale();
+    console.log(`Agents: ${stale.length ? `${stale.join(', ')} not installed or out of date (init --yes installs them)` : 'dalang-* installed'}`);
   }
 }
 
@@ -222,9 +229,13 @@ if (cmd === 'init') {
   try { list = items(); } catch (e) { fail(e); }
   const toOff = list.filter(i => i.on && !i.video);
   for (const i of list) console.log(line(i, !i.on ? 'was off' : i.video ? 'keep' : 'off'));
-  if (!toOff.length) { console.log('already lean: nothing to switch off.'); process.exit(0); }
+  const stale = agentsStale();
+  if (stale.length) console.log(`agents  ${stale.join(', ')} → ${agentDir} (lean subagent types)`);
+  if (!toOff.length && !stale.length) { console.log('already lean: nothing to switch off.'); process.exit(0); }
   const apply = `node ${q(self)} init ${q(dir)}${keepArg.length ? ` --keep ${q(keepArg.join(','))}` : ''} --yes`;
-  if (!yes) { console.log(`\nNothing written. Ask the user; to apply (only ${path.join(dir, '.claude', 'settings.json')} changes): ${apply}`); process.exit(0); }
+  if (!yes) { console.log(`\nNothing written. Ask the user; to apply (only ${path.join(dir, '.claude', 'settings.json')}${stale.length ? ' and the dalang-*.md agents' : ''} change): ${apply}`); process.exit(0); }
+  if (stale.length) { mkdirSync(agentDir, { recursive: true }); for (const f of stale) copyFileSync(path.join(AGENTS, f), path.join(agentDir, f)); console.log(`Installed ${stale.length} agent type(s) in ${agentDir}.`); }
+  if (!toOff.length) { console.log(`Takes effect in the next Claude session started in ${dir}.`); process.exit(0); }
   let cur;
   try { cur = readJson(proj); } catch (e) { fail(e); }
   if (cur && ((cur.enabledPlugins !== undefined && !isObj(cur.enabledPlugins)) || (cur.deniedMcpServers !== undefined && !Array.isArray(cur.deniedMcpServers))))
@@ -258,6 +269,9 @@ if (cmd === 'init') {
 }
 
 if (cmd === 'undo') {
+  const ours = agentNames.filter(f => existsSync(path.join(agentDir, f)));
+  ours.forEach(f => rmSync(path.join(agentDir, f)));
+  if (ours.length) console.log(`removed ${ours.length} dalang agent type(s) from ${agentDir}`);
   let owned;
   try { owned = bakState(); } catch (e) { fail(e); }
   if (owned === 'none') { console.log('nothing to undo (no .claude/settings.json.bak)'); process.exit(0); }

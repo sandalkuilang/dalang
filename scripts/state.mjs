@@ -15,15 +15,18 @@
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
 //                                                    starts where the day's last logged line ended; refuses a
 //                                                    Step 6 line until storyboard.md exists and gate 3 is approved
-//        node state.mjs next [dir] [--step 0-8]   -> where the video stands, and the reading list of that step:
-//                                                    the exact sections to read, as ready commands
+//        node state.mjs next [dir] [--step 0-8] [--print]
+//                                                 -> where the video stands, and the reading list of that step:
+//                                                    the exact sections to read, as ready commands (--print: their text)
+//        node state.mjs metrics [dir]           -> the run in numbers for the hand-off (review/metrics.md): start, end, output folder,
+//                                                 total, minutes per step, each subagent's model, effort and tokens
 //        node state.mjs reading [--skill <dir>] [--json]
 //                                                 -> checks the reading table: every heading exists, each section
 //                                                    is ≤ 8 KB, the main-context reading of Steps 0–8 ≤ 60 KB
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,8 +46,9 @@ const flag = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)
 const by = flag('--by') ?? 'user', note = flag('--note');
 const stepGiven = args.includes('--step'), stepArg = flag('--step'), skillArg = flag('--skill');
 const json = args.includes('--json'); if (json) args.splice(args.indexOf('--json'), 1);
-const sub = ['approve', 'check', 'log', 'next', 'reading'].includes(args[0]) ? args[0] : null;
-const [cmd, gateArg, dirArg] = sub === 'next' ? ['next', null, args[1]] : sub === 'reading' ? ['reading', null, null] : sub ? args : [null, null, args[0]];
+const print = args.includes('--print'); if (print) args.splice(args.indexOf('--print'), 1);
+const sub = ['approve', 'check', 'log', 'metrics', 'next', 'reading'].includes(args[0]) ? args[0] : null;
+const [cmd, gateArg, dirArg] = sub === 'next' || sub === 'metrics' ? [sub, null, args[1]] : sub === 'reading' ? ['reading', null, null] : sub ? args : [null, null, args[0]];
 const dir = dirArg ?? '.';
 const file = path.join(dir, 'state.json');
 const state = existsSync(file) && cmd !== 'reading' ? JSON.parse(readFileSync(file, 'utf8')) : { approvals: {} };
@@ -285,6 +289,38 @@ if (cmd === 'approve') {
   const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg}`;
   writeFileSync(p, text.trimEnd() + '\n' + row + '\n');
   console.log(row);
+} else if (cmd === 'metrics') {
+  // The run in numbers, for the hand-off: start, end and total from PRODUCTION.md's "HH:MM–HH:MM | step | …" lines (one
+  // row per step), the output folder and its final files, and every subagent's job, model, effort, turns and tokens
+  // from tokens.mjs. Writes review/metrics.md.
+  // No step lines: NOT CHECKED (exit 2), never "0 minutes"; a transcript it cannot read: tokens "not checked".
+  const p = path.join(dir, 'PRODUCTION.md'), steps = [];
+  let day = null;
+  for (const l of (existsSync(p) ? readFileSync(p, 'utf8') : '').split('\n')) {
+    const d = l.match(/^## (\d{4}-\d\d-\d\d)/); if (d) day = d[1];
+    const m = l.match(/^(\d\d:\d\d)\s*[–-]\s*(\d\d:\d\d)\s*\|\s*([^|]+?)\s*\|/); if (m) steps.push({ day, from: m[1], to: m[2], step: m[3] });
+  }
+  if (!steps.length) { console.error('NOT CHECKED: no "HH:MM–HH:MM | step | …" lines in PRODUCTION.md (state.mjs log writes them): rerun after logging'); process.exit(2); }
+  const at = (d, hm) => new Date(`${d ?? '1970-01-01'}T${hm}:00`).getTime();
+  const mins = (a, b) => Math.round(((b - a) / 60000 + 1440 * 2) % 1440);
+  const t0 = at(steps[0].day, steps[0].from), t1 = at(steps.at(-1).day, steps.at(-1).to);
+  const total = steps[0].day && steps.at(-1).day ? Math.round((t1 - t0) / 60000) : mins(t0, t1);
+  const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'tokens.mjs'), dir, '--json'], { encoding: 'utf8' });
+  let tk = null; try { tk = JSON.parse(r.stdout.slice(r.stdout.indexOf('{'), r.stdout.lastIndexOf('}') + 1)); } catch { /* not checked */ }
+  const M = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`, hm = iso => iso ? new Date(iso).toLocaleString('sv').slice(11, 16) : '?';
+  const made = readdirSync(dir).filter(f => /^final.*\.mp4$|^POST\.md$|^CREDITS\.md$/.test(f)).sort();
+  const out = ['## Run metrics', '', `Start ${steps[0].from} · End ${steps.at(-1).to} · Total ${total} min`, '', `Output folder: ${path.resolve(dir)}${made.length ? ` (${made.join(', ')})` : ' (no final file yet)'}`, '', '| Step | Start | End | Min |', '|---|---|---|---|',
+    ...steps.map(s => `| ${s.step} | ${s.from} | ${s.to} | ${mins(at(s.day, s.from), at(s.day, s.to))} |`), ''];
+  if (!tk) out.push('Tokens: not checked (tokens.mjs could not read the transcripts: rerun)');
+  else {
+    out.push('| Agent (job) | Model | Effort | Turns | Tokens | Start | End |', '|---|---|---|---|---|---|---|',
+      `| main${tk.main.shared ? ' (whole session, shared)' : ''} | ${tk.main.model ?? '?'} | session | ${tk.main.turns} | ${M(tk.main.total)} | ${hm(tk.main.start)} | ${hm(tk.main.end)} |`,
+      ...[...tk.subagents].sort((a, b) => String(a.start).localeCompare(String(b.start))).map(a => `| ${a.desc} | ${a.model ?? '?'} | ${a.effort} | ${a.turns} | ${M(a.total)} | ${hm(a.start)} | ${hm(a.end)} |`),
+      '', `Subagents: ${M(tk.subagentTotal)} tokens in ${tk.subagents.length} agents`);
+  }
+  const md = out.join('\n') + '\n';
+  try { mkdirSync(path.join(dir, 'review'), { recursive: true }); writeFileSync(path.join(dir, 'review', 'metrics.md'), md); } catch (e) { console.error(`WARN: review/metrics.md not written (${e.code || e.message})`); }
+  process.stdout.write(md);
 } else if (cmd === 'check') {
   if (!GATES[Number(gateArg)]) { console.error('FAILED: check needs a gate 1–4'); process.exit(1); }
   const s = status(Number(gateArg));
@@ -313,7 +349,10 @@ if (cmd === 'approve') {
   // an entry that cannot be found means this skill copy is out of date: say so, print the rest
   r.errors.filter(e => !/over the \d+ KB|budget/.test(e)).forEach(e => console.log(`WARN: ${e.replace(/^FAILED: /, '')} — the skill copy may be out of date; rerun scripts/gate.sh --fast in the skill repo`));
   console.log(`Read now (${kb(sum(s.read))} KB):`);
-  s.commands.read.forEach(c => console.log(c));
+  // --print: the sections' text itself, so a step's reading is one call instead of one per section
+  if (print) s.read.map(e => e.lines ? e : locate(SKILL, [e.file, e.heading])).filter(e => !e.error)
+    .forEach(e => console.log(`\n===== ${e.file}:${e.from}\n${e.lines.slice(e.from - 1, e.to).join('\n')}`));
+  else s.commands.read.forEach(c => console.log(c));
   if (s.lessons.length) {
     console.log(`\nLessons for Step ${now} (one in full: grep -n -i '<word>' ${shq(path.join(SKILL, 'references', 'lessons.md'))}):`);
     s.lessons.forEach(h => console.log(`  ${h}`));

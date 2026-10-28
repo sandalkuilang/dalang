@@ -150,7 +150,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 
 ```
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
-references/       one § at a time: `state.mjs next` prints each step's § commands; the gate keeps each ≤ 8 KB
+references/       one § at a time: `state.mjs next --print` prints each step's § text in one call; the gate keeps each ≤ 8 KB
   brief.md             steps 0–2: setup, the brief questions, a reference
   script-voice.md      steps 3–4: promise and takeaway, writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
@@ -165,11 +165,12 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   evals.md             golden briefs to run before and after changing the skill
 scripts/
   preflight.mjs        whole environment in one call
-  workspace.mjs        lean video folder: plugins / MCP servers a video never uses off (project settings, undo; `measure` compares first-call tokens)
+  scaffold.mjs         the film's frame by code: engine, host, every group template from the look's (builders fill data)
+  workspace.mjs        lean video folder: plugins / MCP servers a video never uses off, DALANG's lean subagent types installed (`agents/`; undo; `measure` compares first-call tokens)
   tts_timestamps.mjs   narration → words.json + beats.js + narration.srt
   align.py             forced aligner (Apache-2.0 CTC models) for sharp word timing
   fill_times.mjs       {{beat}} expressions in the template → index.html; --lang for a second-language cut
-  state.mjs            gate approvals, stale when files change; Gate 3 needs the benchmark verdict; `next`: the step's reading list
+  state.mjs            gate approvals, stale when files change; Gate 3 needs the benchmark verdict; `next`: the step's reading list; `metrics`: time, model, effort and tokens per step for the hand-off
   tokens.mjs           tokens per agent from Claude Code's transcripts, a WARN per builder over budget (recorded at every gate)
   stillness.mjs        is the film secretly a slideshow?
   loudness.mjs         LUFS / true peak, with --fix
@@ -201,7 +202,8 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   (isoCamera, isoLook, isoStudio), camera stations and attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces
 engine/iso/       the isometric look in 2.5D (Express): iso.js (vendored), shape families (forms.js), objects as data
                   (build.js), CC0 glTF/GLB models drawn flat (model.js), camera parallax by layer depth
-                  (parallax.js), film camera and finish (cinema.js), example specs
+                  (parallax.js), film camera and finish (cinema.js), example specs; templates/: a group template and the
+                  one-page API card builders read instead of the sources (the host is engine/three/templates/host.tpl.html)
 engine/epic/      the design languages (EpicInfographics, MIT): isometric-world, cutaway, blueprint, with the
                   composition, data and chart rules
 examples/golden/  the fixed golden scene for release evals (engine parts only)

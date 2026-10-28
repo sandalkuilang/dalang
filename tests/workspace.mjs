@@ -64,8 +64,14 @@ try {
     assert.equal(fs.statSync(f.bak).size, 0, "an empty .bak means there was no file");
     assert.deepEqual(f.userBytes(), user, "user-level files are byte for byte the same");
     assert.doesNotMatch(r.all, /s3cret/);
+    const agents = path.join(f.dir, ".claude", "agents");
+    assert.deepEqual(JSON.parse(ws(f, "status", f.dir, "--json").all.trim().split("\n").pop()).agentsMissing, [], "status --json: nothing missing after init");
+    assert.deepEqual(fs.readdirSync(agents).sort(), ["dalang-builder.md", "dalang-checker.md", "dalang-research.md"], "the lean subagent types are installed");
+    assert.match(fs.readFileSync(path.join(agents, "dalang-builder.md"), "utf8"), /^tools: Read, Edit, Write, Bash, Glob, Grep$/m, "a builder gets only the tools it uses");
+    assert.match(ws(f, "status", f.dir).all, /Agents: dalang-\* installed/);
     const u = ws(f, "undo", f.dir);
     assert.equal(u.code, 0, u.all);
+    assert.deepEqual(fs.readdirSync(agents), [], "undo removes the agent types");
     assert.equal(fs.existsSync(f.proj), false, "undo of a folder that had no settings.json leaves none");
     assert.equal(fs.existsSync(f.bak), false, "undo removes the .bak");
     assert.deepEqual(f.userBytes(), user, "user-level files are still the same after undo");

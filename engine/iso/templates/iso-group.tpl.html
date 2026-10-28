@@ -1,0 +1,76 @@
+<!-- isometric-world group __GROUP__: copy to src/compositions/__GROUP__.tpl.html, replace __GROUP__, __FROM__ and __TO__
+     (beat names) and __ILLUSTRATION__, then fill COLORS, WORLD, values, CAMERA, the layers and the overlays from SPEC.md.
+     Every time is a cue (w, we, b); every value is a pure function of t, so a seek renders the same frame. -->
+<template id="__GROUP__-template">
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #E8EDEF; }
+    #__GROUP__-cv { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  </style>
+  <div id="root" data-composition-id="__GROUP__" data-start="0" data-duration="{{__TO__ - __FROM__}}" data-width="1080" data-height="1920">
+    <canvas id="__GROUP__-cv" width="1080" height="1920" data-layout-ignore></canvas>
+    <canvas id="__GROUP__-buf" width="1080" height="1920" style="display:none" data-layout-ignore></canvas>
+  </div>
+  <script type="module">
+    import { Iso, tri, clamp, lerp, seg, ss, eo, eio, back } from "./assets/iso.js";
+    import { build } from "./assets/build.js";
+    import { drawLayers } from "./assets/parallax.js";
+    import { camAt, handheld, motionBlur, makeFinish } from "./assets/cinema.js";
+    import { makeOverlay, w, we, b } from "./assets/editorial.js";
+
+    const G0 = b("__FROM__"), G1 = b("__TO__"), DUR = G1 - G0;   // absolute seconds; t below is local (0 at G0)
+    const L = (abs) => abs - G0;
+    const cv = document.getElementById("__GROUP__-cv"), bf = document.getElementById("__GROUP__-buf");
+    const g = cv.getContext("2d"), gb = bf.getContext("2d");
+    const iso = new Iso(g, 1080, 1920), isoB = new Iso(gb, 1080, 1920), fin = makeFinish(1080, 1920);
+
+    // SPEC palette: one base colour per material; tri(base) gives its three tones where a primitive needs them
+    const COLORS = { ground: "#B8C2C6", subject: "#009B7D", accent: "#B57300", ink: "#22333B" };
+
+    // the world: build() specs from each object's reference, real sizes in metres, z up (iso README "Objects without
+    // drawing code"); a number may name a key of values(t) ("h": "level") so the timeline drives it
+    const WORLD = [
+      { at: [0, 0, 0], parts: [{ name: "slab", form: "box", at: [0, 0, -0.3], w: 8, d: 8, h: 0.3, color: COLORS.ground }] },
+      // { at: [0, 0, 0], focus: "tank", parts: [{ name: "tank", form: "cyl", at: [0, 0, 0], r: 1, h: "level", color: COLORS.subject }] },
+    ];
+    // what acts, from local t and the cues: e.g. level: 0.2 + 1.6 * eo(seg(t, L(w("fills")), L(we("fills"))))
+    const values = (t) => ({});
+
+    // the camera: keyed poses { t, x, y, z, k (px per metre), ease }, eased, zoom in log; handheld life ~1 cm.
+    // OPEN is the previous group's CLOSE and CLOSE the next group's OPEN, as SPEC CAMERA writes them: seams match by
+    // construction. Moves in between: { t: L(w("word")), x, y, z, k, ease }.
+    const OPEN = { x: 0, y: 0, z: 0, k: 90 }, CLOSE = { ...OPEN }, REST = OPEN;
+    const CAMERA = [{ t: 0, ...OPEN }, { t: DUR, ...CLOSE, ease: "inOut" }];
+    const camera = (t) => handheld(camAt(t, CAMERA), t, { amp: 0.01 });
+
+    // layers far to near (parallax.js): depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; one draw per layer
+    function draw(c, i, t, cam) {
+      const v = values(t);
+      c.clearRect(0, 0, 1080, 1920);
+      drawLayers(i, cam, REST, [
+        // { depth: 0.3, draw: (j) => { /* far: skyline, paper */ } },
+        { depth: 1, draw: (j) => { for (const s of WORLD) build(j, s, { values: v }); } },
+      ], { focus: 1, aperture: 0 });
+    }
+    function frame(t) {
+      const cam = camera(t);
+      draw(g, iso, t, cam);
+      // a fast move (a whip) instead: motionBlur(cv, bf, (c, tt) => draw(c, c === gb ? isoB : iso, tt, camera(tt)), t, { samples: 16 });
+      fin.apply(cv, t + G0, { grade: { contrast: 1.04, warmth: 0.02 }, vignette: 0.15, grain: 0.04, fps: 30 });
+      iso.cam = { ...cam };   // overlays project with the subject's camera
+    }
+
+    // overlays in the narration language (SPEC OVERLAYS), in the language's type; the illustration label is required
+    const ov = makeOverlay(cv.parentElement, { prefix: "__GROUP__", G0, accent: COLORS.subject, ink: COLORS.ink,
+      fonts: { display: "'Fredoka', sans-serif", body: "'Nunito Sans', sans-serif", mono: "'Nunito Sans', sans-serif" }, illustration: "__ILLUSTRATION__" });
+    // ov.headline({ kicker: "KICKER", text: "Sentence [accent]", from: b("__FROM__"), to: G1 });
+    // ov.pill({ text: "Label", at: () => [0, 0, 1.2], offset: [160, -120], from: w("word"), to: G1 });
+    const project = (p) => { const [x, y] = iso.P(p[0], p[1], p[2]); return { x, y, ok: true }; };
+
+    const tl = gsap.timeline({ paused: true });
+    tl.to({ v: 0 }, { v: 1, duration: DUR, ease: "none" }, 0);
+    tl.eventCallback("onUpdate", () => { const t = tl.time(); frame(t); ov.update(t, project); });
+    window.__timelines = window.__timelines || {};
+    window.__timelines["__GROUP__"] = tl;
+    frame(0); ov.update(0, project);
+  </script>
+</template>
