@@ -91,16 +91,16 @@ const c = spawnSync(process.execPath, [state, "approve", "1", lone, "--by", "age
 assert.equal(c.status, 0, c.stdout + c.stderr);
 assert.match(c.stdout, /^Tokens: not checked/m);
 
-// Express budget: BRIEF.md mode: express flags a builder over 20 turns or 80K context, and a film over 4M tokens.
+// Express budget: BRIEF.md mode: express flags a builder over 30 turns or 150K context, and a film over 10M tokens.
 {
   const ep = path.join(tmp, "videos3", "how-a-lock-opens");
   fs.mkdirSync(ep, { recursive: true }); put(path.join(ep, "BRIEF.md"), "- mode: express\n");
   put(path.join(enc(ep), "s6.jsonl"), turn("e1", 30000));
-  agent(path.join(enc(ep), "s6"), "e", "Builder A", 45, 120000);
+  agent(path.join(enc(ep), "s6"), "e", "Builder A", 45, 260000);
   const x = run(ep);
   assert.equal(x.code, 3, x.out + x.err); assert.match(x.out, /^WARN Builder A\s+45 turns/m, "45 turns is over the Express budget");
   assert.doesNotMatch(x.out, /the main agent took/, "a main agent within its turns is no WARN");
-  assert.match(x.out, /WARN: this film used [\d.]+M tokens \(Express budget 4\.0M\)/, "an Express film over 4M tokens is named");
+  assert.match(x.out, /WARN: this film used [\d.]+M tokens \(Express budget 10\.0M\)/, "an Express film over 10M tokens is named");
   const mp2 = path.join(tmp, "videos4", "how-a-fan-cools");
   fs.mkdirSync(mp2, { recursive: true }); put(path.join(mp2, "BRIEF.md"), "- mode: express\n");
   put(path.join(enc(mp2), "s7.jsonl"), Array.from({ length: 45 }, (_, k) => turn(`m${k}`, 60000)).join(""));

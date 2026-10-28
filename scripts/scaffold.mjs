@@ -138,15 +138,15 @@ groups.forEach((g, i) => {
     `Film: ${dir}. Skill: ${SKILL}. Other groups at the same time: ${others}.`,
     `Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js` (one Write: it is a stub)' : ''}, with Edit (never a whole-file rewrite, never \`sed -i\` or a script).`,
     '',
-    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template. No engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`words.json\`, no other group's file, no other film.`,
+    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; \`assets/examples.js\` (finished specs: copy their density, part count and detail per object). No other engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`words.json\`, no other group's file, no other film.`,
     `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`: each word as its \`w("word", n)\` call. Every time is a cue; never a number of seconds.`,
     '',
     world,
     '',
     `**Check, one Bash per round:** \`node ${sk}/scripts/fill_times.mjs src/compositions/${g.name}.tpl.html compositions/${g.name}.html && node ${sk}/scripts/fill_times.mjs src/index.tpl.html index.html >/dev/null && node ${sk}/scripts/lint_scene.mjs . 2>&1 | tail -8\``,
-    `**Look, at most 2 rounds:** \`npx hyperframes snapshot --at <first beat start + 1>,<last beat start + 1> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\` (seconds from the cue table), then open its contact sheet (\`style-frames/${g.name}/contact-sheet*.jpg\`) once: recompose on text on a plain ground, low contrast, text outside the safe zone, a shape untrue to its reference, the beat's subject under a third of the frame height, bare ground over half the frame, a person the narration names missing, a moving thing (dots, flow, parts) that does not stand off its ground. All of a round's fixes in one message.`,
+    `**Look, at most 3 rounds:** \`npx hyperframes snapshot --at <every storyboard row of yours: its start + 0.5, comma-separated> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\` (seconds from the cue table), then open its contact sheet (\`style-frames/${g.name}/contact-sheet*.jpg\`) once: recompose on text on a plain ground, low contrast, text outside the safe zone, a shape untrue to its reference, the beat's subject under a third of the frame height, bare ground over half the frame, a person the narration names missing, a moving thing (dots, flow, parts) that does not stand off its ground, a shot not the size and move its storyboard row names, overlay text under its SPEC size (labels 40 px, headlines 64 px on the 1080 px canvas) or faint, a frame greyed whole (focus greys the context, never the subject). All of a round's fixes in one message.`,
     '',
-    'Budget: about 15 turns, 20 at most, your context under 80K (everything you read is paid again on every later turn). Report in at most 12 lines: files, checks and results, open issues (a SPEC number you needed changed: report it, never edit SPEC.md).',
+    'Budget: about 25 turns, 30 at most, your context under 150K (everything you read is paid again on every later turn). Report in at most 12 lines: files, checks and results, open issues (a SPEC number you needed changed: report it, never edit SPEC.md).',
     '',
   ].join('\n'));
 });

@@ -45,7 +45,9 @@ try {
   assert.match(bBody, /under a third of the frame height/, "the look check names the subject's size");
   assert.match(bBody, /written by the `intro` builder: import it, never copy/, "every other builder imports it");
   assert.match(bBody, /cues\.mjs \. --beats middle/, "a brief names its cue table");
-  assert.match(bBody, /No engine source in `assets\/`/, "a brief forbids reading engine sources");
+  assert.match(bBody, /`assets\/examples\.js` \(finished specs/, "a brief opens the finished example specs, for their density");
+  assert.match(bBody, /No other engine source in `assets\/`/, "a brief forbids reading the other engine sources");
+  assert.match(bBody, /snapshot --at <every storyboard row of yours/, "a builder looks at every one of its shots");
   // the engine's origin for check_assets, the padded voice, and a music bed by default with its licence row
   assert.ok(JSON.parse(read(d, "assets/.engine.json")).some((r) => r.file === "iso.js" && r.licence === "MIT"), "engine files listed with their licence");
   assert.match(host, /src="audio\/voice\.wav"/, "the host plays the padded voice");

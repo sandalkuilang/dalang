@@ -9,8 +9,8 @@
 // a parent folder (several videos in one session), only subagents whose transcript names the project folder count.
 //
 // Usage: node tokens.mjs [project] [--session <id>] [--claude-dir <dir>] [--max-turns 120] [--max-ctx 250000] [--json]
-//   (defaults 20 turns and 80K context when BRIEF.md says mode: express; there the whole film, main and subagents,
-//   is held to 4M tokens)
+//   (defaults 30 turns and 150K context when BRIEF.md says mode: express; there the whole film, main and subagents,
+//   is held to 10M tokens)
 //   writes <project>/review/tokens.json (the full table) and prints one row per agent and a "Result:" line.
 // Exit 0: every builder within budget. 3: a builder over budget (WARN rows). 2: NOT CHECKED (no transcript found or
 // none readable) — rerun, or pass --claude-dir / --session; this is never "no tokens used".
@@ -25,11 +25,11 @@ const json = args.includes('--json'); if (json) args.splice(args.indexOf('--json
 const claudeDir = flag('--claude-dir', process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'));
 const sessionArg = flag('--session', null), turnsArg = flag('--max-turns', null), ctxArg = flag('--max-ctx', null);
 const project = path.resolve(args[0] ?? '.');
-// Express builders work from a finished SPEC, the kit's templates and a written brief: a tighter budget (20 turns, 80K context) than
+// Express builders work from a finished SPEC, the kit's templates and a written brief: a tighter budget (30 turns, 150K context) than
 // Studio's (120, 250K). Every turn re-reads the whole context, so a builder that reads engine sources or keeps many
 // screenshots pays for them on every later turn.
 let express = false; try { express = /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(project, 'BRIEF.md'), 'utf8')); } catch { /* Studio budget */ }
-const maxTurns = +(turnsArg ?? (express ? 20 : 120)), maxCtx = +(ctxArg ?? (express ? 80000 : 250000)), FILM_MAX = 4e6;
+const maxTurns = +(turnsArg ?? (express ? 30 : 120)), maxCtx = +(ctxArg ?? (express ? 150000 : 250000)), FILM_MAX = 10e6;
 const notChecked = why => { console.error(`NOT CHECKED: ${why}. Rerun, or pass --claude-dir / --session. This is not "no tokens used".`); console.log('Result: not checked'); process.exit(2); };
 if (!(maxTurns > 0 && maxCtx > 0)) notChecked('--max-turns and --max-ctx must be > 0');
 
