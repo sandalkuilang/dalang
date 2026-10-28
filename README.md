@@ -73,7 +73,7 @@ It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/mai
 
 ## 🎬 How it works
 
-**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in one design language picked by subject (cutaway, isometric, blueprint, park poster, naturalist plate…), one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
+**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in one design language picked by subject (cutaway, isometric world or blueprint), one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
@@ -108,7 +108,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The film's scene code never enters the main thread (the Step 5 style frames do): a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. The strongest model judges the film; a mid-tier model does the pass/fail fix checks, asset pair checks, media screening (and the Step 5 reference boards the style frames are built from) and research.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The film's scene code never enters the main thread (the Step 5 style frames do): a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. Work that does not depend on other work runs in parallel (the voice take beside the storyboard and assets, research strands, every shot group at once, the Step 7 scripts and reviewers). Each subagent gets its model and effort from one table, automatically: the top model at high effort judges the film, Studio builders run at high (pilot) or medium, Express builders, research and checks on a mid tier, text-only screening on a light one; a failed job is replaced one notch up, never repeated at the same setting.
 
 </td></tr>
 </table>
@@ -156,7 +156,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, Gate 3 benchmark, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
   visual-direction.md  true-shape sourcing, restraint, composition, review rubric, information layers, showing a quantity
-  looks.md             the eleven looks, how to offer them, three.js recipes
+  looks.md             the seven Studio looks, how to offer them, three.js recipes
   camera-motion.md     film camera grammar, physical timing, design in time
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps
@@ -201,6 +201,8 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
 engine/iso/       the Express isometric look: iso.js (vendored), shape families (forms.js), objects as data
                   (build.js), CC0 glTF/GLB models drawn flat (model.js), camera parallax by layer depth
                   (parallax.js), film camera and finish (cinema.js), example specs
+engine/epic/      Express design languages (EpicInfographics, MIT): cutaway, isometric-world, blueprint, with the
+                  composition, data and chart rules
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
 tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, Gate 3 benchmark, golden (run by the gate)

@@ -30,6 +30,54 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Parallel lanes** (`SKILL.md` "Parallel by default", `docs/workflow.md`): which jobs start in one message at each
+  step: preflight beside the topic question, reference measurement beside research (split into strands, one agent
+  each), the voice take beside `SPEC.md`, `storyboard.md`, assets and music, the Step 7 scripts together, then the
+  reviewer, the sound-off quiz and the second Set / Reality check together.
+- **Express parallel build** (`express.md`): from 6 beats or 45 s, 2–3 builders write contiguous beat groups at once as
+  sub-compositions, `SPEC.md` as the shared contract and no pilot; one seam check before the lints.
+- **Automatic model and effort** (`SKILL.md` "Work fast"): one table gives every subagent job its `model` and `effort`
+  (top / mid / light), and a job that fails its own check is replaced one notch up, effort first, then model.
+
+### Removed
+
+- **Nine Express design languages** (`engine/epic/languages/`): `retro-print`, `park-poster`, `naturalist-plate`,
+  `hand-drawn`, `dark-glass`, `editorial`, `swiss`, `corporate-clean` and `neo-brutalist`. Express keeps `cutaway`,
+  `isometric-world` (wide 16:9 and story 9:16) and `blueprint`; the picker falls back to `isometric-world` where
+  `editorial` was the fallback, so every topic still gets a language.
+- Leftovers of those languages: the retro-print misregistration recipe and swiss/brutalist/corporate notes in
+  `engine/epic/illustration-and-texture.md` and `composition.md`; README's "eleven looks" (there are seven) and its
+  missing `engine/epic/` line.
+- Stale pointers: `look-build.md` to SKILL.md "Batch and parallelise" (now "Parallel by default"), `tokens.mjs` to
+  "Compact at Gates 3 and 4" (now 2, 3 and 4), `camera-motion.md` §6.8 (that section is gone), `look-build.md` §7 (now
+  "Sound effects and music"). `docs/workflow.md` said CI only checks syntax; it runs the merge gate.
+- `tests/iso.mjs` existed but no gate step ran it; `gate.sh` runs it now.
+- "isometric 3D" is no longer on Studio's banned list (`visual-direction.md` §1): Studio is to share Express's
+  taste (blueprint, isometric-world, cutaway).
+
+### Fixed
+
+- **Express no longer idles on the voice** (`express.md`): the builder writes its template from beat names at once and
+  only the snapshot, `fill_times.mjs` and the lints wait for `audio/beats.js` (a watched run lost ~6 min to an
+  `until` loop before the first write). Research is one round of up to 2 parallel agents with ≤ 6 searches and ≤ 8
+  fetches each, briefed with the claim the film turns on (a thin 4/6 round forced a second, sequential one).
+  No agent reads another video's folder (builders and the script alike).
+
+### Changed
+
+- **Every question is asked up front, in English** (`SKILL.md` principle 5 and "Language", `brief.md` Step 1): all
+  AskUserQuestion text (question, header, options, previews) is English whatever the chat language, and the whole run's
+  questions come in the Brief's back-to-back calls, so the user answers once and can leave. New Call 4 (extras): the
+  second-language cut (no longer offered at the hand-off), photos of the user's own machine, permission for a recording
+  or a cloned voice. Call 0 now also carries every install or first-launch consent and a voice fallback when VoiceStudio
+  is not ready. Step 4 never asks which voice to audition and a missing asset is decided and logged, not offered; a
+  question that still comes up later takes its default and is logged as "would have asked".
+- The model table now carries an effort column; Studio builders run at high effort for the pilot and medium for the
+  groups, assembly and fix rounds. Express builders, research and fix checks stay on the mid tier; text-only media
+  screening moves to the light tier.
+
 ## [2.0.0] - 2026-10-28
 
 ### Added

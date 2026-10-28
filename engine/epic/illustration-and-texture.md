@@ -35,10 +35,9 @@ reads crude, more reads fussy.
 - Build front-facing or in straight profile; avoid 3/4 perspective (hard
   to get right, always looks off).
 - Use the style's palette only; big shapes in quiet colors, one accent.
-- Outlines are a style decision: brutalist = thick ink outlines;
-  retro-print = no outline but misregistered fills; corporate = no
-  outline, flat tints; swiss = geometry only, no illustration beyond
-  abstract shapes.
+- Outlines are a style decision, set by the language file: blueprint = thin
+  linework, isometric-world = none (three tones per face), cutaway = a
+  fine outline on the cut edge.
 - Cast a ground: a flat ellipse shadow or a horizontal rule stops objects
   floating.
 - Details that sell a drawing: a highlight sliver on curved surfaces
@@ -105,14 +104,6 @@ display letter (via `background-clip:text`). Angle it with a wrapper
 `transform: rotate(8deg)` on an oversized block for authentic screen-print
 feel.
 
-### Misregistration (retro print)
-
-The fill sits slightly off from its outline, like a 1968 poster printed in
-two passes: draw the shape twice — a flat fill translated `3px 2px`, then
-the ink outline (or dark copy) at true position. For text:
-`text-shadow: 3px 2px 0 var(--accent-2);` on display type, one accent, one
-direction, everywhere the same.
-
 ### Rough edge (hand-cut look)
 
 ```html
@@ -138,5 +129,4 @@ edges`) or one giant tinted shape behind the composition.
 - Don't gradient-fill illustrated shapes (flat tints; the style's shadow
   device carries depth).
 - Don't mix outline weights within one drawing.
-- Don't use drop-shadow blur on retro/brutalist work — hard offsets only.
 - Don't let texture reduce text contrast below comfortable reading.
