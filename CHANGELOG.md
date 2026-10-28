@@ -30,6 +30,33 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **A music bed in every film** (`engine/music/`, `scaffold.mjs --music calm|bright|tense|none`): three public-domain /
+  CC0 recordings from Wikimedia Commons (Musopen), free for any use, bundled so no search, network or listening is
+  needed; the bed is copied with its ASSETS.json row and placed at 0.14 under the voice with fades. Express films had
+  none: the bundled `/media-use` library holds only sound effects, and the Openverse audio search often times out.
+- **Room around the voice** (`scripts/pad_voice.mjs`): `audio/voice.wav` is the take with 1.45 s of silence before the
+  first word and 1.35 s after the last, and every time (words, beats, `beats.js`, subtitles, captions) moves with it;
+  the take itself is untouched, so a retake still works, and a second run changes nothing. The host plays
+  `audio/voice.wav`; `fill_times.mjs` refuses a template that plays the unpadded take with padded times, and warns
+  when the voice has no room yet (`tests/pad-voice.mjs`).
+- **`find_media.mjs` search with `--as`** takes the first result at once, licence row included; another audio format
+  is converted with ffmpeg, never renamed.
+
+### Changed
+
+- **README is short and shows samples**: five English frames rendered by the skill's own engine and templates
+  (`docs/assets/samples/`), install, how it works in four lines, requirements and licence; the rest lives in `docs/`.
+
+### Fixed
+
+- **An isometric film's engine files pass `check_assets.mjs`**: `scaffold.mjs` writes their origin and licence to
+  `assets/.engine.json`, as `engine/three/build.mjs` does for its own.
+- **The object-studio group template passes `hyperframes lint`**: it loads the bundled `assets/three-vendor.js` as a
+  script (the same module `objectStudio.js` imports), so `missing_three_script` no longer fails a scaffolded film.
+
+
 ## [3.4.0] - 2026-10-28
 
 ### Added
