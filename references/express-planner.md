@@ -41,7 +41,9 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   smaller), colours with contrast 4.5:1 or more on what they sit on. **One headline system for the whole film:** a
   card in one fixed place (inside the safe zone), on every claim beat, a small kicker over the claim, and the claim's
   key word at 160 px or more (`= BIG WORD`, `the thing DONE`), so the headlines read alone tell the argument; at most 3 cards, each
-  with its source line (`ov.card` throws without one); which fact lives in which layer, never in two.
+  with its source line (`ov.card` throws without one); which fact lives in which layer, never in two. Each overlay stays
+  settled for max(0.8 s, 0.3 s a word) between its entrance and exit, so its words are on screen long enough to read
+  (`film_gate.mjs` fails a shorter one); text in hex or rgb, never `oklch()` (the contrast check cannot read it).
 - **BANNED:** what this film must never show (from the look, the script and the facts).
 
 ## `storyboard.md` (one row per shot, never one per beat)
