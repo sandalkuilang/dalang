@@ -30,48 +30,9 @@ that reads as:
 
 ## [Unreleased]
 
-### Changed
-
-- Express prompts cleaned: `express.md` no longer repeats or contradicts the builder brief (stale single-composition build, a one-frame first look, a 10-line report, a builder waiting on the voice it never waits on, a builder reading language files only the planner reads); the pure-function-of-t rule (no CSS keyframes, `requestAnimationFrame` or timers) moved onto the iso API card the builder reads; the world template imports `triad`.
-- **Builders report evidence, not "done"** (the builder brief, `express.md`). Each check is reported as one of:
-  - PASS, with its command's result line;
-  - FAIL;
-  - UNVERIFIED, when it was not run or its output was unreadable.
-
-  A missing result is never a PASS, and a PASS from before the last edit of that file does not count.
-- **A recurring defect gets a different route.** The same defect twice means another form, a simpler part or a changed
-  shot, never a third try of the same fix. This caps fix rounds. A builder stops once every check passes.
-- **The seam check is not led.** Its reviewer gets the frames and storyboard rows only, never a builder's report or a list
-  of what to look for.
-- **The fix round's changes are listed** (`express.mjs`). `assemble` records the world and every group by sha256 in
-  `review/assembled.json`. `final` names each file changed since then, the world flagged as its owner's only, for the
-  main agent to check against the round's assignments. No record is a WARN, never "nothing changed".
-
-  These working rules come from elithrar/dotfiles' engineering-drawings and animated-sprites skills (MIT); only the
-  ideas are used.
-
-### Changed
-
-- **Overlay motion** (`engine/three/editorial.js`):
-  - Each overlay enters on a strong ease-out (`EASE.in`, cubic-bezier 0.23, 1, 0.32, 1).
-  - The entrance grows with its size (`IN_DUR`): chip 0.2 s, pill 0.25, card 0.3, headline 0.4, never over 0.8.
-  - The exit takes 0.7 of the entrance, accelerating away (`EASE.out`), and shrinks back toward 0.96, so it leaves the
-    way it came. Before, every overlay faded linearly in and out over the same 0.2 s.
-  - `bezier()` gives any CSS curve as a pure function of progress.
-- **Seams and timing** (`camera-motion.md` §3 and §7, `express-planner.md` MOTION):
-  - A cut keeps the motion going on both sides, and a zoom keeps its sign across it.
-  - One seam direction per film, with up, push-through and pull-back kept for their meaning.
-  - Two or three seam types per film.
-  - The planner writes a SEAMS row per cut and names what owns each phase, and the pause before an impact is
-    0.3–0.75 s.
-  - Overlays never appear from nothing, recurring furniture gets the quietest entrance, and a two-state crossfade takes
-    2–5 px of blur at its middle.
-
-  These rules come from emilkowalski/skills (MIT) and HyperFrames' motion-doctrine (Apache-2.0); only the ideas are
-  used, and no code is copied.
-
 ### Added
 
+- `scripts/seam_gate.mjs`: Express seams measured instead of looked at. Each group's own module runs in Node on a stub page and its camera is read on both sides of every cut: a jump, a move that turns back or a zoom that flips sign is FAILED (exit 3), a dead stop or a start from rest is a NOTE, an unrun group a WARN (exit 2). `express.mjs assemble` runs it, replacing the seam subagent (idea after HeyGen hyperframes' seam gate, Apache-2.0, which measures DOM wrappers; no code taken). `tests/seam-gate.mjs`.
 - **An Express world is proved before it is drawn** (`scripts/iso_audit.mjs`, `engine/anatomy/`). The geometry audit
   of Anatomy (MIT, vendored unchanged: `audit.mjs` with its `iso-kit.mjs`, `lathe.mjs`, `tube.mjs`) runs on the true
   shapes of every `build()` spec, through DALANG's adapter `engine/anatomy/world.mjs`. It names:
@@ -99,6 +60,43 @@ that reads as:
   - dashed is only a real hidden edge;
   - dash-dot is an axis or centre line;
   - a detail drawn larger than scale says "NTS".
+
+### Changed
+
+- Express prompts cleaned: `express.md` no longer repeats or contradicts the builder brief (stale single-composition build, a one-frame first look, a 10-line report, a builder waiting on the voice it never waits on, a builder reading language files only the planner reads); the pure-function-of-t rule (no CSS keyframes, `requestAnimationFrame` or timers) moved onto the iso API card the builder reads; the world template imports `triad`.
+- **Builders report evidence, not "done"** (the builder brief, `express.md`). Each check is reported as one of:
+  - PASS, with its command's result line;
+  - FAIL;
+  - UNVERIFIED, when it was not run or its output was unreadable.
+
+  A missing result is never a PASS, and a PASS from before the last edit of that file does not count.
+- **A recurring defect gets a different route.** The same defect twice means another form, a simpler part or a changed
+  shot, never a third try of the same fix. This caps fix rounds. A builder stops once every check passes.
+- **The seam check is not led.** Its reviewer gets the frames and storyboard rows only, never a builder's report or a list
+  of what to look for.
+- **The fix round's changes are listed** (`express.mjs`). `assemble` records the world and every group by sha256 in
+  `review/assembled.json`. `final` names each file changed since then, the world flagged as its owner's only, for the
+  main agent to check against the round's assignments. No record is a WARN, never "nothing changed".
+
+  These working rules come from elithrar/dotfiles' engineering-drawings and animated-sprites skills (MIT); only the
+  ideas are used.
+- **Overlay motion** (`engine/three/editorial.js`):
+  - Each overlay enters on a strong ease-out (`EASE.in`, cubic-bezier 0.23, 1, 0.32, 1).
+  - The entrance grows with its size (`IN_DUR`): chip 0.2 s, pill 0.25, card 0.3, headline 0.4, never over 0.8.
+  - The exit takes 0.7 of the entrance, accelerating away (`EASE.out`), and shrinks back toward 0.96, so it leaves the
+    way it came. Before, every overlay faded linearly in and out over the same 0.2 s.
+  - `bezier()` gives any CSS curve as a pure function of progress.
+- **Seams and timing** (`camera-motion.md` §3 and §7, `express-planner.md` MOTION):
+  - A cut keeps the motion going on both sides, and a zoom keeps its sign across it.
+  - One seam direction per film, with up, push-through and pull-back kept for their meaning.
+  - Two or three seam types per film.
+  - The planner writes a SEAMS row per cut and names what owns each phase, and the pause before an impact is
+    0.3–0.75 s.
+  - Overlays never appear from nothing, recurring furniture gets the quietest entrance, and a two-state crossfade takes
+    2–5 px of blur at its middle.
+
+  These rules come from emilkowalski/skills (MIT) and HyperFrames' motion-doctrine (Apache-2.0); only the ideas are
+  used, and no code is copied.
 
 ## [3.9.1] - 2026-10-29
 

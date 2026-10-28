@@ -44,6 +44,7 @@ if [ $fast -eq 0 ]; then
   step "iso.js (vendored) loads, three tones per face, back-to-front paint" node tests/iso.mjs
   step "iso forms, build() specs and the glTF reader (ratio, cutaway, paint order, axes, refusals)" node tests/iso-build.mjs
   step "iso audit (floating, sunk, pipe through, loose pipe end caught; the CLI exits 0/3/2)" node tests/iso-audit.mjs
+  step "seam gate (held and carried pass; a jump and a turn back fail; unread is a WARN)" node tests/seam-gate.mjs
   step "parallax (layer cameras by depth, far to near, SVG and HTML transforms)" node tests/iso-parallax.mjs
   step "cinema (camera keys one way, no handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
