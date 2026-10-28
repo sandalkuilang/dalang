@@ -43,7 +43,7 @@ git clone https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 
 ```bash
 # pin to a tagged release instead of main
-git clone --branch v3.2.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
+git clone --branch v3.3.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 
 # update an existing install to the newest release
 cd ~/.claude/skills/dalang && git fetch --tags && git checkout "$(git describe --tags --abbrev=0 origin/main)"
