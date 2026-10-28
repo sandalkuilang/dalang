@@ -138,7 +138,7 @@ groups.forEach((g, i) => {
     `Film: ${dir}. Skill: ${SKILL}. Other groups at the same time: ${others}.`,
     `Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js` (one Write: it is a stub)' : ''}, with Edit (never a whole-file rewrite, never \`sed -i\` or a script).`,
     '',
-    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; \`assets/examples.js\` (finished specs: copy their density, part count and detail per object). No other engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`words.json\`, no other group's file, no other film.`,
+    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; \`assets/examples.js\` (finished specs: copy their density, part count and detail per object). No other engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`/hyperframes\` skill (the template meets the render contract), no \`words.json\`, no other group's file, no other film.`,
     `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`: each word as its \`w("word", n)\` call. Every time is a cue; never a number of seconds.`,
     '',
     world,

@@ -6,17 +6,18 @@
 // Usage: node express.mjs after-voice [dir] [--log <file>]   (default: the newest voice-*.log, the last retake's)
 //          the take's WARNING lines (none → go on), pad_voice, captions (format from BRIEF.md), gates 1–2 by agent
 //        node express.mjs assemble [dir]
-//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), the seams
-//          (seam_gate.mjs, isometric looks with 2+ groups), gate 3,
+//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
+//          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir]
 //          the files changed since assemble (review/assembled.json: the world and every group, by sha256), for the main
 //          agent to check against the fix round's assignments; hyperframes check and check_assets first (no render on a
-//          failure), render (BRIEF.md fps, --quality looks), gate 4, the metrics table
+//          failure), render (BRIEF.md fps, --quality looks), the poster (the hook's last frame: poster.jpg and frame 0),
+//          gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,8 +79,9 @@ if (cmd === 'after-voice') {
   step('timing_lint', ...node('timing_lint.mjs', 'index.html'), { quiet: true, keep: 10 });
   const hf = step('hyperframes lint (errors)', 'npx', ['hyperframes', 'lint'], { quiet: true, keep: 20, filter: l => /✗|error/i.test(l) });
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
-  // the seams measured from each group's camera (no seam reviewer): a jump or a turn back fails, a dead stop is a NOTE
-  if (groups.length > 1 && existsSync(path.join(dir, 'assets/iso.js'))) step('seam_gate', ...node('seam_gate.mjs', '.'), { keep: 8, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
+  // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
+  // the reading time of every overlay, dead stretches
+  if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 12, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
   writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');
@@ -108,6 +110,15 @@ if (cmd === 'after-voice') {
   step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 12, filter: l => /✗|error:|Error/.test(l) && !/\b0 error/.test(l) });
   step('check_assets', ...node('check_assets.mjs', '.'), { quiet: true, keep: 6 });
   if (!failed) step(`render (${fps} fps, looks)`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', 'looks', '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
+  // the poster (after latent-spaces/brag): the hook beat's finished frame, also laid over frame 0, so every platform's
+  // thumbnail is the hook, not a half-built first frame; the length and the audio are unchanged
+  if (!failed) {
+    let at = 0;
+    try { at = Math.max(0, JSON.parse(readFileSync(path.join(dir, 'audio/beats.json'), 'utf8')).beats[0].end - 0.4); } catch { /* no beats: frame 0 itself */ }
+    step(`poster (${at.toFixed(1)} s, the hook's last frame)`, 'ffmpeg', ['-y', '-v', 'error', '-ss', String(at), '-i', 'final.mp4', '-frames:v', '1', '-q:v', '2', 'poster.jpg'], { quiet: true });
+    if (!failed) step('poster on frame 0', 'ffmpeg', ['-y', '-v', 'error', '-i', 'final.mp4', '-i', 'poster.jpg', '-filter_complex', "[0:v][1:v]overlay=enable='eq(n,0)'", '-c:v', 'libx264', '-crf', '16', '-preset', 'fast', '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', 'final.poster.mp4'], { quiet: true });
+    if (!failed) renameSync(path.join(dir, 'final.poster.mp4'), path.join(dir, 'final.mp4'));
+  }
   if (!failed) { gate(4); step('metrics', ...node('state.mjs', 'metrics', dir), { keep: 40 }); }
 }
 console.log(failed ? `Result: ${failed} step(s) FAILED` : 'Result: OK');

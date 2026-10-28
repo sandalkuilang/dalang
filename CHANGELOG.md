@@ -32,7 +32,7 @@ that reads as:
 
 ### Added
 
-- `scripts/seam_gate.mjs`: Express seams measured instead of looked at. Each group's own module runs in Node on a stub page and its camera is read on both sides of every cut: a jump, a move that turns back or a zoom that flips sign is FAILED (exit 3), a dead stop or a start from rest is a NOTE, an unrun group a WARN (exit 2). `express.mjs assemble` runs it, replacing the seam subagent (idea after HeyGen hyperframes' seam gate, Apache-2.0, which measures DOM wrappers; no code taken). `tests/seam-gate.mjs`.
+- `scripts/film_gate.mjs`: an Express film measured instead of looked at. Each group's own module runs in Node on a stub page (no browser, seconds) and its camera, world values and overlays are read over time. FAILED (exit 3): a jump, a turn back or a flipped zoom at a cut (idea after HeyGen hyperframes' seam gate, Apache-2.0, no code taken); a part that floats, sinks or is passed through only while the world moves (Anatomy's audit at every new set of values, against the world at rest on its lowest face); an overlay settled under max(0.8 s, 0.3 s a word) (after latent-spaces/brag, MIT). NOTE: a dead stop or start from rest at a cut, 3 s with nothing moving, changing or entering. WARN (exit 2): a group it could not run. `express.mjs assemble` runs it, replacing the seam subagent. `tests/film-gate.mjs`.
 - **An Express world is proved before it is drawn** (`scripts/iso_audit.mjs`, `engine/anatomy/`). The geometry audit
   of Anatomy (MIT, vendored unchanged: `audit.mjs` with its `iso-kit.mjs`, `lathe.mjs`, `tube.mjs`) runs on the true
   shapes of every `build()` spec, through DALANG's adapter `engine/anatomy/world.mjs`. It names:
@@ -63,6 +63,8 @@ that reads as:
 
 ### Changed
 
+- `express.mjs final` lays the poster over frame 0: the hook beat's last frame as `poster.jpg`, so every platform's thumbnail is the hook (after latent-spaces/brag, MIT); length and audio unchanged.
+- Express builders never load the `/hyperframes` skill (the template meets the render contract; the planner owns the story and shots), one skill context fewer per builder. The planner holds each overlay settled for max(0.8 s, 0.3 s a word) and writes text colours in hex or rgb.
 - Express prompts cleaned: `express.md` no longer repeats or contradicts the builder brief (stale single-composition build, a one-frame first look, a 10-line report, a builder waiting on the voice it never waits on, a builder reading language files only the planner reads); the pure-function-of-t rule (no CSS keyframes, `requestAnimationFrame` or timers) moved onto the iso API card the builder reads; the world template imports `triad`.
 - **Builders report evidence, not "done"** (the builder brief, `express.md`). Each check is reported as one of:
   - PASS, with its command's result line;
