@@ -18,12 +18,23 @@ const mid = camAt(2, keys);
 assert.ok(near(mid.x, 5) && near(mid.k, 20), "halfway: half the pan, the geometric mean of the zoom");
 assert.throws(() => camAt(0, []), /no keys/); assert.throws(() => camAt(2, [keys[1], keys[0]]), /sorted/);
 
-const base = { x: 1, y: 2, z: 3, k: 10 };
+const base = { x: 1, y: 2, z: 3, k: 100 };
 assert.deepEqual(handheld(base, 1.234, { seed: 4 }), handheld(base, 1.234, { seed: 4 }), "handheld is seeded: the same frame twice");
 assert.notDeepEqual(handheld(base, 1.234, { seed: 4 }), handheld(base, 1.234, { seed: 5 }), "another seed, another hand");
 let worst = 0; for (let t = 0; t < 10; t += 0.01) { const h = handheld(base, t, { amp: 0.05 }); worst = Math.max(worst, Math.abs(h.x - 1), Math.abs(h.y - 2)); }
 assert.ok(worst <= 0.05 + 1e-9 && worst > 0.02, "the shake stays inside its amplitude: " + worst);
 assert.deepEqual(handheld(base, 2, { amp: 0 }), base, "amp 0 is a locked tripod");
+// the shake is the same size on screen at every zoom: world shake × k does not grow when the camera pushes in
+for (const t of [0.3, 1.7, 4.2]) {
+  const wide = handheld(base, t, { amp: 0.03 }), close = handheld({ ...base, k: 560 }, t, { amp: 0.03 });
+  assert.ok(near((wide.x - 1) * 100, (close.x - 1) * 560, 1e-9), "a close-up shakes no more on screen than the wide shot");
+}
+// a move goes one way: right then straight back left with no hold is refused; a hold between, or a zoom, is fine
+const L = (t, x, y, k = 200) => ({ t, x, y, z: 0, k });
+assert.throws(() => camAt(0, [L(0, 0, 0), L(1, 1, -1), L(2, 0, 0)]), /turns back/, "right then left with no hold is a wobble");
+assert.doesNotThrow(() => camAt(0, [L(0, 0, 0), L(1, 1, -1), L(2, 1, -1), L(3, 0, 0)]), "a 1 s hold before turning back");
+assert.doesNotThrow(() => camAt(0, [L(0, 0, 0), L(1, 1, -1), L(2, 2, -2, 500)]), "one way, pushing in");
+assert.doesNotThrow(() => camAt(0, [L(0, 0, 0), L(1, 0, 0, 600), L(2, 0, 0, 200)]), "a zoom in and out does not travel sideways");
 
 assert.equal(ramp(2.5, []), 2.5, "no ramp: story time is film time");
 const R = [{ t: 0, speed: 1 }, { t: 1, speed: 1 }, { t: 1.5, speed: 0.25 }, { t: 2.5, speed: 0.25 }, { t: 3, speed: 1 }];

@@ -30,11 +30,13 @@ the keys it animates.
 ## Camera and depth
 - The template's `OPEN` and `CLOSE` poses are `SPEC.md` CAMERA's numbers for this group (OPEN = the previous group's
   CLOSE), so seams match. `camAt(t, [{ t, x, y, z, k, ease }])` keyed poses (k = px per metre; ease `inOut | out | in | linear | expo`);
-  `handheld(cam, t, { amp })` (0.01 calm, 0.03 tense).
+  **a move goes one way**: keys that travel right then left (or back) with no hold ≥ 0.5 s between throw, so turn back
+  only after a held key or a cut. `handheld(cam, t, { amp })` (0.01 calm, 0.03 tense; the same size on screen at every zoom).
 - 2.5D moves (`cinema.js`, `{ rest, start, dur, ease }`; on 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest,
   sweep })` → hand `o.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
   dolly }`; `drone25(t, { rest, from })`. A zoom that lands on a subject hands over to a slow orbit: `orbit25(t, { rest: landing,
-  start: landingTime, dur, from: 0, to: 1 })` (`to: -1` the other side; `crane25` for up or down).
+  start: landingTime, dur, from: 0, to: 1 })` (`to: -1` the other side; `crane25` for up or down). An orbit is one
+  direction for its whole run, `from` → `to`: never two orbits back and forth, never a sine on the rest pose.
   `whip(t, t0, dur, a, b)` → `{ cam, blur }` with `motionBlur(cv, bf, draw, t, { samples: 16 })`.
 - `drawLayers(iso, cam, rest, [{ depth, draw(iso), blur? }], { focus, aperture, dolly, haze: { color, amount } })`:
   depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; `aperture` × |depth − focus| px of blur (rack focus: animate focus);

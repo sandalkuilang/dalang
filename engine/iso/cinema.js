@@ -22,9 +22,13 @@ export const EASE = {
 
 // The camera at t from keys [{ t, x, y, z, k, ease }] (sorted by t; a key's ease shapes the move that arrives at it).
 // Pan in a straight line, zoom in log space (equal steps feel equal), before the first key and after the last: held.
+// A move goes one way: a camera that travels right and then left (or the reverse) with no hold between reads as a
+// wobble, not a move, so camAt refuses it. Hold ≥ 0.5 s (a key repeated) or cut before the camera turns back; going
+// round a subject is orbit25, in one direction.
+const checked = new WeakSet();
 export function camAt(t, keys) {
   if (!keys.length) throw new Error("camAt: no keys");
-  for (let i = 1; i < keys.length; i++) if (keys[i].t < keys[i - 1].t) throw new Error("camAt: keys must be sorted by t");
+  if (!checked.has(keys)) { oneWay(keys); checked.add(keys); }
   if (t <= keys[0].t) return pose(keys[0]);
   for (let i = 1; i < keys.length; i++) {
     const a = keys[i - 1], b = keys[i];
@@ -36,12 +40,29 @@ export function camAt(t, keys) {
   return pose(keys.at(-1));
 }
 const pose = ({ x, y, z, k }) => ({ x, y, z, k });
+// Sideways screen travel of each move (px; the iso screen x follows x − y), and a turn back with no hold between.
+const TURN_PX = 40, HOLD_S = 0.5;
+function oneWay(keys) {
+  let dir = 0;
+  for (let i = 1; i < keys.length; i++) {
+    const a = keys[i - 1], b = keys[i];
+    if (b.t < a.t) throw new Error("camAt: keys must be sorted by t");
+    const px = ((b.x - b.y) - (a.x - a.y)) * 0.866 * Math.sqrt(a.k * b.k);
+    if (Math.abs(px) < TURN_PX) { if (b.t - a.t >= HOLD_S) dir = 0; continue; }
+    const d = Math.sign(px);
+    if (dir && d !== dir) throw new Error(`camAt: the camera turns back ${d > 0 ? "left → right" : "right → left"} at t=${a.t} (keys ${i - 1}→${i}) with no hold: a move goes one way. Hold ≥ ${HOLD_S} s or cut first; circling a subject is orbit25, one direction.`);
+    dir = d;
+  }
+}
 
-// Handheld life on a camera: three incommensurate sines per axis with seeded phases, amp in world units (a few cm on a
-// set of metres reads as a person holding the camera; 0 is a locked tripod). Tension raises it, calm lowers it.
+// Handheld life on a camera: three incommensurate sines per axis with seeded phases. amp is world units at k = 100 px
+// per metre (a few cm reads as a person holding the camera; 0 is a locked tripod), and the shake is held to the same
+// size ON SCREEN at every zoom: a hand shakes the lens by an angle, so a close-up must not swing more than the wide
+// shot (world-unit shake times a zoom of 5x is a left-right wobble). Tension raises it, calm lowers it.
 export function handheld(cam, t, { amp = 0.02, freq = 0.6, seed = 1 } = {}) {
   const n = (axis) => [1, 2.13, 3.71].reduce((s, f, i) => s + Math.sin(TAU * freq * f * t + hash(seed * 31 + axis * 7 + i) * TAU) / (i + 1), 0) / 1.83;
-  return { ...cam, x: cam.x + amp * n(1), y: cam.y + amp * n(2), z: cam.z + amp * 0.5 * n(3) };
+  const a = amp * (cam.k > 0 ? 100 / cam.k : 1);
+  return { ...cam, x: cam.x + a * n(1), y: cam.y + a * n(2), z: cam.z + a * 0.5 * n(3) };
 }
 const TAU = Math.PI * 2;
 
