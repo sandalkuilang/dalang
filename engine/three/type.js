@@ -233,7 +233,7 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
   return { x, y, w, h, side: sd, size: px, anchor: { x: ax, y: ay }, ink, lines, shrunk: px < 36 * s - 1e-9, ...(pill ? { pill } : {}) };
 }
 
-// The text band of look J (looks.md, visual-direction.md §9): at the top of the label zone, on a light scrim, a kicker in
+// The text band (visual-direction.md §9): at the top of the label zone, on a light scrim, a kicker in
 // tracked monospace capitals, a bold headline that states the claim or the number, and an optional dark status tag
 // (ILLUSTRATION, SPED UP, OUR MODEL). Left-aligned, drawn only inside the label zone: the kicker and the tag are 36 px or
 // more, the headline 64..96 px at 1080 (a headline that does not fit in two lines at 64 px shrinks, `shrunk: true`).

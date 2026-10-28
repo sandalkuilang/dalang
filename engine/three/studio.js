@@ -1,6 +1,6 @@
 import { THREE, EffectComposer, RenderPass, EffectPass, N8AOPostPass, SMAAEffect, DepthOfFieldEffect, ToneMappingEffect, ToneMappingMode, RoomEnvironment } from "./three-vendor.js";
 import { M } from "./kit.js";
-import { place } from "./camera.js";
+import { place, ISO } from "./camera.js";
 
 // One light and render rig for every set, so a film never hand-writes one and never types its numbers:
 //  - the colour pipeline: sRGB out, the tone mapping in the composer (AgX or Neutral; none for a toon look), a stencil
@@ -28,7 +28,7 @@ export const PRESETS = freeze({
   window: { key: [0xf4f7ff, 3.0, -80, 25], fill: [0xfff0dc, 0.4, 90, 10], rim: [0xe8eeff, 0.6, 180, 30] },
   overcast: { key: [0xeef2f6, 1.4, -20, 70], fill: [0xdfe8f2, 0.9, 140, 40], rim: [0xffffff, 0, 180, 30] },
 });
-// The looks' defaults (references/looks.md C and I). ao.frac: of the view's half-size; min and max in metres.
+// The perspective rig's defaults (kept for the engine's examples; films use the iso look below). ao.frac: of the view's half-size; min and max in metres.
 export const LOOKS = freeze({
   diorama: { tone: "neutral", env: 0.9, preset: "warm", ao: { frac: 1 / 12, min: 0.004, max: 0.5, falloff: 1, intensity: 2.5 }, shadow: { map: 4096, radius: 12, margin: 1.25, bias: -0.0002 }, dof: false },
   toon: { tone: "none", env: 0, preset: "overcast", ao: false, shadow: { map: 2048, radius: 2, margin: 1.25, bias: -0.0002 }, dof: false },
@@ -207,4 +207,78 @@ export function studio(renderer, scene, camera, opts = {}) {
     return s;
   }
   return { composer, render, frame, state, camera, key, lights: { key, fill, rim }, set, look: name };
+}
+
+// The isometric-world look (references/looks.md), every film's look: three tones per face and no outlines, no lights,
+// no shadow map, no AO, no tone mapping, no DOF, so a frame is cheap and the same on every machine. The tone comes from
+// the face's world normal through one shared matcap (an iso camera sees every normal at one fixed angle, so a view
+// normal is a world normal): top (+y) x1, left (+z) x ISO_TONES.left, right (+x) x ISO_TONES.right, a slanted face
+// blended by its normal like engine/iso's shadeN. The material's colour is the triad's TOP tone (isometric-world.md).
+// ponytail: the tones are a scalar on the top colour, not engine/iso's tri() hue shift; add per-colour matcaps if a
+// side ever reads off-hue next to Express.
+export const ISO_TONES = Object.freeze({ top: 1, left: 0.8, right: 0.62 }); // sRGB factors of the top tone
+let matcap = null;
+export function isoMatcap(size = 64) {
+  if (matcap && matcap.image.width === size) return matcap;
+  const back = new THREE.Vector3(1, 1, 1).normalize(), right = new THREE.Vector3(1, 0, -1).normalize(), up = back.clone().cross(right);
+  const data = new Uint8Array(size * size * 4), n = new THREE.Vector3();
+  for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+    const x = ((i + 0.5) / size - 0.5) / 0.495, y = ((j + 0.5) / size - 0.5) / 0.495, z = Math.sqrt(Math.max(0, 1 - x * x - y * y));
+    n.set(0, 0, 0).addScaledVector(right, x).addScaledVector(up, y).addScaledVector(back, z).normalize();
+    const wt = Math.max(n.y, 0), wl = Math.max(n.z, 0), wr = Math.max(n.x, 0), sum = wt + wl + wr || 1;
+    const f = (wt * ISO_TONES.top + wl * ISO_TONES.left + wr * ISO_TONES.right) / sum, o = (j * size + i) * 4;
+    data[o] = data[o + 1] = data[o + 2] = Math.round(255 * f); data[o + 3] = 255;
+  }
+  matcap = new THREE.DataTexture(data, size, size);
+  matcap.colorSpace = THREE.SRGBColorSpace; matcap.magFilter = matcap.minFilter = THREE.LinearFilter; matcap.needsUpdate = true;
+  return matcap;
+}
+// isoTone(normal): the factor the matcap gives a world normal (for checks and for 2D furniture drawn beside the set).
+export function isoTone(normal) {
+  const n = normal.clone().normalize(), wt = Math.max(n.y, 0), wl = Math.max(n.z, 0), wr = Math.max(n.x, 0), sum = wt + wl + wr || 1;
+  return (wt * ISO_TONES.top + wl * ISO_TONES.left + wr * ISO_TONES.right) / sum;
+}
+export const isoMaterial = (top, o = {}) => new THREE.MeshMatcapMaterial({ color: top, matcap: isoMatcap(), ...o });
+// isoLook(root): every mesh under root onto the iso material, keeping its colour, map, opacity, side and clipping (so a
+// cutaway made later cuts it, attend() still ghosts it). A glowing part (emissive above black) keeps its own material:
+// unlit, it shows its emissive colour, the glow the narration names. Run it before cutaway() and attend().
+export function isoLook(root) {
+  const swapped = new Map();
+  const conv = (m) => {
+    if (!m || m.isMeshMatcapMaterial || m.isShaderMaterial || m.isLineBasicMaterial) return m;
+    if (m.emissive && m.emissive.getHex() !== 0 && (m.emissiveIntensity ?? 1) > 0) return m;
+    if (!swapped.has(m)) swapped.set(m, isoMaterial(m.color ?? 0xffffff, { map: m.map ?? null, transparent: m.transparent, opacity: m.opacity, side: m.side, depthWrite: m.depthWrite, clippingPlanes: m.clippingPlanes, name: m.name }));
+    return swapped.get(m);
+  };
+  root.traverse((o) => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material); o.castShadow = o.receiveShadow = false; } });
+  return root;
+}
+// isoStudio(renderer, scene, camera, { route, ground, finish, stencil }): the rig for the iso look. camera: isoCamera();
+// ground: the sky colour behind the slab (isometric-world.md --bg). render(t, pose) places the camera (camera.js
+// place) and renders; finish(canvas, t) runs last (engine/iso cinema's makeFinish().apply). renderer null: a dry rig.
+export function isoStudio(renderer, scene, camera, opts = {}) {
+  if (!scene?.isScene) throw new Error("isoStudio(): scene is the THREE.Scene");
+  if (!camera?.isOrthographicCamera) throw new Error("isoStudio(): camera is isoCamera(W, H)");
+  if (opts.ground !== undefined) scene.background = new THREE.Color(opts.ground);
+  if (renderer) {
+    if (opts.stencil !== false && !renderer.getContext().getContextAttributes()?.stencil) throw new Error("isoStudio(): the renderer has no stencil buffer, which a cutaway needs; new THREE.WebGLRenderer({ stencil: true }) or pass { stencil: false }");
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.shadowMap.enabled = false;
+    renderer.localClippingEnabled = true;
+  }
+  function frame(t, pose) {
+    if (!pose) { if (!opts.route) throw new Error("isoStudio.render(t, pose): pass the pose (route.at(t)) or build with { route }"); pose = opts.route.at(t); }
+    if (!(pose?.target?.isVector3 && num(pose.k) && pose.k > 0)) throw new Error("isoStudio: pose is an iso { target, k } (isoFrame, route.at(t))");
+    place(camera, pose);
+    return { k: pose.k, pixelMm: (1000 * (opts.mpu ?? M)) / pose.k, far: ISO.far };
+  }
+  function render(t, pose) {
+    if (!renderer) throw new Error("isoStudio.render(): built without a renderer");
+    const s = frame(t, pose);
+    renderer.render(scene, camera);
+    if (opts.finish) opts.finish(renderer.domElement, t);
+    return s;
+  }
+  return { render, frame, camera, look: "iso" };
 }

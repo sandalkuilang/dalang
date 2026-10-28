@@ -1,7 +1,7 @@
 import { THREE, RoundedBoxGeometry } from "./three-vendor.js";
 import { M } from "./kit.js";
 
-// Parametric machine parts at their standard proportions, so a mechanism (look K: one real mechanism, its housing in
+// Parametric machine parts at their standard proportions, so a mechanism (one real mechanism, its housing in
 // x-ray) is assembled from parts instead of modelled: bolt, nut, washer (ISO metric), a deep-groove ball bearing, a
 // helical compression spring that compresses by its law, a shaft, a control knob, a housing and the x-ray material.
 // Gears, belts and chains are transmission.js; boards and cables electronics.js; wires circuit.js.
@@ -139,7 +139,7 @@ export function knob({ d = 0.03, h = 0.018, flutes = 24, mat = new THREE.MeshSta
   return part("knob", { h, w: d, d }, body, line);
 }
 
-// housing({ w, h, d, r }): a box housing with rounded edges, in x-ray (the look K shell). Origin: its bottom centre.
+// housing({ w, h, d, r }): a box housing with rounded edges, in x-ray (a see-through shell). Origin: its bottom centre.
 // One segment per rounded edge (RoundedBoxGeometry turns it in two 45° steps): with more, every step is under the
 // 30° edge threshold and the shell loses its outline.
 export function housing({ w, h, d, r = 0.004, ...look } = {}) {
@@ -150,7 +150,7 @@ export function housing({ w, h, d, r = 0.004, ...look } = {}) {
 }
 
 // xray(object, { color, opacity, edge, edgeColor, threshold }): every mesh under object becomes a see-through shell
-// (look K): its own transparent material (never the shared one, so other parts stay solid), depthWrite off, drawn
+// (x-ray): its own transparent material (never the shared one, so other parts stay solid), depthWrite off, drawn
 // after the solid parts inside (renderOrder), no shadow of its own; plus its silhouette edges (EdgesGeometry above
 // threshold degrees) so the shape still reads. Marked userData.attend = false: attention ghosting leaves it alone.
 export function xray(object, { color = 0xd9dde0, opacity = 0.15, edge = 0.35, edgeColor = 0x3a3d40, threshold = 30 } = {}) {

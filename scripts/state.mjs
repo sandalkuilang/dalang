@@ -99,11 +99,11 @@ const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'wai
 // fences, trailing blank lines dropped; a heading must match exactly one line outside fences.
 const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB;
 const of = (file, ...headings) => headings.map(h => [file, h]);
-const LOOKS = of('looks.md', '# Looks (Step 1 options; Step 5 reads only the chosen row)');
+const LOOKS = of('looks.md', '# The look: isometric-world (every film; Step 5 reads this)');
 const VD_ENERGY = of('visual-direction.md', '## 3. Energy (the Step 1 "Energy" option)');
 const VD_RESTRAINT = of('visual-direction.md', '## 5. Restraint: top-notch, not overdone');
 const VD_CINEMA = of('visual-direction.md', '## 6. Cinematography');
-const THREEJS = of('looks.md', '### Install the engine into the project', '### Light and material per look', '### Set dressing, real scale, interior style, condition', '### True shapes and true surfaces');
+const THREEJS = of('looks.md', '### Install the engine into the project', '### The iso look in three.js', '### Set dressing, real scale, interior style, condition', '### True shapes and true surfaces');
 const VD_HERO = of('visual-direction.md', '## 1. The hero is true (real reference, drawn or built)', '### 1.1 Per subject: machines, models, people, checks');
 const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
 const VD_QUANTITY = of('visual-direction.md', '## 13. Showing a quantity: twin sets, flow arrows, the formula on the set, tags, sound words, gauges');

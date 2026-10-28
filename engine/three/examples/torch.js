@@ -4,7 +4,7 @@ import { wire, flow } from "../circuit.js";
 import { cutaway } from "../cutaway.js";
 import { frame, place as placePose } from "../camera.js";
 
-// The reference piece of look J, the engineering cutaway (references/looks.md): one small device OPENED, every part at
+// A perspective engineering-cutaway piece (from before every film became the iso look, references/looks.md): one small device OPENED, every part at
 // its real size, labelled and dimensioned, its current shown. A torch (flashlight) lies on a working surface with a 10 mm
 // grid, cut along its axis by a plane so that the cell, the spring, the driver board, the LED on its star board, the
 // reflector and the lens show in section; a dc flow runs from the cell to the LED, caused by the film's numbers model.
@@ -28,7 +28,7 @@ import { frame, place as placePose } from "../camera.js";
 // depth of field (station.dof, for the vendored DepthOfFieldEffect) are the set's renderer choices.
 // Returns { group, mat, ground, parts, dims, flows, cut, frames, place, lights, at }.
 
-// The look's defaults as data (looks.md, look J).
+// The piece's defaults as data.
 export const LOOK = Object.freeze({
   ground: "#e8e9e6", mat: "#6f8497",
   accents: Object.freeze({ label: "#ffd400", ac: "#ffd400", dc: "#2f7de1", heat: "#f08a24", warn: "#e0352b" }), // fixed meanings for the whole film

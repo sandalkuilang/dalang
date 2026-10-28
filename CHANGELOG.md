@@ -32,6 +32,13 @@ that reads as:
 
 ### Added
 
+- **The iso look in three.js** (`engine/three/camera.js`, `studio.js`, `references/looks.md`): `isoCamera(W, H)` (an
+  orthographic camera looking along (−1, −1, −1), `k` px per unit), `isoFrame()` stations `{ target, k }` that
+  `stations`, `route`, `travel`, `place` and `shots.js` play (the target pans, zoom in log, the view never tilts);
+  `isoLook()` (three tones per face from one shared matcap, colour and clipping kept), `isoStudio()` (no lights,
+  shadow, AO, tone mapping or DOF) and `cutaway(..., { flat })` for unlit caps. `selfcheck.mjs` proves the direction
+  never changes along a route, the tone order, a cutaway on the iso material and the dry rig.
+
 - **Parallel lanes** (`SKILL.md` "Parallel by default", `docs/workflow.md`): which jobs start in one message at each
   step: preflight beside the topic question, reference measurement beside research (split into strands, one agent
   each), the voice take beside `SPEC.md`, `storyboard.md`, assets and music, the Step 7 scripts together, then the
@@ -42,6 +49,14 @@ that reads as:
   (top / mid / light), and a job that fails its own check is replaced one notch up, effort first, then model.
 
 ### Removed
+
+- **Every look but `isometric-world`** (breaking: `BRIEF.md` `look:` is now always `isometric-world`, a MAJOR bump).
+  Express drops the `blueprint` and `cutaway` design languages (`engine/epic/languages/`); a "how it works" subject is
+  a cutaway inside the iso world. Studio drops looks K, C, J, I, G, D and H (`references/looks.md`): K, J and C/I live
+  on as a cutaway, a section and the diorama inside the world, D and H as its type and data. The Brief's look question
+  (Call 2 item 5) and "More looks" are gone; a series kit's older look letter reads as `isometric-world`. Perspective
+  lens sets, orbits, top shots and dolly-zooms are gone from `camera-motion.md`; look G's watercolour palette from
+  `craft-rules.md`.
 
 - **Nine Express design languages** (`engine/epic/languages/`): `retro-print`, `park-poster`, `naturalist-plate`,
   `hand-drawn`, `dark-glass`, `editorial`, `swiss`, `corporate-clean` and `neo-brutalist`. Express keeps `cutaway`,
@@ -66,6 +81,13 @@ that reads as:
   No agent reads another video's folder (builders and the script alike).
 
 ### Changed
+
+- **One look for both modes: `isometric-world`** (`SKILL.md`, `references/looks.md`, `express.md`, `brief.md`,
+  `camera-motion.md`, `visual-direction.md`, README, docs): the subject as a small world on a floating slab, true
+  isometric (pan and zoom only), three tones per face, the language's palette, type and furniture; Studio builds the
+  same world in three.js. In 9:16 the frustum follows the frame, sizes scale by min(W, H) / 1080 and a story path
+  climbs the frame. The golden scene (`examples/golden/`, revision 2) is the flask on an iso slab with a flat hatched
+  section; the next release's golden eval is a new baseline (not comparable with 1.6.0).
 
 - **Every question is asked up front, in English** (`SKILL.md` principle 5 and "Language", `brief.md` Step 1): all
   AskUserQuestion text (question, header, options, previews) is English whatever the chat language, and the whole run's

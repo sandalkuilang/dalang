@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // node tests/golden-scene.mjs — the golden scene (examples/golden/scene.js) without a render: it is DOM-free, so Node
-// builds it against the real engine and checks its constants, its three stations, the shadow texel size per station
-// and that the camera is a pure function of t resting on each station at the frame times. The render is release-time.
+// builds it against the real engine and checks its constants, its three iso stations, the mm per pixel per station
+// and that the camera is a pure function of t resting on each station at the frame times, never tilting. The render is release-time.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -27,7 +27,7 @@ try {
   assert.ok(ft[0] < ft[1] && ft[1] < ft[2], "frame times strictly increasing");
 
   // 2. the scene builds in Node, three stations, texel size
-  const w = S.buildScene({ aspect: C.width / C.height });
+  const w = S.buildScene({ W: C.width, H: C.height });
   for (const s of ["home", "medium", "macro"]) {
     assert.ok(w.stations[s], `station ${s}`);
     const mm = w.texelMm(s);
@@ -36,20 +36,24 @@ try {
   assert.throws(() => w.texelMm("nowhere"), /nowhere/);
 
   // 3. the camera is a pure function of t, and rests on each station at its frame time
-  const cam = new V.THREE.PerspectiveCamera(30, C.width / C.height, 0.01, 100);
-  const pose = (t) => { w.at(t, cam); return [cam.position.x, cam.position.y, cam.position.z, cam.fov]; };
-  for (const t of [0, 1, 3, 5.2, 6]) assert.ok(pose(t).every(Number.isFinite), `finite pose at ${t}`);
+  const E = await import(pathToFileURL(path.join(tmp, "assets", "engine", "camera.js")).href);
+  const cam = E.isoCamera(C.width, C.height), dir = new V.THREE.Vector3(), iso = new V.THREE.Vector3(-1, -1, -1).normalize();
+  const pose = (t) => { w.at(t, cam); return [cam.position.x, cam.position.y, cam.position.z, cam.zoom]; };
+  for (const t of [0, 1, 3, 5.2, 6]) {
+    assert.ok(pose(t).every(Number.isFinite), `finite pose at ${t}`);
+    assert.ok(cam.getWorldDirection(dir).distanceTo(iso) < 1e-9, `the iso view never tilts (t = ${t})`);
+  }
   const a = pose(3);
   assert.deepEqual(pose(3), a, "same t, same pose");
   pose(5.2); // out of order, then back
   assert.deepEqual(pose(3), a, "an out-of-order seek repeats");
   for (const [name, st] of [["wide", "home"], ["medium", "medium"], ["macro", "macro"]]) {
-    const p = pose(C.frameTimes[name]), s = w.stations[st];
-    const err = Math.abs(p[0] - s.position.x) + Math.abs(p[1] - s.position.y) + Math.abs(p[2] - s.position.z) + Math.abs(p[3] - s.fov);
+    const p = pose(C.frameTimes[name]), ref = E.place(E.isoCamera(C.width, C.height), w.stations[st]);
+    const err = Math.abs(p[0] - ref.position.x) + Math.abs(p[1] - ref.position.y) + Math.abs(p[2] - ref.position.z) + Math.abs(p[3] - ref.zoom);
     assert.ok(err < 1e-6, `${name} frame time rests on station ${st}`);
   }
-  const d = w.dof(C.frameTimes.macro), d0 = w.dof(C.frameTimes.wide);
-  assert.ok(d.focusPoint.isVector3 && d.bokehScale > d0.bokehScale, "depth of field is strongest at the macro");
+  assert.ok(w.stations.macro.k > w.stations.medium.k && w.stations.medium.k > w.stations.home.k, "the stations close in: wide, medium, close");
+  assert.ok(w.scene.getObjectByName("floor").material.isMeshMatcapMaterial, "the set wears the iso look");
 
   // 4. fixed text, ASCII, non-empty; no clocks or randomness
   const texts = [...S.CAPTIONS.map((c) => c.text), ...Object.values(S.LABELS), S.DIM.text];

@@ -32,7 +32,7 @@ flowchart TD
 | Step | Output | Gate |
 |---|---|---|
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
-| 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, look, energy, audience, voice, extras such as the second-language cut), so the user can leave afterwards | — |
+| 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, energy, audience, voice, extras such as the second-language cut), so the user can leave afterwards | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
 | 3 Script | `script.md`, `narration.txt` with `{beat\|name}` markers; every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |

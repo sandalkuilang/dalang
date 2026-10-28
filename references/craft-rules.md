@@ -31,7 +31,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 
 ## 5. The mitten rule (stylised characters only)
 
-- Only for a cartoon the user asked for (looks C, G). Real people follow `visual-direction.md` §1 "People are the hardest subject".
+- Only for a stylized figure in the iso world (a small person for scale, a character the user asked for). Real people follow `visual-direction.md` §1 "People are the hardest subject".
 - No fingers, no elbows, no body part bending at more than one point.
 - Why: fewer joints, fewer bugs. Five-fingered hands holding objects are the most common source of errors in code-made animation.
 - Suggested base shapes: round/oval head, bean-shaped body, mitten hands, short legs. Expression through eyes, brows, and mouth is enough.
@@ -59,16 +59,3 @@ These are the numbers that make code-made animation feel alive. They come from m
 - The narration is always clear. Background music ducks under the narration and never disappears completely.
 - A sound with a physical cause (an impact, a latch, a break) is placed at its computed contact time and may be dense; use the other sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
 - Final target: about −14 LUFS, true peak ≤ −1 dBTP (works for YouTube, Instagram, and TikTok). Check with `scripts/loudness.mjs`.
-
-## 8. "Ink + watercolour" palette (look G in `looks.md`)
-
-| Role | Colour |
-|---|---|
-| Paper | `#F2E8D5` with a fine fibre texture, slight vignette |
-| Ink | `#2A2522` (near-black, warm) |
-| Watercolour 1 | `#7FA7C9` (faded blue) |
-| Watercolour 2 | `#E3A66B` (earthy orange) |
-| Watercolour 3 | `#9DBF8E` (sage green) |
-| Guide line | `#A9C8E8` ("non-photo" blue, for sketches that get erased later) |
-
-Let the watercolour spill slightly outside the ink lines. That imperfection is what makes it feel hand-made.

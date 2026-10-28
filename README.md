@@ -73,7 +73,7 @@ It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/mai
 
 ## 🎬 How it works
 
-**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in one design language picked by subject (cutaway, isometric world or blueprint), one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
+**Two modes, asked first, one look.** Every film is an isometric world: the subject as a small diorama on a floating slab, true isometric (the view pans and zooms, never tilts), three tones per face. **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in that world, one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, the same world built in three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
@@ -137,9 +137,9 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject, including what no camera can film (molecules, orbits, the inside of a machine) |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick; 30 fps by default (the platforms play at 30), 24 is a film-look choice and gets motion blur on every camera move |
-| **Look** | always stylized and true to how the subject really works: technical clean x-ray, toon explainer, engineering cutaway, stylised 3D diorama, ink & watercolour, editorial type, dimensional data — easy to watch, renders in seconds; never footage or a photoreal render |
+| **Look** | one, always: an isometric world, stylized and true to how the subject really works (a cutaway inside it shows what is inside) — easy to watch, renders in seconds; never footage or a photoreal render |
 | **3D** | three.js with a bundled engine of generic systems: real scale, machine parts and transmissions (gears, belts, chains at real tooth ratios), air jets, granular fills, fields and optics (field lines, filings, rays through lenses), section views, electronics with printed markings at real size, camera stations and attention by ghosting — every motion a pure function of t from its cause, so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
-| **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
+| **Camera** | film grammar in true isometric: framing and zoom chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or Kokoro-82M (free, local, Apache-2.0) for English (en, en-gb) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
 | **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the cause where things collide (the computed contact time) |
 | **Series** | save a channel's kit once (`series.mjs`): its next videos start from it with the same look, HUD, captions, voice and rules, and fewer questions; never scene code |
@@ -156,7 +156,7 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, Gate 3 benchmark, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
   visual-direction.md  true-shape sourcing, restraint, composition, review rubric, information layers, showing a quantity
-  looks.md             the seven Studio looks, how to offer them, three.js recipes
+  looks.md             the one look (isometric-world) in both modes, three.js recipes
   camera-motion.md     film camera grammar, physical timing, design in time
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps
@@ -196,12 +196,12 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   air jets, grains, fields and optics (field
                   lines, filings, rays through lenses), cutaways, captions and labels,
                   printed markings and electronics, standard machine parts and the x-ray housing (parts.js),
-                  quantities (flow arrows, tile fills, range cards), camera stations and
-                  attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces
-engine/iso/       the Express isometric look: iso.js (vendored), shape families (forms.js), objects as data
+                  quantities (flow arrows, tile fills, range cards), the iso camera and look
+                  (isoCamera, isoLook, isoStudio), camera stations and attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces
+engine/iso/       the isometric look in 2.5D (Express): iso.js (vendored), shape families (forms.js), objects as data
                   (build.js), CC0 glTF/GLB models drawn flat (model.js), camera parallax by layer depth
                   (parallax.js), film camera and finish (cinema.js), example specs
-engine/epic/      Express design languages (EpicInfographics, MIT): cutaway, isometric-world, blueprint, with the
+engine/epic/      the design language (EpicInfographics, MIT): isometric-world, with the
                   composition, data and chart rules
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics

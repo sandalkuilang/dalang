@@ -1,5 +1,5 @@
 import { THREE } from "./three-vendor.js";
-import { travel, place as placePose, attend, snap, windowProblems } from "./camera.js";
+import { travel, place as placePose, poseOf, isoCamera, attend, snap, windowProblems } from "./camera.js";
 import { textBand, pinLabel, drawCaption, safeArea } from "./type.js";
 import { dimension } from "./quantity.js";
 
@@ -96,7 +96,7 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
     let g = segs[0];
     for (const x of segs) if (x.start <= t + 1e-9) g = x;
     if (!g) return null;
-    const p = g.dur ? travel(t, g.from, g.to, { start: g.start, dur: g.dur, ease: g.ease, lift: g.lift }) : { position: g.to.position.clone(), target: g.to.target.clone(), fov: g.to.fov, speed: 0 };
+    const p = g.dur ? travel(t, g.from, g.to, { start: g.start, dur: g.dur, ease: g.ease, lift: g.lift }) : { ...poseOf(g.to), speed: 0 };
     return { ...g.to, ...p, view: g.to.view };
   };
   const placeAt = (camera, t) => {
@@ -110,7 +110,7 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
     ...(s.labels ?? []).map((l) => ({ kind: "label", l, at: l.at ? cue(s, l.at) : s.start, anchor: () => set.parts[l.part], text: l.text, ok: !!set.parts[l.part], what: `label "${l.text}" on "${l.part}"` })),
     ...(s.dims ?? []).map((d) => { const D = set.dims?.[d.dim]; return { kind: "dim", d, D, at: d.at ? cue(s, d.at) : s.start, text: d.text ?? (D ? `${Math.round(D.m * 1000)} mm` : ""), ok: !!D, what: `dimension "${d.dim}"` }; }),
   ];
-  const zone = safeArea(format, W, H).labels, cam = new THREE.PerspectiveCamera(30, W / H, 1e-4, 1e3), v = new THREE.Vector3();
+  const zone = safeArea(format, W, H).labels, cam = Object.values(set.stations)[0]?.k !== undefined ? isoCamera(W, H) : new THREE.PerspectiveCamera(30, W / H, 1e-4, 1e3), v = new THREE.Vector3();
   const onFrame = (p) => { v.copy(p).project(cam); const x = ((v.x + 1) / 2) * W, y = ((1 - v.y) / 2) * H; return v.z >= -1 && v.z <= 1 && x >= zone.x0 && x <= zone.x1 && y >= zone.y0 && y <= zone.y1; };
   const windows = [];
   for (const s of out) {
