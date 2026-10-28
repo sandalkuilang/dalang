@@ -73,7 +73,7 @@ It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/mai
 
 ## 🎬 How it works
 
-**Two modes, asked first, one family of looks.** Two looks, asked in the Brief, in either mode. Isometric: an isometric world is the main language, flat drawing that reads as 3D through layers and colour (the subject as a small diorama on a floating slab, three tones per face), with a cutaway on the beats that open a thing up and a blueprint only where the explanation needs engineering-grade detail. Or `object-studio`: the real object as clean 3D on a light grey studio sweep, with x-ray and editorial cards. The agent plans the camera: 2.5D layer moves in the isometric look, a real lens with orbit, crane, drone, dolly zoom and bokeh in `object-studio`. **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in that language, one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, the same world built in three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
+**Two modes, asked first, one family of looks.** Two looks, asked in the Brief, in either mode. Isometric: an isometric world is the main language, flat drawing that reads as 3D through layers and colour (the subject as a small diorama on a floating slab, three tones per face), with a cutaway on the beats that open a thing up and a blueprint only where the explanation needs engineering-grade detail. Or `object-studio`: the real object as clean 3D on a light grey studio sweep, with x-ray and editorial cards. The agent plans the camera: 2.5D layer moves in the isometric look, a real lens with orbit, crane, drone, dolly zoom and bokeh in `object-studio`. **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in that language, one builder or 2–3 at once, and no stop after the Brief: you get the finished film, with the run's metrics at the end (start, end, total time, minutes per step, the output folder, each subagent's model, effort and tokens; `references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, the same world built in three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
@@ -108,7 +108,7 @@ Script → voice → look → draft. The look is approved as **three real stills
 
 **💸 Cheap before expensive**
 
-`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. The film's scene code never enters the main thread (the Step 5 style frames do): a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. Work that does not depend on other work runs in parallel (the voice take beside the storyboard and assets, research strands, every shot group at once, the Step 7 scripts and reviewers). Each subagent gets its model and effort from one table, automatically: the top model at high effort judges the film, Studio builders run at high (pilot) or medium, Express builders, research and checks on a mid tier, text-only screening on a light one; a failed job is replaced one notch up, never repeated at the same setting.
+`--sample` before a full voice. Snapshots instead of renders. `--quality draft` until the end. Sheets and crops before full-res stills; a test run gets one review round. One video = one session, because all state lives in files. Few tokens by design: every model turn re-reads the whole session, so calls that do not need each other go in one message, a step's reading comes in one call, the film's frame (engine, host, every group) is written by `scaffold.mjs` instead of a model, builders fill only data from a one-page API card and never read engine sources, and DALANG's own subagent types (`agents/`) carry only the tools their job uses (~15K tokens a turn instead of ~50K). The film's scene code never enters the main thread (the Step 5 style frames do): a builder subagent builds a pilot shot group (or a short film whole), checked against the style frames, then one builder per group builds the rest and each QC fix round goes to a builder too; the main thread holds the gates and the verdicts. Work that does not depend on other work runs in parallel (the voice take beside the storyboard and assets, research strands, every shot group at once, the Step 7 scripts and reviewers). Each subagent gets its model and effort from one table, automatically: the top model at high effort judges the film, Studio builders run at high (pilot) or medium, Express builders, research and checks on a mid tier, text-only screening on a light one; a failed job is replaced one notch up, never repeated at the same setting.
 
 </td></tr>
 </table>
@@ -150,6 +150,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 
 ```
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
+agents/           lean subagent types (builder, checker, research), installed into the videos folder by workspace.mjs init
 references/       one § at a time: `state.mjs next --print` prints each step's § text in one call; the gate keeps each ≤ 8 KB
   brief.md             steps 0–2: setup, the brief questions, a reference
   script-voice.md      steps 3–4: promise and takeaway, writing for the ear, number provenance, arc templates, voice audition
@@ -199,7 +200,8 @@ engine/three/     the three.js engine for 3D sets: generic systems (real scale, 
                   lines, filings, rays through lenses), cutaways, captions and labels,
                   printed markings and electronics, standard machine parts and the x-ray housing (parts.js),
                   quantities (flow arrows, tile fills, range cards), the iso camera and look
-                  (isoCamera, isoLook, isoStudio), camera stations and attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces
+                  (isoCamera, isoLook, isoStudio), camera stations and attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces;
+                  templates/: the object-studio group, the host both looks share, and their one-page API card
 engine/iso/       the isometric look in 2.5D (Express): iso.js (vendored), shape families (forms.js), objects as data
                   (build.js), CC0 glTF/GLB models drawn flat (model.js), camera parallax by layer depth
                   (parallax.js), film camera and finish (cinema.js), example specs; templates/: a group template and the
@@ -208,7 +210,7 @@ engine/epic/      the design languages (EpicInfographics, MIT): isometric-world,
                   composition, data and chart rules
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
-tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, Gate 3 benchmark, golden (run by the gate)
+tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, Gate 3 benchmark, scaffold, token report and metrics, golden (run by the gate)
 docs/             workflow + architecture, with diagrams
 CLAUDE.md         rules for changing the skill
 ```
