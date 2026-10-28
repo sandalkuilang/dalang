@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-28
+
 ### Added
 
 - **The iso look in three.js** (`engine/three/camera.js`, `studio.js`, `references/looks.md`): `isoCamera(W, H)` (an
@@ -1233,7 +1235,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/sandalkuilang/dalang/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/sandalkuilang/dalang/compare/v1.8.0...v2.0.0
 [1.8.0]: https://github.com/sandalkuilang/dalang/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/sandalkuilang/dalang/compare/v1.6.0...v1.7.0
