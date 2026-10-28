@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-10-29
+
 ### Added
 
 - `references/express-planner.md`: Express has a planner again (top, high). Once the take is final and `after-voice`
@@ -1541,7 +1543,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...HEAD
+[3.9.0]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...v3.9.0
 [3.8.4]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...v3.8.4
 [3.8.3]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...v3.8.3
 [3.8.2]: https://github.com/sandalkuilang/dalang/compare/v3.8.1...v3.8.2
