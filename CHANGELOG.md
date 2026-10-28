@@ -30,6 +30,20 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- Express: no group snapshots an empty world. `assets/world.js` starts with a `STUB` line; the builders of the other
+  groups write their templates, then wait for the first group's Write to remove that line before they snapshot.
+  `express.mjs assemble` fails when the world is still the stub. Before, a second group could finish and report without
+  ever seeing a frame.
+- Express: the world is furnished and true, not a bare slab with plain boxes. The first builder's brief sets the bar
+  (6 or more set props per place, each made object built from the parts that make it known, every person the narration
+  names a `figure`), SPEC OBJECTS lists each place's props, each object's telling parts and each person, and every
+  builder's look check also names a subject under a third of the frame, bare ground over half of it, a missing person
+  and a moving thing that does not stand off its ground.
+- `express.mjs after-voice` reads the newest `voice-*.log` (the last retake's) unless `--log` names one; it no longer
+  fails on a first take's warnings that a retake already fixed.
+
 ## [3.8.1] - 2026-10-28
 
 ### Fixed

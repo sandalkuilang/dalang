@@ -38,6 +38,10 @@ try {
   const bIntro = read(d, "review/builder-intro.md"), bBody = read(d, "review/builder-body.md");
   assert.match(bIntro, /beats hook\)/, "a brief names its own beats");
   assert.match(bIntro, /fill `assets\/world\.js` once/, "the first group's builder writes the world");
+  assert.match(read(d, "assets/world.js"), /^export const STUB/m, "the world starts as a stub the other groups can wait on");
+  assert.match(bIntro, /6 or more set props/, "the world's builder gets the density bar");
+  assert.match(bBody, /grep -q '\^export const STUB'/, "another group waits for the world before its snapshot");
+  assert.match(bBody, /under a third of the frame height/, "the look check names the subject's size");
   assert.match(bBody, /written by the `intro` builder: import it, never copy/, "every other builder imports it");
   assert.match(bBody, /cues\.mjs \. --beats middle/, "a brief names its cue table");
   assert.match(bBody, /No engine source in `assets\/`/, "a brief forbids reading engine sources");
