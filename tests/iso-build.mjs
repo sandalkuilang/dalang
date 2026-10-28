@@ -126,3 +126,20 @@ assert.equal((await parseModel(glb(tex, bin))).col[0], "#ffffff", "no decoder: t
 await assert.rejects(parseModel(glb(base({ extensionsRequired: ["KHR_draco_mesh_compression"] }), bin)), /compressed/);
 await assert.rejects(parseModel(new TextEncoder().encode(JSON.stringify({ asset: { version: "2.0" }, buffers: [{ uri: "a.bin", byteLength: 1 }] }))), /fetchBuffer/);
 console.log("iso-build ok");
+
+// palette.js: triad() keeps three faces apart at any base (tri() collapses a dark or pale one), hue kept, deterministic
+{
+  const { triad, toOklab } = await import("../engine/iso/palette.js");
+  const { tri } = await import("../engine/iso/iso.js");
+  const L = (h) => toOklab(h)[0], hue = (h) => { const [, a, b] = toOklab(h); return Math.atan2(b, a); };
+  for (const base of ["#22333B", "#0B0B0B", "#F7F5EF", "#FFFFFF", "#009B7D", "#D9503F", "#4A55C8", "#B57300", "#B8C2C6"]) {
+    const [t, l, r] = triad(base);
+    assert.ok(L(t) - L(l) > 0.07 && L(l) - L(r) > 0.09, `triad(${base}): top > left > right by a readable step: ${[t, l, r]}`);
+    if (Math.hypot(...toOklab(base).slice(1)) > 0.05) assert.ok(Math.abs(hue(t) - hue(base)) < 0.2 && Math.abs(hue(r) - hue(base)) < 0.2, `triad(${base}) keeps the hue`);
+  }
+  const [, , rInk] = tri("#22333B");
+  assert.ok(L("#22333B") - L(rInk) < 0.07, "tri() itself collapses a dark base (why triad exists): " + rInk);
+  assert.deepEqual(triad("#009B7D"), triad("#009B7D"), "pure");
+  assert.throws(() => triad("teal"), /#rrggbb/, "a colour name is refused");
+  console.log("palette ok: triad keeps three readable faces at any base");
+}

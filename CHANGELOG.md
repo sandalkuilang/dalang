@@ -42,6 +42,23 @@ that reads as:
   The first builder runs it after writing `assets/world.js` and fixes the geometry until it exits 0 (`express.md`,
   `iso-API.md`, the builder brief). Exit 2 is a WARN, never clean. On a test set it caught a sofa built 10 cm above the
   floor that no still had shown. Checked in `tests/iso-audit.mjs`.
+- **Labels land on parts the viewer can see** (`world.js` `PINS`, the group template's `PIN`, `lint_scene.mjs`). Overlays
+  anchor to `PIN.<part>`, filled from `build()` every frame. `iso_audit.mjs` refuses a label:
+  - whose part does not exist;
+  - whose part name is shared;
+  - whose part is hidden behind another object (`--cut 1` checks a cutaway beat with the skins off).
+
+  `lint_scene.mjs` flags an overlay anchored to typed numbers.
+- **The hero object is built from its real parts.** It is marked `hero: true` and has 15 or more parts, grouped base,
+  structure, mechanism, controls and the subject (planner OBJECTS, builder brief, audit). Its inside comes from the same
+  object under its skin, and an inner part no source shows is drawn plain and called generic (`cutaway.md`,
+  `express-planner.md`).
+- **`triad(hex)`** (`engine/iso/palette.js`) gives a part three readable faces at any base colour. It steps lightness in
+  OKLab (the idea is from Teddarific/skills anatomy-asset, MIT); `tri()` collapses a dark or pale base.
+- **Lines mean one thing** (`cutaway.md`, `blueprint.md`):
+  - dashed is only a real hidden edge;
+  - dash-dot is an axis or centre line;
+  - a detail drawn larger than scale says "NTS".
 
 ## [3.9.1] - 2026-10-29
 

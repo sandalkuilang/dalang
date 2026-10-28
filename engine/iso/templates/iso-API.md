@@ -19,6 +19,10 @@ the keys it animates.
 that floats, two objects drawing through each other, a pipe through a solid or ending in mid-air; 2 WARN, rerun). Every
 part rests on another part down to the ground (feet, brackets, a base, never a gap); objects touch, never sink into each
 other; a pipe or cable ends on a port and runs beside structure, held by brackets; fix the geometry, never nudge it by eye.
+`PINS` (world.js) lists the part names overlays label: each unique, each seen by the camera (`--cut 1` for a cutaway
+beat). Overlays anchor to `PIN.<part>` (the template fills `PIN` from `build()` every frame), never to typed numbers
+(`lint_scene.mjs` flags them). The hero spec carries `hero: true` and needs 15+ parts. `triad(hex)` (`palette.js`) gives a
+part three readable faces at any base: `color: triad(COLORS.subject)`.
 `build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
 - `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, parts: [part, …] }`
 - `part = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides off with

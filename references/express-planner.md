@@ -30,7 +30,10 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
 - **OBJECTS:** each place with 6 or more set props named (furniture, fixtures, plants, tools, signs, cables) and its
   ground and wall materials; each made object at real size with the parts that make it known at a glance (a pump:
   body, impeller housing, flanges, bolts; a laptop: lid, hinge, keys, ports); each person with height, clothes that
-  stand off the ground, and what they hold.
+  stand off the ground, and what they hold. **The hero object** (the one the film explains) is marked `hero: true`
+  and lists its parts by group, base, structure, mechanism, controls, the subject: 15 or more, each resting on a named
+  part. Its inside comes from the same object, under its skin; an inner part no source shows is named "generic" and
+  drawn plain, never invented. **PINS:** every part an overlay labels, by its unique part name.
 - **OVERLAYS:** sizes in px on the 1080 px canvas (headline 64 or more, big word 160 or more, label 40 or more, never
   smaller), colours with contrast 4.5:1 or more on what they sit on. **One headline system for the whole film:** a
   card in one fixed place (inside the safe zone), on every claim beat, a small kicker over the claim, and the claim's

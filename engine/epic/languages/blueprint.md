@@ -54,7 +54,9 @@ CVD-separable.
 - Linework: subject outlines 2.5px `--line`; detail lines 1.25px; grid
   1px `--line-soft` at 40px cells (whole canvas, under everything).
 - **Dimension lines**: 1px with arrowheads (SVG markers) + knockout label;
-  leader lines end in a 4px dot at the part they name.
+  leader lines end in a 4px dot at the part they name. Dashed is only a real
+  hidden edge, dash-dot an axis or centre line; a detail drawn larger than
+  scale carries a small "NTS" (not to scale) tag.
 - Double-rule border frame 12px in from the canvas edge (2px + 1px lines).
 - Spacing scale: 8 / 16 / 24 / 40 / 56.
 
