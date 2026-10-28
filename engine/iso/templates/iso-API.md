@@ -32,11 +32,13 @@ the keys it animates.
   CLOSE), so seams match. `camAt(t, [{ t, x, y, z, k, ease }])` keyed poses (k = px per metre; ease `inOut | out | in | linear | expo`);
   **a move goes one way**: keys that travel right then left (or back) with no hold ≥ 0.5 s between throw, so turn back
   only after a held key or a cut. **No handheld, ever:** the camera's life is the template's slow orbit, one direction
-  for the whole film (`ORBIT`: 1 right, -1 left, from SPEC CAMERA, the same in every group).
+  for the whole film (`ORBIT = filmOrbit(1)` right or `filmOrbit(-1)` left, from SPEC CAMERA, the same in every group).
+  `filmOrbit` locks it: an `orbit25` against it (a shot's arrive-and-orbit included) throws, so `to: -1` is only for a
+  film that orbits left.
 - 2.5D moves (`cinema.js`, `{ rest, start, dur, ease }`; on 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest,
   sweep })` → hand `o.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
   dolly }`; `drone25(t, { rest, from })`. A zoom that lands on a subject hands over to a slow orbit: `orbit25(t, { rest: landing,
-  start: landingTime, dur, from: 0, to: 1 })` (`to: -1` the other side; `crane25` for up or down). An orbit is one
+  start: landingTime, dur, from: 0, to: 1 })` (`to: ORBIT`, the film's direction; `crane25` for up or down). An orbit is one
   direction for its whole run, `from` → `to`: never two orbits back and forth, never a sine on the rest pose.
   `whip(t, t0, dur, a, b)` → `{ cam, blur }` with `motionBlur(cv, bf, draw, t, { samples: 16 })`.
 - `drawLayers(iso, cam, rest, [{ depth, draw(iso), blur? }], { focus, aperture, dolly, haze: { color, amount } })`:

@@ -30,6 +30,13 @@ that reads as:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Every orbit in a film goes the same way.** `filmOrbit(1)` (right) or `filmOrbit(-1)` (left), set by every group
+  template from SPEC CAMERA, locks the direction: an `orbit25` against it, a shot's arrive-and-orbit included, throws,
+  and so does a group that sets the other direction. A shot could orbit left over the film's slow orbit right, which
+  read as the camera swinging back and forth.
+
 ## [3.8.0] - 2026-10-28
 
 ### Added

@@ -153,8 +153,18 @@ const SQ3 = Math.sqrt(3);
 // nearer ones (depth > 1) the other, depth 1 not at all. `sweep` is the depth-0 travel as a fraction of the frame width.
 // Returns the rest camera plus `.rest`, the shifted reference to hand to drawLayers. `from`/`to` are the start and end of
 // the slide in `sweep` units (default −0.5 → 0.5, centred on the rest); an orbit that starts the instant a zoom lands
-// is `from: 0, to: 1` (or `to: −1` for the other side), so it leaves the arrival pose without a jump.
+// is `from: 0, to: ORBIT` (the film's direction, filmOrbit below), so it leaves the arrival pose without a jump.
+// One orbit direction per film: filmOrbit(1) (the camera goes round to the right: far layers slide left, near ones right)
+// or filmOrbit(-1), called by every group template with the film's ORBIT. Every orbit25 then goes that way (to > from
+// for 1), so a shot's arrive-and-orbit never turns against the film's orbit; a group that names the other direction throws.
+let filmDir = 0;
+export function filmOrbit(dir) {
+  if (dir !== 1 && dir !== -1) throw new Error("filmOrbit: 1 (right) or -1 (left)");
+  if (filmDir && dir !== filmDir) throw new Error(`filmOrbit: the film orbits ${filmDir > 0 ? "right" : "left"}; one direction for the whole film, the same ORBIT in every group`);
+  return (filmDir = dir);
+}
 export function orbit25(t, { rest, sweep = 0.12, width = 1920, from = -0.5, to = 0.5, ...o } = {}) {
+  if (filmDir && Math.sign(to - from) === -filmDir) throw new Error(`orbit25: this orbit goes ${filmDir > 0 ? "left" : "right"} (from ${from} to ${to}) but the film orbits ${filmDir > 0 ? "right" : "left"}: every orbit goes one way (to ${filmDir > 0 ? ">" : "<"} from)`);
   const d = (sweep * width) / (SQ3 * rest.k) * (from + (to - from) * move(t, o));
   return { ...rest, rest: { ...rest, x: rest.x + d, y: rest.y - d } };
 }
