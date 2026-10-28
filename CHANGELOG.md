@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-10-28
+
 ### Added
 
 - **Arrive and orbit** (`camera-motion.md` §11.3): a zoom in or out that lands on a subject hands over to a slow orbit at
@@ -1390,7 +1392,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.5.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.6.0...HEAD
+[3.6.0]: https://github.com/sandalkuilang/dalang/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/sandalkuilang/dalang/compare/v3.4.0...v3.5.0
 [3.4.0]: https://github.com/sandalkuilang/dalang/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/sandalkuilang/dalang/compare/v3.2.0...v3.3.0
