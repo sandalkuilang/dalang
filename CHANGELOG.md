@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.8.4] - 2026-10-28
+
 ### Fixed
 
 - Express fix rounds stop eating the budget. There is one fix round, one fixer per group. A fix that changes
@@ -1516,7 +1518,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...HEAD
+[3.8.4]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...v3.8.4
 [3.8.3]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...v3.8.3
 [3.8.2]: https://github.com/sandalkuilang/dalang/compare/v3.8.1...v3.8.2
 [3.8.1]: https://github.com/sandalkuilang/dalang/compare/v3.8.0...v3.8.1
