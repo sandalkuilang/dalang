@@ -138,9 +138,11 @@ const SQ3 = Math.sqrt(3);
 
 // The subject stays centred and the world slides round it: layers farther than the subject (depth < 1) slide one way,
 // nearer ones (depth > 1) the other, depth 1 not at all. `sweep` is the depth-0 travel as a fraction of the frame width.
-// Returns the rest camera plus `.rest`, the shifted reference to hand to drawLayers.
-export function orbit25(t, { rest, sweep = 0.12, width = 1920, ...o } = {}) {
-  const d = (sweep * width) / (SQ3 * rest.k) * (move(t, o) - 0.5);
+// Returns the rest camera plus `.rest`, the shifted reference to hand to drawLayers. `from`/`to` are the start and end of
+// the slide in `sweep` units (default −0.5 → 0.5, centred on the rest); an orbit that starts the instant a zoom lands
+// is `from: 0, to: 1` (or `to: −1` for the other side), so it leaves the arrival pose without a jump.
+export function orbit25(t, { rest, sweep = 0.12, width = 1920, from = -0.5, to = 0.5, ...o } = {}) {
+  const d = (sweep * width) / (SQ3 * rest.k) * (from + (to - from) * move(t, o));
   return { ...rest, rest: { ...rest, x: rest.x + d, y: rest.y - d } };
 }
 
@@ -183,4 +185,26 @@ export function discs(g, points, { radius = 40, color = "#ffffff", alpha = 0.5 }
     g.fillStyle = gd; g.beginPath(); g.arc(p.x, p.y, radius, 0, Math.PI * 2); g.fill();
   }
   g.restore();
+}
+
+// How much of an effect is on at t: 0 before t0, eased up to 1 at t1, held to t2, eased down to 0 at t3 (t0 = t1 or
+// t2 = t3 makes that side a step). One window for a peripheral blur: up with the zoom, held through the orbit.
+export function hold(t, t0, t1, t2, t3) {
+  return t < t1 ? (t1 > t0 ? EASE.inOut(clamp((t - t0) / (t1 - t0))) : t >= t0 ? 1 : 0) : t <= t2 ? 1 : t3 > t2 ? 1 - EASE.inOut(clamp((t - t2) / (t3 - t2))) : 0;
+}
+
+// The lens looks at one spot: blur everything around (cx, cy) and keep a clear round centre, the way a wide-open lens
+// isolates what it is focused on. Run it on the finished frame (after drawLayers, before finish.apply); `buffer` is a
+// canvas of the same size. fstop sets the blur (bokeh's scale: f1.2 ≈ 14 px, f2.8 ≈ 6 px, f5.6 ≈ 3 px at 1080p and 50 mm),
+// `clear` the radius of the sharp disc and `feather` the width of the soft edge, both in frame heights; `amount` 0–1
+// (`hold`) fades it in and out. Deterministic.
+export function focusRing(target, buffer, { cx, cy, fstop = 2.8, mm = 50, clear = 0.25, feather = 0.3, amount = 1 } = {}) {
+  const px = bokeh(fstop, { mm }).aperture * 0.8 * clamp(amount);
+  if (px < 0.3) return;
+  const { width: W, height: H } = target, b = buffer.getContext("2d");
+  b.clearRect(0, 0, W, H); b.filter = `blur(${px}px)`; b.drawImage(target, -px, -px, W + 2 * px, H + 2 * px); b.filter = "none"; // bled past the edges, so the border stays soft
+  const gr = b.createRadialGradient(cx, cy, clear * H, cx, cy, (clear + feather) * H);
+  gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+  b.globalCompositeOperation = "destination-out"; b.fillStyle = gr; b.fillRect(0, 0, W, H); b.globalCompositeOperation = "source-over"; // the centre erased: the sharp frame shows through
+  target.getContext("2d").drawImage(buffer, 0, 0);
 }

@@ -30,6 +30,17 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Arrive and orbit** (`camera-motion.md` §11.3): a zoom in or out that lands on a subject hands over to a slow orbit at
+  once, the edges blurred and the centre clear while it travels and orbits. The agent picks the side (toward the open
+  side of the frame, alternating between arrivals) or a rise or dip; at most three per film.
+- **Aperture points at the part** (`camera-motion.md` §11.2): a close part named in the narration gets f1.2–2.8 with the
+  focus on it and the rest melting into bokeh, racked to the next part on the next word. The beat table has both rows.
+- **Express engine** (`engine/iso/cinema.js`): `focusRing` (blur around a clear centre, scaled by the f-stop) and
+  `hold` (its 0–1 window); `orbit25` takes `from`/`to` so an orbit can start on the pose a zoom landed on. Checked in
+  `tests/iso-cinema.mjs`.
+
 ## [3.5.0] - 2026-10-28
 
 ### Added

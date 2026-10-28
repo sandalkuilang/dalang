@@ -29,11 +29,14 @@ search the disk for fonts. Group: `iso-group.tpl.html` beside this card → `src
   `handheld(cam, t, { amp })` (0.01 calm, 0.03 tense).
 - 2.5D moves (`cinema.js`, `{ rest, start, dur, ease }`; on 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest,
   sweep })` → hand `o.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
-  dolly }`; `drone25(t, { rest, from })`.
+  dolly }`; `drone25(t, { rest, from })`. A zoom that lands on a subject hands over to a slow orbit: `orbit25(t, { rest: landing,
+  start: landingTime, dur, from: 0, to: 1 })` (`to: -1` the other side; `crane25` for up or down).
   `whip(t, t0, dur, a, b)` → `{ cam, blur }` with `motionBlur(cv, bf, draw, t, { samples: 16 })`.
 - `drawLayers(iso, cam, rest, [{ depth, draw(iso), blur? }], { focus, aperture, dolly, haze: { color, amount } })`:
   depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; `aperture` × |depth − focus| px of blur (rack focus: animate focus);
   `...bokeh(fstop, { focus, mm })` gives `{ focus, aperture }`: a wide f5.6, a zoom-in f1.2–2.8.
+  `focusRing(cv, bf, { cx, cy, fstop, clear, amount })` on the finished frame (before `fin.apply`) blurs everything around a spot and keeps the
+  centre clear: the edges of an arriving zoom, or the one part the narration names. `amount: hold(t, t0, t1, t2, t3)` fades it in and out.
 - Finish (`fin = makeFinish(W, H)`, in the template): `fin.apply(canvas, tAbs, { grade: { contrast, saturate, warmth }, bloom, sweep, vignette, grain, bars, fps })`.
 
 ## Drawing beside build()

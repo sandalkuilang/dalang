@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { Iso } from "../engine/iso/iso.js";
 import { drawLayers, isoLayer } from "../engine/iso/parallax.js";
-import { EASE, camAt, handheld, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs } from "../engine/iso/cinema.js";
+import { EASE, camAt, handheld, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs, hold, focusRing } from "../engine/iso/cinema.js";
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
 for (const [n, f] of Object.entries(EASE)) assert.ok(near(f(0), 0) && near(f(1), 1), `ease ${n} runs 0 → 1`);
@@ -97,5 +97,26 @@ assert.throws(() => bokeh(0), /fstop/); assert.throws(() => bokeh(2, { mm: -1 })
   discs(g, [{ x: 10, y: 20 }, { x: 30, y: 40, a: 0.5 }], { radius: 30, color: "#ff8800" });
   assert.equal(calls.filter((c) => c[0] === "arc").length, 2, "one disc per light");
   assert.ok(calls.some((c) => c[0] === "set" && c[2] === "lighter") && calls.some((c) => c[0] === "stop" && /255,136,0/.test(c[2])), "added to the frame, in the light's colour");
+}
+// Arrive and orbit: a zoom lands, the orbit leaves the arrival pose with no jump, the blur window follows both.
+{
+  const o0 = orbit25(5, { rest: rest25, start: 5, dur: 4, from: 0, to: 1 });
+  assert.ok(near(isoLayer(o0, o0.rest, 0.3).x, 0), "orbit from 0: at its start it is still on the arrival pose");
+  const o1 = orbit25(9, { rest: rest25, start: 5, dur: 4, from: 0, to: -1 }), o2 = orbit25(9, { rest: rest25, start: 5, dur: 4, from: 0, to: 1 });
+  assert.ok(isoLayer(o1, o1.rest, 0.3).x * isoLayer(o2, o2.rest, 0.3).x < 0, "to −1 orbits the other way");
+  assert.ok(near(isoLayer(orbit25(9, { rest: rest25 }), orbit25(9, { rest: rest25 }).rest, 0.3).x, -isoLayer(orbit25(0, { rest: rest25 }), orbit25(0, { rest: rest25 }).rest, 0.3).x), "default orbit unchanged");
+  const w = (t) => hold(t, 1, 2, 5, 7);
+  assert.ok(w(0.5) === 0 && w(1) === 0 && w(2) === 1 && w(4) === 1 && w(5) === 1 && w(7) === 0 && w(9) === 0 && w(1.5) > 0 && w(1.5) < 1 && w(6) > 0 && w(6) < 1, "hold: up, held, down");
+  assert.ok(hold(3, 3, 3, 8, 8) === 1 && hold(2.9, 3, 3, 8, 8) === 0 && hold(8.1, 3, 3, 8, 8) === 0, "hold: a step when the ramps are zero");
+}
+{
+  const draws = [], mk = (name) => { const c = { width: 192, height: 108 }; c.getContext = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...a) => { draws.push([name, k, ...a]); return { addColorStop: (...s) => draws.push([name, "stop", ...s]) }; }), set: (o, k, v) => { o[k] = v; draws.push([name, "set", k, v]); return true; } }); return c; };
+  const T = mk("t"), B = mk("b");
+  focusRing(T, B, { cx: 96, cy: 54, fstop: 1.2, amount: 0 }); assert.equal(draws.length, 0, "amount 0 draws nothing");
+  focusRing(T, B, { cx: 96, cy: 54, fstop: 1.2 });
+  assert.ok(draws.some((c) => c[1] === "set" && c[2] === "filter" && c[3] === "blur(14.4px)"), "f1.2 blurs 14 px");
+  const grad = draws.find((c) => c[1] === "createRadialGradient"); assert.ok([96, 54, 27, 96, 54, 59.4].every((v, i) => near(v, grad[i + 2])), "clear disc then soft edge, in frame heights");
+  assert.ok(draws.some((c) => c[1] === "set" && c[2] === "globalCompositeOperation" && c[3] === "destination-out") && draws.at(-1)[0] === "t" && draws.at(-1)[1] === "drawImage", "the centre erased from the blurred copy, then laid over the frame");
+  draws.length = 0; focusRing(T, B, { cx: 0, cy: 0, fstop: 5.6 }); assert.ok(draws.some((c) => c[2] === "filter" && /^blur\(3\.0\d*px\)$/.test(c[3])), "f5.6 blurs far less");
 }
 console.log("iso-cinema ok");
