@@ -43,6 +43,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
   round a centred subject; hand `o.rest` to `drawLayers`), `crane25` (a boom), `dollyZoom25` (`{ cam, dolly }`; pass
   `{ dolly }` to `drawLayers`: the subject holds, far layers swell), `drone25` (a descending reveal, pair with `haze`),
   `bokeh(fstop, { focus, mm })` (f1.2 melts, f5.6 sharp) and `discs(g, points, { radius, color })` for out-of-focus lights.
+  `orbit25` takes `from`/`to` (in `sweep` units) so an orbit can leave the pose a zoom landed on (`from: 0, to: ±1`);
+  `focusRing(target, buffer, { cx, cy, fstop, mm, clear, feather, amount })` blurs the frame around a clear centre (a lens
+  isolating one spot, run after `drawLayers`, before `finish.apply`) and `hold(t, t0, t1, t2, t3)` is its 0–1 window.
 - `examples.js`: four specs (an office tower on a cut plot, a water tower with its level, a gearbox in a housing, a box
   truck with a person), proof of the forms and the test's fixtures.
 
