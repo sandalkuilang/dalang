@@ -30,6 +30,18 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Narration craft** (`script-voice.md` "Narration craft", read at Step 3 in both modes): narration a viewer follows on
+  one hearing, however short the film. One idea per film (a takeaway with no "and"), a word budget of length × pace ×
+  0.85 so the picture has silence to speak in, the shape of a short film as shares of its length (hook, context,
+  mechanism, payoff, takeaway), the picture shows what while the voice says why, one new term per minute explained at
+  once, concrete before abstract, a chain of causes instead of a list, and a cut test per sentence.
+
+### Changed
+
+- The Gate 1 read-through also returns each term it could not explain.
+
 ## [3.6.0] - 2026-10-28
 
 ### Added

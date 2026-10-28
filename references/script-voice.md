@@ -26,14 +26,40 @@ Rules:
   - `[unknown]` — the number does not exist or could not be found. Form: the admission **spoken and shown** (a card: "not found yet: <what>"), a beat of its own in `narration.txt`.
 - **Gate 1 lists the untagged.** Before showing the script, grep `script.md` for every digit and every number word and list each one without a tag under "Untagged numbers"; tag it, rewrite the line without it, or cut it. The list shown at the gate is empty. Show a table at Gate 1: number → tag → source, arithmetic or assumption, so the user approves provenance with the script. A `[src]` you could not open is `[unknown]`, never `[src]`. Then `numbers_lint.mjs` exits 0.
 - **Uncertainty is a beat, never a flat claim and never an invented number.** Missing, contested or unmeasured: say what is not known, tag it `[unknown]`, then move to what *is* certain. Two sources that disagree: show both, or the range, each tagged. A claim that cannot be sourced and is not the point is dropped; one that is the point becomes an `[unknown]` beat.
-- **Write for the ear, not the page.** TTS reads a textbook sentence like a textbook. Use the narration language's spoken register (how a good presenter talks to one person): everyday words over technical nouns, "you/we", a question now and then, rhythm (short – short – long). **One idea per sentence, 22 words at most.** Punctuation is the only tone control the voice has: a full stop lands a point, a comma is a breath, `…` or a dash a beat of suspense; never `;` `:` `( )` `/` (each is read as a pause of unknown length: write two sentences). A `{beat}` wraps a whole clause, never half of one. A section's first sentence says what it answers ("So why does it go stale?"), and a pronoun never reaches back past one sentence: name the thing again. A line you would not say to a friend gets rewritten.
-- **Promise and takeaway** — the first two lines of `script.md`: `Promise:` the one question the film opens, `Takeaway:` its answer in a sentence a viewer could repeat to a friend. The hook says the promise in its first beat; before the first Pressure beat one sentence names the parts in order ("two things to check: the bread, then the fridge"); `impact` says the takeaway, the last beat repeats it. A fact that serves neither is cut.
-- **Read-through (Gate 1, both modes).** A NEW subagent (model: `SKILL.md`) gets only `narration.txt`, never `script.md`, and returns the film's topic in one sentence, what the viewer learns, the order of its parts, and each sentence it could not follow, with why. Topic and learning must match Promise and Takeaway; if not, rewrite and read through once more.
+- **Write for the ear, not the page.** Use the narration language's spoken register (how a good presenter talks to one person): everyday words over technical nouns, "you/we", a question now and then, rhythm (short – short – long). **One idea per sentence, 22 words at most.** Punctuation is the only tone control the voice has: a full stop lands a point, a comma is a breath, `…` or a dash a beat of suspense; never `;` `:` `( )` `/` (each is read as a pause of unknown length: write two sentences). A `{beat}` wraps a whole clause, never half of one. A section's first sentence says what it answers ("So why does it go stale?"), and a pronoun never reaches back past one sentence: name the thing again. Rewrite a line you would not say to a friend. **Read "Narration craft" below first.**
+- **Promise and takeaway** — the first two lines of `script.md`: `Promise:` the one question the film opens, `Takeaway:` its answer in a sentence a viewer could repeat to a friend. The hook says the promise in its first beat; before the first Pressure beat one sentence names the parts in order ("two things to check: the bread, then the fridge"); `impact` says the takeaway, the last beat repeats it.
+- **Read-through (Gate 1, both modes).** A NEW subagent (model: `SKILL.md`) gets only `narration.txt`, never `script.md`, and returns the film's topic in one sentence, what the viewer learns, the order of its parts, each term it could not explain, and each sentence it could not follow, with why. Topic and learning must match Promise and Takeaway; if not, rewrite and read through once more.
 - **Spoken numbers.** Round in speech, exact on screen (said "about forty", headline "$39.90"). One number per clause, each with its comparison ("not double"; Gate 1 checks it; hook answers and reframes only in arcs that have them). The viewer's case comes before the rule. A `[calc]` number is spoken in its model's `say`.
 
 - **Quiz.** Write `review/quiz.md` (5 rows, `review.md` §Sound-off quiz), each answerable from a headline or card; show it with the script.
 
 Show the script with Promise and Takeaway, the read-through's answer, its numbers table and an empty **Untagged numbers** list, `node <skill-dir>/scripts/narration_lint.mjs` clean, and **wait for approval**.
+
+### Narration craft: one idea, followed on one hearing
+
+Read with Step 3, both modes, before the first line is written. The rules above make the narration right; these make it easy to follow by someone hearing it once, with no way to rewind, however short the film.
+
+- **One film, one idea.** The `Takeaway:` is one sentence with no "and". If it needs two, the topic is too big: cut to the one the promise asks, and offer the other as a second film. Up to 60 s: one mechanism in 2–3 causal steps. 60–90 s: one mechanism in up to 4 steps, or two parts. Every fact that does not move the viewer toward the takeaway is cut, however true or interesting.
+- **Word budget with air.** Spoken words ≈ film length × the language's pace (the Length rule above) × 0.85. The other 15 % is silence where the picture speaks: after the `crack`, after `impact`, before the last line. A 60 s film at 2.4 words/s is about 120 words. Over budget: cut a fact, never speed the voice.
+- **The shape of a short film**, as shares of its length (a 30 s or 90 s film scales them):
+
+  | Share | Part | Beats | Its job |
+  |---|---|---|---|
+  | 0–8 % | Hook | `hook` | the question, surprise or paradox; never a greeting or "today we look at" |
+  | 8–25 % | Context | Context, Pressure | why it matters, or what most people believe |
+  | 25–75 % | Mechanism | Crack, Acceleration | the cause, step by step, each "so" the next |
+  | 75–92 % | Payoff | `impact` | the hook answered: the "so that's why" moment |
+  | last 8 % | Takeaway | Aftermath | one line short enough to repeat to a friend |
+- **The picture shows what, the voice says why.** Never narrate what the frame already shows ("the gear turns", "the ice melts"); say its cause or its consequence ("so the small gear spins three times for each turn of the big one"). Write the visual note first, then the line that adds to it.
+- **One new term per minute**, explained in everyday words in the same or the next sentence, then always called by that one word. A synonym for variety sounds like a second thing.
+- **Concrete before abstract.** Something the viewer has held, seen or felt first (a cold car battery, a loaf going stale, a bike on a hill), the general rule after.
+- **Verbs that do something, with a doer.** "The water pushes the blade", not "the blade is moved by the water"; "water evaporates", not "the occurrence of evaporation".
+- **A yardstick the viewer can picture.** A size or amount is compared to something on their own scale: a hair's width, a bus, a stadium, a day of rain.
+- **A chain, not a list.** Sentences join with cause words ("so", "because", "that's why", "but"). "Also", "in addition" and "another" mark a list: rewrite it as a chain or cut it.
+- **Sentences short enough to say in one breath**: 8–15 words in a short film; `narration_lint.mjs` stops at 22.
+- **The cut test.** For each sentence, ask what the viewer loses without it. Nothing: cut it.
+
+Example (60 s, "why a bike gear makes a hill easier"): hook "The hill did not get smaller. So why does it feel easier?" → context: your legs can only push so hard → mechanism: a small front gear means one turn of the pedals turns the wheel less, so each push moves you a shorter distance with less force → payoff: the gear trades distance for force → takeaway: "the work is the same, it is just spread over more turns".
 
 ### Numbers model (model.mjs → numbers.json)
 
