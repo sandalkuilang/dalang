@@ -4,6 +4,9 @@
 // sizes in metres, z up (iso-API.md "The world"); no drawing code. A number may name a key of VALUES ("h": "level"):
 // VALUES holds its resting value, and a group's values(t) overrides only the keys it animates.
 
+// the other groups wait while this line is here: the first builder's one Write replaces the whole file, this line too
+export const STUB = true;
+
 // SPEC palette: one base colour per material; tri(base) gives its three tones where a primitive needs them
 export const COLORS = { ground: "#B8C2C6", subject: "#009B7D", accent: "#B57300", ink: "#22333B" };
 

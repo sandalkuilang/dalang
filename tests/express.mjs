@@ -21,4 +21,12 @@ fs.writeFileSync(path.join(tmp, "voice-take.log"), "Audio 2 s\nWARNING: sentence
 r = run("after-voice", tmp);
 assert.equal(r.code, 1); assert.match(r.out, /FAILED the take has 1 WARNING/);
 assert.doesNotMatch(r.out, /gate 2/, "a take with a WARNING never reaches Gate 2");
+fs.writeFileSync(path.join(tmp, "voice-retake.log"), "Audio 2 s\n");
+fs.utimesSync(path.join(tmp, "voice-take.log"), new Date(0), new Date(0));
+r = run("after-voice", tmp);
+assert.match(r.out, /OK     take: no WARNING \(voice-retake\.log\)/, "the newest take log is the film's, not the first take's");
+fs.mkdirSync(path.join(tmp, "assets"));
+fs.writeFileSync(path.join(tmp, "assets/world.js"), "export const STUB = true;\n");
+r = run("assemble", tmp);
+assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never filled fails assemble");
 console.log("express: OK");

@@ -3,7 +3,7 @@
 // verdicts, not on chains of small commands it has to remember (every main-agent turn re-reads the whole session).
 // Each prints one line per check and only the lines that failed.
 //
-// Usage: node express.mjs after-voice [dir] [--log voice-take.log]
+// Usage: node express.mjs after-voice [dir] [--log <file>]   (default: the newest voice-*.log, the last retake's)
 //          the take's WARNING lines (none → go on), pad_voice, captions (format from BRIEF.md), gates 1–2 by agent
 //        node express.mjs assemble [dir]
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), gate 3;
@@ -12,14 +12,14 @@
 //          render (BRIEF.md fps, --quality looks), hyperframes check, check_assets, gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i < 0 ? d : args.splice(i, 2)[1]; };
-const log = opt('--log', 'voice-take.log');
+const logArg = opt('--log');
 const [cmd, dirArg] = args;
 const dir = path.resolve(dirArg ?? '.');
 if (!['after-voice', 'assemble', 'final'].includes(cmd)) { console.error('Usage: node express.mjs after-voice|assemble|final [dir]'); process.exit(2); }
@@ -45,11 +45,13 @@ const gate = n => {
 };
 
 if (cmd === 'after-voice') {
+  // the newest take log: a retake writes its own, and the first take's WARNING lines are no longer the film's
+  const log = logArg ?? readdirSync(dir).filter(f => /^voice-.*\.log$/.test(f)).sort((a, b) => statSync(path.join(dir, b)).mtimeMs - statSync(path.join(dir, a)).mtimeMs)[0] ?? 'voice-take.log';
   const lf = path.join(dir, log);
   const warns = existsSync(lf) ? readFileSync(lf, 'utf8').split('\n').filter(l => /WARNING/.test(l)) : null;
   if (warns === null) console.log(`WARN   ${log} not found: the take's warnings were not read (start the take with > ${log} 2>&1)`);
   else if (warns.length) { failed++; console.log(`FAILED the take has ${warns.length} WARNING line(s): respell once, --retake changed (express.md Steps 3–4)`); warns.slice(0, 6).forEach(l => console.log(`       ${l.slice(0, 240)}`)); }
-  else console.log('OK     take: no WARNING');
+  else console.log(`OK     take: no WARNING (${log})`);
   if (!failed) {
     const p = (brief.match(/^\W*platform\W*:(.*)$/im)?.[1] ?? '').toLowerCase();
     const format = /landscape|16:9|youtube(?! short)/.test(p) ? 'landscape' : /feed|4:5/.test(p) ? 'feed' : /short|tiktok/.test(p) ? 'shorts' : 'reels';
@@ -59,6 +61,8 @@ if (cmd === 'after-voice') {
   }
 } else if (cmd === 'assemble') {
   const groups = existsSync(path.join(dir, 'src/compositions')) ? readdirSync(path.join(dir, 'src/compositions')).filter(f => f.endsWith('.tpl.html')).map(f => f.replace('.tpl.html', '')) : [];
+  // a world still the stub means the first builder never wrote it: every group drew an empty slab
+  if (existsSync(path.join(dir, 'assets/world.js')) && /^export const STUB/m.test(readFileSync(path.join(dir, 'assets/world.js'), 'utf8'))) { failed++; console.log('FAILED assets/world.js is still the stub: the first group\'s builder fills it, then every group snapshots again'); }
   step('fill_times host', ...node('fill_times.mjs', 'src/index.tpl.html', 'index.html'), { quiet: true });
   for (const g of groups) step(`fill_times ${g}`, ...node('fill_times.mjs', `src/compositions/${g}.tpl.html`, `compositions/${g}.html`), { quiet: true });
   step('lint_scene', ...node('lint_scene.mjs', '.'), { quiet: true, keep: 10 });

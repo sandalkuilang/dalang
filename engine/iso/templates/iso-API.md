@@ -10,7 +10,9 @@ search the disk for them.
 ## The world (`assets/world.js`, `build.js`)
 One world for the whole film: `assets/world.js` exports `COLORS` (the SPEC palette, one base per material), `WORLD` (the
 `build()` specs of every object any group shows) and `VALUES` (the resting value of every key a spec names). The first
-group's builder fills it once from `SPEC.md` OBJECTS, first of all its work; every group imports it and never copies,
+group's builder fills it once from `SPEC.md` OBJECTS, first of all its work (one Write over the stub, its `STUB` line
+gone: the other groups wait on that line before a snapshot), furnished and true: 6+ set props per place, each object
+by the parts that make it known, each person a `figure`; every group imports it and never copies,
 redraws or edits it (a missing object goes in the report). A group's `values(t)` returns `{ ...VALUES, key: … }` for
 the keys it animates.
 `build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
