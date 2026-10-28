@@ -2,7 +2,7 @@
 
 <img alt="Dalang — any topic becomes a finished animated video. A puppet master's strings are tied to spoken words, and each one runs straight down to the start of a scene." src="docs/assets/banner.svg" width="100%">
 
-<h3>Script, AI voice, per-word timing, music and animated visuals —<br/>directed end to end, and stopped four times for your approval.</h3>
+<h3>Script, AI voice, per-word timing, music and animated visuals —<br/>directed end to end, through four gates it passes itself.</h3>
 
 [![Release](https://img.shields.io/github/v/release/sandalkuilang/dalang?sort=semver&color=d97757&style=for-the-badge)](https://github.com/sandalkuilang/dalang/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/sandalkuilang/dalang/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/sandalkuilang/dalang/actions/workflows/ci.yml)
@@ -82,7 +82,7 @@ Nine steps, four gates. **Nothing renders at final quality before the last one.*
   <img alt="Brief, Script, Voice, Look, Build, Render — with four approval gates, each able to send the work back one stage" src="docs/assets/pipeline.light.svg" width="100%">
 </picture>
 
-Each **gate** is a full stop where you, not the machine, decide it is good: **read the script · hear the narration · approve three real stills · watch the draft.** A failed one sends the work back exactly one stage — never to the start. The [step-by-step workflow](docs/workflow.md) has the rest.
+Each **gate** is a check the agent passes itself, with a one-line note to you: **script checked · narration timed · look held to three real stills · draft measured.** A failed one sends the work back exactly one stage — never to the start. You get the finished film; a change you ask for afterwards is a new round. The [step-by-step workflow](docs/workflow.md) has the rest.
 
 <table>
 <tr><td width="50%" valign="top">
@@ -152,7 +152,7 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 SKILL.md          the skill — principles, steps 0–8, the gates (kept lean on purpose)
 references/       one § at a time: `state.mjs next` prints each step's § commands; the gate keeps each ≤ 8 KB
   brief.md             steps 0–2: setup, the brief questions, a reference
-  script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
+  script-voice.md      steps 3–4: promise and takeaway, writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, Gate 3 benchmark, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
   visual-direction.md  true-shape sourcing, restraint, composition, review rubric, information layers, showing a quantity
@@ -179,6 +179,7 @@ scripts/
   timing_lint.mjs      every cut between words, no flicker scenes
   lint_scene.mjs       code swallowed by a mid-line // comment (file:line), before every render
   numbers_lint.mjs     spoken model numbers = numbers.json, [calc: name] tags in it (Gate 1)
+  narration_lint.mjs   narration followable by ear: no ; : ( ) /, sentences ≤ 22 words, Promise + Takeaway in script.md (Gate 1)
   beats_lint.mjs       a second-language narration keeps every named beat, in order (second-language cut)
   storyboard_lint.mjs  slideshow risk in the storyboard: empty cells, repeated shots, text-only rows, shot length (Step 5)
   series.mjs           series kit: save a channel's look, HUD, captions, voice and rules once; apply to each new video (never scene code)
@@ -257,7 +258,7 @@ The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — n
 
 <br/>
 
-Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, holds the final until every Set, Reality or Clarity P1 is fixed (or two fix rounds failed on it, and the hand-off names it) — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
+Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, holds the final until every Set, Reality or Clarity P1 is fixed (or two fix rounds failed on it, and the hand-off names it) — and finishes the film. The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
 
 </details>
 

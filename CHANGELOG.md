@@ -30,6 +30,23 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Narration a viewer can follow** (`script-voice.md` Step 3, `scripts/narration_lint.mjs`): `script.md` opens with a
+  `Promise:` (the question the film opens) and a `Takeaway:` (its answer in one sentence); the hook says the promise, one
+  sentence names the parts before the first Pressure beat, `impact` and the last beat say the takeaway. A text-only
+  read-through (a fresh subagent given `narration.txt` alone) must report the same topic and learning, in Express too.
+  The lint fails a `;` `:` `( )` or `/` in spoken text and a sentence over 22 words.
+
+### Changed
+
+- **Write for the ear** is stricter: one idea per sentence, a beat wraps a whole clause, a section's first sentence says
+  what it answers, no pronoun reaching back past one sentence. `voice.md`: one `--instructions` tone for the whole film
+  (a teacher talking to one person), since VoiceStudio strips narration `[tags]`.
+- **README and `docs/workflow.md` match the no-user-gate rule**: the agent passes each gate itself and finishes the film
+  (they still said the user approves every gate and that autonomous mode stops at a draft); the Brief no longer lists a
+  look question.
+
 ## [3.0.0] - 2026-10-28
 
 ### Added

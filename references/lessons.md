@@ -3,6 +3,7 @@
 Each line is a failure that already happened, tagged with the steps it belongs to (`[5]`, `[5,6]`); `state.mjs next` names a step's lines; a line without a tag fails the gate. Never read this file whole: when something goes wrong, `grep -n -i '<word>'` it. The fixes are already built into `SKILL.md`; this file says why.
 
 ## Script and facts
+- [3,4] **Narration that did not say where it was going**, read with semicolons and colons as pauses of unknown length, in one long sentence after another: viewers could not tell the topic, the direction or what they learned. Every check was on the pictures (sound-off quiz); none on the words. Now `Promise:` / `Takeaway:`, `narration_lint.mjs` and a text-only read-through at Gate 1.
 - [3] **Comparing numbers measured by different methods** and turning a tiny gap into a "narrow win" twist. A small gap with different methods is a tie.
 - [1] **The format was never asked**, so the user wanted a vertical short but the brief stayed 16:9. Platform always goes through AskUserQuestion.
 - [1] **The script was rewritten five times** because the brief (duration, language) was settled late. Ask everything in Step 1, before the first draft.
