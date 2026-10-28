@@ -7,7 +7,8 @@
 // the other groups wait while this line is here: the first builder's one Write replaces the whole file, this line too
 export const STUB = true;
 
-// SPEC palette: one base colour per material; tri(base) gives its three tones where a primitive needs them
+// SPEC palette: one base colour per material; a part takes color: triad(COLORS.x) for three faces that read at any base
+import { triad } from "./palette.js";
 export const COLORS = { ground: "#B8C2C6", subject: "#009B7D", accent: "#B57300", ink: "#22333B" };
 
 export const WORLD = [

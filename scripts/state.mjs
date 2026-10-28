@@ -156,7 +156,7 @@ const READING = {
 const EXPRESS = {
   3: of('express.md', '# Express mode (the default)', '## Express Steps 3–4 — Script and voice'),   // read with Step 3's own sections
   5: of('express.md', '## Express Step 5 — Look in one frame'),
-  6: of('express.md', '## Express Step 6 — Build (one builder)'),
+  6: of('express.md', '## Express Step 6 — Build'),
   7: of('express.md', '## Express Step 7 — Render → GATE 4'),
 };
 const isFence = l => /^\s*```/.test(l);
