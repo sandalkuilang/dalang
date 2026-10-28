@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-10-29
+
 ### Added
 
 - `scripts/film_gate.mjs`: an Express film measured instead of looked at. Each group's own module runs in Node on a stub page (no browser, seconds) and its camera, world values and overlays are read over time. FAILED (exit 3): a jump, a turn back or a flipped zoom at a cut (idea after HeyGen hyperframes' seam gate, Apache-2.0, no code taken); a part that floats, sinks or is passed through only while the world moves (Anatomy's audit at every new set of values, against the world at rest on its lowest face); an overlay settled under max(0.8 s, 0.3 s a word) (after latent-spaces/brag, MIT). NOTE: a dead stop or start from rest at a cut, 3 s with nothing moving, changing or entering. WARN (exit 2): a group it could not run. `express.mjs assemble` runs it, replacing the seam subagent. `tests/film-gate.mjs`.
@@ -1625,7 +1627,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...HEAD
+[3.10.0]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...v3.9.0
 [3.8.4]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...v3.8.4
