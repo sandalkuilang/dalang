@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.8.3] - 2026-10-28
+
 ### Fixed
 
 - `express.mjs final` runs `hyperframes check` and `check_assets` before the render, and renders only when both pass:
@@ -1506,7 +1508,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.8.3...HEAD
+[3.8.3]: https://github.com/sandalkuilang/dalang/compare/v3.8.2...v3.8.3
 [3.8.2]: https://github.com/sandalkuilang/dalang/compare/v3.8.1...v3.8.2
 [3.8.1]: https://github.com/sandalkuilang/dalang/compare/v3.8.0...v3.8.1
 [3.8.0]: https://github.com/sandalkuilang/dalang/compare/v3.7.1...v3.8.0
