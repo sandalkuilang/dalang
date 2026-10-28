@@ -13,6 +13,10 @@ const half = isoLayer(cam, rest, 0.5);
 assert.deepEqual([half.x, half.y, half.z], [2, -1, 2.5], "depth 0.5 pans half as far");
 assert.ok(Math.abs(half.k - 20) < 1e-9, "and zooms by the square root of the ratio (log space): " + half.k);
 assert.ok(isoLayer(cam, rest, 1.5).x > cam.x, "a near layer moves further than the subject");
+const dol = (f, s) => isoLayer(cam, rest, f, s);
+assert.deepEqual(dol(1, 1.5), cam, "dolly leaves the subject's plane alone");
+assert.ok(Math.abs(dol(0.5, 1.5).k / isoLayer(cam, rest, 0.5).k - 1.5 ** 0.5) < 1e-9 && dol(1.5, 1.5).k < isoLayer(cam, rest, 1.5).k, "far layers swell, near ones shrink");
+assert.deepEqual(dol(0.5, 1), isoLayer(cam, rest, 0.5), "dolly 1 is no dolly"); assert.throws(() => dol(0.5, 0), /dolly/);
 assert.throws(() => isoLayer(cam, rest, -1), /depth/); assert.throws(() => isoLayer(cam, rest, NaN), /depth/);
 
 const seen = [], iso = new Iso(new Proxy({}, { get: () => () => {} }), 1080, 1920);

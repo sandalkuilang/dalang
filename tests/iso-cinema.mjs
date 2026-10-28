@@ -5,8 +5,8 @@
 // in grade order, its grain the same for the same frame.
 import assert from "node:assert/strict";
 import { Iso } from "../engine/iso/iso.js";
-import { drawLayers } from "../engine/iso/parallax.js";
-import { EASE, camAt, handheld, ramp, whip, motionBlur, makeFinish } from "../engine/iso/cinema.js";
+import { drawLayers, isoLayer } from "../engine/iso/parallax.js";
+import { EASE, camAt, handheld, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs } from "../engine/iso/cinema.js";
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
 for (const [n, f] of Object.entries(EASE)) assert.ok(near(f(0), 0) && near(f(1), 1), `ease ${n} runs 0 → 1`);
@@ -66,4 +66,36 @@ const grainAt = (t) => run(t, { grain: 0.05 }).filter((c) => c[0] === "translate
 assert.deepEqual(grainAt(1), grainAt(1), "the same frame, the same grain");
 assert.notDeepEqual(grainAt(1), grainAt(1 + 1 / 30), "the next frame, new grain");
 assert.equal(run(1, { bars: { amount: 0 } }).filter((c) => c[0] === "fillRect").length, 0, "bars at amount 0 draw nothing");
+// 2.5D moves: pure functions of t whose layers move against each other by depth.
+const rest25 = { x: 0, y: 0, z: 1, k: 20 };
+{
+  const o = orbit25(3, { rest: rest25, dur: 4 }), l = (f) => isoLayer(o, o.rest, f);
+  assert.deepEqual(o, orbit25(3, { rest: rest25, dur: 4 }), "orbit25 is a pure function of t");
+  assert.ok(near(l(1).x, 0) && near(l(1).y, 0), "orbit: the subject plane (depth 1) stays centred");
+  assert.ok(l(0.3).x * l(1.5).x < 0, "orbit: far and near layers slide opposite ways");
+  assert.ok(Math.abs(l(0.3).x) > Math.abs(l(0.8).x), "orbit: the farther the layer, the more it slides");
+  const a = orbit25(0, { rest: rest25 }), b = orbit25(9, { rest: rest25 });
+  assert.ok(near(isoLayer(a, a.rest, 0).x, -isoLayer(b, b.rest, 0).x), "orbit sweeps symmetrically about the rest");
+  const c0 = crane25(0, { rest: rest25 }), c1 = crane25(9, { rest: rest25, rise: 3 });
+  assert.deepEqual(c0, rest25, "crane starts on the rest"); assert.ok(near(c1.z, 4) && c1.k < rest25.k, "crane rises and widens");
+  assert.ok(Math.abs(isoLayer(c1, rest25, 0.3).z - 1) < Math.abs(isoLayer(c1, rest25, 1.5).z - 1), "crane: far layers move less than near ones");
+  assert.ok(crane25(9, { rest: rest25, rise: -3 }).k > rest25.k, "a lowering crane closes in");
+  const d = dollyZoom25(9, { rest: rest25, strength: 0.5 });
+  assert.deepEqual(d.cam, rest25); assert.ok(near(d.dolly, 1.5), "dolly zoom ends at (1 + strength)");
+  assert.equal(dollyZoom25(0, { rest: rest25 }).dolly, 1);
+  const ks = (f) => isoLayer(d.cam, rest25, f, d.dolly).k;
+  assert.ok(near(ks(1), rest25.k) && ks(0.3) > rest25.k && ks(1.5) < rest25.k, "dolly zoom: the subject holds, the far world swells, the near world shrinks");
+  const r0 = drone25(0, { rest: rest25 }), r1 = drone25(9, { rest: rest25 });
+  assert.deepEqual(r1, rest25, "drone lands exactly on the rest"); assert.ok(near(r0.k, rest25.k / 2.2) && r0.z > rest25.z && r0.x > 0, "and starts wide, high and offset");
+}
+const f12 = bokeh(1.2), f56 = bokeh(5.6);
+assert.ok(near(f12.aperture, 18) && f12.aperture > 4 * f56.aperture && f56.aperture > 3, "bokeh: f1.2 melts, f5.6 nearly sharp");
+assert.ok(bokeh(2.8, { mm: 85 }).aperture > bokeh(2.8, { mm: 24 }).aperture && f12.focus === 1, "bokeh: a longer lens blurs more");
+assert.throws(() => bokeh(0), /fstop/); assert.throws(() => bokeh(2, { mm: -1 }), /mm/);
+{
+  const calls = [], g = new Proxy({}, { get: (_, k) => (...a) => { calls.push([k, ...a]); return { addColorStop: (...s) => calls.push(["stop", ...s]) }; }, set: (_, k, v) => { calls.push(["set", k, v]); return true; } });
+  discs(g, [{ x: 10, y: 20 }, { x: 30, y: 40, a: 0.5 }], { radius: 30, color: "#ff8800" });
+  assert.equal(calls.filter((c) => c[0] === "arc").length, 2, "one disc per light");
+  assert.ok(calls.some((c) => c[0] === "set" && c[2] === "lighter") && calls.some((c) => c[0] === "stop" && /255,136,0/.test(c[2])), "added to the frame, in the light's colour");
+}
 console.log("iso-cinema ok");

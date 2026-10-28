@@ -17,7 +17,7 @@ const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { makeCanister } = await use("examples/canister.js");
 const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
-const { stations, frame, travel, route, loopEnd, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
+const { stations, frame, travel, route, loopEnd, fovFromMm, dofFor, orbit, crane, dollyZoom, drone, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { oner } = await use("examples/oner.js");
 const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
@@ -639,6 +639,34 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   // Determinism: the same t gives the same pose, from anywhere.
   const sa = { position: V(-1, 0.05, 1), target: V(0, 0, 0), fov: 30 }, sb = { position: V(1, 0.05, 1), target: V(0, 0.2, 0), fov: 50 };
   near(pose(travel(1.3, sa, sb, { start: 1, dur: 2 })), pose(travel(1.3, sa, sb, { start: 1, dur: 2 })), 0, "travel is a function of t");
+
+  // Lens and moves: focal length to fov, f-stop to depth of field, and the four moves as pure functions of t.
+  assert.ok(Math.abs(fovFromMm(50) - 27.0) < 0.05 && fovFromMm(24) > fovFromMm(85), "fovFromMm: 50 mm is 27 deg, a wider lens sees more");
+  assert.throws(() => fovFromMm(0), /focal length/, "fovFromMm refuses a non-positive mm");
+  const wideOpen = dofFor({ mm: 85, fstop: 1.2, focusM: 3 }), stopped = dofFor({ mm: 85, fstop: 5.6, focusM: 3 }), longer = dofFor({ mm: 135, fstop: 1.2, focusM: 3 });
+  assert.ok(wideOpen.bokehScale > stopped.bokehScale && wideOpen.focusRange < stopped.focusRange, "dofFor: f/1.2 blurs more and focuses shallower than f/5.6");
+  assert.ok(longer.bokehScale > wideOpen.bokehScale && longer.focusRange < wideOpen.focusRange, "dofFor: a longer lens is shallower too");
+  assert.throws(() => dofFor({ mm: 50, fstop: 0, focusM: 3 }), /fstop/, "dofFor refuses f/0");
+  {
+    const C = V(1, 0.5, -2), ts = [0, 1, 2.2, 3.1, 4], el = (p, c) => Math.asin((p.y - c.y) / p.distanceTo(c)) / (Math.PI / 180);
+    const sameAs = (a, b) => a.position.equals(b.position) && a.target.equals(b.target) && a.fov === b.fov;
+    const o = (t) => orbit(t, { center: C, radius: 5, from: 0, to: 270, elevation: 25, start: 0, dur: 4 });
+    for (const t of ts) {
+      const p = o(t);
+      assert.ok(Math.abs(p.position.distanceTo(C) - 5) < 1e-9 && p.target.distanceTo(C) === 0 && Math.abs(el(p.position, C) - 25) < 1e-9, "orbit: constant distance and elevation, aimed at the centre (t = " + t + ")");
+      assert.ok(sameAs(p, o(t)), "orbit is a function of t");
+    }
+    const cr = (t) => crane(t, { target: C, from: 10, to: 60, distance: 6, azimuth: 30, start: 0, dur: 4 }), els = ts.map((t) => el(cr(t).position, C));
+    assert.ok(ts.every((t) => Math.abs(cr(t).position.distanceTo(C) - 6) < 1e-9 && sameAs(cr(t), cr(t))) && els.every((e, i) => i === 0 || e > els[i - 1]) && Math.abs(els[0] - 10) < 1e-9 && Math.abs(els[4] - 60) < 1e-9, "crane: constant distance, elevation 10 -> 60 monotonic");
+    const dz = (t) => dollyZoom(t, { target: C, subjectSize: 0.4, near: 4, far: 10, fov: 40, start: 0, dur: 4 }), size = (t) => { const p = dz(t), d = p.position.distanceTo(C); return (0.2 / Math.sqrt(d * d - 0.04)) / Math.tan((p.fov * Math.PI) / 360); };
+    const dists = ts.map((t) => dz(t).position.distanceTo(C));
+    assert.ok(Math.abs(dists[4] - dists[0]) > 5 && ts.every((t) => Math.abs(size(t) / size(0) - 1) < 0.01 && sameAs(dz(t), dz(t))) && dz(4).fov < dz(0).fov, "dollyZoom: the sphere's projected size holds within 1 % while the distance goes 4 -> 10 and the fov narrows");
+    assert.throws(() => dollyZoom(0, { target: C, subjectSize: 9, near: 4, far: 10, fov: 40, dur: 4 }), /fit/, "dollyZoom refuses a subject wider than the frame");
+    const dA = { position: V(8, 6, 8), target: V(0, 1, 0), fov: 45 }, dB = { position: V(1, 0.6, 1.5), target: V(0, 0.3, 0), fov: 28 };
+    const dr = (t) => drone(t, { from: dA, to: dB, start: 1, dur: 3 }), d0 = dr(0), d1 = dr(4.5), dm = dr(2.5);
+    assert.ok(d0.position.equals(dA.position) && d0.target.equals(dA.target) && d0.fov === 45 && d1.position.equals(dB.position) && d1.target.equals(dB.target) && d1.fov === 28, "drone: starts exactly on from and ends exactly on to");
+    assert.ok(sameAs(dm, dr(2.5)) && Object.keys(dm).sort().join() === "fov,position,target" && dm.position.distanceTo(dA.position.clone().lerp(dB.position, 0.5)) > 0.1, "drone: a function of t, only a pose, and it bows off the straight line");
+  }
   // Units: lift is metres, speed is m/s; an eased leg is at rest at both ends.
   {
     const a = { position: V(0, 1, 0), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 1, 0), target: V(0, 0, 0), fov: 30 };

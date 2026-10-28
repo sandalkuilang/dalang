@@ -39,6 +39,10 @@ No catalogue of objects: any object is a few shape families, written as data, or
   buffer, draw, t, { samples })`, `makeFinish(W, H).apply(canvas, t, { grade, bloom, sweep, vignette, grain, bars })`
   in grade order; `drawLayers`' `focus`/`aperture` (rack focus) and `haze` (atmospheric perspective) in `parallax.js`.
   All seeded or pure in t. `node tests/iso-cinema.mjs` checks them.
+  2.5D cinematography (honest approximations from layer depth, the projection stays fixed): `orbit25` (world slides
+  round a centred subject; hand `o.rest` to `drawLayers`), `crane25` (a boom), `dollyZoom25` (`{ cam, dolly }`; pass
+  `{ dolly }` to `drawLayers`: the subject holds, far layers swell), `drone25` (a descending reveal, pair with `haze`),
+  `bokeh(fstop, { focus, mm })` (f1.2 melts, f5.6 sharp) and `discs(g, points, { radius, color })` for out-of-focus lights.
 - `examples.js`: four specs (an office tower on a cut plot, a water tower with its level, a gearbox in a housing, a box
   truck with a person), proof of the forms and the test's fixtures.
 

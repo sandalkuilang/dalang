@@ -121,3 +121,66 @@ export function makeFinish(W, H, { canvas = defaultCanvas, seed = 7 } = {}) {
   };
 }
 const defaultCanvas = (w, h) => (typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w, h) : Object.assign(document.createElement("canvas"), { width: w, height: h }));
+
+// ---- 2.5D camera moves --------------------------------------------------------------------------------------------
+// Express draws on the vendored fixed isometric projection, so these are honest 2.5D approximations built from layer
+// depth (parallax.js), never a tilted card: orbit, crane, dolly zoom and drone read as the real move because layers at
+// different depths move against each other the way they would in front of a lens. Studio has the real ones
+// (engine/three/camera.js). Options for every move: start (s), dur (s), ease (EASE name). Pan units are iso world units;
+// a sideways move d (x + d, y − d) shifts the screen √3·k·d px; `width`/`height` are the frame in px.
+//
+//   const o = orbit25(t, { rest, dur: 4 });          drawLayers(iso, o, o.rest, layers);
+//   const c = crane25(t, { rest, rise: 3 });         drawLayers(iso, c, rest, layers);
+//   const d = dollyZoom25(t, { rest, dur: 1.5 });    drawLayers(iso, d.cam, rest, layers, { dolly: d.dolly });
+//   const r = drone25(t, { rest, dur: 3 });          drawLayers(iso, r, rest, layers, { haze });
+const move = (t, { start = 0, dur = 3, ease = "inOut" } = {}) => (EASE[ease] || EASE.inOut)(clamp((t - start) / (dur || 1)));
+const SQ3 = Math.sqrt(3);
+
+// The subject stays centred and the world slides round it: layers farther than the subject (depth < 1) slide one way,
+// nearer ones (depth > 1) the other, depth 1 not at all. `sweep` is the depth-0 travel as a fraction of the frame width.
+// Returns the rest camera plus `.rest`, the shifted reference to hand to drawLayers.
+export function orbit25(t, { rest, sweep = 0.12, width = 1920, ...o } = {}) {
+  const d = (sweep * width) / (SQ3 * rest.k) * (move(t, o) - 0.5);
+  return { ...rest, rest: { ...rest, x: rest.x + d, y: rest.y - d } };
+}
+
+// A vertical boom: the camera rises (rise > 0, world units) or lowers, far layers moving less than near ones, and the
+// view widens a little as it rises so the world is revealed.
+export function crane25(t, { rest, rise = 2, ...o } = {}) {
+  const e = move(t, o);
+  return { x: rest.x, y: rest.y, z: rest.z + rise * e, k: rest.k * (rise >= 0 ? 0.92 : 1 / 0.92) ** e };
+}
+
+// The subject holds its size while the world stretches behind it: pass `cam` and `rest` to drawLayers with `{ dolly }`.
+// strength is the extra scale the farthest layer (depth 0) has gained at the end of the move.
+export function dollyZoom25(t, { rest, strength = 0.3, ...o } = {}) {
+  return { cam: { ...rest }, dolly: (1 + strength) ** move(t, o) };
+}
+
+// A descending reveal: from a wider, offset, higher view (`from` times farther out) onto `rest`, landing exactly on it.
+// Pair it with drawLayers' haze so the far world pales as it comes into view.
+export function drone25(t, { rest, from = 2.2, drift = 0.12, lift = 0.12, width = 1920, height = 1080, ease = "out", ...o } = {}) {
+  const u = 1 - move(t, { ...o, ease }), d = (drift * width) / (SQ3 * rest.k) * u;
+  return { x: rest.x + d, y: rest.y - d, z: rest.z + (lift * height) / rest.k * u, k: rest.k / from ** u };
+}
+
+// A lens aperture as drawLayers' depth of field: { focus, aperture } for fstop (f1.2 melts off-focus layers, f5.6 keeps
+// them nearly sharp). aperture is px of blur per unit of depth from the focus layer: 18 at f1.2 and 50 mm, inversely
+// with the f-number, in proportion to the focal length (85 mm blurs 1.7×, 24 mm 0.48×).
+export function bokeh(fstop, { focus = 1, mm = 50 } = {}) {
+  if (!(fstop > 0) || !(mm > 0)) throw new Error(`bokeh: fstop ${fstop} and mm ${mm} must be above 0`);
+  return { focus, aperture: 18 * (1.2 / fstop) * (mm / 50) };
+}
+
+// Out-of-focus lights: a soft disc with a brighter rim (the look of a real lens's bokeh) at each { x, y, a = 1 } screen
+// px point, added to the frame. color is a #rrggbb hex. Deterministic.
+export function discs(g, points, { radius = 40, color = "#ffffff", alpha = 0.5 } = {}) {
+  const [r, gr, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  g.save(); g.globalCompositeOperation = "lighter";
+  for (const p of points) {
+    const a = alpha * (p.a ?? 1), gd = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+    gd.addColorStop(0, `rgba(${r},${gr},${b},${a * 0.55})`); gd.addColorStop(0.85, `rgba(${r},${gr},${b},${a})`); gd.addColorStop(1, `rgba(${r},${gr},${b},0)`);
+    g.fillStyle = gd; g.beginPath(); g.arc(p.x, p.y, radius, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}

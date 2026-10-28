@@ -81,6 +81,17 @@ in this table.
 | `examples/torch.js` | A perspective engineering-cutaway piece (from before the iso look; its systems still apply): `openTorch(k, { at, state, speed, timeScale, full, cutOn })`, a torch opened along its axis on a grey-blue mat with a 10 mm grid (cell, spring, driver board with its SMD parts, LED on its star board, reflector, lens, all real sizes), a dc flow from the cell to the LED caused by the model's `state(t)` → `{ I }`, the LED lit by the current. Returns `{ group, mat, ground, parts, dims, flows, cut, frames({ W, H }), place(camera, station, W, H), lights(scene, radius), at(t) }`: `frames` gives the look's three style frames (wide 70 mm, medium 100 mm, macro 135 mm on a 36 mm gauge, 3/4 high angle, the macro with its depth-of-field options), `place` puts the camera on one with the view offset that sets the subject low (so the text band sits on clean ground), `dims` the edges to dimension, `parts` the anchors to label. Also exports `LOOK` (the look's defaults as data: ground, mat, accent meanings, grain, bloom threshold, lens set, view offset, depth of field) and `lensFov(mm, aspect)`. A small three-light rig stands in for the studio rig; AgX tone mapping, ambient occlusion, grain, bloom and the depth-of-field pass are the set's renderer choices. No printed markings yet. |
 | `examples/twin.js` | `twinSets(k, build, { values: [a, b], at, gap, axis })`: one set built twice by `build(group, value, index)`, differing only in the value, placed `gap` m apart along `axis` with the gap centred on `at` (twin sets for an A/B comparison, `visual-direction.md` §13). |
 
+## Cinematic camera (Studio, perspective; all in `camera.js`)
+
+A real lens and the moves of a real camera. Every move is a pure function of `t` returning `{ position, target, fov }`, so `place(camera, pose)` and `studio().render(t, pose)` take it directly; each takes `start`, `dur`, `ease` like `travel`.
+
+- `fovFromMm(mm, sensorH = 24)`: the vertical fov in degrees for a focal length on a full-frame sensor (50 mm is 27°).
+- `dofFor({ mm, fstop, focusM, mpu })`: `{ focusRange, bokehScale }` for `studio()`'s `dof`, from the thin-lens blur circle; a wider aperture, a longer lens and a nearer focus are shallower and blurrier.
+- `orbit(t, { center, radius, from, to, elevation, fov })`: circles `center` from azimuth `from` to `to` (degrees) at a constant radius and elevation.
+- `crane(t, { target, from, to, azimuth, distance, fov })`: a boom arm; the elevation goes `from` to `to` (degrees) at a constant distance, aimed at `target`.
+- `dollyZoom(t, { target, subjectSize, near, far, fov })`: the subject keeps its size while the camera dollies `near` to `far` and the fov compensates, so the background changes.
+- `drone(t, { from, to })`: an eased flight between two stations (high and wide to low and close, or back) on a gentle sideways arc; the ends are exactly the stations.
+
 ## The shape of a set's build
 
 1. `makeKit` with the measured `mpu` and the floor's height; place models and props, `rest()` what is set down.
