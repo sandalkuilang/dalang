@@ -29,4 +29,7 @@ fs.mkdirSync(path.join(tmp, "assets"));
 fs.writeFileSync(path.join(tmp, "assets/world.js"), "export const STUB = true;\n");
 r = run("assemble", tmp);
 assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never filled fails assemble");
+r = run("final", tmp);
+assert.match(r.out, /FAILED hyperframes check/, "a film that fails check fails final");
+assert.doesNotMatch(r.out, /render \(/, "no render after a failed check: check reads the composition, not the mp4");
 console.log("express: OK");

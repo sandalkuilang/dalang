@@ -70,6 +70,9 @@ if (iso) {
     eng = eng.filter(r => r.file !== file);
     eng.push({ file, source: file === 'iso.js' ? `lemo-opuscar iso-infographic engine, vendored in DALANG (${REPO}, ${from})` : `DALANG engine, ${REPO} (${from})`, licence: 'MIT' });
   }
+  // the film's own world (below), written from the skill's template and filled by its builder
+  eng = eng.filter(r => r.file !== 'world.js');
+  eng.push({ file: 'world.js', source: `this film, from DALANG ${REPO} (engine/iso/templates/iso-world.tpl.js)`, licence: 'own' });
   writeFileSync(man, JSON.stringify(eng, null, 2) + '\n');
 } else if (!existsSync(path.join(assets, 'objectStudio.js'))) {
   const r = spawnSync(process.execPath, [path.join(SKILL, 'engine', 'three', 'build.mjs'), assets], { encoding: 'utf8' });

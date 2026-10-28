@@ -46,6 +46,7 @@ await test("B. wrong licences fail, a right one passes", async () => {
     ["CC-BY-ND-4.0", [], 3, /forbids derivatives/],
     ["CC-BY-NC-4.0", ["--commercial"], 3, /non-commercial/],
     ["CC-BY-4.0", [], 0, /OK/],
+    ["OFL-1.1", [], 0, /OK/],
     ["CC-BY-NC-4.0", [], 0, /OK/],
   ];
   for (const [licence, args, code, re] of cases) {
