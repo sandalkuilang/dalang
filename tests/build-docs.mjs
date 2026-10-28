@@ -95,7 +95,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
     // and the film's scene code always is; a path outside the film is not this film's scene code.
     for (const root of ["/p/film", "/x/src/videos/film", "/x/assets/film", "/x/style-frames/src/film", "/x/src/assets/src/film/"]) {
       const r = root.replace(/\/$/, "");
-      for (const f of ["BRIEF.md", "storyboard.md", "SPEC.md", "PRODUCTION.md", "QC-REVIEW.md", "style-frames/src/hook.js", "style-frames/src/index.tpl.html", "assets/bake/set.json", "assets/data/curve.js", "review/sheet.jpg"])
+      for (const f of ["BRIEF.md", "storyboard.md", "SPEC.md", "PRODUCTION.md", "QC-REVIEW.md", "style-frames/src/hook.js", "style-frames/src/index.tpl.html", "assets/data/set.json", "assets/data/curve.js", "review/sheet.jpg"])
         for (const tool of ["Write", "Edit"])
           assert.equal(check(tool, { file_path: `${r}/${f}` }, false, root), "", `${tool} ${f} under ${root} must not be flagged`);
       for (const f of ["src/index.tpl.html", "src/compositions/g1.tpl.html", "src/set.js", "assets/set.js", "assets/film.js"])
@@ -209,7 +209,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
         [["Read", set]],
         [["Read", `${realRoot}/BRIEF.md`]],
         [["Write", `${realRoot}/BRIEF.md`], ["Edit", `${realRoot}/storyboard.md`], ["Write", `${realRoot}/SPEC.md`]],
-        [["Write", `${realRoot}/style-frames/src/hook.js`], ["Write", `${realRoot}/assets/engine/physics.js`], ["Write", `${realRoot}/assets/data/curve.js`]],
+        [["Write", `${realRoot}/style-frames/src/hook.js`], ["Write", `${realRoot}/assets/engine/kit.js`], ["Write", `${realRoot}/assets/data/curve.js`]],
         [["Write", "/elsewhere/film2/src/set.js"], ["Write", `${link}/../film2/src/set.js`]],
         [["Read", `${realRoot}/src/index.tpl.html`], ["Read", `${link}/assets/set.js`]],
       ];

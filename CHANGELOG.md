@@ -30,6 +30,58 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Express objects without drawing code** (`engine/iso/`, DALANG's own, MIT). `forms.js`: shape families in metres
+  (`lathe`, `extrude`, `sweep`, `gearOutline`, `solid`). `build.js`: an object written as data from its reference,
+  parts of 16 forms at real size with `array` copies, a `skin` the cutaway slides off, `focus`, meshed gears turned by
+  their tooth ratio, numbers driven by the timeline's `values`, pins returned per part, and a paint order taken from the
+  parts' boxes so a plate never covers what stands on it. `model.js`: a CC0 `.glb` / `.gltf` (its `.bin` and textures,
+  no dependency) drawn flat in three tones, one colour per material, sorted with the set; compressed meshes and
+  models over 4000 triangles are refused. `examples.js`: four specs. `express.md` Step 5–6 tell the builder to write
+  specs (or take one CC0 model) and to copy the whole folder; `tests/iso-build.mjs` runs in the gate.
+- **Camera parallax in Express** (`engine/iso/parallax.js`): layers move by their depth factor with the camera, pan by
+  depth × the move and zoom by the ratio to the power of depth, in the isometric canvas (`drawLayers`, one pan and zoom
+  per layer, never a tilt) and in SVG / HTML (`applyLayers` on `data-depth` wrappers). `express.md` Step 6 sets 3–4
+  layers, motion only with the camera, and the near layer as the occlusion wipe; `tests/iso-parallax.mjs` runs in the gate.
+- **Cinematography for Canvas 2D** (`engine/iso/cinema.js`): keyed camera moves (`camAt`, eased, zoom in log),
+  seeded `handheld`, speed ramps as story time (`ramp`), whip pans (`whip`) with shutter motion blur (`motionBlur`), and
+  the finish in grade order (`makeFinish`: contrast, saturation, warmth, bloom, a light sweep, vignette, seeded grain,
+  scope bars). `drawLayers` gains depth of field (`focus`, `aperture`, for a rack focus) and atmospheric `haze`.
+  `express.md` Step 6 has the builder pick 4–6 techniques, each with a story job; `tests/iso-cinema.mjs` runs in the gate.
+
+### Removed
+
+- **Hyperrealism.** The Step 1 Realism question is gone; every film is stylized and true to how the subject looks
+  and works. Looks A (cinematic photoreal), B (premium 3D studio), E (documentary collage) and F (real subject +
+  motion graphics) are removed from `looks.md`, with the hyperreal light-and-material recipe; the letters of the
+  remaining looks keep their names. `visual-direction.md` §1 loses the sourcing ladder for photos, footage and
+  generated stills or clips, and its people-as-footage rule. `camera-motion.md` loses §6 (photo cut-out compositing,
+  2.5D from one photo) and §9 (prompting generated stills); the other section numbers are unchanged, and §10 now
+  takes every camera move from the 3D rig. Preflight no longer checks for a stock-video key (`PEXELS_API_KEY`,
+  `PIXABAY_API_KEY`). `scripts/key_white.py` (keying product photos) and `evals/golden/1.5.0` (superseded by 1.6.0)
+  are deleted. The camera toolbox drops its footage **[F]** and generated-clip **[G]** source tags, and the
+  storyboard lint no longer accepts "footage" or "stock" as a real source.
+- **The heavy Studio engine.** No physics engine and no bake: `physics.js`, `bakecore.js`, `bake-worker.js`,
+  `bake.mjs`, `pool.js`, `bodies.js`, `mechanism.js` and the Rapier bundle (`rapier.js`, `@dimforge/rapier3d-compat`)
+  are removed, with the bake-driven sound effects (`sfx.js`, `sfx.mjs`, `tests/sfx.mjs`). The organic systems go too:
+  `fur.js`, `creature.js`, `cloth.js`, `water.js`, `wind.js`, `plants.js`, `particles.js`, and the examples `cat.js`,
+  `lizard.js`, `chair.js` and `drivetrain.js`. An installed engine drops from about 4 MB to 2 MB. `selfcheck.mjs`
+  keeps every check of the remaining modules, the transmission geometry included.
+
+### Changed
+
+- **Motion is posed from its cause.** Every 3D motion is a pure function of t: a fall from the place's gravity with an
+  eased landing and contact squash, a push decelerating at μ·g, a part clamped to its stops, a driven wheel at the
+  tooth ratio (`transmission.js`). `camera-motion.md` §5.2 is now "Contact is caused" and §5.3 "Hits, sound, blur"
+  (sound on the computed contact time); the rubric's Craft test, `looks.md`, `look-build.md`, the engine README,
+  `CLAUDE.md`, `README.md` and `docs/architecture.md` follow. Studio is offered as three.js 3D without "physics".
+
+- The review rubric test "Realism" is now "Set" (the world around the subject at its real density, one style in
+  every shot); "Reality" is unchanged. `qc.md`, `review.md`, `evals.md`, `lessons.md`, `README.md`, `CLAUDE.md` and
+  `docs/workflow.md` follow. Autonomous defaults pick K for a made thing, C otherwise, H or D for an abstract topic.
+- A series kit's `realism` line is no longer a channel field (`series.mjs`).
+
 ## [1.8.0] - 2026-10-28
 
 ### Added

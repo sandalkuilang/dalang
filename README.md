@@ -73,7 +73,7 @@ It reports Node, ffmpeg, HyperFrames, this skill's own clone (behind `origin/mai
 
 ## 🎬 How it works
 
-**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in one design language picked by subject (cutaway, isometric, blueprint, park poster, naturalist plate…), one builder, and no stop after the Brief: you get the finished film (`references/express.md`). **Studio**: the full pipeline below, three.js and physics, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
+**Two modes, asked first.** **Express** (the default): a 2.5D illustrated film in about 20 minutes, each beat a finished infographic in one design language picked by subject (cutaway, isometric, blueprint, park poster, naturalist plate…), one builder, and no stop after the Brief: you get the finished film (`references/express.md`). Isometric objects are written as data from shape families (turned, extruded, swept, gears, wheels, figures) or taken from CC0 models, so no object is drawn from scratch (`engine/iso/`). **Studio**: the full pipeline below, three.js 3D, every check. Neither mode stops for you after the Brief: the agent passes the gates itself and hands you the film.
 
 Nine steps, four gates. **Nothing renders at final quality before the last one.**
 
@@ -137,11 +137,11 @@ Rewrite a sentence, regenerate, and the whole film re-times itself. A sentence t
 | **Topic** | science · history · products · tutorials · stories · finance · health · sport — nothing here is tied to one subject, including what no camera can film (molecules, orbits, the inside of a machine) |
 | **Narration** | any language. Pace is calibrated per language (EN 2.4–2.7 w/s, ID 2.2–2.5, JA 6–8 char/s …), then measured from the real take |
 | **Platform** | YouTube Shorts 9:16 · Reels · TikTok · YouTube landscape 16:9 · Instagram feed 4:5 — safe zones and hook timing follow the pick; 30 fps by default (the platforms play at 30), 24 is a film-look choice and gets motion blur on every camera move |
-| **Look** | first a realism choice — **hyperreal** (cinematic photoreal, premium 3D, documentary collage, real subject + motion graphics, data: real footage and photos, or PBR 3D — **never** CSS shapes or puppeted people) or **stylized** (technical clean x-ray, toon explainer, engineering cutaway, stylised 3D, ink & watercolour: easy to watch, renders in seconds) — both true to how the subject really works |
-| **3D** | three.js with a bundled engine of generic systems: real scale, simulated physics (Rapier) with mechanisms (stops, springs, latches, gears, belts, chains, cams), cloth, one air field, plants, particles, granular fills, water, fur, creatures that walk and climb (procedural gaits, feet planted on the set's surfaces), fields and optics (field lines, filings, rays through lenses), section views, electronics with printed markings at real size, camera stations and attention by ghosting — baked so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
+| **Look** | always stylized and true to how the subject really works: technical clean x-ray, toon explainer, engineering cutaway, stylised 3D diorama, ink & watercolour, editorial type, dimensional data — easy to watch, renders in seconds; never footage or a photoreal render |
+| **3D** | three.js with a bundled engine of generic systems: real scale, machine parts and transmissions (gears, belts, chains at real tooth ratios), air jets, granular fills, fields and optics (field lines, filings, rays through lenses), section views, electronics with printed markings at real size, camera stations and attention by ghosting — every motion a pure function of t from its cause, so every render is identical. A subject the engine lacks is modelled from its own law (orbits, ions, heat) with real constants, the scale changes shown on screen |
 | **Camera** | film grammar: shot size, angle and lens chosen by each shot's job, motivated moves, a held axis, cuts on the story word, physically timed motion |
 | **Voice** | VoiceStudio (free, local; OmniVoice or VoxCPM2) — or Kokoro-82M (free, local, Apache-2.0) for English (en, en-gb) — or **your own recording**, timed at zero cost. ElevenLabs (paid) only on request |
-| **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the physics where things collide (a bake's impacts, latches and breaks place and level their own SFX: `sfx.js`) |
+| **Sound** | music is a licensed free track (your own, then Openverse CC0 first, then CC BY with a visible credit the user places), never generated; sound effects (bundled library, Openverse CC0; both found with `find_media.mjs`) sit on the actions they belong to, timed from the cause where things collide (the computed contact time) |
 | **Series** | save a channel's kit once (`series.mjs`): its next videos start from it with the same look, HUD, captions, voice and rules, and fewer questions; never scene code |
 
 <br/>
@@ -155,9 +155,9 @@ references/       one § at a time: `state.mjs next` prints each step's § comma
   script-voice.md      steps 3–4: writing for the ear, number provenance, arc templates, voice audition
   look-build.md        steps 5–6: SPEC, storyboard, style frames, build
   qc.md · review.md    steps 7–8: checks, fresh-eyes reviewer, Gate 3 benchmark, sound-off quiz, final, hand-off (incl. `POST.md`, the post description)
-  visual-direction.md  realism ladder, restraint, composition, review rubric, information layers, showing a quantity
+  visual-direction.md  true-shape sourcing, restraint, composition, review rubric, information layers, showing a quantity
   looks.md             the eleven looks, how to offer them, three.js recipes
-  camera-motion.md     film camera grammar, physical timing, compositing, stills prompts
+  camera-motion.md     film camera grammar, physical timing, design in time
   craft-rules.md       boil, push-ins, beats, motion budget, on-screen text
   voice.md             engine setup, cloning, forced alignment, the traps
   measure-reference.md how to borrow craft from a reference — legally
@@ -192,13 +192,15 @@ scripts/
   measure_reference.sh cuts, boil rate, contact sheets, palette, reference board
   palette.mjs          dominant colours of a video (% of frame, OKLCH L); --compare for figure-ground
   gate.sh              the repo's gate (--fast static, reading budget included; full adds the engine self-check and tests/)
-engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, physics, mechanisms and transmissions,
-                  cloth, air, plants, particles, grains, water, fur, creatures that walk and climb, fields and optics (field
+engine/three/     the three.js engine for 3D sets: generic systems (real scale, surfaces, machine parts and transmissions,
+                  air jets, grains, fields and optics (field
                   lines, filings, rays through lenses), cutaways, captions and labels,
                   printed markings and electronics, standard machine parts and the x-ray housing (parts.js),
                   quantities (flow arrows, tile fills, range cards), camera stations and
-                  attention, shots from data: shots.js plays a shot list) with a self-check; bake.mjs caches a physics bake once for every
-                  snapshot and render; examples/ ready pieces
+                  attention, shots from data: shots.js plays a shot list) with a self-check; examples/ ready pieces
+engine/iso/       the Express isometric look: iso.js (vendored), shape families (forms.js), objects as data
+                  (build.js), CC0 glTF/GLB models drawn flat (model.js), camera parallax by layer depth
+                  (parallax.js), film camera and finish (cinema.js), example specs
 examples/golden/  the fixed golden scene for release evals (engine parts only)
 evals/golden/     committed per-release golden results: frames, sheet, metrics
 tests/            preflight against a mock VoiceStudio, a Kokoro take, review strips, palette, scene lint, series kit, lean workspace, Gate 3 benchmark, golden (run by the gate)
@@ -240,7 +242,7 @@ State lives in files, so a session can die and you resume with `node <skill-dir>
 | Node.js · ffmpeg | everything | `preflight.mjs` says what's missing |
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
 | VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) is optional |
-| three 0.186.1 · Rapier 0.14.0 (pinned, in `engine/three/vendor`) | 3D sets and physics | free, MIT / Apache-2.0; `build.mjs` installs them once and bundles them into each project |
+| three 0.186.1 (pinned, in `engine/three/vendor`) | 3D sets | free, MIT; `build.mjs` installs them once and bundles them into each project |
 | Kokoro-82M (`pip install kokoro soundfile torchaudio`, own Python via `DALANG_PYTHON`) | optional commercial-OK local voice (`--engine kokoro`) | the pip install pulls torch, transformers, spaCy and the rest: ~0.3 GB on macOS arm64, ~3 GB on Linux with CUDA wheels; then ~330 MB of weights (+ the ~13 MB spaCy English text model). Apache-2.0, en and en-gb only, asked first |
 | Python + torch (VoiceStudio's venv) · an aligner model | sharper word timing | optional, ~0.6 GB per language |
 
@@ -253,7 +255,7 @@ The ElevenLabs key is read from `ELEVENLABS_API_KEY` **in your own shell** — n
 
 <br/>
 
-Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, holds the final until every Realism, Reality or Clarity P1 is fixed (or two fix rounds failed on it, and the hand-off names it) — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
+Give it a topic and walk away: it defaults to 16:9, 60–90 s (9:16 when you ask for a short), your language, modern balanced energy, writes `defaults used` on line 1 of `PRODUCTION.md`, passes the gates on its own judgement, logs every decision — and, with nobody to accept a known defect, holds the final until every Set, Reality or Clarity P1 is fixed (or two fix rounds failed on it, and the hand-off names it) — and **stops at a draft**. The final render only happens if you said *"just finish it"* (in any language). The hand-off lists what is still open and ends `PRODUCTION.md` with `## Skill feedback`: generic traps to report upstream.
 
 </details>
 

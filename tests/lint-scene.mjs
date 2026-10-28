@@ -40,9 +40,9 @@ try {
     "</script>",
   ]);
   // The engine is installed straight into assets/ (`build.mjs assets`): the manifest sits beside the film's own modules.
-  put(bad, "assets/.engine.json", [JSON.stringify([{ file: "core.js" }, { file: "examples/chair.js" }])]);
+  put(bad, "assets/.engine.json", [JSON.stringify([{ file: "core.js" }, { file: "examples/flask.js" }])]);
   put(bad, "assets/core.js", ["a.b = 1; // x c.d = 2;"]);
-  put(bad, "assets/examples/chair.js", ["a.b = 1; // x c.d = 2;"]);
+  put(bad, "assets/examples/flask.js", ["a.b = 1; // x c.d = 2;"]);
   const b = run(bad);
   assert.equal(b.code, 1, b.out + b.err);
   assert.deepEqual(found(b.out), ["assets/light.js:1", "assets/parts.js:1", "assets/scene.js:2", "assets/shots.js:2", "src/index.tpl.html:4"]);

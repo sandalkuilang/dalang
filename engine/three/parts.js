@@ -4,7 +4,7 @@ import { M } from "./kit.js";
 // Parametric machine parts at their standard proportions, so a mechanism (look K: one real mechanism, its housing in
 // x-ray) is assembled from parts instead of modelled: bolt, nut, washer (ISO metric), a deep-groove ball bearing, a
 // helical compression spring that compresses by its law, a shaft, a control knob, a housing and the x-ray material.
-// Gears, belts and chains are transmission.js and mechanism.js; boards and cables electronics.js; wires circuit.js.
+// Gears, belts and chains are transmission.js; boards and cables electronics.js; wires circuit.js.
 // Every part is modelled in metres in a group scaled 1/M (place it in scene units), declares its real size for
 // scaleAudit, and takes `mat` (default: the look's steel grey; pass the accent for the named part). Axis: +y. A part
 // that does not exist in the table (an M7 bolt, a 6305 bearing) is refused with the sizes it knows, never guessed.

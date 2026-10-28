@@ -38,7 +38,7 @@ for (let i = 0; i < argv.length; i++) {
 const [cmd, name, arg3] = pos;
 
 // ---- Brief lines
-const CHANNEL = new Set(['platform', 'ratio & resolution', 'ratio', 'resolution', 'fps', 'narration language', 'language', 'realism',
+const CHANNEL = new Set(['platform', 'ratio & resolution', 'ratio', 'resolution', 'fps', 'narration language', 'language',
   'look', 'visual style', 'energy', 'audience', 'voice engine', 'voice model', 'voice', 'signoff', 'sign-off']);
 const ALIAS = { ratio: 'ratio & resolution', resolution: 'ratio & resolution', language: 'narration language', 'visual style': 'look', 'sign-off': 'signoff' };
 const keyOf = line => {
@@ -76,7 +76,7 @@ const checkRel = rel => {
   if (PER_VIDEO.has(l) || /^(audio|style-frames|renders|review|\.git|node_modules|assets\/engine)\//.test(l)) return 'a per-video file or the engine copy';
   return null;
 };
-const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|rapier|physics|bake|bakecore|bodies|mechanism|camera|cloth|water|air|wind|fur|grains|particles|plants|pool|cutaway|surfaces|finish|kit|examples\/[^'"]+)(?:\.m?js)?['"]/;
+const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|camera|air|grains|cutaway|surfaces|finish|kit|examples\/[^'"]+)(?:\.m?js)?['"]/;
 const SCENE_CODE = /\bnew\s+(?:THREE\.)?(?:Scene|WebGLRenderer|PerspectiveCamera)\b|\bbakeCached\s*\(/;
 const isScene = (rel, text) => /\.(m?js|html)$/i.test(rel) && (ENGINE_3D.test(text) || SCENE_CODE.test(text))
   ? 'a scene module (builds a scene or imports the engine\'s 3D / physics): scene code stays per video' : null;

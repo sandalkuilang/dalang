@@ -104,7 +104,7 @@ const VD_ENERGY = of('visual-direction.md', '## 3. Energy (the Step 1 "Energy" o
 const VD_RESTRAINT = of('visual-direction.md', '## 5. Restraint: top-notch, not overdone');
 const VD_CINEMA = of('visual-direction.md', '## 6. Cinematography');
 const THREEJS = of('looks.md', '### Install the engine into the project', '### Light and material per look', '### Set dressing, real scale, interior style, condition', '### True shapes and true surfaces');
-const VD_HERO = of('visual-direction.md', '## 1. The hero is real (the realism ladder)', '### 1.1 Per subject and source: machines, sourcing, stills, people, checks');
+const VD_HERO = of('visual-direction.md', '## 1. The hero is true (real reference, drawn or built)', '### 1.1 Per subject: machines, models, people, checks');
 const VD_LAYERS = of('visual-direction.md', '## 12. Information layers: headline, cards, labels, captions');
 const VD_QUANTITY = of('visual-direction.md', '## 13. Showing a quantity: twin sets, flow arrows, the formula on the set, tags, sound words, gauges');
 const NUMBERS_MODEL = of('script-voice.md', '### Numbers model (model.mjs → numbers.json)');
@@ -141,8 +141,8 @@ const READING = {
     name: 'Build', read: of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)'), sub: [],
     refs: [
       ...of('look-build.md', '### Parallel build: pilot, then shot groups (Step 6, item 2)'), ...SFX_MUSIC, SECOND_CUT[1], ...THREEJS, ...ASSET_PASS, ...NUMBERS_MODEL, ...VD_ENERGY, ...of('visual-direction.md', '## 4. Animation principles, in code numbers'), ...VD_CINEMA, ...of('visual-direction.md', '## 9. Type, light, colour'), ...VD_LAYERS, ...VD_QUANTITY, ...of('craft-rules.md', '## 6. On-screen text'),
-      ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is simulated: the set, colliders, units, mass, solver', '### 5.3 The bake: pre-roll, numbers, hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
-        '## 6. Compositing: a cut-out must look shot, not pasted', '## 7. Design in time')],
+      ...of('camera-motion.md', '## 5. Physical timing', '### 5.1 Curves, springs, distance, gravity', '### 5.2 Contact is caused: units, mass, mechanisms', '### 5.3 Hits, sound, blur', "### 5.4 Air, any subject's own law, rest, groups, frames",
+        '## 7. Design in time')],
   },
   7: { name: 'QC', read: of('qc.md', '## Step 7 — Quality check → GATE 4'), refs: of('script-voice.md', '## Step 3 — Script → GATE 1'), sub: [...of('review.md', '# Fresh-eyes review (Step 7)', '## How', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)', '## Model per job', '## Autonomous mode'),...of('visual-direction.md', '## 11. Review rubric (Step 7, on every beat frame)'), ...VD_LAYERS, ...VD_QUANTITY] },
   8: { name: 'Final', read: of('qc.md', '## Step 8 — Final render', '## Step 8 — Hand-off'), refs: [...of('qc.md', '### Post description (POST.md)'), ...SECOND_CUT,...of('look-build.md', '## Step 6 — Build (hand off to /hyperframes)')], sub: [] },

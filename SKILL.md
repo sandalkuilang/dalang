@@ -1,13 +1,13 @@
 ---
 name: dalang
-description: Dalang — turn any topic into a finished animated video (narration, free local AI voice, music, sound effects, three.js/HyperFrames visuals) through script → voice → per-word timing → visuals, with an approval gate at each stage. Any topic, language and platform (Shorts, Reels, TikTok, YouTube, Instagram feed), hyperreal or stylized. Use whenever the user asks for a video, animation, explainer or short from a topic, idea, article or notes ("make a video about X", "bikinin video tentang Z"), or to borrow a reference video's style ethically. Not for cutting or subtitling existing footage.
+description: Dalang — turn any topic into a finished animated video (narration, free local AI voice, music, sound effects, three.js/HyperFrames visuals) through script → voice → per-word timing → visuals, with an approval gate at each stage. Any topic, language and platform (Shorts, Reels, TikTok, YouTube, Instagram feed), in a stylized look true to the real thing. Use whenever the user asks for a video, animation, explainer or short from a topic, idea, article or notes ("make a video about X", "bikinin video tentang Z"), or to borrow a reference video's style ethically. Not for cutting or subtitling existing footage.
 ---
 
 # Dalang — from topic to video
 
 This skill sets the order of work, the gates and the quality bar; the animation is built with `/hyperframes`.
 
-**Two modes, asked first in Step 1.** **Express (default):** a 2.5D illustrated film in 20 minutes of work at most, one builder, no stop after the Brief (the agent passes every gate) (`references/express.md`; `state.mjs next` gives its sections). **Studio:** three.js, physics, reference boards, benchmark and review; everything below. Principles 1–4, 6 and 8 hold in both.
+**Two modes, asked first in Step 1.** **Express (default):** a 2.5D illustrated film in 20 minutes of work at most, one builder, no stop after the Brief (the agent passes every gate) (`references/express.md`; `state.mjs next` gives its sections). **Studio:** three.js 3D, reference boards, benchmark and review; everything below. Principles 1–4, 6 and 8 hold in both.
 
 ## Principles
 
@@ -16,7 +16,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 3. **The subject acts in every shot**: a camera over a still is a slideshow.
 4. **Measure, don't guess.** Every reported number comes from a log or a script.
 5. **No user gate, in either mode.** After the Brief the agent runs to the finished film: it passes each of the 4 gates itself (`state.mjs approve <n> --by agent`, after that gate's checks pass) and tells the user in one line, never waiting. Wherever a reference says to show the user, ask for approval or wait at a gate, do this instead; the user gets the film, and a change they ask for afterwards is a new round. No final-quality render before the last one (Gate 3's style frames and hook sample excepted).
-6. **True to reality, in the realism the user picked** (Step 1). Hyperreal: real photo, real footage or a PBR 3D model in three.js, never CSS, SVG or vector; people move only as real footage; a generated still or clip only on request (paid). Stylized: drawn, diorama or toon 3D, one style per film. Both: correct anatomy, parts, proportions, scale and behaviour, checked against a real reference, in a world dressed with what is really there (`references/visual-direction.md` §1).
+6. **Stylized, and true to reality.** Every film is drawn, diorama, x-ray or toon 3D, one style per film; no filmed footage, no photoreal render, no generated still or clip. Correct anatomy, parts, proportions, scale and behaviour, checked against a real reference, in a world dressed with what is really there (`references/visual-direction.md` §1).
 7. **Top studio, never overdone.** Look development, style frames, blocking and polish, cinematography, a review rubric. Drafts (10 fps, snapshots) iterate; the final is `--quality high` at the brief's frame rate (always pass `--fps`) and passes every check.
 8. **Free by default.** Free, preferably local tools (VoiceStudio, three.js, licensed free media). A paid or metered service (ElevenLabs, HeyGen credits, paid APIs) only when the user asks, labelled "paid". Prefer commercial-OK licences; say when one is non-commercial.
 
@@ -36,7 +36,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 
 | Subagent job | Model |
 |---|---|
-| Fresh-eyes review, second Realism / Reality check, style-frame check, scopes verdict | strongest (omit `model`) |
+| Fresh-eyes review, second Set / Reality check, style-frame check, scopes verdict | strongest (omit `model`) |
 | Fix check (pass/fail + one line per fix), asset pair check, media screening of `find_media` candidates and the Step 5 reference boards, contact-sheet triage | mid tier (`model: "sonnet"`) |
 | Fact research: ≤ 8 searches and 15 fetches, original sources first; every number with its source, an unsourced one `[unknown]` for Gate 1 | mid tier |
 | Planner: Step 5 `SPEC.md` and `storyboard.md` (`look-build.md` Step 5) | strongest |
@@ -45,7 +45,7 @@ This skill sets the order of work, the gates and the quality bar; the animation 
 - **Compact at Gates 2, 3 and 4.** Tell the user once at each that `/compact` (or a new session resumed with `state.mjs next`) is safe: every decision is in the files. You cannot run it yourself.
 - **Batch and parallelise.** Independent calls in one message. Step 6: a pilot builder, then the other groups in parallel. Long jobs in the background (you are notified; never poll). Heavy jobs (VoxCPM, render, check) one at a time, chained; queue with `while kill -0 <pid>`, never `pgrep -f`.
 - **Use gate waits** for facts, assets, music (after Gate 2) and OBJECTS stills (once `storyboard.md` exists), never scenes.
-- **Cheap before expensive.** `--sample` before a full voice; `--from-response` when only `{}` markers move; `--speed`/`--tempo` for misses under 10 %; snapshots while iterating; a physics set baked once per change (`bake.mjs`); a review round's fixes together, then one re-snapshot; QC at `--fps 10 --quality draft`; one high-quality render at the end.
+- **Cheap before expensive.** `--sample` before a full voice; `--from-response` when only `{}` markers move; `--speed`/`--tempo` for misses under 10 %; snapshots while iterating; a review round's fixes together, then one re-snapshot; QC at `--fps 10 --quality draft`; one high-quality render at the end.
 - **Short messages:** what changed, what to decide, file links; at a wait, the clock time of the next gate. A step over ~2 min gets an estimate from its last measured run.
 
 ## Project files (`video/<topic-slug>/`)
@@ -61,7 +61,7 @@ Before each step run `node <skill-dir>/scripts/state.mjs next`: it prints the se
 | Step | Do | Ends with | Read |
 |---|---|---|---|
 | 0 Setup | `preflight.mjs`; fix only what it reports (ask before installs, with size and licence); create the project folder | `PRODUCTION.md` | `references/brief.md` §0 |
-| 1 Brief | Topic first (ask, never guess). Kits exist → "Which series?" first. AskUserQuestion: Call 0 for setup choices preflight left; platform, language, angle, realism; duration, look (4 with previews), energy, audience; voice (Call 3) when there is a real choice | `BRIEF.md` | `references/brief.md` §1 |
+| 1 Brief | Topic first (ask, never guess). Kits exist → "Which series?" first. AskUserQuestion: Call 0 for setup choices preflight left; platform, language, angle; duration, look (4 with previews), energy, audience; voice (Call 3) when there is a real choice | `BRIEF.md` | `references/brief.md` §1 |
 | 2 Reference (optional) | Measure a reference's craft, never copy its images or script | `reference-measurements.md` | `references/measure-reference.md` |
 | 3 Script | `script.md` + `narration.txt` with `{text\|name}` beats; facts verified, every number tagged `[src]`/`[calc]`/`[assume]`/`[illus]`/`[unknown]`, never invented; `[calc]` from `model.mjs`; `numbers_lint.mjs` clean; `review/quiz.md` | **Gate 1** | `references/script-voice.md` §3 |
 | 4 Voice | `tts_timestamps.mjs` (VoiceStudio): `--sample`, same `--seed` for the take, `--retake auto` for every flagged sentence | **Gate 2** | `references/script-voice.md` §4, `references/voice.md` "Use" |
@@ -74,7 +74,7 @@ At every step: record each gate with `state.mjs approve <n> --by agent` (it refu
 
 ## Autonomous mode
 
-If the user gives a topic and leaves, use what they said and these defaults: Express mode unless they asked for 3D or Studio; YouTube landscape 16:9, 60–90 s (Shorts 9:16 when they ask for short or ≤ 60 s); narration in their language; look A for a physical subject (only if Commons and three.js cover it without a stock key, else K for a made thing, C otherwise), H or D with real photos for an abstract or number-led topic; energy "modern balanced"; general audience; VoiceStudio (`STOPPED` → `preflight.mjs --start` unless never launched; `BUSY` → Steps 1–3 first, recheck before Step 4; still not ready, stop and say so). No second-language cut unless `BRIEF.md` names one. Write "defaults used" first in `PRODUCTION.md`, log each decision, and finish the film (principle 5). A Realism or Reality fail (P0) never ships; a P1 on Realism, Reality or Clarity blocks the final until fixed or two rounds failed, then ships named in the hand-off; an `audio_qc.mjs` exit 2 that stays is named in the hand-off, never a pass; other P1s may ship, listed (`references/qc.md` Step 7). Nobody to ask: skip install offers and "ask first" fixes, log what you would have offered. A DALANG clone behind `origin/main`: `git -C <skill-dir> pull --ff-only` when clean, log it, re-read this file; a pinned release (detached): log the WARN, never pull. You can't hear: pick the voice by pace and zero timing warnings, report "timbre not judged by ear". The hand-off ends `PRODUCTION.md` with `## Skill feedback` (`references/qc.md` Step 8); never edit the installed skill.
+If the user gives a topic and leaves, use what they said and these defaults: Express mode unless they asked for 3D or Studio; YouTube landscape 16:9, 60–90 s (Shorts 9:16 when they ask for short or ≤ 60 s); narration in their language; look K for a made thing, C otherwise, H or D for an abstract or number-led topic; energy "modern balanced"; general audience; VoiceStudio (`STOPPED` → `preflight.mjs --start` unless never launched; `BUSY` → Steps 1–3 first, recheck before Step 4; still not ready, stop and say so). No second-language cut unless `BRIEF.md` names one. Write "defaults used" first in `PRODUCTION.md`, log each decision, and finish the film (principle 5). A Set or Reality fail (P0) never ships; a P1 on Set, Reality or Clarity blocks the final until fixed or two rounds failed, then ships named in the hand-off; an `audio_qc.mjs` exit 2 that stays is named in the hand-off, never a pass; other P1s may ship, listed (`references/qc.md` Step 7). Nobody to ask: skip install offers and "ask first" fixes, log what you would have offered. A DALANG clone behind `origin/main`: `git -C <skill-dir> pull --ff-only` when clean, log it, re-read this file; a pinned release (detached): log the WARN, never pull. You can't hear: pick the voice by pace and zero timing warnings, report "timbre not judged by ear". The hand-off ends `PRODUCTION.md` with `## Skill feedback` (`references/qc.md` Step 8); never edit the installed skill.
 
 ## When something goes wrong
 

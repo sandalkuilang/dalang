@@ -125,7 +125,7 @@ const LAYOUT_PORT = 47614, cors = { 'access-control-allow-origin': '*', 'access-
 const layoutFile = opt('--layout', null), layoutOut = path.join(out, 'layout.json');
 if (argv.includes('--layout') && !layoutFile) usage('--layout needs a file: the layout records to index (JSON).');
 const layoutWarns = []; // printed with the other WARNs; they never change the exit code
-const listen = (recs) => new Promise((resolve) => { // the receiver, as engine/three/bake.mjs: POST /layout, 127.0.0.1 only
+const listen = (recs) => new Promise((resolve) => { // the receiver: POST /layout, 127.0.0.1 only
   const srv = http.createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== '/layout') { res.writeHead(req.method === 'OPTIONS' ? 204 : 404, cors); return res.end(); }
     let n = 0; const chunks = [];

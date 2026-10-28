@@ -10,3 +10,37 @@ vendored unchanged; its first line names the source commit. Canvas 2D, no depend
   `iconGrid` (Isotype), `person`, `shape()` (a 2D outline → a shaded solid), easing `ss`, `eo`, `eio`, `back`.
 - In a HyperFrames scene: a paused GSAP timeline holds the values and redraws the canvas in `onUpdate`
   (`references/express.md` Step 6). `node tests/iso.mjs` checks it still loads and paints back to front.
+
+## Objects without drawing code (DALANG's own, MIT)
+
+No catalogue of objects: any object is a few shape families, written as data, or a ready CC0 model.
+
+- `forms.js`: the families, in metres, z up. `lathe(profile)` (a profile turned about z: a bottle, a tank, a lamp, a
+  pillar), `extrude(outline, { h, plane })` (a footprint, a bracket, a letter), `sweep(path, { r | section })` (a pipe,
+  a cable, a road), `gearOutline(teeth, module)` (spur teeth at a real module); `solid(iso, faces, colour)` queues any
+  of them in three tones.
+- `build.js`: `build(iso, spec, { values, cut, focus, models })` draws an object written as data from its real
+  reference: parts of forms `box`, `cyl`, `cone`, `sphere`, `roof`, `lathe`, `extrude`, `sweep`, `gear`, `wheel`,
+  `board`, `figure`, `model`, `flat`, `line`, `group`, each at its real size, with `array` copies, a `skin` the cutaway
+  slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a
+  key of `values` so the timeline drives it. It returns `{ at }`, each part's pin point. Parts paint in an order taken
+  from their boxes (below, behind, inside go first), so a plate never covers what stands on it.
+- `model.js`: `await loadModel(url)` reads a `.glb` or `.gltf` (with its `.bin` and textures; Draco and meshopt are
+  refused) from `find_media.mjs --type model` (Poly Haven, Kenney, Smithsonian, NASA); `drawModel(iso, m, { size,
+  palette, color, texels, max })` paints every triangle flat in three tones of its material's colour (a texture's mean
+  colour, or each face's texel with `texels`), sorted with the rest of the set. Over 4000 triangles is refused unless
+  `max` says otherwise (about 40 ms per 5,000 triangles a frame in Chrome).
+- `parallax.js`: depth for every Express language. `isoLayer(cam, rest, depth)` and `drawLayers(iso, cam, rest, layers)`
+  give each isometric layer its own pan and zoom (depth 0 still, 1 the subject, under 1 farther, over 1 nearer; zoom in
+  log space; never a tilt); `layerTransform` and `applyLayers(root, view, rest, W, H)` move SVG and HTML layers marked
+  `data-depth`. `node tests/iso-parallax.mjs` checks it.
+- `cinema.js`: the film camera and finish. `camAt(t, keys)` (keyed poses, eased, zoom in log), `handheld(cam, t,
+  { amp, seed })`, `ramp(t, keys)` (speed ramps as story time), `whip(t, t0, dur, a, b)` and `motionBlur(target,
+  buffer, draw, t, { samples })`, `makeFinish(W, H).apply(canvas, t, { grade, bloom, sweep, vignette, grain, bars })`
+  in grade order; `drawLayers`' `focus`/`aperture` (rack focus) and `haze` (atmospheric perspective) in `parallax.js`.
+  All seeded or pure in t. `node tests/iso-cinema.mjs` checks them.
+- `examples.js`: four specs (an office tower on a cut plot, a water tower with its level, a gearbox in a housing, a box
+  truck with a person), proof of the forms and the test's fixtures.
+
+`node tests/iso-build.mjs` checks the forms, every example, the gear ratio, the cutaway, values, focus, the paint order
+and the glTF reader (axes, colours, textures, culling, refusals).

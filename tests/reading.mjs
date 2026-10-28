@@ -131,7 +131,7 @@ try {
   put(bl, "storyboard.md", "edited after the approval\n"); // gate 3 STALE
   refused("Step 6 | index.html | -", /gate 3 is STALE/, "gate 3 stale");
   const sbhead = "| # | Time | Beat | Job | Size · angle · lens | What we see | Camera | Subject action | Transition | SFX | Overlay |\n|---|---|---|---|---|---|---|---|---|---|---|\n";
-  const sbrow = (i, size) => `| ${i} | ${i * 2 - 2}.00–${i * 2}.00 | b | A | ${size} | the hero mid-action | push 1.00→1.04 | the hero acts (stock clip) | cut | s | k |\n`;
+  const sbrow = (i, size) => `| ${i} | ${i * 2 - 2}.00–${i * 2}.00 | b | A | ${size} | the hero mid-action | push 1.00→1.04 | the hero acts (3D) | cut | s | k |\n`;
   put(bl, "storyboard.md", sbhead + sbrow(1, "wide · high · 24 mm") + sbrow(2, "medium · eye-level · 50 mm") + sbrow(3, "close-up · low · 85 mm"));
   ok(bl, "approve", "3");
   assert.equal(lintOf(), "OK", "a clean storyboard is recorded as OK");

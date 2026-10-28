@@ -39,11 +39,13 @@ if [ $fast -eq 0 ]; then
   step "retake, busy retry, resume, chunk limit vs mock VoiceStudio" node tests/retake.mjs
   step "Kokoro take, alignment, retake vs a mock Python" node tests/kokoro.mjs
   step "Kokoro helper vs fake packages (no unasked fetch, broken install is not missing)" node tests/kokoro-helper.mjs
+  step "iso forms, build() specs and the glTF reader (ratio, cutaway, paint order, axes, refusals)" node tests/iso-build.mjs
+  step "parallax (layer cameras by depth, far to near, SVG and HTML transforms)" node tests/iso-parallax.mjs
+  step "cinema (camera keys, handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
   step "numbers lint (spoken model numbers = numbers.json)" node tests/numbers-lint.mjs
   step "beats lint (two narrations: same named beats, same order)" node tests/beats-lint.mjs
   step "fill_times --lang (times from audio/<lang>, language variants, plain run unchanged)" node tests/fill-times.mjs
-  step "SFX from impacts (tags, gains, merge, licence rows vs check_assets)" node tests/sfx.mjs
   step "storyboard lint (empty cells, repeated size+angle, text-only share, average shot)" node tests/storyboard-lint.mjs
   step "token report (dedupe, builder budget WARN, shared session, not checked, recorded at approve)" node tests/tokens.mjs
   step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs

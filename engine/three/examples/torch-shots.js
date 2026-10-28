@@ -17,7 +17,7 @@ export const TORCH_SHOTS = [
     labels: [{ part: "led", text: "LED" }, { part: "reflector", text: "reflector" }], dims: [{ dim: "reflector" }] },
 ];
 
-// The opened torch as a shots.js set: its stations, parts, dims and cut, the bake-free model replay (at), its placement.
+// The opened torch as a shots.js set: its stations, parts, dims and cut, the model posed at t (at), its placement.
 export const torchSet = (t, { W, H }) => ({
   stations: t.frames({ W, H }), parts: t.parts, dims: t.dims, cut: t.cut, group: t.group, keep: [t.mat, t.ground],
   actions: ["flow"], at: t.at, place: t.place,

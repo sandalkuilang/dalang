@@ -218,8 +218,8 @@ await test("E. a real build lists its own files: a fresh project passes with ASS
     assert.ok(vendor, "three-vendor.js row");
     assert.ok(vendor.components.some((c) => c.name === "three"), JSON.stringify(vendor.components));
     assert.match(vendor.licence, /Zlib/);
-    assert.ok(rows.some((r) => r.file === "rapier.js" && /Apache-2\.0/.test(r.licence)), "rapier.js row");
-    assert.ok(rows.some((r) => r.file === "examples/cat.js" && r.licence === "MIT"), "example row");
+    assert.ok(!rows.some((r) => r.file === "rapier.js"), "no physics bundle");
+    assert.ok(rows.some((r) => r.file === "examples/flask.js" && r.licence === "MIT"), "example row");
     assert.ok(rows.every((r) => !("author" in r)), "no author: the engine stays out of CREDITS.md");
     const r = await run(check, [dir]);
     assert.equal(r.code, 0, `${sub}: ${r.out}`);

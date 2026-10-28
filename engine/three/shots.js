@@ -4,7 +4,7 @@ import { textBand, pinLabel, drawCaption, safeArea } from "./type.js";
 import { dimension } from "./quantity.js";
 
 // A film's shots as data, played by one tested runner: the builder writes the set (its parts, dims, stations, its own
-// at(t) that replays the bake) and a shot list, never per-shot camera, cut, attention or overlay code.
+// at(t) that poses the parts) and a shot list, never per-shot camera, cut, attention or overlay code.
 //
 //   const run = shots(SHOTS, { beats: BEATS, words: WORDS, end: NARRATION_DURATION, fps, W, H, format, set });
 //   // each frame: run.at(t, camera); render; then on the 2D canvas: run.draw(ctx, t, camera); layoutFrame(ctx, t)
@@ -29,7 +29,7 @@ import { dimension } from "./quantity.js";
 //               runner's own work; code only for what data cannot say
 // Cues: "beat" (its start), "beat.end", "w12" (WORDS[12].start), "w12.end". Every time comes from the narration, snapped to
 // the frame grid; there is no field for seconds, so a change always lands on a word.
-// Physics stays the bake's: the runner never moves a part. set.at(t) (the bake replay, the set's model) runs first each
+// Motion stays the set's: the runner never moves a part. set.at(t) (the set's model, posed at t) runs first each
 // frame; the runner keys only the cut, the attention and the camera.
 // Every problem (a missing beat, a key that overshoots, a label or dimension end off the frame, a window shorter than
 // its read time, a shot without action) is collected and thrown in one error, before anything is drawn.
@@ -144,7 +144,7 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
 
   return {
     shots: out, pose, place: placeAt,
-    // at(t, camera): the set (its bake replay), the cut, the attention, the camera, the shot's custom code
+    // at(t, camera): the set (posed at t), the cut, the attention, the camera, the shot's custom code
     at(t, camera) {
       const s = shotOf(t);
       set.at?.(t);

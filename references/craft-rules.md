@@ -57,7 +57,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 ## 7. Sound
 
 - The narration is always clear. Background music ducks under the narration and never disappears completely.
-- A sound with a physical cause (an impact, a latch, a break) is placed from the bake and may be dense; use the other sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
+- A sound with a physical cause (an impact, a latch, a break) is placed at its computed contact time and may be dense; use the other sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
 - Final target: about −14 LUFS, true peak ≤ −1 dBTP (works for YouTube, Instagram, and TikTok). Check with `scripts/loudness.mjs`.
 
 ## 8. "Ink + watercolour" palette (look G in `looks.md`)
