@@ -80,7 +80,7 @@ if (cmd === 'after-voice') {
   const M = n => `${(n / 1e6).toFixed(1)}M`;
   if (spent === null) console.log('WARN   tokens not read (node tokens.mjs . says why): rerun before a fix round');
   else if (spent > 8e6) console.log(`SKIP   fix round: ${M(spent)} of the 10M used (over 8M): express.mjs final now, the findings named in the hand-off`);
-  else console.log(`OK     tokens ${M(spent)} of 10M: one fix round fits`);
+  else console.log(`OK     tokens ${M(spent)} of 10M: one fix round fits (10 turns each, effort medium, the world's owner first)`);
 } else {
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
