@@ -143,7 +143,7 @@ groups.forEach((g, i) => {
     `**Check, one Bash per round:** \`node ${sk}/scripts/fill_times.mjs src/compositions/${g.name}.tpl.html compositions/${g.name}.html && node ${sk}/scripts/fill_times.mjs src/index.tpl.html index.html >/dev/null && node ${sk}/scripts/lint_scene.mjs . 2>&1 | tail -8\``,
     `**Look, at most 2 rounds:** \`npx hyperframes snapshot --at <first beat start + 1>,<last beat start + 1> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\` (seconds from the cue table), then open its contact sheet (\`style-frames/${g.name}/contact-sheet*.jpg\`) once: recompose on text on a plain ground, low contrast, text outside the safe zone, a shape untrue to its reference. All of a round's fixes in one message.`,
     '',
-    'Budget: about 25 turns. Report in at most 12 lines: files, checks and results, open issues (a SPEC number you needed changed: report it, never edit SPEC.md).',
+    'Budget: about 15 turns, 20 at most, your context under 80K (everything you read is paid again on every later turn). Report in at most 12 lines: files, checks and results, open issues (a SPEC number you needed changed: report it, never edit SPEC.md).',
     '',
   ].join('\n'));
 });
