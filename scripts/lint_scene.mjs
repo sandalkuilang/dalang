@@ -4,13 +4,15 @@
 // Scans the film's own code: assets/**/*.js|mjs, src/** and style-frames/src/** (.html: only <script> content), never a
 // file that a .engine.json lists (the engine copy, engine/three/build.mjs: it installs straight into assets/, beside
 // the film's own modules), node_modules or *.min.js.
+// Also: an overlay anchored to typed numbers (`at: () => [0, 0, 1.2]`) points at a spot, not a part, so its leader
+// dangles when the part moves or the numbers are off: it anchors to PIN.<part> (a name in world.js PINS).
 // Usage: node lint_scene.mjs [project|file ...]   (default: .)
 // Exit 1 when a comment swallows code (file:line + the swallowed text), 2 when nothing could be linted or a file could
 // not be read (rerun), 0 when clean.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const warns = [], problems = [], engine = new Set();
+const warns = [], problems = [], anchors = [], engine = new Set();
 const isScene = p => /\.(m?js|html?)$/i.test(p) && !/\.min\.js$/i.test(p);
 // An engine build lists the files it wrote ("/" paths relative to the manifest's folder): those are not this film's
 // code. The folder is still walked: the film's own modules sit beside them. A row that leaves the folder or a manifest
@@ -92,6 +94,9 @@ function lint(file, rel) {
     if (/[\]})]\s*$/.test(code) && /,\s*$/.test(text)) problems.push(`${where}  the comma after "${code.trim().slice(-1)}" is inside the // comment, so the next entry joins this one: "${shown}"`);
     else if (STATEMENT.some(r => r.test(t))) problems.push(`${where}  code after the // comment never runs: "${shown}"`);
   }
+  src.split('\n').forEach((l, i) => {
+    if (/\bat\s*:\s*\(\s*\)\s*=>\s*\[\s*-?[\d.]/.test(l.replace(/\/\/.*$/, ''))) anchors.push(`${rel}:${i + 1}  an overlay anchored to typed numbers: anchor it to PIN.<part> (a name in world.js PINS) so its leader lands on the part`);
+  });
 }
 
 const args = process.argv.slice(2), targets = args.length ? args : ['.'];
@@ -112,9 +117,9 @@ for (const t of targets) {
 for (const f of files) lint(f, rel(f));
 
 console.log(`Scene lint: ${files.length} file(s)`);
-for (const p of problems) console.log(`  PROBLEM  : ${p}`);
+for (const p of [...problems, ...anchors]) console.log(`  PROBLEM  : ${p}`);
 for (const w of warns) console.log(`  WARN     : ${w}`);
-if (problems.length) console.log(`  Result   : ${problems.length} problem(s): move each comment to the true end of its line (patch with Edit, never sed -i)`);
+if (problems.length || anchors.length) console.log(`  Result   : ${problems.length + anchors.length} problem(s): ${problems.length ? 'move each comment to the true end of its line' : ''}${problems.length && anchors.length ? '; ' : ''}${anchors.length ? 'anchor each overlay to a part pin' : ''} (patch with Edit, never sed -i)`);
 else if (warns.length || notFound || !files.length) console.log('  Result   : not linted completely (see above)');
 else console.log('  Result   : OK');
-process.exit(problems.length ? 1 : warns.length || notFound || !files.length ? 2 : 0);
+process.exit(problems.length || anchors.length ? 1 : warns.length || notFound || !files.length ? 2 : 0);

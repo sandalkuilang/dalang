@@ -114,7 +114,12 @@ part, so "inside" always reads a step warmer than "outside".
 - **Don't** use drop shadows or gradients; depth is tints plus hatching.
 - **Don't** fill anything with pure white — every fill is a paper tint.
 - **Don't** let the callout circles wander off their parts; the number
-  sits on or touches the thing it names.
+  sits on or touches the thing it names, a part the viewer can see.
+- **Do** cut the object you showed whole: the inside is that object's own
+  parts under its skin, never a separately drawn "plausible" interior; an
+  inner part no source shows is drawn plain and called generic.
+- **Do** give lines one meaning each: dashed only for a real hidden edge,
+  dash-dot for an axis or centre line, 3px for the cut edge.
 
 ## CSS tokens
 

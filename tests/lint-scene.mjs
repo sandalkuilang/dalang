@@ -140,6 +140,15 @@ try {
   const p = run(tmp, clean);
   assert.equal(p.code, 0, p.out + p.err);
   console.log("ok  a file or a project path as argument");
+
+  // 5. An overlay anchored to typed numbers is flagged; one anchored to a part pin, or a commented example, is not.
+  const anc = path.join(tmp, "anchors");
+  put(anc, "src/compositions/a.tpl.html", ["<script type=\"module\">", "  ov.pill({ text: \"x\", at: () => [0, 0, 1.2], from: 1, to: 2 });", "  ov.pill({ text: \"y\", at: () => PIN.pump, from: 1, to: 2 });", "  // ov.pill({ text: \"z\", at: () => [1, 2, 3] });", "</script>"]);
+  const an = run(anc);
+  assert.equal(an.code, 1, an.out);
+  assert.deepEqual(found(an.out), ["src/compositions/a.tpl.html:2"], an.out);
+  assert.match(msg(an.out, "a.tpl.html:2"), /PIN\.<part>/);
+  console.log("ok  an overlay anchored to typed numbers, never to a part pin or a commented example");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }

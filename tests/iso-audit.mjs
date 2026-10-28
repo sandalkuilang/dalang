@@ -41,6 +41,23 @@ assert.ok(!lands.problems.some((p) => p.part.includes("run")), "a pipe from the 
 
 assert.throws(() => auditWorld([{ parts: [{ name: "x", form: "box", w: 1, d: 1 }] }]), /needs h/, "a part without its sizes is refused");
 
+// pins: the parts overlays label exist once and are seen by the iso camera (from +x +y +z); a cutaway beat is audited
+// with the skins off; a hero object is built of its real parts
+const kinds = (r) => r.problems.map((p) => p.kind + ":" + p.part).sort();
+assert.deepEqual(kinds(auditWorld([slab, table, lamp], { pins: ["shade", "top"] })), [], "visible, unique pins pass");
+const wall = { name: "wall", at: [1.0, 0.7, 0], parts: [{ name: "wall", form: "box", w: 0.2, d: 0.2, h: 3 }] };
+const hid = auditWorld([slab, table, lamp, wall], { pins: ["shade"] });
+assert.ok(hid.problems.some((p) => p.kind === "pin" && p.part === "shade" && p.other.includes("wall")), "a pin behind a wall is hidden:\n" + hid.text);
+const miss = auditWorld([slab, table, lamp, { name: "foot2", parts: [{ name: "foot", form: "box", at: [-2, -2, 0], w: 0.2, d: 0.2, h: 0.1 }] }], { pins: ["nozzle", "foot"] });
+assert.deepEqual(kinds(miss), ["pin:foot", "pin:nozzle"], "a missing pin name and a shared one are refused:\n" + miss.text);
+const pump = (hero, n) => ({ name: "pump", hero, at: [-2, 2, 0], parts: [{ name: "base", form: "box", w: 1, d: 0.6, h: 0.1 }, { name: "rib", form: "box", at: [-0.45, 0, 0.1], w: 0.02, d: 0.5, h: 0.2, array: { count: n, step: [0.06, 0, 0] } }] });
+assert.ok(auditWorld([slab, pump(true, 5)]).problems.some((p) => p.kind === "thin" && p.part === "pump"), "a hero of 6 parts is too thin");
+assert.ok(!auditWorld([slab, pump(true, 15)]).problems.some((p) => p.kind === "thin"), "a hero of 16 parts passes");
+assert.ok(!auditWorld([slab, pump(false, 5)]).problems.some((p) => p.kind === "thin"), "a plain prop is not held to the hero count");
+const boxed = { name: "case", at: [0, -2, 0], parts: [{ name: "core", form: "cyl", at: [0, 0, 0], r: 0.1, h: 0.3 }, { name: "shell", form: "box", w: 0.6, d: 0.6, h: 0.6, skin: true }] };
+assert.ok(auditWorld([slab, boxed], { pins: ["core"] }).problems.some((p) => p.kind === "pin" && p.part === "core"), "a part inside its skin is hidden");
+assert.ok(!auditWorld([slab, boxed], { pins: ["core"], cut: 1 }).problems.length, "with the skin cut away (a cutaway beat) it is seen");
+
 // the engine's own examples, each on a floor at z = 0: printed, never assumed clean
 for (const [k, spec] of Object.entries(EX)) if (spec?.parts) console.log(k + ": " + auditWorld([spec], { floor: 0, values: { level: 3, drive: 0 } }).text.split("\n").slice(1).join(" | "));
 // the builder's command: exit 0 clean, 3 with problems named, 2 (WARN, never clean) when the world cannot be read
@@ -53,4 +70,4 @@ try {
   assert.ok(b.status === 3 && /lamp\.\w+ floats/.test(b.stdout), "a floating lamp: exit 3, named\n" + b.stdout);
   assert.ok(c.status === 2 && /WARN/.test(c.stdout) && !/ok:/.test(c.stdout), "the stub world: WARN, exit 2, never clean\n" + c.stdout);
 } finally { rmSync(proj, { recursive: true, force: true }); }
-console.log("iso-audit ok: resting set passes; floating, sunk, pipe-through and loose pipe ends caught by name; the CLI exits 0/3/2");
+console.log("iso-audit ok: resting set passes; floating, sunk, pipe-through and loose pipe ends caught by name; pins seen and unique, hero part count, cutaway pins; the CLI exits 0/3/2");

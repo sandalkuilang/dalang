@@ -27,6 +27,10 @@ It then runs the audit's `supports`, `clearances` and `terminals` checks, which 
 Lengths are scaled so the set's longest side is about 100 audit units. `flat`, `line` and `model` parts are listed as
 unchecked, never passed.
 
+It also checks the labels: each name in `PINS` must be one part, seen from the iso camera (a ray toward +x +y +z meets
+no other part), and `cut: 1` takes the skins off for a cutaway beat. A spec marked `hero: true` must have 15 or more
+parts.
+
 `scripts/iso_audit.mjs <film>` is the builder's command. It exits 0 when the world is clean, 3 when it names
 problems, and 2 for a WARN (rerun). `node tests/iso-audit.mjs` checks it.
 

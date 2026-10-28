@@ -17,3 +17,6 @@ export const WORLD = [
 
 // resting values of every key WORLD names, e.g. { level: 0.2 }
 export const VALUES = {};
+
+// the part names the overlays label (each unique in WORLD); iso_audit.mjs checks each is one part the camera sees
+export const PINS = [];
