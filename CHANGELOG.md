@@ -30,6 +30,21 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Cinematography the agent plans itself** (`camera-motion.md` intro, both modes): Step 5 writes a camera plan on the
+  SPEC CAMERA line, a technique per beat job (drone or crane to open, orbit through the context, push and rack focus on
+  the mechanism, one dolly zoom on the Crack, whip and handheld to accelerate, shallow macro on the Impact, crane up to
+  close), never asked. Studio (`engine/three/camera.js`): a real perspective camera with `fovFromMm`, `dofFor` (f-stop
+  and focal length into `studio({ dof })`), `orbit`, `crane`, `dollyZoom`, `drone`. Express (`engine/iso/cinema.js`,
+  `parallax.js`): the same moves as 2.5D layer motion, `orbit25`, `crane25`, `dollyZoom25` (`drawLayers` option
+  `dolly`), `drone25`, `bokeh(fstop)` and `discs`. Selfchecks and `tests/iso-*.mjs` cover each.
+
+### Changed
+
+- **"Isometric always" is gone**: the languages stay (`isometric-world`, `cutaway`, `blueprint`) but the camera is
+  cinematic by default; true isometric (pan and zoom only) is for `blueprint` and diagram-dense films.
+
 ## [3.1.0] - 2026-10-28
 
 ### Added

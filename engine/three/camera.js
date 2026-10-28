@@ -19,6 +19,9 @@ import { readTime } from "./type.js";
 //    opacity, transparent and depthWrite are what they were;
 //  - a Short that replays: loopEnd() builds the closing leg back to `home`, so the last pose is the first;
 //  - text over the subject is judged by eye: heroBox() projects an object's bounding box to px, for type.js layoutFrame.
+//  - a real lens (Studio's perspective camera): fovFromMm(mm) turns a focal length into the fov, dofFor({ mm, fstop,
+//    focusM }) turns lens, f-stop and focus distance into studio()'s `dof`, and orbit / crane / dollyZoom / drone are
+//    camera moves as pure functions of t, each returning { position, target, fov } for place() or studio().render().
 // Units: positions and targets are scene units; lengths you type (`lift`, `clear`) are metres, `speed` is m/s, and
 // `fov` is the vertical field of view in degrees. Visual only: nothing here touches physics.
 
@@ -205,6 +208,96 @@ export function loopEnd(st, { end, dur = 1.5, ...opts } = {}) {
   if (!(num(dur) && dur > 0)) throw new Error("loopEnd(): dur must be greater than 0 seconds");
   if (end - dur < 0) throw new Error("loopEnd(): the film is " + end + " s long, shorter than the " + dur + " s closing leg; shorten dur");
   return { ...opts, to: "home", start: end - dur, dur };
+}
+
+// ---- the lens and the moves of a real camera (all pure functions of t: no state, no randomness, a seek renders the same frame) ----
+// fovFromMm(mm, sensorH = 24): the vertical fov in degrees of a focal length `mm` on a sensor `sensorH` mm tall (full frame
+// is 24 mm tall: 50 mm -> 26.99 deg, 24 mm -> 53.1 deg, 85 mm -> 16.1 deg).
+export function fovFromMm(mm, sensorH = 24) {
+  if (!(num(mm) && mm > 0)) throw new Error("fovFromMm(): mm is the focal length in millimetres, > 0 (got " + mm + ")");
+  if (!(num(sensorH) && sensorH > 0)) throw new Error("fovFromMm(): sensorH is the sensor height in millimetres, > 0 (got " + sensorH + ")");
+  return (2 * Math.atan(sensorH / (2 * mm))) / DEG;
+}
+
+// dofFor({ mm, fstop, focusM, mpu }): studio()'s `dof` option ({ focusRange, bokehScale }) for a lens, an f-stop and a
+// focus distance `focusM` (metres, from the camera to the subject). Full-frame sensor, 24 mm tall. The thin-lens blur
+// circle of a point at infinity is c = mm^2 / (N * (focus - mm)) on the sensor (mm).
+//  - bokehScale = 100 * c / 24: the blur as a percentage of the frame height, which is what the effect's bokehScale
+//    scales (studio's default 2 is 50 mm f/1.8 focused at 3 m: c = 0.47 mm, 2.0). Linear in c, so wider aperture,
+//    longer lens and nearer focus all blur more; f/1.2 is 1.5 x f/1.8 and 4.7 x f/5.6 at the same lens and distance.
+//  - focusRange (metres) = the depth of field, 2 * N * z * focus^2 / mm^2 with the full-frame circle of confusion
+//    z = 0.03 mm (valid well inside the hyperfocal distance): the range over which the effect ramps to full blur.
+//    Shallower for a wider aperture, a longer lens and a nearer focus; always finite and > 0.
+// `mpu` is accepted and checked but not needed: both outputs are in metres and studio() converts to scene units.
+export function dofFor({ mm, fstop, focusM, mpu = M } = {}) {
+  if (!(num(mm) && mm > 0)) throw new Error("dofFor(): mm is the focal length in millimetres, > 0 (got " + mm + ")");
+  if (!(num(fstop) && fstop > 0)) throw new Error("dofFor(): fstop is the f-number (1.2, 1.8, 5.6 ...), > 0 (got " + fstop + ")");
+  if (!(num(focusM) && focusM * 1000 > mm)) throw new Error("dofFor(): focusM is the focus distance in metres and must be beyond the lens's focal length (got " + focusM + ")");
+  if (!(num(mpu) && mpu > 0)) throw new Error("dofFor(): mpu is metres per scene unit, > 0 (got " + mpu + ")");
+  const c = (mm * mm) / (fstop * (focusM * 1000 - mm)); // blur circle on the sensor, mm
+  return { focusRange: (2 * fstop * 0.03 * focusM * focusM * 1000) / (mm * mm) / 1000, bokehScale: (100 * c) / 24 };
+}
+
+// The time part of a move: validates start/dur/ease the way travel() does, returns the eased u in 0..1 at t (exactly 0
+// before `start` and exactly 1 after `start + dur`, whatever a custom ease returns at the ends).
+const moveU = (fn, t, { start = 0, dur, ease = "inOut" }) => {
+  if (!(num(t) && num(start))) throw new Error(fn + "(): t and start must be numbers (seconds)");
+  if (!(num(dur) && dur > 0)) throw new Error(fn + "(): dur (seconds) must be greater than 0 (got " + dur + ")");
+  const f = typeof ease === "function" ? ease : EASE[ease];
+  if (!f) throw new Error(fn + '(): unknown ease "' + ease + '" (use ' + Object.keys(EASE).join(", ") + " or a function u -> u)");
+  const raw = Math.min(1, Math.max(0, (t - start) / dur));
+  return raw <= 0 ? 0 : raw >= 1 ? 1 : f(raw);
+};
+const need = (fn, name, v) => { if (!(num(v))) throw new Error(fn + "(): " + name + " is a number (got " + v + ")"); return v; };
+const dist = (fn, v) => { if (!(num(v) && v > 0)) throw new Error(fn + "(): a distance is in scene units, > 0 (got " + v + ")"); return v; };
+// The point at `d` from `c`, seen from azimuth/elevation degrees (the convention of frame(): azimuth 0 is +z, 90 is +x).
+const around = (c, d, az, el) => { const a = az * DEG, e = Math.min(89.5, Math.max(-89.5, el)) * DEG; return c.clone().add(new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(d)); };
+
+// orbit(t, { center, radius, from, to, elevation = 20, fov = 30, start, dur, ease }): the camera circles `center` from
+// azimuth `from` to `to` (degrees; more than 360 is more than a turn) at a constant `radius` (scene units) and
+// `elevation` (degrees above the horizon), aimed at `center`.
+export function orbit(t, { center, radius, from, to, elevation = 20, fov = 30, ...time } = {}) {
+  const c = vec(center, "orbit(): center"), u = moveU("orbit", t, time);
+  dist("orbit", radius); need("orbit", "from (degrees)", from); need("orbit", "to (degrees)", to); need("orbit", "elevation (degrees)", elevation);
+  return { position: around(c, radius, from + (to - from) * u, elevation), target: c, fov: fovOf(fov, "orbit()") };
+}
+
+// crane(t, { target, from, to, azimuth = 45, distance, fov = 30, start, dur, ease }): a boom arm. The camera sits at
+// the end of an arm `distance` long (scene units) pivoting at `target`: its elevation goes from `from` to `to` degrees
+// (-89.5..89.5) at a fixed `azimuth`, so it rises or falls on an arc, always aimed at `target`, at constant distance.
+// (A straight vertical lift would change the distance and the tilt together; the arm keeps the framing of the subject.)
+export function crane(t, { target, from, to, azimuth = 45, distance, fov = 30, ...time } = {}) {
+  const c = vec(target, "crane(): target"), u = moveU("crane", t, time);
+  dist("crane", distance); need("crane", "from (degrees)", from); need("crane", "to (degrees)", to); need("crane", "azimuth (degrees)", azimuth);
+  return { position: around(c, distance, azimuth, from + (to - from) * u), target: c, fov: fovOf(fov, "crane()") };
+}
+
+// dollyZoom(t, { target, subjectSize, near, far, fov = 30, azimuth = 45, elevation = 20, start, dur, ease }): the
+// vertigo shot. The camera moves along its view axis from distance `near` to `far` (scene units) from `target` while
+// the fov changes as fov = 2 * atan(tan(fov0 / 2) * near / d), so a subject at `target` keeps the same size in the
+// frame and the background closes in or opens out. `fov` is the fov at `near`; `subjectSize` (the subject's width in
+// scene units) must fit the frame there. Throws if the fov would leave 1..179 degrees at either end.
+export function dollyZoom(t, { target, subjectSize, near, far, fov = 30, azimuth = 45, elevation = 20, ...time } = {}) {
+  const c = vec(target, "dollyZoom(): target"), u = moveU("dollyZoom", t, time);
+  dist("dollyZoom", subjectSize); dist("dollyZoom", near); dist("dollyZoom", far); need("dollyZoom", "azimuth (degrees)", azimuth); need("dollyZoom", "elevation (degrees)", elevation);
+  const k = Math.tan((fovOf(fov, "dollyZoom()") * DEG) / 2) * near; // half the frame height at the subject, constant along the move
+  if (subjectSize / 2 > k) throw new Error("dollyZoom(): the subject (" + subjectSize + " wide) does not fit a frame " + 2 * k + " tall at the subject; widen fov or move near back");
+  const d = near + (far - near) * u, f = (2 * Math.atan(k / d)) / DEG;
+  fovOf(f, "dollyZoom() at distance " + d);
+  fovOf((2 * Math.atan(k / far)) / DEG, "dollyZoom() at far");
+  return { position: around(c, d, azimuth, elevation), target: c, fov: f };
+}
+
+// drone(t, { from, to, start, dur, ease }): a flight from a station `from` (high and wide) to `to` (low and close), or
+// the other way. travel() with no lift (the eased straight line, aim and fov blended) plus a gentle sweep to the side:
+// the path bows sideways by 10 % of its length (horizontally, perpendicular to the flight, zero at both ends), so it
+// curves like a pilot's turn instead of a rail. Both ends are exactly the stations. Returns { position, target, fov }.
+export function drone(t, { from, to, ...time } = {}) {
+  moveU("drone", t, time);
+  const p = travel(t, from, to, { ...time, lift: 0 }), chord = to.position.clone().sub(from.position);
+  const side = new THREE.Vector3().crossVectors(chord, new THREE.Vector3(0, 1, 0)); // horizontal, perpendicular to the flight; 0 for a vertical drop
+  if (p.u > 0 && p.u < 1 && side.lengthSq() > 1e-12) p.position.addScaledVector(side.normalize(), 0.1 * chord.length() * Math.sin(Math.PI * p.u));
+  return { position: p.position, target: p.target, fov: p.fov };
 }
 
 // place(camera, pose): the camera onto a pose: position, fov (the projection updates only when it changed), aim.

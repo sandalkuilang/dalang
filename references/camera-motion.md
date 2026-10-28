@@ -2,7 +2,17 @@
 
 Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`; there is no §6 or §9: the numbers keep their old names) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
-**Every film is true isometric** (`looks.md`, all three languages, Express and Studio alike): the view pans and zooms (zoom in log) and never tilts, turns or changes its projection. Below, a dolly, push, crane, drone, fly-through or tracking move is a pan or a zoom of the iso view; a focal length, a lens set, an orbit, a top shot and a dolly-zoom do not exist; a subject shows its other side by turning itself, with a visible cause (a turntable, a hand), never by the camera going round it. Perspective notes that remain below are for the engine's own checks and examples.
+**The camera is chosen by the agent, never asked.** Step 5 writes a camera plan on the SPEC CAMERA line: the projection and 6–10 techniques from §11, each tied to a beat's job (table). **Studio:** a real perspective camera (`camera.js`: `fovFromMm`, `dofFor`, `orbit`, `crane`, `dollyZoom`, `drone`, `travel`, `route`). **Express:** the same moves as honest 2.5D, depth layers moved against each other (`engine/iso/cinema.js`: `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `bokeh`, with `parallax.js`). A `blueprint` or diagram-dense film may keep the true isometric camera (pans and zooms only). One move per beat, at most one dolly zoom and one drone per film, one f-stop within a section.
+
+| Beat job | Technique (Studio · Express) |
+|---|---|
+| Hook, establish | drone or crane down to the hero, 24–35 mm f5.6 · `drone25` + haze |
+| Context, path | slow orbit, or tracking along the path · `orbit25` |
+| Mechanism | push-in with a rack focus cause → effect, 50–85 mm f2–2.8 · push + `bokeh(2.8)` |
+| Crack | the one dolly zoom · `dollyZoom25` |
+| Acceleration | shorter shots, whip pan, handheld · `whip`, `handheld` |
+| Impact | macro, 85–135 mm f1.2–1.8, speed ramp, bokeh discs on the lights · `bokeh(1.4)` + `discs` |
+| Aftermath, bookend | crane up to the wide, 24 mm f5.6, ending on the opening framing · `crane25` |
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
@@ -126,10 +136,10 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 
 | Move | Real source |
 |---|---|
-| Push / dolly, slider, tracking, gimbal follow, crane, fly-through | the iso camera below: a pan or a zoom |
+| Push / dolly, slider, tracking, gimbal follow, crane, orbit, drone, dolly zoom | Studio: the perspective rig (table above); Express: the 2.5D layer moves; a true-isometric film: a pan or a zoom |
 | Over a still | drift, push ≤ 1.06, rack focus, layered parallax — accents inside a shot, never its move |
 
-**The iso camera moves like a rig:** Studio: `isoCamera(W, H)`, stations from `isoFrame`, a `route` of legs (the target pans, zoom in log, one ease per leg, no stop mid-leg); Express: `engine/iso/cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped), so the frame is operated, not glued; `handheld` life at 10–20 % of §2's amplitude, rising with tension; depth of field by layer (`cinema.js` `focus`), the focus pull on the beat word; motion blur on a fast leg (`pose.speed`).
+**Every camera moves like a rig:** Studio: stations (`frame`, or `isoFrame` for an isometric film) and a `route` of legs (one ease per leg, no stop mid-leg); Express: `engine/iso/cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped), so the frame is operated, not glued; `handheld` life at 10–20 % of §2's amplitude, rising with tension; depth of field by layer (`cinema.js` `focus`), the focus pull on the beat word; motion blur on a fast leg (`pose.speed`).
 
 **Frame rate and speed:** 30 fps is the default: the platforms play at 30, and a 24 fps upload repeats one frame in four and judders on pans and dollies. 24 fps with a 180° shutter (motion blur on every layer above ~8 px/frame, §5) reads as film: a look the user picks (`BRIEF.md` fps 24), never the default for rendered 3D. **24 fps with 3D motion needs blur:** a three.js frame is a sharp instant, so 24 sharp frames per second strobe on camera moves and fast bodies (a falling object, a spinning part). When the brief is 24 and the film has camera moves or fast bodies, average 4–8 sub-frames across a 180° shutter (`finish.layer`; §5.3 for bodies, a camera leg the same way); at 30 the same applies to any move that still strobes. **No 60:** rendering 60 for a 30 fps platform doubles the render time and is re-encoded to 30; a 60 fps source is for slow motion only. Slow motion in three.js runs at any speed: render the sub-frames you need, or a `rate` lane speed ramp (`/hyperframes` `motion.md`, registry `beat-freeze-cut`).
 
@@ -151,19 +161,22 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
 
 ### 11.2 Lens — how the world feels
-Every film is true isometric (`looks.md`): there is no focal length and no perspective; the view pans and zooms and never tilts or turns. What a lens did, the frame does:
-- **Scale by zoom:** a wide hold shows the whole world on its slab; a close zoom (zoom interpolated in log) is the macro, the mechanism at its own scale. A circular inset shows a close-up while the wide stays.
-- **Focus as narration:** depth of field by layer (`engine/iso/cinema.js` `drawLayers` `focus`): rack from cause to effect on the word, or pull a subject sharp out of the blur as its reveal. A sharp band over a soft world reads as tilt-shift, the "model of a system" overview.
-- **Into the thing:** a cutaway (a skin slid off, `cutaway.js` in Studio) and a zoom through it replace the probe lens and the push-through.
+- **Focal length sets the look [3D]:** `fovFromMm`. 24 mm wide and deep (the place, a near object at the frame edge), 35 mm natural, 50 mm neutral, 85 mm close and flat (the hero, the macro), 135 mm compressed (far things stacked, awe). Never board a whole film on one lens.
+- **F-stop sets the bokeh [3D]:** `dofFor({ mm, fstop, focusM })` into `studio({ dof })`. f1.2–2 melts the background into discs (the key beat, a macro), f5.6–8 keeps the world sharp (context, wide). Rack the focus from cause to effect on the word.
+- **2.5D [Express]:** `bokeh(fstop, { focus, mm })` blurs layers by their depth from the focus plane, `discs` paints out-of-focus lights, `haze` pales far layers.
+- **Scale by zoom:** a wide hold shows the whole world, a close zoom is the macro, the mechanism at its own scale; a circular inset shows a close-up while the wide stays.
+- **Into the thing:** a cutaway (a skin slid off, `cutaway.js` in Studio) and a zoom through it.
 
 ### 11.3 Movement — beyond §2
 - **Reveal:** move past a foreground occluder (a wall edge, a leaf, a machine part) to uncover the subject or its scale **[3D][2.5D]**.
 - **Push-through:** the camera passes through a surface (a window, a mesh, a keyhole, the shell of an object) into the next space — a scene change with no cut **[3D]**.
-- **Crane up / down:** in iso, a zoom out from the detail to the context (consequence, scale), or in from the context to the detail; never a tilt, never a top shot.
+- **Crane up / down [3D][2.5D]:** `crane` / `crane25`: the boom rises from the detail to the context (consequence, scale) or lowers into it; the aim holds.
+- **Drone [3D][2.5D]:** `drone` / `drone25`: a high wide descends to the hero (the hook) or climbs away from it (the bookend). The wow shot or nothing.
+- **Dolly zoom [3D][2.5D]:** `dollyZoom` / `dollyZoom25`: the subject holds its size while the world stretches behind it. One realisation beat per film, the Crack.
 - **Tracking:** alongside a moving subject at its speed — it holds its place in frame while the world streams past **[3D]**.
-- **Turn, not orbit:** the subject turns on a visible turntable or in a hand to show its other side; the iso view never goes round it.
+- **Orbit [3D][2.5D]:** `orbit` / `orbit25`: the camera arcs round the subject at constant distance, aimed at it; slow, on context beats. A subject may also turn itself on a visible turntable or in a hand.
 - **Oner:** one unbroken move through a whole process, explaining step by step as the camera travels; cuts hidden in dark passes or whips **[3D]**. The engine's form is `engine/three/camera.js`: named `stations`, a `route` of legs between them (a leg that starts before the one before ends is refused: a leg cannot jump), `loopEnd` for a Short, and `examples/oner.js` (home, dive, inside, home on any set).
-- **Home shot + dives:** one persistent world, one camera, no cut. The home shot is the iso wide of the whole world on its slab (`isoFrame`), and it is where the A/B comparison lives. Each dive pushes in to one subject and back out; a push-through enters the part at its own scale (a cross-section with the flow shown); every station is the same iso view at its own pan and zoom. The viewer never loses their place, because every detail sits visibly inside the home shot. Any subject: a kitchen appliance and its heating element, a bicycle drivetrain and its freewheel, a beehive and one brood frame, a server rack and one fan. `travel` arcs over the set (`over`, a Box3: the set's box, or the envelope of a moving part's travel; `route` measures an object once, when it is built, so a lid opening or a bouncing ball never moves the camera) instead of cutting through it, eases in and out, and reports `speed` (m/s) every frame **[3D]**.
+- **Home shot + dives:** one persistent world, one camera, no cut. The home shot is the wide of the whole world on its slab (`frame`, or `isoFrame` for an isometric film), and it is where the A/B comparison lives. Each dive pushes in to one subject and back out; a push-through enters the part at its own scale (a cross-section with the flow shown); every station is its own framing of the same world. The viewer never loses their place, because every detail sits visibly inside the home shot. Any subject: a kitchen appliance and its heating element, a bicycle drivetrain and its freewheel, a beehive and one brood frame, a server rack and one fan. `travel` arcs over the set (`over`, a Box3: the set's box, or the envelope of a moving part's travel; `route` measures an object once, when it is built, so a lid opening or a bouncing ball never moves the camera) instead of cutting through it, eases in and out, and reports `speed` (m/s) every frame **[3D]**.
 - **Attention by ghosting:** on each beat everything outside the beat's subject fades to a light, desaturated, translucent ghost (about 25 % opacity), and the subject alone keeps its colour and the accent. Context comes back as the camera pulls out. The floor or sweep stays whole (`keep`), or the world shows the void under it. A fast travel carries motion blur (`pose.speed` and the frame rate give the pixels per frame: the ~4 px rule of §5), and a soft foreground object sells depth on a push. `engine/three/camera.js` `attend(root, { keep, ghost, desat, dur, edge })` does it on cloned materials and puts the original back by reference; `look.at(t)` runs once per frame, after every other `at()` **[3D]**.
 - **Loop end (9:16 Shorts):** the last frame equals the first, so the Short replays seamlessly. `loopEnd(st, { end: (frames - 1) / fps })` brings the camera back to `home` exactly on the last frame; release the attention before it, and finish its fade before the last frame (`oner` refuses a `look.dur` longer than the time it has), and return the subject's own state too (a part that moved must be back where it started, or the loop jumps) **[3D]**.
 - **Motion-control repeat:** the identical move over two states (before / after, option A / option B, new / worn), then cut or wipe between them. It's the strongest comparison shot there is **[3D]**.
