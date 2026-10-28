@@ -81,9 +81,35 @@ in this table.
 | `examples/torch.js` | A perspective engineering-cutaway piece (from before the iso look; its systems still apply): `openTorch(k, { at, state, speed, timeScale, full, cutOn })`, a torch opened along its axis on a grey-blue mat with a 10 mm grid (cell, spring, driver board with its SMD parts, LED on its star board, reflector, lens, all real sizes), a dc flow from the cell to the LED caused by the model's `state(t)` → `{ I }`, the LED lit by the current. Returns `{ group, mat, ground, parts, dims, flows, cut, frames({ W, H }), place(camera, station, W, H), lights(scene, radius), at(t) }`: `frames` gives the look's three style frames (wide 70 mm, medium 100 mm, macro 135 mm on a 36 mm gauge, 3/4 high angle, the macro with its depth-of-field options), `place` puts the camera on one with the view offset that sets the subject low (so the text band sits on clean ground), `dims` the edges to dimension, `parts` the anchors to label. Also exports `LOOK` (the look's defaults as data: ground, mat, accent meanings, grain, bloom threshold, lens set, view offset, depth of field) and `lensFov(mm, aspect)`. A small three-light rig stands in for the studio rig; AgX tone mapping, ambient occlusion, grain, bloom and the depth-of-field pass are the set's renderer choices. No printed markings yet. |
 | `examples/twin.js` | `twinSets(k, build, { values: [a, b], at, gap, axis })`: one set built twice by `build(group, value, index)`, differing only in the value, placed `gap` m apart along `axis` with the gap centred on `at` (twin sets for an A/B comparison, `visual-direction.md` §13). |
 
+## Object-studio kit (`objectStudio.js`, `editorial.js`)
+
+The `object-studio` look ready-made: real objects as clean 3D on a light grey studio sweep through a perspective lens,
+with an editorial overlay. Every group of a parallel build imports these two modules unchanged, so the seams match and
+no pilot builder has to write a set or an overlay system first.
+
+`objectStudio.js` (on `studio.js`, `shots.js`, `camera.js`, `finish.js`, `audit.js`):
+- `makeSet(canvas, { G0, G1, W, H, fps, format, sweep: { floor, top }, lights, grain, ... })`: the sweep (default floor `#D9D9D6` to wall `#ECECEA`), `light()`, `shots(list, set)`, `render(t)` with motion-blur sub-frames, `loop({ overlay, post })` on hf-seek, `project(anchor)`, `audit()`; refuses a missing canvas.
+- `cam(pos, target, mm, { dof })`: a station with a lens in mm on a 36 mm gauge on the long side; `dof` is `{ range, bokeh }` or `{ fstop, focus }` (via `dofFor`); none is sharp.
+- `mat.liquid(color)`: plain alpha, no transmission (a transmission pass renders a liquid opaque); `mat.clearPlastic()`, `mat.glass()`: additive reflections only, no depth write (an alpha shell veils the liquid inside); `mat.steel()`, `mat.plastic(color)`, `mat.matte(color)`, `mat.haze(opacity)`.
+- `halfLathe(profile)`: the back half of a solid of revolution closed at the cut, for what is inside a cut-open vessel.
+- `contact(at, { w, d })`: a soft contact shadow; `backdrop(at, { w, h })`: a darker pool behind a pale hero, for figure-ground.
+- `canvasTex(w, h, draw)`, `makeSweep(opts)`, `lensFov(mm, aspect)`, `rng`, `clamp`, `smooth`, `ease3`; the cue helpers below, re-exported.
+
+`editorial.js` (no three.js; DOM/SVG over the canvas; every element a pure function of t):
+- `w(text, n)`, `we(text, n)`, `wc(text, n)` (a shots.js cue `"w12"`), `b(name)`: a word or a beat by name, throwing on a missing one; `cues({ words, beats })` over explicit arrays.
+- `makeOverlay(root, { prefix, G0, accent = "#FFD400", ink = "#0B0B0B", illustration = "ILLUSTRATION" })`, then each frame `update(tLocal, project)`:
+  - `headline({ kicker, text })`: a mono kicker and a bold headline with one `[accent]` word on a chip.
+  - `card({ label, value | rows, source })`: a white data card with its source line (required).
+  - `tags(list)`: hanging A-vs-B tags that fall on their string and swing to rest.
+  - `pill({ text, at })`: a label with a leader line to a 3D part.
+  - `chip()`: the illustration chip, when the picture is not measured.
+  - `big({ text, at })`: a big number pinned near a part.
+- `captions(root, CAPTIONS, { prefix, accent, ink })`: karaoke captions from `audio/captions.js`, the spoken word on an accent chip.
+- Pure parts: `envelope`, `accentHtml`, `tagSwing`, `captionAt`. Every word on screen comes from the caller in the narration's language.
+
 ## Cinematic camera (Studio, perspective; all in `camera.js`)
 
-A real lens and the moves of a real camera. Every move is a pure function of `t` returning `{ position, target, fov }`, so `place(camera, pose)` and `studio().render(t, pose)` take it directly; each takes `start`, `dur`, `ease` like `travel`.
+These serve the `object-studio` look (`references/looks.md`), never an isometric film. A real lens and the moves of a real camera. Every move is a pure function of `t` returning `{ position, target, fov }`, so `place(camera, pose)` and `studio().render(t, pose)` take it directly; each takes `start`, `dur`, `ease` like `travel`.
 
 - `fovFromMm(mm, sensorH = 24)`: the vertical fov in degrees for a focal length on a full-frame sensor (50 mm is 27°).
 - `dofFor({ mm, fstop, focusM, mpu })`: `{ focusRange, bokehScale }` for `studio()`'s `dof`, from the thin-lens blur circle; a wider aperture, a longer lens and a nearer focus are shallower and blurrier.

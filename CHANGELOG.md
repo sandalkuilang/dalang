@@ -30,6 +30,35 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- **Two looks, asked in the Brief, in either mode** (`brief.md` Call 1 item 0b, `looks.md`, `express.md`, `SKILL.md`):
+  the isometric family (`isometric-world` the main language, flat drawing that reads as 3D through layers and colour, with
+  `cutaway` and `blueprint` on the beats that need them, now combined in one film) or the new `object-studio` (the
+  real object as clean 3D on a light grey studio sweep, x-ray, editorial cards, karaoke captions; `engine/three`, real
+  lens and camera moves). Express builds `object-studio` too, with the engine's object-studio kit (`engine/three/objectStudio.js`,
+  `editorial.js`, checked in the selfcheck) as the shared set and overlay. A look outside the two is answered in one line; a reference gives only palette, type and overlays.
+- **A reference given as a link** (`measure-reference.md`): a subagent watches it in the built-in browser and writes
+  `reference-measurements.md` (craft only).
+
+### Fixed
+
+- **Gate 3 in Express** (`state.mjs`): no longer refused for missing `style-frames` (Express makes none); Studio still
+  needs them (`tests/benchmark.mjs`).
+- **object-studio kit, from the first test film**: `set.shots(list, set, { moves })` (and `withMoves`) play camera.js's
+  orbit, crane, dolly zoom and drone inside a shot window, so builders no longer patch the runner; `mat.chrome`; the
+  illustration chip needs its label in the narration language (no English default); `looks.md` keeps every macro and
+  x-ray shot recognisable (silhouette or inset in frame) and one overlay voice.
+
+### Changed
+
+- **Mode is the workflow, look is the drawing; both locked after the Brief**: a 3D look never moves a film to Studio. A
+  look change after Step 6 starts stops every builder, rewrites `SPEC.md` and starts every group again; narration and
+  voice stay. Express starts every group at once with no pilot (SKILL.md Step 6 and the parallel table).
+- **Captions split a long run at the speaker's breath** (`engine/three/type.js` `phrases`, `captions.mjs`): with no
+  0.3 s pause, the longest gap of 0.12 s or more decides, so a phrase no longer ends mid-clause on an even word count.
+- **No title block on 9:16 or 4:5** (`looks.md`): sheet furniture only on 16:9.
+
 ## [3.2.0] - 2026-10-28
 
 ### Added
