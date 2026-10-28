@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-28
+
 ### Added
 
 - **Cinematography the agent plans itself** (`camera-motion.md` intro, both modes): Step 5 writes a camera plan on the
@@ -1269,7 +1271,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/sandalkuilang/dalang/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/sandalkuilang/dalang/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/sandalkuilang/dalang/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/sandalkuilang/dalang/compare/v1.8.0...v2.0.0
