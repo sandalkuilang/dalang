@@ -32,6 +32,6 @@ git commit -q -am "chore(release): v$v - Unreleased moved into $v, README clone 
 git push -q -u origin "release/v$v"
 gh pr create --base main --title "Release v$v" --body "Release v$v: CHANGELOG's Unreleased moved into $v, the README clone example pinned. Cut by scripts/release.sh." >/dev/null
 gh pr merge "release/v$v" --rebase --delete-branch >/dev/null
-git switch -q main && git pull -q --ff-only origin main
-git tag -a "v$v" -m "v$v" && git push -q origin "v$v"
+git fetch -q origin main # tag the merged commit on origin/main; never switch to main, which another worktree may hold
+git tag -a "v$v" -m "v$v" origin/main && git push -q origin "v$v"
 echo "released v$v (the release workflow publishes it; CI runs on main in the background)"

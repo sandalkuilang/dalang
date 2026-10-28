@@ -72,6 +72,8 @@ that reads as:
 
 ### Fixed
 
+- `scripts/release.sh` tags the merged commit on `origin/main` instead of switching to `main`, which failed in a git
+  worktree while another checkout held `main`.
 - **Express no longer idles on the voice** (`express.md`): the builder writes its template from beat names at once and
   only the snapshot, `fill_times.mjs` and the lints wait for `audio/beats.js` (a watched run lost ~6 min to an
   `until` loop before the first write). Research is one round of up to 2 parallel agents with ≤ 6 searches and ≤ 8
@@ -80,6 +82,8 @@ that reads as:
 
 ### Changed
 
+- **Golden eval 3.0.0** (`evals/golden/3.0.0/`): Every film is true isometric now (isometric-world first): the golden
+  scene is revision 2, the flask on an iso slab, so 1.6.0 is not comparable.
 - **Isometric always, `isometric-world` first, in Express and Studio** (`SKILL.md`, `references/looks.md`,
   `express.md`, `brief.md`, `camera-motion.md`, `visual-direction.md`, README, docs): `isometric-world` by default,
   `cutaway` (its close relative) when the film is about the inside of one thing, `blueprint` only when it rests on very
