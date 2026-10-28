@@ -12,7 +12,7 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
   `selfcheck.mjs`. `examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
-  as data, parallax, cinema). `engine/epic/`: the design language every film uses (isometric-world).
+  as data, parallax, cinema). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
 - `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
   committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
@@ -44,9 +44,9 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
   cause. Real scale, real materials, real mass. Studio is three.js 3D; Express (the default, `references/express.md`)
   is 2.5D illustration in HTML/SVG with the same caused motion, true shapes, and a hard budget of 20 minutes of work
   per film.
-- **Stylized only, one look.** No hyperreal look, no filmed footage, no photoreal render, no generated still or clip.
-  Every film, Express and Studio, is `isometric-world` (true isometric, three tones per face, a diorama on a slab;
-  `references/looks.md`), always true to how the subject looks and works.
+- **Stylized only, isometric always.** No hyperreal look, no filmed footage, no photoreal render, no generated still
+  or clip. Express and Studio share three languages in true isometric (`references/looks.md`): `isometric-world` first,
+  `cutaway` for the inside of one thing, `blueprint` for very detailed data; always true to how the subject looks and works.
 - **Never read "unknown" as "missing".** A tool that cannot read a state (timeout, error, odd reply) reports WARN
   and says to rerun. It never reports MISSING, never says "none" and never suggests installing.
 - **Installs only with consent.** The skill never installs a model, app or key on its own. It states size and

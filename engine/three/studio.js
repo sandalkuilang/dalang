@@ -253,6 +253,31 @@ export function isoLook(root) {
   root.traverse((o) => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material); o.castShadow = o.receiveShadow = false; } });
   return root;
 }
+// The other two languages on the same iso camera and rig (references/looks.md): `cutaway` is isoLook in its paper
+// palette plus ink lines; `blueprint` is blueprintLook plus lines in its line colour on the blue ground.
+// blueprintLook(root, { bg }): every face flat in the ground colour (MeshBasicMaterial, pushed back by polygonOffset),
+// so only the lines read and a nearer part hides the lines behind it. Colour-free parts: data marks stay coloured only
+// where the set gives them a material flagged userData.data. Run it before cutaway() and attend().
+// ponytail: hidden edges are hidden, not dashed; add a dashed pass if a drawing needs to show what is behind.
+export function blueprintLook(root, { bg = "#123A66" } = {}) {
+  const face = new THREE.MeshBasicMaterial({ color: bg, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  root.traverse((o) => { if (o.isMesh && !o.userData.data) { o.material = face.clone(); o.castShadow = o.receiveShadow = false; } });
+  return root;
+}
+// inkLines(root, { color, angle, opacity }): the drawing's linework, an EdgesGeometry (creases over `angle` degrees,
+// default 30) child on every mesh, in one colour. Run it AFTER cutaway(): each line shares its mesh's clipping planes,
+// so the removed half loses its lines too. Lines are 1 px (WebGL); the language's 1-1.5 px.
+export function inkLines(root, { color = "#2B2A26", angle = 30, opacity = 1 } = {}) {
+  const meshes = [];
+  root.traverse((o) => { if (o.isMesh && !o.userData.cutaway && !o.children.some((c) => c.userData.inkLine)) meshes.push(o); });
+  for (const o of meshes) {
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    const line = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, angle), new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity, clippingPlanes: m?.clippingPlanes ?? null }));
+    line.userData.inkLine = true; line.raycast = () => {};
+    o.add(line);
+  }
+  return root;
+}
 // isoStudio(renderer, scene, camera, { route, ground, finish, stencil }): the rig for the iso look. camera: isoCamera();
 // ground: the sky colour behind the slab (isometric-world.md --bg). render(t, pose) places the camera (camera.js
 // place) and renders; finish(canvas, t) runs last (engine/iso cinema's makeFinish().apply). renderer null: a dry rig.

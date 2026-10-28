@@ -242,21 +242,22 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   console.log("ok  the evals.md scene-code check flags src/ and assets/*.js, not the Step 5 style frames");
 }
 
-// One look for every film: isometric-world, in both modes. The language folder holds only it, the Brief asks no look
-// question, looks.md and express.md name it, and the iso camera never tilts in the docs that drive it. §13's dimension row
+// Three isometric languages in both modes, isometric-world first, cutaway, blueprint for very detailed data; the Brief
+// asks no look question, looks.md and express.md say how to pick. §13's dimension row
 // still agrees with quantity.js: dimension() is drawn on the frame's 2D canvas, over the parts.
 {
   const looks = read("references/looks.md"), vd = read("references/visual-direction.md"), qty = read("engine/three/quantity.js");
-  assert.deepEqual(fs.readdirSync(new URL("../engine/epic/languages", import.meta.url)), ["isometric-world.md"], "engine/epic/languages holds only isometric-world");
-  assert.match(looks, /^# The look: isometric-world/, "looks.md is the one look");
-  assert.match(looks, /isoCamera.*isoLook.*isoStudio/s, "looks.md names the three.js iso recipe");
-  assert.match(read("references/brief.md"), /`look: isometric-world`/, "the Brief saves look: isometric-world without a question");
-  assert.match(read("references/express.md"), /The look is `isometric-world`, every film/, "express.md uses the one look");
-  for (const f of ["references/brief.md", "references/express.md", "engine/epic/README.md", "SKILL.md"]) assert.doesNotMatch(read(f), /`blueprint`|`cutaway` design|More looks/, `${f} still offers another language or look`);
+  assert.deepEqual(fs.readdirSync(new URL("../engine/epic/languages", import.meta.url)).sort(), ["blueprint.md", "cutaway.md", "isometric-world.md"], "engine/epic/languages holds the three languages");
+  assert.match(looks, /^# The looks: isometric-world first, cutaway, blueprint/, "looks.md: isometric-world first");
+  assert.match(looks, /`blueprint` only when the film rests on very detailed data/, "looks.md: blueprint only for very detailed data");
+  assert.match(looks, /isoCamera.*isoLook.*isoStudio.*inkLines.*blueprintLook/s, "looks.md names the three.js recipes");
+  assert.match(read("references/brief.md"), /no question:.*`isometric-world` by default.*Save `look: <language>`/, "the Brief picks the language without a question, isometric-world by default");
+  assert.match(read("references/express.md"), /one design language, `isometric-world` first/, "express.md: isometric-world first");
+  for (const f of ["references/brief.md", "references/express.md", "engine/epic/README.md", "SKILL.md"]) assert.doesNotMatch(read(f), /More looks|`editorial`|`swiss`/, `${f} still offers a removed look or language`);
   assert.match(qty, /dimension\(\) \(below\) is drawn on the frame's 2D canvas, not in the scene/, "quantity.js no longer says dimension() is a canvas overlay: update §13 with it");
   const dimRow = vd.split("\n").find((l) => l.startsWith("| Dimension line |")) ?? "";
   assert.match(dimRow, /(?:over|on top of) (?:the )?(?:parts|frame)|no part hides/i, "§13's dimension row must say the line is drawn over the parts");
-  console.log("ok  one look (isometric-world) in both modes; §13 agrees with quantity.js");
+  console.log("ok  three isometric languages, isometric-world first, in both modes; §13 agrees with quantity.js");
 }
 
 
