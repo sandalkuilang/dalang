@@ -34,8 +34,8 @@ No catalogue of objects: any object is a few shape families, written as data, or
   give each isometric layer its own pan and zoom (depth 0 still, 1 the subject, under 1 farther, over 1 nearer; zoom in
   log space; never a tilt); `layerTransform` and `applyLayers(root, view, rest, W, H)` move SVG and HTML layers marked
   `data-depth`. `node tests/iso-parallax.mjs` checks it.
-- `cinema.js`: the film camera and finish. `camAt(t, keys)` (keyed poses, eased, zoom in log), `handheld(cam, t,
-  { amp, seed })`, `ramp(t, keys)` (speed ramps as story time), `whip(t, t0, dur, a, b)` and `motionBlur(target,
+- `cinema.js`: the film camera and finish. `camAt(t, keys)` (keyed poses, eased, zoom in log, each move one
+  way; no handheld shake: the camera's life is a slow one-way `orbit25`), `ramp(t, keys)` (speed ramps as story time), `whip(t, t0, dur, a, b)` and `motionBlur(target,
   buffer, draw, t, { samples })`, `makeFinish(W, H).apply(canvas, t, { grade, bloom, sweep, vignette, grain, bars })`
   in grade order; `drawLayers`' `focus`/`aperture` (rack focus) and `haze` (atmospheric perspective) in `parallax.js`.
   All seeded or pure in t. `node tests/iso-cinema.mjs` checks them.

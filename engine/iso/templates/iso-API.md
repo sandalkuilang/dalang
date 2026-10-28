@@ -31,7 +31,8 @@ the keys it animates.
 - The template's `OPEN` and `CLOSE` poses are `SPEC.md` CAMERA's numbers for this group (OPEN = the previous group's
   CLOSE), so seams match. `camAt(t, [{ t, x, y, z, k, ease }])` keyed poses (k = px per metre; ease `inOut | out | in | linear | expo`);
   **a move goes one way**: keys that travel right then left (or back) with no hold ≥ 0.5 s between throw, so turn back
-  only after a held key or a cut. `handheld(cam, t, { amp })` (0.01 calm, 0.03 tense; the same size on screen at every zoom).
+  only after a held key or a cut. **No handheld, ever:** the camera's life is the template's slow orbit, one direction
+  for the whole film (`ORBIT`: 1 right, -1 left, from SPEC CAMERA, the same in every group).
 - 2.5D moves (`cinema.js`, `{ rest, start, dur, ease }`; on 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest,
   sweep })` → hand `o.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
   dolly }`; `drone25(t, { rest, from })`. A zoom that lands on a subject hands over to a slow orbit: `orbit25(t, { rest: landing,

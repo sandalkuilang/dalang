@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // node tests/iso-cinema.mjs — engine/iso/cinema.js and the lens options of parallax.drawLayers: keyed camera moves
-// (held outside, eased, zoom in log), seeded handheld, speed ramps that integrate without a jump, whip pans that blur
+// (held outside, eased, zoom in log), no handheld, speed ramps that integrate without a jump, whip pans that blur
 // most in the middle, motion blur as a running mean over the shutter, depth of field and haze per layer, and the finish
 // in grade order, its grain the same for the same frame.
 import assert from "node:assert/strict";
 import { Iso } from "../engine/iso/iso.js";
 import { drawLayers, isoLayer } from "../engine/iso/parallax.js";
-import { EASE, camAt, handheld, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs, hold, focusRing } from "../engine/iso/cinema.js";
+import * as cinema from "../engine/iso/cinema.js";
+import { EASE, camAt, ramp, whip, motionBlur, makeFinish, orbit25, crane25, dollyZoom25, drone25, bokeh, discs, hold, focusRing } from "../engine/iso/cinema.js";
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
 for (const [n, f] of Object.entries(EASE)) assert.ok(near(f(0), 0) && near(f(1), 1), `ease ${n} runs 0 → 1`);
@@ -18,17 +19,7 @@ const mid = camAt(2, keys);
 assert.ok(near(mid.x, 5) && near(mid.k, 20), "halfway: half the pan, the geometric mean of the zoom");
 assert.throws(() => camAt(0, []), /no keys/); assert.throws(() => camAt(2, [keys[1], keys[0]]), /sorted/);
 
-const base = { x: 1, y: 2, z: 3, k: 100 };
-assert.deepEqual(handheld(base, 1.234, { seed: 4 }), handheld(base, 1.234, { seed: 4 }), "handheld is seeded: the same frame twice");
-assert.notDeepEqual(handheld(base, 1.234, { seed: 4 }), handheld(base, 1.234, { seed: 5 }), "another seed, another hand");
-let worst = 0; for (let t = 0; t < 10; t += 0.01) { const h = handheld(base, t, { amp: 0.05 }); worst = Math.max(worst, Math.abs(h.x - 1), Math.abs(h.y - 2)); }
-assert.ok(worst <= 0.05 + 1e-9 && worst > 0.02, "the shake stays inside its amplitude: " + worst);
-assert.deepEqual(handheld(base, 2, { amp: 0 }), base, "amp 0 is a locked tripod");
-// the shake is the same size on screen at every zoom: world shake × k does not grow when the camera pushes in
-for (const t of [0.3, 1.7, 4.2]) {
-  const wide = handheld(base, t, { amp: 0.03 }), close = handheld({ ...base, k: 560 }, t, { amp: 0.03 });
-  assert.ok(near((wide.x - 1) * 100, (close.x - 1) * 560, 1e-9), "a close-up shakes no more on screen than the wide shot");
-}
+assert.equal(cinema.handheld, undefined, "no handheld shake: a camera's life is a one-way orbit");
 // a move goes one way: right then straight back left with no hold is refused; a hold between, or a zoom, is fine
 const L = (t, x, y, k = 200) => ({ t, x, y, z: 0, k });
 assert.throws(() => camAt(0, [L(0, 0, 0), L(1, 1, -1), L(2, 0, 0)]), /turns back/, "right then left with no hold is a wobble");
