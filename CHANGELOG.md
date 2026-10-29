@@ -30,6 +30,8 @@ that reads as:
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-29
+
 ### Added
 
 - The user's own thing in the film, exactly as their photo shows it: `scripts/trace.mjs` cuts the plain background
@@ -1726,7 +1728,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...v4.0.0
 [3.10.0]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sandalkuilang/dalang/compare/v3.8.4...v3.9.0
