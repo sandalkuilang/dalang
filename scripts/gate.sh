@@ -24,6 +24,7 @@ engine() { local d; d=$(mktemp -d) && node engine/three/build.mjs "$d" >/dev/nul
 step "syntax (scripts, engines, templates, tests, shell, Python)" syntax
 step "SKILL.md front-matter" frontmatter
 step "generic purpose (no samples, examples or subject assets; no test-film words)" node tests/generic.mjs
+step "one typeface (Kohinoor Bangla else Helvetica, weight by role)" node tests/font.mjs
 step "README diagrams (light derived from dark)" python3 docs/assets/build.py --check
 step "reading list (headings exist, sections <= 8 KB, Steps 0–8 <= 60 KB)" node scripts/state.mjs reading
 step "state.mjs next vs fixture projects and fixture skills" node tests/reading.mjs

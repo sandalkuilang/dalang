@@ -13,7 +13,6 @@ canvas and the cut face carries the data.
   --chart-1:#B5432F;  /* brick: machinery */   --chart-2:#3E6DA6;  /* steel blue: water, metal */
   --chart-3:#B57F1B;  /* amber: wood, energy */ --chart-4:#0E8E76;  /* teal: organic, coolant */
   --chart-5:#7B5397;  /* plum: rare fifth */
-  --font-display:'Bitter',serif; --font-body:'Source Sans 3',sans-serif;
 }
 ```
 
@@ -23,9 +22,8 @@ of the same part. Nothing pure white.
 
 ## Type
 
-`https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap`.
-Bitter 700/800 for titles (56–76 px) and hero numbers (96–150 px); Source Sans 3 for callouts: a bold lead-in
-("**Lead-in** — the one fact, with its number") 15 px, text 14 px, captions ≥ 12.5 px. Callout numbers: a 22–26 px circle
+The one typeface (`engine/three/font.js`); the weight is the role. Title 700, 56–76 px, hero numbers 700, 96–150 px; callouts: a
+Semibold 600 lead-in ("**Lead-in** — the one fact, with its number") 15 px, text 14 px 400, captions ≥ 12.5 px 500. Callout numbers: a 22–26 px circle
 in a full slot colour, figure in paper white, 700. All text horizontal.
 
 ## Geometry

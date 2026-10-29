@@ -69,7 +69,7 @@ flushes each layer). Eases `ss`, `eo`, `eio`, `back`; `seg(t, a, b)` 0–1 betwe
 solid is inked for you: detail comes from parts, never extra outlines.
 
 ## Overlays (`editorial.js`)
-`makeOverlay(root, { prefix, G0, accent, ink, fonts: { display, body, mono }, illustration })`, per frame
+`makeOverlay(root, { prefix, G0, accent, ink, illustration })`, per frame
 `ov.update(tLocal, project)`. `ov.headline({ kicker, text: "Sentence [accent]", from, to })` · `ov.card({ label,
 rows: [{ k, v, hi }], source, from, to, top, left, width })` · `ov.tags([{ title, value, sub, x }], { from, to })` ·
 `ov.pill({ text, at, offset: [dx, dy], from, to })` · `ov.big({ text, at, offset, from, to })` · `ov.chip({ from, to })`.

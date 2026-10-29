@@ -23,7 +23,9 @@ try {
   assert.match(host, /id="intro" [^>]*data-start="0" data-duration="\{\{middle\}\}"/, "the first group opens at 0");
   assert.match(host, /id="body" [^>]*data-start="\{\{middle\}\}" data-duration="\{\{close - middle\}\}"/);
   assert.match(host, /id="end" [^>]*data-start="\{\{close\}\}" data-duration="\{\{END - close\}\}"/, "the last group closes at END");
-  assert.match(host, /fonts\.googleapis\.com\/css2\?family=Fredoka/, "the isometric host loads the language's fonts");
+  assert.match(host, /font-family: "Kohinoor Bangla", Helvetica/, "the host sets the one typeface");
+  assert.match(host, /@font-face\{font-family:"Kohinoor Bangla";font-weight:600;src:local\("Kohinoor Bangla Semibold"\)/, "its weights are declared from the installed font");
+  assert.doesNotMatch(host, /googleapis|Fredoka|Nunito|Inter"|__FAMILY__|__FONT_FACES__/, "no other family, no placeholder left");
   for (const g of ["intro", "body", "end"]) assert.doesNotMatch(read(d, `src/compositions/${g}.tpl.html`), /__[A-Z]+__/, `${g}: every placeholder filled`);
   assert.match(read(d, "src/compositions/intro.tpl.html"), /const G0 = 0, G1 = b\("middle"\)/);
   assert.match(read(d, "src/compositions/end.tpl.html"), /G1 = window\.NARRATION_DURATION/);

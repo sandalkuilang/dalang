@@ -20,7 +20,6 @@ darkest, as `tri()`/`triad()` draw them; one light everywhere. Only signs and la
   --chart-2:#009B7D; --chart-2-top:#4DB49D; --chart-2-dark:#007259;   /* teal: 2.97:1 on sky, always direct-labelled */
   --chart-3:#4A55C8; --chart-3-top:#7A82D8; --chart-3-dark:#363F9B;   /* indigo */
   --chart-4:#B57300; --chart-4-top:#CC9440; --chart-4-dark:#8A5700;   /* amber */
-  --font-display:'Fredoka',sans-serif; --font-body:'Nunito Sans',sans-serif;
 }
 ```
 
@@ -29,9 +28,8 @@ nothing outside this set; ≤ 4 data colours.
 
 ## Type
 
-`https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;800&display=swap`.
-Fredoka 600/700 for titles and hero numbers (100–150 px); Nunito Sans 400/600/800 for labels. Title 56–72 px · section
-20 px 800 uppercase +0.06em · body 16 px · caption 13 px. Values on signposts, flags or billboard tags with a 2 px ink stem.
+The one typeface (`engine/three/font.js`); the weight is the role. Title 700, 56–72 px, hero numbers 700, 100–150 px · section
+20 px 600 uppercase +0.06em · body 16 px 400 · caption 13 px 500. Values on signposts, flags or billboard tags with a 2 px ink stem.
 
 ## Geometry
 

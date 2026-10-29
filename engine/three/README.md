@@ -24,7 +24,9 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 - `box`, `cyl`, `tube` (cables kept off the floor), `mat`, `cloth`, `canvasTex`, `group`, `paint`, `screenOn(model, material, picture)`.
 - `rest(o)` then `settle()`: drops props onto first contact; returns what could not be placed (nothing below, or > 3 cm inside something).
 
-**type.js** (2D canvas, no imports; call after the finisher, it reads the ground)
+**font.js**: the one typeface of every film, `FAMILY` (Kohinoor Bangla if installed, else Helvetica), `WEIGHT` by role (title 700, heading 600, sub 500, body 400), `font(role, px)` for a canvas, `FACES` (the host's `@font-face`); no module or film names another family.
+
+**type.js** (2D canvas, imports only font.js; call after the finisher, it reads the ground)
 - `readTime(text)`: least on-screen time (0.5 s + 0.3 s/word + 0.15 s/CJK char, ≥ 1 s).
 - `phrases(narrationTxt, words)` → caption phrases by `craft-rules.md` §5 (`scripts/captions.mjs` writes `audio/captions.js`).
 - `drawCaption(ctx, t, caps, { format, accent, pill })`: in the format's caption zone, ink chosen per frame from the luminance under it, spoken word boxed; shrinks (`shrunk`) rather than leave the zone.

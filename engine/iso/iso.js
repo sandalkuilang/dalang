@@ -274,7 +274,7 @@ export class Iso {
     else if (plane === 'xz') { u = [C30, S30]; v = [0, 1]; e = [-C30, S30]; }  // u = +x, v = −z, extrude +y
     else { u = [C30, -S30]; v = [0, 1]; e = [C30, S30]; }                       // 'yz': u = −y, v = −z, extrude +x
     const [sx, sy] = this.L(x, y, z);
-    g.save(); g.font = `${o.weight || 700} 100px ${o.font || 'Jost'}`; g.textAlign = o.align || 'left'; g.textBaseline = o.base || 'alphabetic';
+    g.save(); g.font = `${o.weight || 700} 100px ${o.font || FONT}`; g.textAlign = o.align || 'left'; g.textBaseline = o.base || 'alphabetic';
     if (o.track) g.letterSpacing = o.track + 'px';
     const sc = size * k / 100, steps = Math.max(1, Math.ceil(ex * k / 1.2));
     for (let i = 0; i <= steps; i++) {
@@ -292,7 +292,8 @@ export function normal(W) { // Newell
 }
 
 // ---------- infographic layer (screen space) ----------
-export const FONT = 'Jost';
+// one typeface for every film (engine/three/font.js FAMILY, which tests/iso.mjs keeps equal): weights by role, 700 title, 600 heading, 500 sub-heading, 400 body
+export const FONT = '"Kohinoor Bangla", Helvetica, Arial, sans-serif';
 export function haloText(g, s, x, y, o = {}) {
   g.save(); g.font = o.font || `600 26px ${FONT}`; g.textAlign = o.align || 'left'; g.textBaseline = o.base || 'alphabetic';
   if (o.track) g.letterSpacing = o.track + 'px';

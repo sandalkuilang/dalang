@@ -14,13 +14,13 @@ README or another film's folder.
 ## `SPEC.md` (the builders' law, 20 KB at most)
 
 - **LOOK:** the main language and the beats that use `cutaway` or `blueprint`; the palette in hex, one base per
-  material and role, the subject's hue reserved; fonts and weights; the energy in numbers (average shot length, zoom
+  material and role, the subject's hue reserved; weights by role; the energy in numbers (average shot length, zoom
   levels, grain).
 - **Figure-ground, the first rule of the palette:** the subject differs in lightness from what is right behind it by
   25 L* or more. Light objects (casings, paper, skin) sit on mid-dark grounds and walls (L* 40–50: slate, wood, earth,
   asphalt), dark objects on light ones; write each ground's and wall's L* beside its hex.
-- **Fonts only from the language's `## Typography`** (the template loads them; any other face fails
-  `hyperframes lint`); the sizes in OVERLAYS win over its print scale.
+- **Type is fixed:** the one typeface (`visual-direction.md` "One typeface per film"); you assign roles (Title, Heading,
+  Sub-heading, body), never a family; the sizes in OVERLAYS win over the language's print scale.
 - **CAMERA:** the card's rulebook and 4–6 techniques, each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
   `-1` left, the same in every group); each group's OPEN and CLOSE pose `{ x, y, z, k }`, a group's OPEN the previous
   group's CLOSE.

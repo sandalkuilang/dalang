@@ -91,7 +91,7 @@ Shot sizes, angles, moves, axis, cutting, rhythm: `camera-motion.md` §1–3. He
 
 ## 9. Type, light, colour
 
-- One display face and one body face. Bundled: Archivo Black, Outfit 700–800, Montserrat 800, Oswald for condensed numerals. Inter, Poppins, Space Grotesk, Geist and Instrument Serif only if the brand uses them. The face covers every glyph of the narration language (`craft-rules.md` §5).
+- **One typeface per film, never mixed.** `engine/three/font.js` sets it: Kohinoor Bangla when the machine has it, else Helvetica; scaffold writes it into the host and every engine module reads it, so no builder names a family. Only the weight changes, by role: Title Bold 700, Heading Semibold 600, Sub-heading Medium 500, body, caption and small print Regular 400. Hierarchy comes from weight, size and case, never from a second face. A script the face lacks (CJK, Arabic, …) falls to the platform's face for that script alone (`craft-rules.md` §5).
 - Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140, labels ≥ 36, captions 54–64. `drawCaption` and `pinLabel` (`type.js`) enforce them, pick ink from the ground and keep labels above the caption; a caption phrase too long for two lines at 54 px reports `shrunk`: cut it. The active word's accent is the shot's one accent (unless an impact numeral holds it, §12).
 - Titles enter in varied ways (`/hyperframes` `motion.md`); landed text is dead still until it leaves.
 - The ground is a **set**, never a flat void: a radial light falloff (linear gradients band under H.264), a desk or paper plane, or `object-studio`'s sweep with a soft ground shadow.

@@ -1724,12 +1724,13 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const c2 = mockCtx(() => [20, 20, 20]), q = pinLabel(c2, { at, camera: cam, text: "valve" });
     assert.ok(q.ink === "light" && !c2.log.some((l) => l.rect && l.fill === "#ffd400") && q.pill === undefined, "no pill: the label keeps its adaptive ink"); }
 
-  // textBand: kicker in tracked monospace caps, a headline, a tag, on a scrim, inside the label zone.
+  // textBand: kicker in tracked caps (Medium), a headline (Bold), a tag, on a scrim, inside the label zone.
   { const lab = safeArea("shorts", W, H).labels, c = mockCtx(bright);
     layoutFrame(mockCtx(bright), 0, { send: () => {} }); // empties the list of boxes drawn so far
     const b = textBand(c, { kicker: "How it works", headline: "Six words that state the claim", tag: "Sped up" }, { format: "shorts" });
     const k = c.log.find((l) => l.s === "HOW IT WORKS"), h = c.log.filter((l) => l.s && /claim|Six/.test(l.s)), tg = c.log.find((l) => l.s === "SPED UP");
-    assert.ok(k && k.px === 36 && /monospace|Menlo/.test(k.font), "the kicker is upper-cased monospace at 36 px: " + JSON.stringify(k));
+    assert.ok(k && k.px === 36 && /^500 .*Kohinoor Bangla, Helvetica/.test(k.font.replace(/"/g, "")), "the kicker is upper-cased Medium in the one typeface at 36 px: " + JSON.stringify(k));
+    assert.ok(h.every((l) => /^700 /.test(l.font)), "the headline is Bold");
     assert.ok(h.length >= 1 && h.every((l) => l.px >= 64 && l.px <= 96), "the headline is 64-96 px");
     assert.ok(tg && tg.px === 36 && tg.fill === "#ffffff", "the tag is light on dark");
     assert.ok(c.log.some((l) => l.rect && l.fill === "rgba(255,255,255,0.72)"), "a light scrim sits behind the text");

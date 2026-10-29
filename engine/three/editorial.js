@@ -21,6 +21,7 @@
 // Captions (host): captions(rootEl, window.CAPTIONS, { prefix }) -> { update(tAbs) }: karaoke, white bold on a dark
 // pill bottom-centre, the spoken word on an accent chip.
 
+import { FAMILY, WEIGHT as W_ } from "./font.js";
 export const W = 1080, H = 1920;
 
 // ---------- cues: words by text (case and punctuation ignored), beats by name; a missing one throws ----------
@@ -95,38 +96,38 @@ export function captionAt(CAPS, t) {
 }
 
 const css = `
-.ov{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:5}
+.ov{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:5;font-family:${FAMILY}}
 .ov *{box-sizing:border-box}
 .ov-el{position:absolute;opacity:0;will-change:transform,opacity}
 .ov-hl{left:60px;top:110px;width:900px;transform-origin:0 0}
-.ov-k{font-family:var(--ov-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
-.ov-h{font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
+.ov-k{font-weight:${W_.sub};font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
+.ov-h{font-weight:${W_.title};font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
 .ov-acc{background:var(--ov-acc);color:var(--ov-ink);padding:0 .14em;border-radius:10px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .ov-card{left:60px;width:600px;background:rgba(255,255,255,.88);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08);padding:22px 28px 18px;transform-origin:0 0}
-.ov-cl{font-family:var(--ov-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:22px;letter-spacing:.1em;color:#6B6B6B;text-transform:uppercase}
-.ov-cv{font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:52px;line-height:1.08;color:#111;letter-spacing:-.01em;margin-top:6px}
-.ov-cs{font-family:var(--ov-body,"Inter",sans-serif);font-weight:700;font-size:28px;line-height:1.25;color:#333;margin-top:6px}
+.ov-cl{font-weight:${W_.sub};font-size:22px;letter-spacing:.1em;color:#6B6B6B;text-transform:uppercase}
+.ov-cv{font-weight:${W_.title};font-size:52px;line-height:1.08;color:#111;letter-spacing:-.01em;margin-top:6px}
+.ov-cs{font-weight:${W_.sub};font-size:28px;line-height:1.25;color:#333;margin-top:6px}
 .ov-row{display:flex;align-items:baseline;gap:18px;margin-top:10px}
-.ov-rk{font-family:var(--ov-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:24px;color:#6B6B6B;min-width:150px;letter-spacing:.04em}
-.ov-rv{font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:44px;color:#111;letter-spacing:-.01em;white-space:nowrap}
+.ov-rk{font-weight:${W_.sub};font-size:24px;color:#6B6B6B;min-width:150px;letter-spacing:.04em}
+.ov-rv{font-weight:${W_.heading};font-size:44px;color:#111;letter-spacing:-.01em;white-space:nowrap}
 .ov-rv.hi{background:var(--ov-acc);padding:0 .14em;border-radius:8px}
 .ov-bar{position:relative;height:12px;border-radius:6px;background:#E6E6E3;margin-top:6px;overflow:hidden}
 .ov-bar i{position:absolute;top:0;bottom:0;border-radius:6px;background:var(--ov-ink)}
 .ov-bar i.hi{background:var(--ov-acc);box-shadow:inset 0 0 0 2px var(--ov-ink)}
-.ov-src{font-family:var(--ov-body,"Inter",sans-serif);font-weight:400;font-size:17px;color:#7A7A7A;margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,0,0,.1)}
+.ov-src{font-weight:${W_.body};font-size:17px;color:#7A7A7A;margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,0,0,.1)}
 .ov-tag{transform-origin:0 0}
 .ov-str{position:absolute;left:-1px;top:0;width:2px;background:#2A2A2A}
 .ov-tb{position:absolute;width:200px;left:-100px;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.94);box-shadow:0 12px 30px rgba(0,0,0,.18)}
 .ov-tb:before{content:"";position:absolute;left:50%;top:10px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#D8D8D6;box-shadow:inset 0 0 0 3px #2A2A2A;z-index:2}
-.ov-th{background:var(--ov-ink);color:var(--ov-acc);font-family:var(--ov-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:22px;letter-spacing:.12em;padding:32px 12px 10px;text-align:center}
-.ov-tv{font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:72px;line-height:1;color:#111;text-align:center;padding:14px 10px 2px}
-.ov-ts{font-family:var(--ov-body,"Inter",sans-serif);font-weight:700;font-size:24px;color:#555;text-align:center;padding:2px 10px 16px}
+.ov-th{background:var(--ov-ink);color:var(--ov-acc);font-weight:${W_.sub};font-size:22px;letter-spacing:.12em;padding:32px 12px 10px;text-align:center}
+.ov-tv{font-weight:${W_.title};font-size:72px;line-height:1;color:#111;text-align:center;padding:14px 10px 2px}
+.ov-ts{font-weight:${W_.sub};font-size:24px;color:#555;text-align:center;padding:2px 10px 16px}
 .ov-pill{left:0;top:0;white-space:nowrap}
-.ov-pi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:26px;letter-spacing:.04em;text-transform:uppercase;padding:10px 18px 9px;border-radius:999px;box-shadow:0 0 0 2.5px var(--ov-ink),0 8px 18px rgba(0,0,0,.18);transform-origin:50% 50%}
+.ov-pi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-weight:${W_.heading};font-size:26px;letter-spacing:.04em;text-transform:uppercase;padding:10px 18px 9px;border-radius:999px;box-shadow:0 0 0 2.5px var(--ov-ink),0 8px 18px rgba(0,0,0,.18);transform-origin:50% 50%}
 .ov-chip{right:60px;top:118px;transform-origin:100% 0}
-.ov-ci{display:inline-block;background:rgba(11,11,11,.82);color:var(--ov-acc);border:2px solid var(--ov-acc);border-radius:8px;font-family:var(--ov-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:20px;letter-spacing:.16em;padding:7px 14px 6px}
+.ov-ci{display:inline-block;background:rgba(11,11,11,.82);color:var(--ov-acc);border:2px solid var(--ov-acc);border-radius:8px;font-weight:${W_.heading};font-size:20px;letter-spacing:.16em;padding:7px 14px 6px}
 .ov-big{left:0;top:0}
-.ov-bi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-family:var(--ov-display,"Inter",sans-serif);font-weight:900;font-size:120px;line-height:1;letter-spacing:-.03em;padding:8px 26px 10px;border-radius:22px;box-shadow:0 0 0 4px var(--ov-ink),0 16px 34px rgba(0,0,0,.22);transform-origin:50% 50%}
+.ov-bi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-weight:${W_.title};font-size:120px;line-height:1;letter-spacing:-.03em;padding:8px 26px 10px;border-radius:22px;box-shadow:0 0 0 4px var(--ov-ink),0 16px 34px rgba(0,0,0,.22);transform-origin:50% 50%}
 .ov-lead{position:absolute;left:0;top:0;overflow:visible}
 `;
 
@@ -145,17 +146,16 @@ function style(doc, id, text) {
 
 // makeOverlay(root, { prefix, G0, accent, ink, illustration, W, H, safe }): prefix (the group id) keeps element ids
 // unique; safe = { x, top, bottom } px, the box a pinned pill stays in (bottom: above the caption band).
-// fonts: { display, body, mono } CSS font stacks, the design language's type (isometric-world: Fredoka + Nunito Sans);
-// left out, the object-studio type (Inter, IBM Plex Mono).
-const setFonts = (e, f = {}) => { for (const k of ["display", "body", "mono"]) if (f[k]) e.style.setProperty?.(`--ov-${k}`, f[k]); };
-export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", fonts, illustration, W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
+// Type: one family (font.js), weight by role: headline and big values Bold, pills and captions Semibold, kickers and labels
+// Medium, source lines Regular.
+export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", illustration, W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
   if (!root) throw new Error("makeOverlay(root): pass the composition root element");
   if (!prefix) throw new Error("makeOverlay: pass { prefix } (the group id, for unique element ids)");
   const doc = docOf(root);
   style(doc, "ov-style", css);
   const layer = el(doc, "div", "ov", root); layer.id = prefix + "-ov";
   layer.style.width = fw + "px"; layer.style.height = fh + "px";
-  layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink); setFonts(layer, fonts);
+  layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink);
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = doc.createElementNS(svgNS, "svg"); svg.setAttribute("class", "ov-lead"); svg.setAttribute("viewBox", `0 0 ${fw} ${fh}`); svg.setAttribute("width", fw); svg.setAttribute("height", fh); layer.appendChild(svg);
   const items = [];
@@ -274,23 +274,23 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
 
 // ---------- karaoke captions (host) ----------
 const capCss = `
-.cap-box{position:absolute;left:0;top:0;pointer-events:none;z-index:40}
+.cap-box{position:absolute;left:0;top:0;pointer-events:none;z-index:40;font-family:${FAMILY}}
 .cap-p{position:absolute;left:90px;right:90px;display:none;justify-content:center}
 .cap-p.on{display:flex}
-.cap-pill{display:inline-block;max-width:900px;text-align:center;background:rgba(11,11,11,.70);border-radius:24px;padding:12px 26px 14px;font-family:var(--ov-body,"Inter",sans-serif);font-weight:700;font-size:46px;line-height:1.28;color:#fff;letter-spacing:-.005em}
+.cap-pill{display:inline-block;max-width:900px;text-align:center;background:rgba(11,11,11,.70);border-radius:24px;padding:12px 26px 14px;font-weight:${W_.heading};font-size:46px;line-height:1.28;color:#fff;letter-spacing:-.005em}
 .cap-w{display:inline;padding:0 .1em;border-radius:9px}
 .cap-w.on{background:var(--ov-acc);color:var(--ov-ink)}
 `;
 // captions(root, CAPS, { prefix, accent, ink, bottom, W, H }): CAPS is audio/captions.js's window.CAPTIONS
 // ([{ start, end, words: [{ text, start }] }]); bottom: px from the frame's bottom edge to the pill's bottom.
-export function captions(root, CAPS, { prefix = "cap", accent = "#FFD400", ink = "#0B0B0B", fonts, bottom = 570, W: fw = W, H: fh = H } = {}) {
+export function captions(root, CAPS, { prefix = "cap", accent = "#FFD400", ink = "#0B0B0B", bottom = 570, W: fw = W, H: fh = H } = {}) {
   if (!root) throw new Error("captions(root, CAPS): pass the composition root element");
   if (!Array.isArray(CAPS) || !CAPS.length) throw new Error("captions(): pass window.CAPTIONS (audio/captions.js)");
   const doc = docOf(root);
   style(doc, "cap-style", capCss);
   const box = el(doc, "div", "cap-box", root); box.id = prefix + "-box";
   box.style.width = fw + "px"; box.style.height = fh + "px";
-  box.style.setProperty?.("--ov-acc", accent); box.style.setProperty?.("--ov-ink", ink); setFonts(box, fonts);
+  box.style.setProperty?.("--ov-acc", accent); box.style.setProperty?.("--ov-ink", ink);
   const phrases = CAPS.map((c, i) => {
     const p = el(doc, "div", "cap-p", box); p.id = `${prefix}-${i}`; p.style.bottom = bottom + "px";
     const pill = el(doc, "span", "cap-pill", p);

@@ -11,7 +11,6 @@ Object or Specimen sheet: the line drawing carries the layout; panels are rare.
   --line:#D8E8F8; --line-soft:rgb(216 232 248 / 0.45);   /* the DRAWING only: outlines, dimensions, grid, never data */
   --ink:#EAF2FB; --ink-muted:#9FB8D4; --de-emphasis:#2A537F;
   --chart-1:#3E9BD6; --chart-2:#B8860B; --chart-3:#C75B9B; --chart-4:#6F9436;   /* chart-3 2.96:1: always labelled */
-  --font-display:'Saira Condensed',sans-serif; --font-body:'IBM Plex Mono',monospace;
   --hatch-1:repeating-linear-gradient(45deg, #3E9BD6 0 1.5px, transparent 1.5px 7px);
 }
 ```
@@ -20,9 +19,8 @@ Data marks use the four slots (CVD-separable on `--bg`); `--line` never carries 
 
 ## Type
 
-`https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap`.
-Saira Condensed 700 uppercase +0.04em for titles (56–72 px), stamps and hero numbers (90–140 px); IBM Plex Mono
-400/500/600 for everything else (annotation 14 px, caption 12 px). Dimension labels 13 px mono on the line in a `--bg`
+The one typeface (`engine/three/font.js`); the weight is the role. Title 700 uppercase +0.04em, 56–72 px, stamps and hero numbers 700,
+90–140 px; everything else 400–600 (annotation 14 px, caption 12 px). Dimension labels 13 px 500 on the line in a `--bg`
 knockout.
 
 ## Geometry

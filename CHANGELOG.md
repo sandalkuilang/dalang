@@ -34,6 +34,10 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Changed
 
+- One typeface for every film (`engine/three/font.js`): Kohinoor Bangla when the machine has it, else Helvetica. Only the
+  weight changes, by role: title Bold, heading Semibold, sub-heading Medium, body Regular. Overlays, captions, canvas text,
+  the host and the hero clip template read it; the per-language fonts, the web-font links and the `fonts` option of
+  `makeOverlay` are gone, and `tests/font.mjs` (in the gate) fails on any other family.
 - README: what Express and Studio each ask for, their steps and what each hands over, with an animated swimlane diagram
   of both lanes: one row per engine (Claude Code, subagents, voice, Blender, three.js, Canvas 2D, HyperFrames, checks,
   reviewer), one column per step, the gates marked (`docs/assets/lanes.*.svg`, light derived from dark).
