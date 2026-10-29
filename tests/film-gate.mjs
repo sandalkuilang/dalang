@@ -62,5 +62,10 @@ try {
   assert.equal(r.code, 3, r.out);
   assert.match(r.out, /FAILED reading intro headline "One two three four five six" at 0\.5 s: settled 0\.0 s, 6 word\(s\) need 1\.8 s/);
   assert.doesNotMatch(r.out, /reading intro chip/, "a chip held 2 s reads");
-  console.log("ok  film gate: seams held/carried pass, jump/turn back fail; floats in motion and rushed labels fail; still stretches and dead stops are notes; unread is a WARN");
+  // a close-up past the drawing's detail: the crate fills the frame alone
+  edit("intro", /(\/\/ ov\.headline\(.*\n)    ov\.headline\(\{ text: "One two three four five six", from: 0\.5, to: 1\.2 \}\);\n    ov\.chip\(\{ from: 0, to: 2 \}\);\n/, "$1");
+  camera("intro", '[{ t: 0, ...OPEN, k: 900 }, { t: DUR, ...OPEN, k: 900, ease: "linear" }]');
+  camera("body", '[{ t: 0, ...OPEN, k: 900 }, { t: DUR, ...OPEN, k: 900, ease: "linear" }]'); fill(); r = gate();
+  assert.equal(r.code, 3, r.out); assert.match(r.out, /FAILED detail intro 0\.0–2\.0 s: crate\.crate fill \d+ % of the frame: frame it wider \(k ≤ \d/, "a plain block filling the frame");
+  console.log("ok  film gate: seams held/carried pass, jump/turn back fail; floats in motion and rushed labels fail; still stretches and dead stops are notes; a plain close-up fails; unread is a WARN");
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }

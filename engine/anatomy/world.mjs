@@ -42,7 +42,7 @@ function pinHeight(p, num, R) {
   }
 }
 
-export function shapesOf(world, { values = {}, ground = [], floor, cut = 0 } = {}) {
+export function shapesOf(world, { values = {}, ground = [], floor, cut = 0, kitParts = false } = {}) {
   const R = (v) => (typeof v === "string" && v in values ? values[v] : v);
   const num = (p, f, d) => { const v = R(p[f]); if (v === undefined && d !== undefined) return d; if (!Number.isFinite(v)) throw new Error(`auditWorld: part ${p.name || p.form} needs ${f} (got ${JSON.stringify(p[f])})`); return v; };
   const solids = [], tubes = [], skipped = [], pins = [], isGround = (p, spec) => p.form === "board" || p.ground === true || ground.includes(p.name) || ground.includes(spec.name);
@@ -84,7 +84,7 @@ export function shapesOf(world, { values = {}, ground = [], floor, cut = 0 } = {
       case "kit": {
         // a kit or template is one rigid assembly (its insides are proven by tests/iso-build.mjs): the world sees its
         // bounds; a path kit (pipe, hose, cable) stays a pipe whose ends must land
-        if (["pipe", "hose", "cable"].includes(p.kit)) return parts(expandKit(p, R), F, spec, owner, name + ".");
+        if (kitParts || ["pipe", "hose", "cable"].includes(p.kit)) return parts(expandKit(p, R), F, spec, owner, name + "."); // kitParts: every part (film_gate counts what a frame shows)
         const s0 = solids.length, t0 = tubes.length;
         parts(expandKit(p, R), F, spec, owner, name + ".");
         const mine = [...solids.splice(s0), ...tubes.splice(t0)];
