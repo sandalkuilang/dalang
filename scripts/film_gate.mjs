@@ -7,13 +7,14 @@
 // --group: only that group's lines (its seams on both sides, its motion, reading and still lines), for its builder
 // before it reports and for its fixer; a neighbour still the scaffold stub holds the SPEC poses, so its seam is the SPEC's.
 // project: the film folder (default .), read: index.html (the groups in order), compositions/<group>.html,
-// audio/beats.js, assets/ (world.js included). Four checks:
+// audio/beats.js, assets/ (world.js included). Five checks:
 //   seams    FAILED a jump at a cut (a group opening away from the last frame), a move that turns back or a zoom that
 //            flips its sign at the cut; NOTE a dead stop or a start from rest at the cut, 2× speed, a turn over 45°
 //   motion   FAILED a part that floats, sinks into another object or a pipe through a solid only while the world
 //            moves (Anatomy's audit, engine/anatomy/world.mjs, at each new set of values against the world at rest)
 //   reading  FAILED an overlay held settled under max(0.8 s, 0.3 s a word) between its entrance and its exit
 //   still    NOTE 3 s or more with no camera move, no value change and no overlay in or out (a dead stretch)
+//   detail   FAILED one part over half the frame or three over three quarters (a close-up past the drawing's detail)
 // Exit 0: no FAILED. Exit 3: FAILED lines, each naming the group, the time and what to change. Exit 2: a group could not
 // be run or read: WARN, rerun; never "clean".
 import path from "node:path";
@@ -105,12 +106,36 @@ const { auditWorld, shapesOf } = await import(pathToFileURL(path.join(AN, "world
 const floor = live ? Math.min(...shapesOf(W.WORLD, { values: W.VALUES || {} }).solids.map((x) => boundsOf(x).min[2])) : 0;
 const audit = live && ((v) => auditWorld(W.WORLD, { values: { ...(W.VALUES || {}), ...v }, floor }).problems);
 const key = (p) => `${p.kind}|${p.part}|${p.other ?? ""}`, seen = new Map();
+// detail: the world's parts (a kit's own parts too) projected by the frame's camera. A floor or a wall (a slab thin on one
+// axis) is the backdrop; any other part counts once it spans 1 % of the frame width (its box on screen, clipped). One
+// part over half the frame, or three over three quarters, is a close-up past the drawing's detail: plain blocks, not an
+// illustration.
+const html = file("index.html"), FW = Number(/data-width="(\d+)"/.exec(html)?.[1]) || 1080, FH = Number(/data-height="(\d+)"/.exec(html)?.[1]) || 1920;
+const DETAIL = { one: 0.5, three: 0.75 }, shapeCache = new Map();
+const inView = (cam, vals) => {
+  if (!shapeCache.has(vals)) shapeCache.set(vals, shapesOf(W.WORLD, { values: { ...(W.VALUES || {}), ...JSON.parse(vals) }, kitParts: true }).solids.map((x) => ({ name: x.name, b: boundsOf(x) })));
+  const P = (x, y, z) => [FW / 2 + (x - cam.x - (y - cam.y)) * C30 * cam.k, FH / 2 + ((x - cam.x + (y - cam.y)) * S30 - (z - cam.z)) * cam.k], out = [];
+  for (const { name, b } of shapeCache.get(vals)) {
+    const d = [0, 1, 2].map((i) => b.max[i] - b.min[i]), big = Math.max(...d);
+    if (Math.min(...d) < 0.12 * big && big > 1) continue; // a floor, a wall
+    const S = [0, 1].flatMap((i) => [0, 1].flatMap((j) => [0, 1].map((q) => P(i ? b.max[0] : b.min[0], j ? b.max[1] : b.min[1], q ? b.max[2] : b.min[2]))));
+    const x0 = Math.max(0, Math.min(...S.map((p) => p[0]))), x1 = Math.min(FW, Math.max(...S.map((p) => p[0]))), y0 = Math.max(0, Math.min(...S.map((p) => p[1]))), y1 = Math.min(FH, Math.max(...S.map((p) => p[1])));
+    if (x1 - x0 >= 0.01 * FW && y1 - y0 > 0) out.push({ name: name.replace(/^stand\./, ""), fill: ((x1 - x0) * (y1 - y0)) / (FW * FH) });
+  }
+  return out;
+};
 const rest = new Set(audit ? audit({}).map(key) : []);
 for (const g of groups) {
   const marks = g.ovs.flatMap((o) => [o.from, o.to]).filter(Number.isFinite);
-  let last = null, quiet = 0;
+  let last = null, quiet = 0, plain = null;
+  const close = (end) => { if (plain) say(`FAILED detail ${g.name} ${f1(plain.from)}–${f1(end)} s: ${plain.parts} fill ${Math.round(plain.fill * 100)} % of the frame: frame it wider (k ≤ ${plain.k.toFixed(1)}) or build what fills it from kits and templates`); plain = null; };
   for (let t = 0; t <= g.dur + 1e-9; t += STEP) {
     const s = g.at(t), abs = g.start + t, sig = JSON.stringify([s.cam, s.vals]);
+    if (live) {
+      const v = inView(s.cam, s.vals).sort((a, b) => b.fill - a.fill), one = v[0]?.fill ?? 0, three = v.slice(0, 3).reduce((a, q) => a + q.fill, 0);
+      if (one >= DETAIL.one || three >= DETAIL.three) { if (!plain) { const many = one < DETAIL.one; plain = { from: abs, parts: (many ? v.slice(0, 3) : v.slice(0, 1)).map((q) => q.name).join(", "), fill: many ? three : one, k: s.cam.k * Math.sqrt(many ? DETAIL.three * 0.8 / three : DETAIL.one * 0.8 / one) }; } }
+      else close(abs);
+    }
     if (audit && !seen.has(s.vals)) {
       seen.set(s.vals, true);
       for (const p of audit(JSON.parse(s.vals)))
@@ -121,6 +146,7 @@ for (const g of groups) {
     if (quiet >= STILL && quiet < STILL + STEP) say(`NOTE   still ${g.name} ${f1(abs - quiet)}–${f1(abs)} s: nothing moves, changes or enters: a camera move, a value or a staged reveal on a word`);
     last = sig;
   }
+  close(g.start + g.dur);
 }
 
 // reading: the settled hold between the entrance and the exit, against the words it carries

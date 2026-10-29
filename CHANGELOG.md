@@ -32,6 +32,9 @@ that reads as:
 
 ### Added
 
+- `film_gate.mjs` fails a close-up past the drawing's detail: the world's parts (a kit's own parts too) are projected by
+  each frame's camera, and one part over half the frame or three over three quarters is a FAILED that names them and the
+  widest zoom that reads (`k ≤ …`). Kits and templates are the other way out.
 - `engine/iso/templates.js`: parametric assemblies of kits for the things films need most: a two-wheeler (scooter or
   underbone), a car (sedan, hatch, van), a single-cylinder engine (piston and rod follow the crank angle, crankcase and
   barrel slide off with the cutaway, oil in the sump), a room, appliances (fridge, washer, wall AC, server rack) and
@@ -68,7 +71,6 @@ that reads as:
 
 - `express.mjs assemble` could drop a seam FAILED under a long list of findings (it kept the last 12 lines, and the
   seams print first). film_gate now prints its FAILED lines last and assemble keeps 24.
-
 
 ## [3.10.0] - 2026-10-29
 
