@@ -30,6 +30,20 @@ that reads as:
 
 ## [Unreleased]
 
+### Changed
+
+- Express builders and fixers run `film_gate.mjs . --group <group>` before they report: their seams, the world in motion and
+  reading time are caught in the build, not first at `assemble`, and a fix that clears one float but raises another is
+  seen by its fixer. A seam FAILED goes to the later group's fixer.
+- The builder brief asks for the first CAMERA key as `{ t: 0, ...OPEN }` and the last as `...CLOSE`, nothing overridden
+  and no zoom unit of its own, and for every edit of one round of checks in one message.
+- A film_gate jump names both poses (where the earlier group ends, where the later one opens).
+
+### Fixed
+
+- `express.mjs assemble` could drop a seam FAILED under a long list of findings (it kept the last 12 lines, and the
+  seams print first). film_gate now prints its FAILED lines last and assemble keeps 24.
+
 ## [3.10.0] - 2026-10-29
 
 ### Added

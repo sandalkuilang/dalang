@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const S = (f) => fileURLToPath(new URL(`../scripts/${f}`, import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-film-gate-"));
 const node = (...a) => { const r = spawnSync(process.execPath, a, { cwd: tmp, encoding: "utf8" }); return { code: r.status, out: r.stdout + r.stderr }; };
-const gate = () => node(S("film_gate.mjs"), ".");
+const gate = (...a) => node(S("film_gate.mjs"), ".", ...a);
 const file = (f) => path.join(tmp, f);
 try {
   assert.equal(gate().code, 2, "no film: WARN, never clean");
@@ -37,6 +37,9 @@ try {
 
   camera("body", '[{ t: 0, ...OPEN, x: 2 }, { t: DUR, ...CLOSE, ease: "inOut" }]'); fill(); r = gate();
   assert.equal(r.code, 3, r.out); assert.match(r.out, /FAILED seam intro → body .*jumps 180\.0 px/, "the next group opens away from the last frame");
+  assert.match(r.out, /intro ends on \{ x: 0, .*body opens on \{ x: 2, /, "both poses named, for the later group's builder");
+  assert.match(gate("--group", "body").out, /FAILED seam intro → body/, "a seam is both sides' line");
+  assert.equal(gate("--group", "nope").code, 2, "an unknown group is a WARN");
 
   camera("intro", '[{ t: 0, ...OPEN, x: -1 }, { t: DUR, ...CLOSE, ease: "linear" }]');
   camera("body", '[{ t: 0, ...OPEN }, { t: DUR, ...CLOSE, x: -2, ease: "linear" }]'); fill(); r = gate();
@@ -51,6 +54,8 @@ try {
 
   edit("body", /const values = \(t\) => \(\{ \.\.\.VALUES \}\);/, "const values = (t) => ({ ...VALUES, lift: t > 2 ? 0.5 : 0 });"); fill(); r = gate();
   assert.equal(r.code, 3, r.out); assert.match(r.out, /FAILED motion body 4\.\d s: crate\.crate floats.*only while it moves/, "lifted off its slab mid-film");
+  r = gate("--group", "intro"); assert.equal(r.code, 0, r.out); assert.doesNotMatch(r.out, /motion body/, "--group keeps only that group's lines");
+  r = gate(); assert.match(r.out.trim().split("\n").at(-2), /^FAILED/, "FAILED lines come last, after the NOTEs");
 
   edit("body", /lift: t > 2 \? 0\.5 : 0/, "lift: 0");
   edit("intro", /(\/\/ ov\.headline\(.*\n)/, '$1    ov.headline({ text: "One two three four five six", from: 0.5, to: 1.2 });\n    ov.chip({ from: 0, to: 2 });\n'); fill(); r = gate();
