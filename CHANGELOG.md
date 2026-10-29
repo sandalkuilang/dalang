@@ -32,6 +32,11 @@ that reads as:
 
 ### Added
 
+- `engine/iso/templates.js`: parametric assemblies of kits for the things films need most: a two-wheeler (scooter or
+  underbone), a car (sedan, hatch, van), a single-cylinder engine (piston and rod follow the crank angle, crankcase and
+  barrel slide off with the cutaway, oil in the sump), a room, appliances (fridge, washer, wall AC, server rack) and
+  trees. Written as `{ form: "kit", kit: "car", style: "hatch" }`; the world audit treats a kit or template as one
+  rigid assembly (its insides are proven in the tests), a path kit (pipe, hose, cable) still lands its ends.
 - A person is a jointed 3D body (`engine/iso/figure.js`), not a flat pictogram: real proportions, head with hair
   and eyes, torso, elbows, hands, knees and shoes; poses stand, walk, point, carry, reach, sit, crouch, kneel and wave,
   any joint by angle, a hand placed on a point by IK (`reach: [x, y, z]`), feet always on the ground and a seated
