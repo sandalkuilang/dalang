@@ -177,6 +177,14 @@ await test("B2. a second 503 is a WARN with 'rerun', exit 3, never FAILED, never
   assert.doesNotMatch(r.out, /FAILED/);
   assert.doesNotMatch(r.out, /(?<!not )restart VoiceStudio/i, "it never tells the agent to restart");
 });
+await test("B2b. a 429 (GPU worker pool saturated) is BUSY too: one retry, then WARN, exit 3, never FAILED", async () => {
+  const r = await take(NARRATION, { speak: () => [429, "the local GPU worker pool is saturated (1 running, 2 already queued on 1 worker(s))"] });
+  assert.equal(r.code, 3, r.out);
+  assert.equal(r.speech.length, 2, "one try, one retry, no more");
+  assert.match(r.out, /BUSY/);
+  assert.match(r.out, /rerun in a few minutes/);
+  assert.doesNotMatch(r.out, /FAILED/);
+});
 await test("B3. any other error still fails hard (exit 1, FAILED)", async () => {
   const r = await take(NARRATION, { speak: () => [500, "boom"] });
   assert.equal(r.code, 1, r.out);

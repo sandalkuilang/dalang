@@ -210,13 +210,14 @@ async function vs(a, pathname, init = {}, { retried = false, busy } = {}) {
   if (!res.ok) {
     // 503: the server abandoned a job that ran over its compute limit and keeps the device until it finishes, so an
     // immediate retry competes with it. That is BUSY, not a failure: wait, retry once, then say "rerun" (exit 3).
+    // 429: the GPU worker pool is full (jobs still queued, also ones whose client went away); nothing started: BUSY too.
     if (res.status === 503 && busy === 'return') return res;
     const body = await res.text();
-    if (res.status === 503) {
+    if (res.status === 503 || res.status === 429) {
       const short = body.replace(/\s+/g, ' ').slice(0, 200);
       if (retried) busyExit(pathname, short, a.kept || '');
       const s = BUSY_WAIT_S();
-      console.log(`\nBUSY       : VoiceStudio answered 503 on ${pathname} (${short}) — waiting ${s} s for the device to finish its job, then retrying once.`);
+      console.log(`\nBUSY       : VoiceStudio answered ${res.status} on ${pathname} (${short}) — waiting ${s} s for the device to finish its job, then retrying once.`);
       await sleep(s);
       return vs(a, pathname, init, { retried: true, busy });
     }
