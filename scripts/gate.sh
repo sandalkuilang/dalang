@@ -45,7 +45,7 @@ if [ $fast -eq 0 ]; then
   step "iso forms, build() specs and the glTF reader (ratio, cutaway, paint order, axes, refusals)" node tests/iso-build.mjs
   step "iso audit (floating, sunk, pipe through, loose pipe end caught; the CLI exits 0/3/2)" node tests/iso-audit.mjs
   step "film gate (seams, floats in motion, rushed labels, still stretches; unread is a WARN)" node tests/film-gate.mjs
-  step "trace (a photo into inked layers; the plate stands it up)" node tests/trace.mjs
+  step "trace (a photo into vtracer layers where vtracer is installed; the plate turns, blurs, tints, flows, pins)" node tests/trace.mjs
   step "parallax (layer cameras by depth, far to near, SVG and HTML transforms)" node tests/iso-parallax.mjs
   step "cinema (camera keys one way, no handheld, ramp, whip, motion blur, focus, haze, finish order, grain)" node tests/iso-cinema.mjs
   step "scene lint (code swallowed by a mid-line // comment)" node tests/lint-scene.mjs
