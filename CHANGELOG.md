@@ -32,6 +32,9 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Fixed
+- `tts_timestamps.mjs`: a VoiceStudio `429` (GPU worker pool saturated, often by queued jobs whose client was stopped) is BUSY like a `503`: wait, retry once, then `WARN … rerun` and exit 3, never `FAILED`.
+
 ## [4.4.0] - 2026-10-30
 
 ### Added
