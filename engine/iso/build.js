@@ -51,7 +51,7 @@ function shadow(iso, list, from) {
   const size = Math.max(x1 - x0, y1 - y0); if (!(size > 0)) return;
   const start = iso.items.length;
   for (const [e, a] of [[0.12, 0.04], [0.06, 0.05], [0.015, 0.08]]) { const m = e * size; iso.flat([[x0 - m, y0 - m], [x1 + m, y0 - m], [x1 + m, y1 + m], [x0 - m, y1 + m]], z, "#1E1A24", { a, layer: 1 }); }
-  list.push({ start, end: iso.items.length, min: [x0, y0, z + 1e-4], max: [x1, y1, z + 2e-4] });
+  list.push({ flat: true, start, end: iso.items.length, min: [x0, y0, z + 1e-4], max: [x1, y1, z + 2e-4] });
 }
 
 function parts(iso, list, c) {
@@ -168,7 +168,8 @@ function draw(iso, p, c, R, col) {
 // order, ties by centre depth; each part's items keep their own order and get depths that respect the part order.
 function order(iso, list) {
   const n = list.length; if (n < 2) return;
-  const eps = 1e-6, far = (A, B) => [0, 1, 2].some((a) => A.max[a] <= B.min[a] + eps) || [0, 1, 2].every((a) => A.min[a] >= B.min[a] - eps && A.max[a] <= B.max[a] + eps);
+  // a shadow (flat) is never "inside": it lies on what it falls on
+  const eps = 1e-6, far = (A, B) => [0, 1, 2].some((a) => A.max[a] <= B.min[a] + eps) || (!A.flat && [0, 1, 2].every((a) => A.min[a] >= B.min[a] - eps && A.max[a] <= B.max[a] + eps));
   const centre = list.map((e) => (e.min[0] + e.max[0] + e.min[1] + e.max[1] + e.min[2] + e.max[2]) / 2);
   const after = list.map(() => []), deg = new Array(n).fill(0);
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j && far(list[i], list[j]) && (!far(list[j], list[i]) ? true : centre[i] < centre[j])) { after[i].push(j); deg[j]++; }
