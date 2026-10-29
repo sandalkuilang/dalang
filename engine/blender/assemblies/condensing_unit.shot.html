@@ -1,0 +1,110 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- condensing_unit.shot.html (DALANG, MIT): the cutaway still of condensing_unit.glb in the engine/three iso look
+     (three tones, ink lines, the casing as x-ray glass, refrigerant as colour code, the fan turned from its motor speed,
+     numbered pins). Serve a folder holding assets/ (node engine/three/build.mjs <dir>/assets), this page and the GLB;
+     open ?shot=wide|medium|close&t=<s>; &save=1 POSTs the PNG to /save (a static server that accepts it). -->
+<style>
+  html, body { margin: 0; background: #ECEBE6; }
+  #frame { position: relative; width: 1080px; height: 1080px; overflow: hidden;
+    background-color: #F3F2EE;
+    background-image: linear-gradient(#E1E0DA 1px, transparent 1px), linear-gradient(90deg, #E1E0DA 1px, transparent 1px);
+    background-size: 27px 27px; }
+  #frame canvas { position: absolute; inset: 0; }
+  .crop { position: absolute; width: 26px; height: 26px; border: 0 solid #8C8B85; }
+  .tl { left: 22px; top: 22px; border-left-width: 2px; border-top-width: 2px; } .tr { right: 22px; top: 22px; border-right-width: 2px; border-top-width: 2px; }
+  .bl { left: 22px; bottom: 22px; border-left-width: 2px; border-bottom-width: 2px; } .br { right: 22px; bottom: 22px; border-right-width: 2px; border-bottom-width: 2px; }
+  .pin { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #1E1E20; color: #fff;
+    font: 700 22px/46px "Helvetica Neue", Arial, sans-serif; text-align: center; box-shadow: 0 0 0 4px #F3F2EE; }
+  .ring { position: absolute; border: 5px solid #F2C230; border-radius: 50%; box-shadow: 0 0 0 2px rgba(30,30,32,.35); }
+</style>
+<div id="frame"><div class="crop tl"></div><div class="crop tr"></div><div class="crop bl"></div><div class="crop br"></div></div>
+<script type="module">
+import { THREE, GLTFLoader } from "./assets/three-vendor.js";
+import { isoLook, inkLines } from "./assets/studio.js";
+import { isoCamera, isoFrame, place } from "./assets/camera.js";
+
+const q = new URLSearchParams(location.search), SHOT = q.get("shot") || "wide", t = Number(q.get("t") || 0.4), W = 1080, H = 1080;
+const frame = document.getElementById("frame");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.localClippingEnabled = true;
+frame.prepend(renderer.domElement);
+const scene = new THREE.Scene(), camera = isoCamera(W, H);
+
+// role colours: the triad's TOP tone per material (isoLook shades the sides); the parts the shot explains get the
+// accent, the rest stay calm
+const ROLE = { sheet_metal: "#E4E6E8", aluminium_fin: "#B7BEC4", copper: "#C98A5C", black_steel: "#4A4E55", plastic_fan: "#E9E4D8",
+  rubber: "#2E2F33", foam: "#55595F", pcb_green: "#4E9A68", wall: "#F6F3EC", casing_paint: "#EEEFEC", steel: "#9EA4AA", aluminium: "#C5CBD0", zinc: "#B8BEC4", brass: "#D4A84B" };
+const HOT = "#E2553B", COLD = "#3E86C6";
+
+const gltf = await new GLTFLoader().loadAsync(q.get("glb") || "./condensing_unit.glb"), unit = gltf.scene;
+scene.add(unit);
+// a wall behind the bracket, the unit hung on it
+const wall = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.12), new THREE.MeshBasicMaterial({ color: ROLE.wall }));
+const box0 = new THREE.Box3().setFromObject(unit);
+wall.position.set((box0.min.x + box0.max.x) / 2, box0.min.y + 0.55, box0.min.z - 0.06 - 0.02); wall.name = "wall";
+
+// GLTFLoader turns the dots of a node name into underscores; the exported name stays in userData.name
+const named = (re) => { const out = []; unit.traverse((o) => { if (re.test(o.userData.name ?? o.name)) out.push(o); }); return out; };
+const meshesOf = (objs) => { const m = []; for (const o of objs) o.traverse((x) => x.isMesh && m.push(x)); return m; };
+unit.traverse((o) => { if (!o.isMesh) return; const mats = [].concat(o.material); for (const m of mats) { const role = Object.keys(ROLE).find((r) => (m.name || "").toLowerCase().includes(r)); if (role) m.color = new THREE.Color(ROLE[role]); } });
+// refrigerant as colour code: the discharge side hot, suction and liquid cold
+for (const m of meshesOf(named(/^pipe\.discharge|^flare\.gas/))) { m.material = m.material.clone(); m.material.color = new THREE.Color(HOT); }
+for (const m of meshesOf(named(/^pipe\.(suction|liquid)|^flare\.liquid/))) { m.material = m.material.clone(); m.material.color = new THREE.Color(COLD); }
+isoLook(scene);
+scene.add(wall);   // the wall stays flat paper, outside the three tones
+
+// the casing as x-ray glass (the reference's ghosted housing), opened per shot
+const casing = meshesOf(named(/^casing\.|^grille\./));
+if (SHOT === "wide") for (const m of casing) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.22; m.material.depthWrite = false; }
+// the compressor sectioned on the close shot: its front half removed, stator, rotor and piston shown
+const compBox = new THREE.Box3(); for (const o of named(/^compressor\.(shell|stator|windings|pump|rotor|shaft|piston|feet|terminal)/)) compBox.expandByObject(o);
+if (SHOT === "close") { for (const o of named(/\.quarter$/)) o.visible = false;   // the section: the front-right quarter off
+  for (const o of named(/^(casing\.|grille\.|fan\.|pcb|divider|insulation\.divider)/)) o.visible = false;
+  for (const m of meshesOf(named(/^pipe\.suction$/))) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.25; m.material.depthWrite = false; } }   // the pipe in front of the section as glass
+  for (const m of meshesOf(named(/^(coil\.|bracket\.|insulation\.field)/))) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.3; m.material.depthWrite = false; }   // context recedes: what the shot does not explain   // and what stands between it and the camera
+// the medium shot opens the unit as the reference does: top, front, right side and grille off
+if (SHOT === "medium") for (const o of named(/^(casing\.(top|front|side_right|valve_cover|screws)|grille\.front)$/)) o.visible = false;
+inkLines(scene, { color: "#2A2926", angle: 28 });
+if (SHOT === "wide") for (const m of casing) m.children.forEach((c) => { if (c.userData.inkLine) { c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.5; } });
+
+// motion from its cause: the fan turns at its motor's speed; air leaves through the grille, pushed by the blades
+const fan = named(/^fan\.blade$/)[0];
+const RPM = 850; if (fan) fan.rotation.z = (RPM / 60) * Math.PI * 2 * t;   // +Z about its axle: counter-clockwise from the front, leading edge first
+const air = new THREE.Group(); scene.add(air);
+const fanPos = fan ? fan.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
+for (let i = 0; i < 9; i++) {
+  const a = (i / 9) * Math.PI * 2, r = 0.06 + (i % 3) * 0.055, travel = ((t * 1.6 + i * 0.37) % 1) * 0.32;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.09, 8), new THREE.MeshBasicMaterial({ color: HOT, transparent: true, opacity: 0.9 * (1 - travel / 0.32) }));
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.04, 12), shaft.material);   // warm air, blown out of the grille by the blades
+  shaft.rotation.x = head.rotation.x = Math.PI / 2; head.position.z = 0.065;
+  const g = new THREE.Group(); g.add(shaft, head); g.position.set(fanPos.x + Math.cos(a) * r, fanPos.y + Math.sin(a) * r, fanPos.z + 0.12 + travel);
+  if (SHOT !== "close") air.add(g);
+}
+
+// the shot: wide (the unit on its wall, casing as glass), medium (open, coil-fan-compressor), close (the cut compressor)
+const target = SHOT === "close" ? compBox : unit;
+const pose = isoFrame(target, { W, H, margin: SHOT === "wide" ? 1.12 : SHOT === "medium" ? 1.04 : 1.3 });
+place(camera, pose);
+renderer.render(scene, camera);
+
+// the composite: grid paper, the render, the yellow ring on the fan, numbered pins, crop marks; saved as one PNG
+const out = document.createElement("canvas"); out.width = W; out.height = H; const g = out.getContext("2d");
+g.fillStyle = "#F3F2EE"; g.fillRect(0, 0, W, H); g.strokeStyle = "#E1E0DA"; g.lineWidth = 1;
+for (let x = 0; x <= W; x += 27) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
+for (let y = 0; y <= H; y += 27) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+g.drawImage(renderer.domElement, 0, 0);
+const P = (o) => { const b = o.isBox3 ? o : new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3()).project(camera); return [(c.x + 1) / 2 * W, (1 - c.y) / 2 * H, b]; };
+if (fan && SHOT !== "close") { const [x, y, b] = P(fan), s3 = b.getSize(new THREE.Vector3()), r = Math.max(s3.x, s3.y) * pose.k * 0.5;
+  g.lineWidth = 6; g.strokeStyle = "#F2C230"; g.beginPath(); g.ellipse(x, y, r, r * 0.82, -0.5, 0, 7); g.stroke(); }
+// a pin sits on a point of its part the camera sees: [name, where] (where: centre, top, bottom of its box)
+const pins = { wide: [["fan.blade"], ["compressor.shell"], ["coil.bends"]], medium: [["fan.blade"], ["compressor.shell"], ["coil.bends"], ["valve.gas"]], close: [["compressor.windings", "top"], ["compressor.rotor"], ["compressor.piston", "bottom"]] }[SHOT];
+pins.forEach(([n, where], i) => { const o = named(new RegExp("^" + n.replace(".", "\\.") + "$"))[0]; if (!o) return; const b = new THREE.Box3().setFromObject(o);
+  if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y); const [x, y] = P(b);
+  g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(x, y, 27, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 23, 0, 7); g.fill();
+  g.fillStyle = "#fff"; g.font = "700 24px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), x, y + 1); });
+g.strokeStyle = "#8C8B85"; g.lineWidth = 2; for (const [x, y, dx, dy] of [[22, 22, 1, 1], [W - 22, 22, -1, 1], [22, H - 22, 1, -1], [W - 22, H - 22, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 26 * dy); g.lineTo(x, y); g.lineTo(x + 26 * dx, y); g.stroke(); }
+frame.innerHTML = ""; frame.append(out);
+if (q.get("save")) await fetch(`/save?name=${SHOT}.png`, { method: "POST", body: out.toDataURL("image/png") });
+window.READY = true;
+</script>
