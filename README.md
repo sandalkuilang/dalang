@@ -26,17 +26,7 @@
 </tr>
 </table>
 
-<table>
-<tr>
-<td width="40%"><img src="docs/assets/samples/studio-unit.jpg" alt="Studio precision lane: a condensing unit with its casing as glass, the fan spinning as a blur disc, air arrows, the refrigerant loop coded red and blue, pins on the fan, condenser and compressor" width="100%"></td>
-<td width="40%"><img src="docs/assets/samples/studio-section.jpg" alt="Studio precision lane: the compressor opened by a section plane, pins on its stator, rotor and piston" width="100%"></td>
-</tr>
-<tr align="center">
-<td><sub>Studio · Blender hero · x-ray</sub></td><td><sub>Studio · Blender hero · section</sub></td>
-</tr>
-</table>
-
-<sub>Single frames from the skill's own engines. Top: four Express stills (`engine/iso`, inked edges and contact shadows) and one `object-studio` still. Bottom: the Studio precision lane, a hero modelled once from 2D pictures as a Blender script (`engine/blender`) and filmed in the three.js iso look. Every label is pinned to its part and lands on the spoken word.</sub>
+<sub>Single frames from the skill's own engines: four Express stills (`engine/iso`, inked edges and contact shadows) and one `object-studio` still. Every label is pinned to its part and lands on the spoken word.</sub>
 
 ## Install
 

@@ -65,8 +65,7 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
   of running them again.
 - `camera-motion.md` and `craft-rules.md` are numbered without gaps (camera-motion §6–10, craft-rules §1–6), every pointer
   rewritten to match.
-- With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`: the Express
-  stills, `studio-*.jpg` for Studio), not a golden sheet. A hero's stills are snapshots of its clip page.
+- With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`), not a golden sheet. A hero's stills are snapshots of its clip page.
 
 ### Fixed
 
@@ -74,6 +73,7 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Removed
 
+- The two Studio sample stills of the removed subject-specific asset from the README.
 - The one subject-specific hero asset and its clip page from `engine/blender/assemblies/`: hero assets live in the
   owner's `<videos>/library/hero/<name>/`, outside the skill; the repo keeps the generic `parts.py` and a clip template
   (`engine/blender/templates/hero.clip.tpl.html`) whose data block a film fills.
