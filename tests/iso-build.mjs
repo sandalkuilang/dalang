@@ -72,6 +72,10 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
     assert.deepEqual(auditWorld(W, { ground: ["set"] }).problems.map((q) => q.text), [], `kit ${k} stands proven`);
   }
   assert.throws(() => draw([{ parts: [{ form: "kit", kit: "nope" }] }], {}), /kits: bolt/, "an unknown kit names the kits");
+  // a kit is ordered by its own parts: a table at the far corner of a floor paints after the floor
+  const tb = draw([{ name: "f", shadow: false, parts: [{ name: "slab", form: "box", at: [0, 0, -0.1], w: 6, d: 6, h: 0.1, color: "#3C7FB1" }] }, { name: "t", at: [-2, -2, 0], parts: [{ name: "t", form: "kit", kit: "table", top: "#CF5140", legs: "#CF5140" }] }], {}).fills().filter((x) => x.startsWith("rgb"));
+  const isRed = (f) => { const [r, , b] = f.match(/[\d.]+/g).map(Number); return r > b + 40; }, isBlue = (f) => { const [r, , b] = f.match(/[\d.]+/g).map(Number); return b > r + 40; };
+  assert.ok(tb.findIndex(isRed) > tb.findLastIndex(isBlue), "a kit at a floor's far corner paints after the floor");
   const turned = draw([{ parts: [{ name: "v", form: "kit", kit: "vent", face: "x" }] }], {}).out.at;
   assert.ok("v.face" in turned, "face: x turns a face component as one group");
 }
