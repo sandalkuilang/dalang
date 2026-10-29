@@ -23,7 +23,11 @@ script, exported as glTF and reused by every film that needs it. The scripts are
   turned from its motor speed, numbered pins on leader lines that alternate sides. The wide shot writes its measured fill (the
   subject's projected box against the frame) beside the PNG.
 
-A new asset: a script in `assemblies/` from `parts.py` (a missing part goes into `parts.py`, generic), measured from
+- `assemblies/condensing_unit.clip.html`: a 7 s HyperFrames clip of the same asset, the motion recipe in
+  `references/hero-asset.md` §4 (iso pan and zoom, a slow one-way turn, a blur disc for the fan, the whole refrigerant
+  loop coded and pulsing, a sweeping clip-plane section, labelled pins).
+
+A new asset (from 2D pictures to a model, step by step: `references/hero-asset.md`): a script in `assemblies/` from `parts.py` (a missing part goes into `parts.py`, generic), measured from
 references (shape only: no reference pixel is ever projected or baked), dotted node names a film addresses, a moving
 part's origin on its axis. `node tests/blender-parts.mjs` checks the scripts compile and, where Blender is installed,
 builds the assembly and reads its nodes.

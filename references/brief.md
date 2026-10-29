@@ -88,7 +88,7 @@ After Call 2: its recommendation follows the Audience answer. Never fill `voice`
 Everything a later step used to ask, asked now with a default so nothing waits later:
 
 - **Second-language cut** (always, unless a kit answers it) — "None (Recommended)", the most likely second language for this topic (English when the narration is not English), another via "Other". Save `second_language: <ISO code>` or nothing; it is never offered at the hand-off.
-- **Photos of their own machine** (only when the subject is one the user may own) — "No, use real references from the web (Recommended)"; "Yes, I'll attach them now": wait for them here, in the Brief, then go on.
+- **Pictures of the subject** (photos, a diagram, a sketch: 2D is enough) — "No, use real references from the web (Recommended)"; "Yes, I'll attach them now": wait for them here, in the Brief, then go on.
 - **Permission for a recording or a cloned voice** (only when the user brings one) — "Yes, the speaker gave permission"; "No" (then the recording is not used; Step 4 generates the voice).
 - **Series** (only the kit's own questions, `Series kit` below).
 

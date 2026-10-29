@@ -132,7 +132,7 @@ const READING = {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),
     refs: [
       ...LOOKS, ...THREEJS,
-      ...VD_HERO,
+      ...VD_HERO, ...of('hero-asset.md', null),
       ...VD_ENERGY, ...VD_RESTRAINT, ...VD_CINEMA,
       ...of('visual-direction.md', '## 7. Composition (read the format from `BRIEF.md`)', '## 8. What the best educational videos do'), ...VD_LAYERS, ...VD_QUANTITY,
       ...of('craft-rules.md', '## 2. Push-in: camera, not scissors', '## 3. Beats: everything lands on a word', '## 4. Motion budget: no dead seconds', '## 5. The mitten rule (stylised characters only)', '## 6. On-screen text'),
