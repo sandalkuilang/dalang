@@ -160,7 +160,7 @@ groups.forEach((g, i) => {
     `# Builder: group \`${g.name}\` (beats ${own.join(', ')})`,
     '',
     `Film: ${dir}. Parallel: ${others}. Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js`' : ''}.`,
-    `**Read once:** \`SPEC.md\`; your storyboard rows (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; ${iso ? '\`assets/examples.js\` (finished specs: copy their density and part count)' : 'the piece in \`assets/examples/\` your rows need, if any (\`flask.js\` an object cut open, \`twin.js\` an A/B pair of sets, \`oner.js\` a one-take camera)'}. No other engine source in \`assets/\`, no \`references/\`, no \`/hyperframes\` skill.`,
+    `**Read once:** \`SPEC.md\`; your storyboard rows (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}${iso ? ' (its kit and template lists: build every object part by part from them, dense and true)' : ''}; your template. No other engine source in \`assets/\`, no \`references/\`, no \`/hyperframes\` skill.`,
     `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`; every time is a cue, never seconds.`,
     '',
     world,

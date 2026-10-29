@@ -32,6 +32,18 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Removed
+
+- Every sample and topic-locked piece: the README's Samples section and `docs/assets/samples/`; `engine/iso/examples.js`
+  (builder briefs now read only `iso-API.md` and its kit and template lists); `engine/three/examples/` (`flask.js`,
+  `oner.js`, `twin.js`; the one-take and A/B patterns are stated in one line in `engine/three/README.md`,
+  `camera-motion.md` and `visual-direction.md`, and `selfcheck.mjs` keeps their engine coverage on inline neutral
+  fixtures); the `motorbike` and `engine` templates and the `ac` appliance kind. With no reference video, the Gate 3
+  benchmark scores the style frames against the look's rules in `looks.md` as a text rubric, not sample images.
+- The `engine/blender/parts.py` parts born from one subject, with the helpers and materials only they used; the
+  library keeps the mesh builder, helpers, fan, motor, pipe, wires and fasteners, and gains a generic cuttable `housing` (`cut=True` exports `<prefix>.quarter`). The demo fixture, its test and the clip
+  template's data name only those parts.
+
 ## [4.1.0] - 2026-10-29
 
 ### Added

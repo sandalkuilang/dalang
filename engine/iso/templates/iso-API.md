@@ -33,10 +33,9 @@ engine in `assets/`, the host, each group's template and `assets/world.js`: neve
   `tyre { r, width, axis, spokes, tread, spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · `bottle`
   `drum` `pan { fill, level }` `can` `crate` `carton` · `window` `door` `table` `chair` `shelf` `plant` `lamp` ·
   `wrench` `screwdriver` `funnel` `cone`. Sizes and colours are fields.
-- **Templates** (`form: "kit"`, facing +x, one rigid assembly: place, never rebuild): `motorbike { style: scooter|underbone,
-  color, spin, lit }` · `car { style: sedan|hatch|van, color, spin, lit }` · `engine { crank, oil, level, bore, stroke }`
-  (crankcase and barrel are skins) · `room { w, d, h, window, door }` (`shadow: false`) · `appliance { kind:
-  fridge|washer|ac|server }` · `tree { h, kind: round|pine }`.
+- **Templates** (`form: "kit"`, facing +x, one rigid assembly: place, never rebuild): `car { style: sedan|hatch|van, color,
+  spin, lit }` · `room { w, d, h, window, door }` (`shadow: false`) · `appliance { kind: fridge|washer|server }` ·
+  `tree { h, kind: round|pine }`. Anything else is assembled from kits and forms, part by part.
 - **The user's own thing** (`plate.js`, loaded by the template's `loadPlates(WORLD)`): `plate { plate: "<name>", w, d,
   spin: { part: "<value>" }, spread: { part: "<value>" } (blurred disc), tint: { select: { color, amount } }, flows:
   [{ path: [[fx, fy], …], color, width, at, on }], marks: { name: [fx, fy] } }`; paths are photo fractions; pins

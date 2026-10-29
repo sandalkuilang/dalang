@@ -7,7 +7,7 @@
 // engine's own files; each pinned npm package and its licence for a bundle). scripts/check_assets.mjs reads it, so the
 // engine's files are never listed in ASSETS.json by hand.
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,7 +20,6 @@ const bundles = [["entry.js", "three-vendor.js"]];
 for (const [entry, file] of bundles)
   execFileSync(esbuild, [join(vendor, entry), "--bundle", "--format=esm", "--minify", "--legal-comments=none", "--outfile=" + join(out, file)], { stdio: "inherit" });
 for (const f of readdirSync(here)) if (f.endsWith(".js")) cpSync(join(here, f), join(out, f));
-cpSync(join(here, "examples"), join(out, "examples"), { recursive: true }); // ready pieces built on the systems: import from "./examples/…"
 // engine/iso's film camera and finish (no imports): isoStudio's `finish` is cinema.js makeFinish().apply, depth is parallax.js.
 const iso = join(here, "..", "iso"), isoFiles = ["cinema.js", "parallax.js"];
 for (const f of isoFiles) cpSync(join(iso, f), join(out, f));
@@ -32,8 +31,7 @@ for (const f of dracoFiles) cpSync(join(dracoSrc, f), join(out, "draco", f));
 
 // The manifest. `file` is relative to the manifest's folder, with "/" separators.
 const REPO = "https://github.com/sandalkuilang/dalang";
-const walk = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-const own = [...readdirSync(here).filter((f) => f.endsWith(".js")), ...walk(join(here, "examples")).map((p) => p.slice(here.length + 1).split(/[\\/]/).join("/"))];
+const own = readdirSync(here).filter((f) => f.endsWith(".js"));
 const rows = [...own.map((file) => ({ file, source: `DALANG engine, ${REPO} (engine/three/${file})`, licence: "MIT" })),
   ...isoFiles.map((file) => ({ file, source: `DALANG engine, ${REPO} (engine/iso/${file})`, licence: "MIT" }))];
 const packages = (entry) => [...new Set([...readFileSync(join(vendor, entry), "utf8").matchAll(/from\s+["']([^"']+)["']/g)]

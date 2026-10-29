@@ -8,7 +8,7 @@ in by the set, every motion is a pure function of t from its cause (no physics, 
 ## Install
 
 ```bash
-node <skill-dir>/engine/three/build.mjs <project>/assets      # modules, examples/, iso's cinema.js + parallax.js, three-vendor.js
+node <skill-dir>/engine/three/build.mjs <project>/assets      # modules, iso's cinema.js + parallax.js, three-vendor.js
 node <skill-dir>/engine/three/selfcheck.mjs <project>/assets  # fails loudly when a known trap is back
 ```
 
@@ -86,11 +86,10 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 - `attend(root, { ghost, desat, dur, edge, keep })`: `focus(subjects, t)`, `release(t)`; `at(t)` after every other `at()`, before render.
 - Cues: `snap`, `shotAt`, `overlayWindow`, `windowProblems`.
 
-## Examples (`examples/`, import from `./examples/…`)
+## Patterns (no ready pieces: each film builds its own objects from the systems above)
 
-- `makeFlask(k, { at, height, cut })`: a vacuum flask with its cutaway.
-- `oner({ world, subject, inside, keep, aspect, end, look, beats, studio })`: a one-take home → dive → home; `look.dur` ≤ 2.5 s or it throws.
-- `twinSets(k, build, { values: [a, b], at, gap, axis })`: one set built twice for an A/B comparison.
+- One-take: `stations` (home, subject, the part inside) → `route` legs → `loopEnd` home, with `attend` focusing each beat and released ≥ 2.5 s before the end.
+- A/B pair: build one set twice through one function of the variable, place the two a gap apart (Box3 to Box3), only the variable differs.
 
 ## Object-studio kit (`objectStudio.js`, `editorial.js`)
 

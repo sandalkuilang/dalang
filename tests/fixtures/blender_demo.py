@@ -1,8 +1,9 @@
 """blender_demo.py - the smallest assembly built from engine/blender/parts.py (DALANG, MIT), for tests/blender-parts.mjs:
-a fan on its motor inside a sheet casing, a sectioned pump (one `.quarter` per cuttable part) and one pipe.
+a fan on its motor inside a cut housing (its `.quarter` is the piece a section hides), one pipe and four bolts.
 Run: Blender -b -P tests/fixtures/blender_demo.py -- <out dir>   (writes blender_demo.glb there)
 """
 import bpy, sys, os
+import math
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,11 +24,19 @@ def add(d, loc=None):
     return info
 
 
-add(sheet_casing(0.78, 0.54, 0.27, z0=0.021, fan_c=(FAN.x, FAN.z), fan_open_r=0.212))
 add(axial_fan(radius=0.20), FAN)
-add(motor(radius=0.058, length=0.075), Vector((FAN.x, 0.0488, FAN.z)))
-add(rotary_compressor(cut=True, prefix='pump'), Vector((0.29, -0.005, 0.032)))
-add(pipe('pipe.out', [Vector((0.29, -0.005, 0.30)), Vector((0.29, -0.005, 0.40)), Vector((0.10, -0.005, 0.40))], 0.004))
+MOTOR = Vector((FAN.x, 0.0488, FAN.z))
+add(motor(radius=0.058, length=0.075, name='fan.motor'), MOTOR)
+# the housing's axis (local +Z) turned to the front (-Y), its rear cap just behind the motor's mounting face
+H0 = MOTOR + Vector((0, 0.004, 0))
+for o in housing(0.09, 0.085, 0.003, bore=0.012, cut=True).values():
+    o.location, o.rotation_euler = H0, (math.pi / 2, 0, 0)
+mb = MB('zinc')
+for k in range(4):
+    a = math.pi / 4 + k * math.pi / 2
+    hex_bolt(mb, place(H0 + Vector((0.072 * math.cos(a), 0, 0.072 * math.sin(a))), (0, 1, 0)), 0.006, 0.02)
+mb.finish('bolts')
+add(pipe('pipe.out', [H0 + Vector((0, 0.01, 0.06)), H0 + Vector((0, 0.08, 0.06)), H0 + Vector((0.25, 0.08, 0.06))], 0.004))
 
 tri = 0
 for o in bpy.context.scene.objects:

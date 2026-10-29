@@ -61,7 +61,8 @@ try {
   assert.match(bBody, /under a third of the frame height/, "the look check names the subject's size");
   assert.match(bBody, /is the `intro` builder.s: import it, never copy/, "every other builder imports it");
   assert.match(bBody, /cues\.mjs \. --beats middle/, "a brief names its cue table");
-  assert.match(bBody, /`assets\/examples\.js` \(finished specs/, "a brief opens the finished example specs, for their density");
+  assert.match(bBody, /kit and template lists: build every object part by part/, "a brief builds every object from the card's kits and templates");
+  assert.doesNotMatch(bBody, /examples/, "a brief names no example specs");
   assert.match(bBody, /No other engine source in `assets\/`/, "a brief forbids reading the other engine sources");
   assert.match(bBody, /snapshot --at <every storyboard row of yours/, "a builder looks at every one of its shots");
   // the engine's origin for check_assets, the padded voice, and a music bed by default with its licence row
@@ -91,15 +92,14 @@ try {
     assert.ok(!fs.existsSync(path.join(e, "src")) && !fs.existsSync(path.join(e, "assets")), `${groups}: nothing written`);
   }
   assert.match(run(proj("look"), "--look", "watercolour", "--groups", "a:hook").out, /--look must be one of/);
-  // object-studio installs engine/three (assets/examples/, no examples.js): its brief never names the iso look's file
+  // object-studio installs engine/three: its brief reads its own card, never the iso look's kit lists or any examples
   const os3 = proj("studio");
   fs.mkdirSync(path.join(os3, "assets")); fs.writeFileSync(path.join(os3, "assets/objectStudio.js"), "// engine already installed\n");
   r = run(os3, "--look", "object-studio", "--groups", "a:hook,b:close", "--music", "none");
   assert.equal(r.code, 0, r.out);
   for (const g of ["a", "b"]) {
     const brief = read(os3, `review/builder-${g}.md`);
-    assert.doesNotMatch(brief, /examples\.js/, `${g}: object-studio has no assets/examples.js`);
-    assert.match(brief, /`assets\/examples\/`[^.]*flask\.js/, `${g}: object-studio points at engine/three's examples folder`);
+    assert.doesNotMatch(brief, /examples|kit and template lists/, `${g}: object-studio names no examples and no iso kit lists`);
     assert.match(brief, /object-studio-API\.md/, `${g}: object-studio reads its own card`);
   }
   console.log("scaffold: ok");

@@ -11,7 +11,7 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
 - `scripts/`: the pipeline's tools (`preflight.mjs`, `tts_timestamps.mjs`, `state.mjs`, QC scripts).
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
-  `selfcheck.mjs`. `engine/three/examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
+  `selfcheck.mjs`. `engine/iso/`: Express's isometric look (Canvas 2D, objects
   as data, parallax, cinema). `engine/anatomy/`: Anatomy's geometry audit (MIT, vendored unchanged) and `world.mjs`,
   which proves an Express world (`scripts/iso_audit.mjs`). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
 - `engine/blender/`: the precision lane's generic tooling (`parts.py` library, `templates/hero.clip.tpl.html`, checked by
@@ -32,7 +32,8 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 
 ## Rules
 
-- **Generic, always.** DALANG serves any topic, any language, any platform. A finding from a real video is written
+- **Generic, always** (`tests/generic.mjs` enforces it: no samples, worked examples or subject assets in the repo; the owner's
+  test-film words, kept outside the repo in `~/.config/dalang/test-topics.txt`, never appear). DALANG serves any topic, any language, any platform. A finding from a real video is written
   as a general rule with examples from varied domains. A test video's topic, voice, people, assets or numbers that
   identify it never appear anywhere: skill files, issues, PRs, commit messages or the CHANGELOG. Grep your text for
   the test topic's words before every commit or GitHub write.

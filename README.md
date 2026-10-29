@@ -11,23 +11,6 @@
 
 </div>
 
-## Samples
-
-<table>
-<tr>
-<td><img src="docs/assets/samples/water.jpg" alt="Isometric water tower, its tank turned to glass to show the water inside, pins on the water level and the outlet" width="100%"></td>
-<td><img src="docs/assets/samples/gears.jpg" alt="Isometric gearbox with its housing off: a 12-tooth pinion on the motor driving a 36-tooth gear" width="100%"></td>
-<td><img src="docs/assets/samples/latte.jpg" alt="Object-studio 3D: a clear glass of latte showing its espresso, milk and foam layers, foam and espresso pinned, a recipe card" width="100%"></td>
-<td><img src="docs/assets/samples/tower.jpg" alt="Isometric office tower on a plot cut to show the ground layers, pins on the roof plant and the layers" width="100%"></td>
-<td><img src="docs/assets/samples/truck.jpg" alt="Isometric box truck, pins on the cab and on the driver standing beside it" width="100%"></td>
-</tr>
-<tr align="center">
-<td><sub>isometric-world · cutaway</sub></td><td><sub>isometric-world · gears</sub></td><td><sub>object-studio · 3D</sub></td><td><sub>isometric-world · ground</sub></td><td><sub>isometric-world · figure</sub></td>
-</tr>
-</table>
-
-<sub>Single frames from the skill's own engines: four Express stills (`engine/iso`, inked edges and contact shadows) and one `object-studio` still. Every label is pinned to its part and lands on the spoken word.</sub>
-
 ## Install
 
 ```bash

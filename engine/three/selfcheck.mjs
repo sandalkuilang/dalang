@@ -12,15 +12,12 @@ const { THREE } = await use("three-vendor.js");
 const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
 const { jet } = await use("air.js");
 const { cutaway } = await use("cutaway.js");
-const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
 const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, fovFromMm, dofFor, orbit, crane, dollyZoom, drone, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
-const { oner } = await use("examples/oner.js");
 const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
-const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, blackbody, DRAPER, LAMPS } = await use("circuit.js");
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { shots, cueTime } = await use("shots.js");
@@ -32,6 +29,26 @@ const ED = await use("editorial.js");
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
 const M = K.M;
+// A one-take fixture composed from camera.js and studio.js: home (the whole set, long lens) -> the subject -> the part
+// inside it -> loopEnd home, attention on each beat, released before the end (look.dur over the 2.5 s tail throws).
+const oneTake = ({ world, subject, inside, keep = [], aspect = 9 / 16, end = 12, azimuth = 40, look = {}, beats = {}, studio: rig } = {}) => {
+  const dive = beats.dive ?? 1.5, push = beats.inside ?? 4.5, tail = 2.5, back = end - tail;
+  if ((look.dur ?? 0.5) > tail) throw new Error("oneTake: look.dur " + look.dur + " s is longer than the " + tail + " s tail");
+  const st = stations({ home: frame(world, { fov: 18, aspect, azimuth, elevation: 35 }), dive: frame(subject, { fov: 24, aspect, azimuth, elevation: 25 }), inside: frame(inside, { fov: 45, aspect, azimuth, elevation: 12, margin: 1.05 }) });
+  const r = route(st, [{ to: "dive", start: dive, dur: 2, over: world }, { to: "inside", start: push, dur: 1.6, lift: 0 }, loopEnd(st, { end, dur: tail, over: world })]);
+  const a = attend(world, { keep, ...look }).focus(subject, dive).focus(inside, push).release(back);
+  const lit = rig ? studio(rig.renderer ?? null, rig.scene, rig.camera, { set: world, ...rig, route: r }) : null;
+  const api = {
+    stations: st, route: r, look: a, end, studio: lit,
+    at(t, camera) { const p = r.at(t); if (camera) placeCamera(camera, p); a.at(t); return p; },
+    render(t, camera) {
+      if (!lit) throw new Error("oneTake().render(): build with { studio: { renderer, scene, camera } }");
+      if (camera && camera !== lit.camera) throw new Error("oneTake().render(t, camera): the studio renders its own camera");
+      const p = api.at(t, lit.camera); lit.render(t, p); return p;
+    },
+  };
+  return api;
+};
 assert.equal(M, 2, "makeKit sets the scale every module reads");
 const finite = (a) => Array.from(a).every(Number.isFinite);
 
@@ -48,11 +65,25 @@ assert.ok(Math.abs(J.wind(new THREE.Vector3(2 / M, 1 / M, 0), 0.3, jv).x / free 
 // the planes (a swap recompiles shaders mid-shot); a slide eases between its keys.
 const cs = new THREE.Scene(), sharedMat = new THREE.MeshStandardMaterial({ color: 0x808080 });
 const outside = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), sharedMat); cs.add(outside);
-const FL = makeFlask({ ...kit, scene: cs, rest: (o) => o }, { at: new THREE.Vector3(1, 0, 0) }), cut = FL.cut;
+// The fixture: two lathed shells a and b (single surfaces flagged as shells, 0.6 mm and 0.5 mm walls, a gap between
+// them), a solid ring and a solid part, in metres, scaled by 1/M; one more shell part added AFTER the cut.
+const FL = (() => {
+  const group = new THREE.Group(), m = kit.mat(0xc9ccce, 0.3);
+  group.position.set(1, 0, 0); group.scale.setScalar(1 / M); cs.add(group);
+  const lathe = (pts, shell) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 64), m); if (shell) o.userData.cut = { shell }; return o; };
+  const a = lathe([[0, 0], [0.036, 0], [0.038, 0.004], [0.038, 0.21], [0.03, 0.235], [0.0225, 0.245]], 0.0006);
+  const b = lathe([[0, 0.012], [0.031, 0.012], [0.033, 0.016], [0.033, 0.205], [0.026, 0.228], [0.02, 0.242]], 0.0005);
+  const ring = lathe([[0.02, 0.242], [0.0228, 0.242], [0.0228, 0.25], [0.02, 0.25], [0.02, 0.242]]);
+  const part = lathe([[0, 0.222], [0.0185, 0.222], [0.0195, 0.252], [0.024, 0.254], [0.024, 0.266], [0, 0.266]]);
+  group.add(a, b, ring, part);
+  const c = cutaway(group, { normal: new THREE.Vector3(0, 0, 1), offset: 0 });
+  c.add(lathe([[0.0395, 0.215], [0.041, 0.217], [0.041, 0.296], [0.039, 0.3], [0, 0.3]]), { shell: 0.0015 });
+  return { group, cut: c, parts: { a, b, ring, part } };
+})(), cut = FL.cut;
 const late = new THREE.Group(); late.add(new THREE.Mesh(new THREE.SphereGeometry(0.01, 16, 8), sharedMat)); FL.group.add(late);
 late.add(new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), sharedMat)); // into a part that was itself added late
 const cutMeshes = []; FL.group.traverse((o) => o.isMesh && !o.userData.cutaway && cutMeshes.push(o));
-assert.ok(cutMeshes.length >= 7, "flask parts, its late cup and two late meshes: " + cutMeshes.length);
+assert.ok(cutMeshes.length >= 7, "the fixture's parts, its late part and two late meshes: " + cutMeshes.length);
 for (const o of cutMeshes) for (const m of [].concat(o.material)) assert.ok(m.clippingPlanes?.includes(cut.plane) && m.clipShadows, "every part under the root is cut: " + (o.name || o.type));
 assert.ok(!sharedMat.clippingPlanes && outside.material === sharedMat, "a material shared outside the root stays whole");
 cut.at(0.5);
@@ -65,8 +96,8 @@ for (const p of cut.parts) {
   assert.ok(p.cap.matrixWorld.equals(caps[0].matrixWorld) && p.cap.visible, "every cap on one transform: equal depths, no fight");
   assert.ok(p.cap.renderOrder > p.back.renderOrder && !p.back.material.colorWrite && !p.front.material.depthWrite, "stencil before its cap, writing no colour or depth");
 }
-// A shell is a ring, a solid is a disc: from the axis, a ray crosses the outer shell's wall twice, 0.6 mm apart (in
-// metres), and leaves the solid stopper once.
+// A shell is a ring, a solid is a disc: from the axis, a ray crosses shell a's wall twice, 0.6 mm apart (in metres),
+// and leaves the solid part once.
 const crossings = (part, y) => {
   const probe = new THREE.Mesh(part.stencil, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
   probe.matrixWorld.copy(part.mesh.matrixWorld);
@@ -74,7 +105,7 @@ const crossings = (part, y) => {
   return hits.map((h) => h.distance * M).filter((d, i, a) => i === 0 || d - a[i - 1] > 1e-7);
 };
 const partOf = (mesh) => cut.parts.find((p) => p.mesh === mesh);
-const wallX = crossings(partOf(FL.parts.outer), 0.1), plug = crossings(partOf(FL.parts.stopper), 0.24);
+const wallX = crossings(partOf(FL.parts.a), 0.1), plug = crossings(partOf(FL.parts.part), 0.24);
 assert.ok(wallX.length === 2 && Math.abs(wallX[1] - wallX[0] - 0.0006) < 0.0001, "a shell's cap is its wall ring: " + wallX);
 assert.equal(plug.length, 1, "a solid part's cap is a disc: " + plug);
 assert.ok(new THREE.Raycaster(new THREE.Vector3(1, 0.1 / M, -1), new THREE.Vector3(0, 0, 1)).intersectObjects(cs.children, true).every((h) => !h.object.userData.cutaway), "caps and stencils are never hit by a ray (settle, audit)");
@@ -643,10 +674,10 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     near(pose(r.at(20)), pose(r.at(0)), 1e-6, "and holds home after it");
   }
 
-  // The example: home -> dive -> inside -> home. No hard cut, every leg lands on its station, the last frame is the first.
-  const o = oner({ world, subject: A, inside: core, keep: [base], end: 12 }), fps = 30;
+  // The one-take: home -> dive -> inside -> home. No hard cut, every leg lands on its station, the last frame is the first.
+  const o = oneTake({ world, subject: A, inside: core, keep: [base], end: 12 }), fps = 30;
   {
-    const o2 = oner({ world, subject: A, inside: core, keep: [base], end: 12 });
+    const o2 = oneTake({ world, subject: A, inside: core, keep: [base], end: 12 });
     for (let i = 0; i <= 50; i++) near(pose(o.route.at(i * 12 / 50)), pose(o2.route.at(i * 12 / 50)), 0, "two routes from the same legs agree at " + i);
     let prev = o.route.at(0), p0 = prev.position.clone();
     for (let i = 1; i <= 12 * fps; i++) {
@@ -665,7 +696,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
       near(pose(e), [...o.stations[leg.to].position.toArray(), ...o.stations[leg.to].target.toArray(), o.stations[leg.to].fov], 1e-9, "leg to " + leg.to + " ends on its station");
     }
     near(pose(o.route.at(12)), pose(o.route.at(0)), 1e-6, "loop end: the last pose is the first");
-    assert.ok(Math.abs(o.end - 12) < 1e-12, "oner reports its end");
+    assert.ok(Math.abs(o.end - 12) < 1e-12, "the one-take reports its end");
   }
   // Attention: everything outside the beat's subject wears a ghost, then the exact original comes back.
   {
@@ -770,9 +801,9 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     assert.ok(before[1] >= top + 0.1 / M - 1e-9, "the arc clears the set as it stood when the route was built");
     lid.position.y += 2; w.world.updateMatrixWorld(true);
     near(pose(r.at(1)), before, 0, "a part that rises later does not move the camera");
-    const o = oner({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12 }), at = (t) => pose(o.route.at(t)), mid = o.route.legs[0].start + 1, back = o.route.legs[2].start + 1.25, was = [at(mid), at(back)];
+    const o = oneTake({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12 }), at = (t) => pose(o.route.at(t)), mid = o.route.legs[0].start + 1, back = o.route.legs[2].start + 1.25, was = [at(mid), at(back)];
     lid.position.y += 5; w.world.updateMatrixWorld(true);
-    near(at(mid), was[0], 0, "oner's dive does not follow a prop"); near(at(back), was[1], 0, "nor does its loop leg");
+    near(at(mid), was[0], 0, "the one-take's dive does not follow a prop"); near(at(back), was[1], 0, "nor does its loop leg");
     const seek = (ts) => ts.map((t) => at(t)); const fwd = seek([3, 11, 2.5]), rev = seek([2.5, 11, 3]).reverse();
     for (let i = 0; i < 3; i++) near(fwd[i], rev[i], 0, "seeking in a different order gives the same pose");
     // The legitimate case: a Box3 that covers the motion lifts the arc; travel() itself takes only a Box3 (an object's
@@ -784,9 +815,9 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   // The last frame is the first: attention is released early enough, and an ease that does not end on 1 still lands home.
   {
     const w = build();
-    assert.throws(() => oner({ world: w.world, subject: w.A, inside: w.core, end: 12, look: { dur: 3 } }), /dur/, "an attention that is still fading at the last frame is refused");
+    assert.throws(() => oneTake({ world: w.world, subject: w.A, inside: w.core, end: 12, look: { dur: 3 } }), /dur/, "an attention that is still fading at the last frame is refused");
     for (const dur of [0.5, 2.5]) {
-      const o = oner({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12, look: { dur } }); o.at(12, null);
+      const o = oneTake({ world: w.world, subject: w.A, inside: w.core, keep: [w.base], end: 12, look: { dur } }); o.at(12, null);
       for (const m of [w.shell, w.core, w.B, w.base]) assert.ok(o.look.weight(m, 12) === 0 && m.material.userData.ghost !== true, "the last frame is solid with a fade of " + dur + " s: " + m.name);
     }
     const a = { position: V(-1, 1, 1), target: V(0, 0, 0), fov: 30 }, b = { position: V(1, 1, 1), target: V(0, 0.2, 0), fov: 50 };
@@ -803,7 +834,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   const shell = part(0.12, 0.12, 0.12, "shell", 1.5, 0.06, 0.5), core = part(0.03, 0.03, 0.03, "core", 1.5, 0.06, 0.5);
   A.add(shell, core); world.add(floor, cabinet, A); root.add(world); root.updateMatrixWorld(true);
   const camera = new THREE.PerspectiveCamera(30, 9 / 16, 0.001, 200);
-  const o = oner({ world, subject: A, inside: core, keep: [floor], end: 12, aspect: 9 / 16, studio: { renderer: null, scene: root, camera, height: 1920 } });
+  const o = oneTake({ world, subject: A, inside: core, keep: [floor], end: 12, aspect: 9 / 16, studio: { renderer: null, scene: root, camera, height: 1920 } });
   const rig = o.studio, key = rig.key, map = key.shadow.mapSize.x; // 4096: studio() sets it at build
   assert.equal(map, LOOKS.diorama.shadow.map, "the diorama's shadow map");
   const whole = (2 * rig.set.getBoundingSphere(new THREE.Sphere()).radius * M * 1000) / map;
@@ -1078,7 +1109,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.throws(() => zFight(set(quad("d")), { cameras: {} }), /cameras/);
 }
 { // Showing a quantity (visual-direction.md §13): an arrow's width is its value on the film's one scale, whatever its
-  // direction or reveal; a tile fill counts and sums what it covers; twin sets sit `gap` apart. At any scale (K.M).
+  // direction or reveal; a tile fill counts and sums what it covers; two arrows on one scale keep their values' ratio. At any scale (K.M).
   const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z);
   const xs = (a) => { const p = a.mesh.geometry.attributes.position; return Array.from({ length: p.count }, (_, i) => [p.getX(i), p.getY(i)]); };
   const tail = (a) => { const ys = xs(a).filter(([x]) => Math.abs(x) < 1e-9).map(([, y]) => y); return Math.max(...ys) - Math.min(...ys); };
@@ -1109,17 +1140,9 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(tf.edges.w.position.x === 1.5 && tf.edges.d.position.z === 2, "dimension tag anchors at the edge middles");
   for (const bad of [{ w: 0, d: 1, cell: 1 }, { w: 1, d: 1, cell: -1 }, { w: 1, d: NaN, cell: 1 }]) assert.throws(() => tileFill(bad), /tileFill/);
 
-  const tw = twinSets({ scene: new THREE.Scene() }, (g, v) => {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.4 / Mq, 0.3 / Mq, 0.3 / Mq), new THREE.MeshStandardMaterial());
-    box.position.y = 0.15 / Mq;
-    const a = flowArrow({ from: V(-0.15 / Mq, 0.5 / Mq, 0), to: V(0.15 / Mq, 0.5 / Mq, 0), value: v, scale: 0.01 });
-    g.userData.arrow = a; g.add(box, a.group);
-  }, { values: [1, 3], gap: 0.3 });
-  tw.a.updateMatrixWorld(true); tw.b.updateMatrixWorld(true);
-  const ba = new THREE.Box3().setFromObject(tw.a), bb = new THREE.Box3().setFromObject(tw.b);
-  assert.ok(Math.abs((bb.min.x - ba.max.x) * Mq - 0.3) < 1e-9 && Math.abs(ba.min.x + bb.max.x) < 1e-9, "twin sets 0.3 m apart, centred");
-  assert.ok(Math.abs(tail(tw.b.userData.arrow) / tail(tw.a.userData.arrow) - 3) < 1e-9, "the twins differ only in the value, arrows in ratio");
-  assert.throws(() => twinSets({ scene: new THREE.Scene() }, () => {}, { values: [1] }), /values/);
+  // Two arrows on one scale: widths in the ratio of their values (an A/B pair differs only in the value).
+  const fa = flowArrow({ from: V(-0.15 / Mq, 0.5 / Mq, 0), to: V(0.15 / Mq, 0.5 / Mq, 0), value: 1, scale: 0.01 }), fb = flowArrow({ from: V(-0.15 / Mq, 0.5 / Mq, 0), to: V(0.15 / Mq, 0.5 / Mq, 0), value: 3, scale: 0.01 });
+  assert.ok(Math.abs(tail(fb) / tail(fa) - 3) < 1e-9, "arrows on one scale, in the ratio of their values");
 }
 { // Electricity (circuit.js): a flow's SHAPE is its waveform, drawn at a stated visualisation speed with the mains
   // frequency slowed on purpose (30 fps cannot show 50 Hz); a lamp's light falls with its voltage by its curve; an arc
@@ -1878,4 +1901,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
 }
 
-console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
+console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");

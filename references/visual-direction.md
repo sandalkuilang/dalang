@@ -167,8 +167,8 @@ Each device is one of the shot's moving things (§5), enters on its beat word, i
 
 | Device | Use it when | Size and rules | Example |
 |---|---|---|---|
-| Twin sets | two options differ in one variable | one set built twice (`twinSets`, `examples/twin.js`), side by side or stacked on 9:16 (A left or top); only the variable differs, the same event plays in both; over time it becomes §12's paired run | two kettles of different power boiling the same litre |
-| Flow arrows | an input and an output whose ratio is the claim | width = value on one scale for the film (`flowArrow`, `quantity.js`), thinnest ≥ 12 px; each labelled (`pinLabel` on its `anchor`, ≥ 36 px) | a gearbox: speed in, torque out |
+| Twin sets | two options differ in one variable | one set built twice through one function of the variable, placed a gap apart (Box3 to Box3), side by side or stacked on 9:16 (A left or top); only the variable differs, the same event plays in both; over time it becomes §12's paired run | two kettles of different power boiling the same litre |
+| Flow arrows | an input and an output whose ratio is the claim | width = value on one scale for the film (`flowArrow`, `quantity.js`), thinnest ≥ 12 px; each labelled (`pinLabel` on its `anchor`, ≥ 36 px) | a gear pair: speed in, torque out |
 | Formula on the set | a product or sum is the claim | each factor a tag on what it measures (edge tags on `tileFill`'s `edges`); the result fills one unit at a time (`tileFill(...).show(n)`); then a range card (`rangeBar`, `type.js`) fills to the need with a tick per option's capacity, the fitting option highlighted | paint for a wall: area in tiles, then litres against tin sizes |
 | Condition tags | a decision rule with conditions | each named condition a visible labelled thing on the set (`pinLabel`), entering on its word; ≤ 3 at once | choosing a tent: wind, rain, a second sleeper |
 | Sound word | a discrete physical event (click, snap, pop) | one or two words, 120–200 px, on the part at the event frame, in sync with its SFX, 0.5–0.8 s; once or twice per film, never on a claim | a seatbelt latching |

@@ -36,8 +36,8 @@ README or another film's folder.
   and lists its parts by group, base, structure, mechanism, controls, the subject: 15 or more, each resting on a named
   part. Its inside comes from the same object, under its skin; an inner part no source shows is named "generic" and
   drawn plain, never invented. **PINS:** every part an overlay labels, by its unique part name. Each object names the
-  template or kits it is built from (`iso-API.md`: a two-wheeler is `motorbike`, a sump is `pan`, a wheel is `tyre`, a
-  person is `figure` with a pose); bare boxes only for what truly is a block. A shot's zoom stops where its subject
+  template or kits it is built from (`iso-API.md`: an open container is `pan`, a wheel is `tyre`, a person is `figure`
+  with a pose); bare boxes only for what truly is a block. A shot's zoom stops where its subject
   is still many parts: one part over half the frame fails `film_gate` (detail). When the user brought photos of their
   own thing, that thing is a `plate` (`assets/plates/<name>`, its real length as `w`), never rebuilt from kits; its
   shots keep the photo's view (no orbit around it) and its insides, for a cutaway, are built from kits beside it.

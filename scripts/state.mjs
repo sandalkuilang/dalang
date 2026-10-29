@@ -12,7 +12,7 @@
 //                                                    `next --print`), so no turn goes to `next`.
 //                                                    approve 3 also runs storyboard_lint.mjs and records its result;
 //                                                    it refuses without review/benchmark.md, with a row there more
-//                                                    than 1 point behind the reference board, or with a verdict older
+//                                                    than 1 point behind the reference (board or look rules), or with a verdict older
 //                                                    than the style frames; every approval also records the
 //                                                    token report (tokens.mjs → review/tokens.json)
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
@@ -76,7 +76,7 @@ const hashOf = g => {
 };
 const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
 // Gate 3's benchmark (review.md "Benchmark review"): the fresh reviewer's table, written by the main agent to
-// review/benchmark.md as `| Row | Reference | Style frames | … |`, scores 1–5. A row more than 1 point behind the board
+// review/benchmark.md as `| Row | Reference | Style frames | … |`, scores 1–5. A row more than 1 point behind the reference
 // blocks the gate; so does a verdict that is missing, unreadable or older than the style frames (never read as passed).
 // Express (BRIEF.md "mode: express", references/express.md): Steps 5–7 read express.md and Gate 3 needs no benchmark
 // and no style frames (Express makes none).
@@ -87,7 +87,7 @@ const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'tex
 const newest = p => statSync(p).isDirectory() ? Math.max(0, ...readdirSync(p).map(f => newest(path.join(p, f)))) : statSync(p).mtimeMs;
 const benchmarkOf = () => {
   const p = path.join(dir, BENCH);
-  if (!existsSync(p)) return { error: `has no benchmark verdict: ${BENCH} (review.md "Benchmark review": the style frames scored against the reference board)` };
+  if (!existsSync(p)) return { error: `has no benchmark verdict: ${BENCH} (review.md "Benchmark review": the style frames scored against the reference board, or the look's rules with no reference video)` };
   if (statSync(p).mtimeMs < newest(path.join(dir, 'style-frames'))) return { error: `has a benchmark older than the style frames: score them again into ${BENCH}` };
   const scores = {};
   for (const l of readFileSync(p, 'utf8').split('\n')) {
@@ -103,7 +103,7 @@ const benchmarkOf = () => {
   const absent = BENCH_ROWS.filter(r => !(r in scores));
   if (absent.length) return { error: `cannot read ${BENCH}: no score for ${absent.join(', ')}` };
   const behind = BENCH_ROWS.filter(r => scores[r][0] - scores[r][1] > 1);
-  if (behind.length) return { error: `is held by the benchmark: ${behind.map(r => `${r} ${scores[r][1]} vs ${scores[r][0]}`).join(', ')} — more than 1 point behind the reference board; fix the style frames and score them again` };
+  if (behind.length) return { error: `is held by the benchmark: ${behind.map(r => `${r} ${scores[r][1]} vs ${scores[r][0]}`).join(', ')} — more than 1 point behind the reference; fix the style frames and score them again` };
   return { summary: BENCH_ROWS.map(r => `${r} ${scores[r][1]}/${scores[r][0]}`).join(', ') };
 };
 const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'waiting for approval' : 'not started') : a.hash === hashOf(g) ? `approved ${a.at} by ${a.by}` : `STALE — files changed after approval (${a.at})`; };
@@ -144,7 +144,7 @@ const READING = {
   3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...of('script-voice.md', '### Narration craft: one idea, followed on one hearing'), ...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
   4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)', '### Timing, warnings and retakes (Step 4, look up when needed)'), ...SFX_MUSIC], sub: [] },
   5: {
-    name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),
+    name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against the reference)'),
     refs: [
       ...LOOKS, ...THREEJS,
       ...VD_HERO, ...of('hero-asset.md', null),

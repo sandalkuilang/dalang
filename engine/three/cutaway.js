@@ -1,7 +1,7 @@
 import { THREE, mergeVertices } from "./three-vendor.js";
 import { M } from "./kit.js";
 
-// A section view: an assembly cut open by one plane, so its inside shows (an engine cylinder, a lock, a gearbox, a
+// A section view: an assembly cut open by one plane, so its inside shows (a lock, a pump, a
 // heart valve, a water heater, a pen). Every shot of this kind needs the same four things, and the usual hand-made
 // versions each break one of them:
 //  - the plane cuts EVERY part, the ones added later too (a lid built after the cut that stays whole overhangs the

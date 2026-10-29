@@ -36,7 +36,7 @@ try {
   assert.ok(tri > 5000 && tri < 300000, `triangles within budget: ${tri}`);
   const glb = fs.readFileSync(path.join(out, "blender_demo.glb")), n = glb.readUInt32LE(12), j = JSON.parse(glb.subarray(20, 20 + n).toString());
   const names = new Set(j.nodes.map((x) => x.name));
-  for (const want of ["fan.blade", "fan.motor", "casing.front", "grille.front", "pump.shell", "pump.shell.quarter", "pump.rotor", "pipe.out"])
+  for (const want of ["fan.blade", "fan.motor", "housing", "housing.quarter", "bolts", "pipe.out"])
     assert.ok(names.has(want), `node ${want}`);
   const fan = j.nodes.find((x) => x.name === "fan.blade");
   assert.ok(!fan.rotation || fan.rotation.every((v, i) => Math.abs(v - [0, 0, 0, 1][i]) < 1e-6), "the fan exports unrotated, its axle its local +Z");
