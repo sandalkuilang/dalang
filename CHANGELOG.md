@@ -32,6 +32,10 @@ that reads as:
 
 ### Added
 
+- The user's own thing in the film, not a guess at it: `scripts/trace.mjs` traces their photo on a plain wall into
+  inked SVG layers (background cut, also between spokes; colours from the photo; each moving part, a wheel, on its own
+  layer by an ellipse), and build()'s `plate` form (`engine/iso/plate.js`) stands it in the world at its real size,
+  turning those layers by values. ffmpeg and Node only, nothing generated; a busy background is a WARN to retake it.
 - `film_gate.mjs` fails a close-up past the drawing's detail: the world's parts (a kit's own parts too) are projected by
   each frame's camera, and one part over half the frame or three over three quarters is a FAILED that names them and the
   widest zoom that reads (`k ≤ …`). Kits and templates are the other way out.

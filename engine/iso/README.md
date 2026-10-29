@@ -28,6 +28,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
   slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a
   key of `values` so the timeline drives it. It returns `{ at }`, each part's pin point. Parts paint in an order taken
   from their boxes (below, behind, inside go first), so a plate never covers what stands on it.
+- `plate.js`: the user's own thing traced from their photo (`scripts/trace.mjs`: background cut, colours from the photo,
+  inked regions, moving parts on their own layers), stood upright in the world at its real size by build()'s `plate`
+  form; `loadPlates(WORLD)` before the timeline.
 - `templates.js`: the made things films need most, assembled from kits and parametric (a scooter or underbone
   two-wheeler, a sedan, hatch or van, a single-cylinder engine whose piston and rod ride the crank under a cutaway
   housing, a room, a fridge, washer, wall AC or server rack, a broadleaf or pine tree); `{ form: "kit", kit: "car" }`.

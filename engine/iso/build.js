@@ -15,6 +15,7 @@
 //         figure { h, pose stand|walk|point|carry|reach|sit|crouch|kneel|wave, phase, reach [x,y,z], seat, lean, look, joints,
 //                  color (shirt), legs, skinTone, hair, hairStyle, hat 'cap', sleeves, coat, shoes } (figure.js) · model { model: key in state.models, size, max, texels }
 //         flat { outline } · line { path, width, dash } · group { parts } · kit { kit, …its fields } (kit.js: components)
+//         plate { plate: key in state.plates, w, d, spin: { layer: value } } (plate.js: the user's photo, traced)
 // Any number field may name a key of state.values instead ("h": "level"), so the timeline drives the spec.
 // Parts are painted in an order taken from their boxes (one wholly below, behind or left of another goes first), so a
 // thin wide plate never covers what stands on it; parts whose boxes interlock fall back to the engine's depth.
@@ -23,8 +24,9 @@ import { solid, lathe, extrude, sweep, gearOutline } from "./forms.js";
 import { drawModel } from "./model.js";
 import { expandKit } from "./kit.js";
 import { figureSolids } from "./figure.js";
+import { drawPlate } from "./plate.js";
 
-const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group", "kit"]);
+const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group", "kit", "plate"]);
 const NEAR = [0.7071, 0.7071, 0]; // a skin with skin: true slides toward the viewer (depth is x + y + z)
 
 // spec may be an array (a whole WORLD): its objects are then ordered together, so a small thing beside a wide floor is
@@ -147,6 +149,17 @@ function draw(iso, p, c, R, col) {
         skin: p.skinTone, hair: p.hair, hairStyle: p.hairStyle || (p.hat === "cap" ? "cap" : undefined), cap: p.hatColor, shirt: col, sleeves: p.sleeves, pants: p.legs, shoes: p.shoes, coat: p.coat, belt: p.belt });
       for (const q of f.solids) solid(iso, q.faces, q.color, { smooth: q.smooth });
       const hh = num("h", 1.7); return [f.top, [-0.2 * hh, -0.2 * hh, 0, 0.2 * hh, 0.2 * hh, f.top]];
+    }
+    case "plate": {
+      // the user's own thing, traced from their photo (plate.js): upright at the part's point, its moving layers turned
+      const t = c.s.plates?.[p.plate];
+      if (!t) throw new Error(`build: part ${p.name || "?"} names plate "${p.plate}", not in state.plates (await loadPlates(WORLD) first)`);
+      const w = num("w"), hgt = (w * (t.bbox[3] - t.bbox[1])) / (t.bbox[2] - t.bbox[0]), r = R(p.d) ?? w / 2.8, spin = p.spin || {};
+      iso.bill(0, 0, 0, (g) => drawPlate(g, t, w, (n) => R(spin[n]) || 0), { r: w, cull: false });
+      // a layer's pin: its ellipse centre, from screen metres (u right, v up) to the world point that projects there
+      const [x0, , x1, y1] = t.bbox, sc = w / (x1 - x0), C = 2 * Math.cos(Math.PI / 6);
+      for (const [n, e] of Object.entries(t.parts || {})) { const u = (e.cx - (x0 + x1) / 2) * sc, v = (y1 - e.cy) * sc; c.out.at[`${p.name}.${n}`] = iso.w(u / C, -u / C, v); }
+      return [hgt, [-r, -r, 0, r, r, hgt]];
     }
     case "model": {
       const m = c.s.models[p.model];
