@@ -3,7 +3,8 @@
 // draft render. Reads the shot table of storyboard.md (the table with a "Subject action" column; other tables are
 // ignored) and flags, each with `storyboard.md:LINE row N`: an empty "Subject action" or "Camera" cell; 3 or more
 // consecutive rows with the same size and angle; the share of rows whose focal point is text only, over the
-// energy's limit; an average shot length over the energy's limit. Limits = references/visual-direction.md §3.
+// energy's limit; an average shot length over the energy's limit; a hard cut that keeps the view (two shots cut together
+// at the same angle, or under 60° apart: a jump cut that shows nothing new). Limits = references/visual-direction.md §3.
 // The text-only check is a heuristic on the "What we see" focal clause and the Subject action's source words.
 // Energy: --energy calm|balanced|punchy, else the Energy line of BRIEF.md, else balanced (INFO).
 // Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy]   (default: .)
@@ -53,7 +54,7 @@ const hi = L.findIndex(l => l.trim().startsWith('|') && /subject action/i.test(l
 if (hi < 0) { warns.push("no shot table (a header with 'Subject action')"); done(); }
 const head = cells(L[hi]);
 const col = re => head.findIndex(h => re.test(h));
-const C = { size: col(/size/i), see: col(/what we see|focal/i), cam: col(/^camera/i), act: col(/subject action/i), time: col(/^time/i) };
+const C = { size: col(/size/i), see: col(/what we see|focal/i), cam: col(/^camera/i), act: col(/subject action/i), time: col(/^time/i), out: col(/^transition/i) };
 for (let i = hi + 2; i < L.length && L[i].trim().startsWith('|'); i++) {
   const c = cells(L[i]);
   rows.push({ line: i + 1, n: /^\d+$/.test(c[0] ?? '') ? c[0] : String(rows.length + 1), c });
@@ -76,6 +77,20 @@ if (need('size', 'Size', 'repeated-shot check')) {
     if (k && j - i >= 3) problems.push(`storyboard.md:${rows[i].line} rows ${rows[i].n}–${rows[j - 1].n}: ${j - i} shots in a row at "${k}" — change the size or the angle`);
     i = Math.max(j, i + 1);
   }
+}
+
+// (e) a hard cut changes the view: the Size · angle · lens cell's angle is the subject's view (front … back, 45° steps)
+const VIEWS = [[/back.?right|rear.?right/, 135], [/back.?left|rear.?left/, 225], [/front.?right|3\/4 right|three.?quarter right/, 45], [/front.?left|3\/4 left|three.?quarter left/, 315],
+  [/\bback\b|\brear\b|opposite/, 180], [/\bfront\b/, 0], [/\bright\b/, 90], [/\bleft\b/, 270], [/\bside\b/, 90]];
+const angleOf = r => (r.c[C.size] ?? '').toLowerCase().split('·')[1]?.replace(/`/g, '').trim() ?? '';
+const deg = a => VIEWS.find(([re]) => re.test(a))?.[1];
+if (C.size >= 0 && C.out >= 0) for (let i = 0; i + 1 < rows.length; i++) {
+  const t = rows[i].c[C.out] ?? '';
+  if (!/\bcut\b/i.test(t) || /\bmatch cut\b|\bnew (subject|set|scene|object)\b/i.test(t)) continue; // a match cut or a cut to another subject is not a jump
+  const a = angleOf(rows[i]), b = angleOf(rows[i + 1]), da = deg(a), db = deg(b);
+  const turn = da !== undefined && db !== undefined ? Math.min(Math.abs(da - db), 360 - Math.abs(da - db)) : null;
+  if (!a || !b) continue;
+  if (a === b || (turn !== null && turn < 60)) problems.push(`${at(rows[i])} → ${rows[i + 1].n}: a hard cut keeps the view (${a} → ${b}${turn !== null ? `, ${turn}°` : ''}): cut to a new view (front, a side, the back: 60° or more) or drop the cut and continue the move; a cut to another subject says "new subject"`);
 }
 
 // (c) share of rows whose focal point is text only (heuristic)

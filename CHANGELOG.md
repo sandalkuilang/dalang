@@ -32,8 +32,24 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Added
+
+- Detail focus for the Studio iso lane (`engine/three/bokeh.js`): three.js's `BokehPass` as a pass of the pmndrs composer
+  (`detailFocus`: `focusOn(point)`, `set({ blur, range })`, 0 = off), with a depth pass that keeps the section's clipping
+  planes and leaves out ink lines and glass, correct for the iso orthographic camera, alpha-preserving. The hero clip template
+  takes `detail` windows (from, to, node, blur, range); the agent decides when: a detail beat only, never the wide.
+- `scripts/vendor_latest.mjs`: keeps three.js and its add-ons (`engine/three/vendor/package.json`) on their latest releases. One
+  line per package (`ok`, `behind x → y`, `capped` when `postprocessing`'s three peer range stops a newer three, `unknown` when
+  npm is unreachable); `--update` bumps and installs. `release.sh` prints a behind or capped line first.
+
 ### Changed
 
+- The hero clip template's composer ends with SMAA after the AO, as `studio.js` does.
+- A hard cut changes the view, not only the size: two shots of one subject cut together differ in angle by 60° or more (front,
+  a side, the back); the same view at a new zoom is a jump cut, so the move continues instead. The storyboard's `Size · angle ·
+  lens` cell names the view; `storyboard_lint.mjs` fails a hard cut that keeps it (a match cut and a cut to a `new subject`
+  are exempt), `camera-motion.md` §2, `look-build.md` and the Express planner's card say so. The `shots.js` runner refuses a `"cut"` shot
+  that turns the view under 60° (`view` in degrees on the shot; `newSubject: true` for a cut to another subject).
 - One typeface for every film (`engine/three/font.js`): Kohinoor Bangla when the machine has it, else Helvetica. Only the
   weight changes, by role: title Bold, heading Semibold, sub-heading Medium, body Regular. Overlays, captions, canvas text,
   the host and the hero clip template read it; the per-language fonts, the web-font links and the `fonts` option of

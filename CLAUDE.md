@@ -58,7 +58,10 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - **Installs only with consent.** The skill never installs a model, app or key on its own. It states size and
   licence, and asks first.
 - **Free and local by default.** Paid services (ElevenLabs, HeyGen credits) only when the user asks.
-- **No new dependencies** for what a few lines do. Engine vendors stay pinned in `engine/three/vendor`.
+- **No new dependencies** for what a few lines do. Engine vendors stay pinned in `engine/three/vendor`, **always on their latest releases**, three.js first (the owner's standing
+  consent to update them): `node scripts/vendor_latest.mjs` shows what is behind, `--update` bumps and installs it, and the self-check
+  runs after; three stays inside the peer range of `postprocessing`, and when that caps it the check says which package to wait for.
+  `scripts/release.sh` prints a behind or capped line before it cuts a release.
 
 ## Git and GitHub
 

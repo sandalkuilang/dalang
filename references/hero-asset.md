@@ -51,6 +51,12 @@ composition on a paused timeline, every value a pure function of t:
 - **Mechanism:** each moving part from its cause (a rotor from its rpm, a piston from its stroke rate). A fast rotor is
   one radial-gradient blur disc over faint blades. A fluid's path is coded along the whole loop, pulses at the
   driving rate.
+- **Detail focus (the agent decides):** depth of field on a detail beat only: the close station or a macro insert on one
+  part (a rotor, a fastener, a section face) that the wide would lose; never on the wide. One window per beat: ease in
+  about 0.35 s, hold on the spoken word, ease out; `blur` at most 0.015 of the frame width; focus on the node being
+  explained, `range` about the depth of the detail itself (world units). Data block: `detail: [{ from, to, node, blur,
+  range }]` (`engine/three/bokeh.js`, three.js `BokehPass` on the composer). The pins stay sharp (2D, after the composer);
+  ink lines and glass are not in its depth, so they soften with what they outline.
 - **Pins:** numbered on leader lines, short generic labels, entering on their beat, inside the frame.
 - **Trap:** `EffectComposer` turns `renderer.autoClear` off: clear by hand before `composer.render()`, or the last
   frame shows through.

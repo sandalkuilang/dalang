@@ -59,7 +59,9 @@ otherwise a subject turns itself (on a visible turntable, in a hand). Every zoom
 stop, sweep 0.08–0.14, toward the open side or what the narration names next, edges blurred while it travels (at most
 one a beat, three a film, never under text being read). One move per beat; one `dollyZoom25` (the Crack) and one
 `drone25` at most. Zoom levels 2–3, the closest kept for the climax; aperture follows size (a wide f5.6, a close
-f1.2–2.8 with `focusRing` on the named part, racked on its first word). **One wow shot** on the impact.
+f1.2–2.8 with `focusRing` on the named part, racked on its first word). **One wow shot** on the impact. **No same-view cut:** a new size at the same view is one continuous push, never a cut; a new
+view (60° or more: front, a side, the back) arrives by an `orbit25` sweep or a `whip` to that side (`film_gate` fails a jump
+at a seam), and each storyboard row's `Size · angle · lens` names its view.
 `look: object-studio` plays the same table with `camera.js` (`orbit` 6–12° from the arrival angle, `crane`,
 `dollyZoom`, `drone`): lens in mm and f-stop in place of layer effects, light from `looks.md` "object-studio".
 
