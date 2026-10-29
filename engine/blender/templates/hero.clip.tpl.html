@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- hero.clip.tpl.html (DALANG, MIT): a HyperFrames clip of one hero GLB in the engine/three iso look. A film copies it,
+     fills the HERO block below and touches nothing else. Wide (the shell as x-ray glass) → medium (opened) → close (the
+     section). Every value is a pure function of t on a paused GSAP timeline. Serve a folder with assets/
+     (node engine/three/build.mjs <dir>/assets), this page as index.html and the GLB, then:
+     npx hyperframes render --fps 30 --output clip.mp4
+     The defaults address tests/fixtures/blender_demo.glb. -->
+<title>Hero clip</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; background: #F3F2EE; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #F3F2EE; }
+  #out { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+</style>
+</head>
+<body>
+<!-- data-duration must equal HERO.duration -->
+<div id="root" data-composition-id="main" data-start="0" data-duration="7" data-width="1080" data-height="1920" data-fps="30">
+  <canvas id="out" width="1080" height="1920" data-layout-ignore></canvas>
+</div>
+<script type="module">
+import { THREE, GLTFLoader, EffectComposer, RenderPass, N8AOPostPass } from "./assets/three-vendor.js";
+import { isoLook, inkLines } from "./assets/studio.js";
+import { isoCamera, isoFrame, place } from "./assets/camera.js";
+
+// ---- HERO: the only block a film fills. Node patterns match the GLB's node names (the Blender object names).
+const HERO = {
+  glb: "./hero.glb",
+  duration: 7,                                   // seconds
+  turn: [-4, 6],                                 // degrees about the vertical, start → end: slow and one way
+  shell: [/^casing\./, /^grille\./],             // x-ray glass on the wide, fades out on the way to medium
+  front: [/^fan\./, /^pipe\.out$/],              // cut away with the quarters by the sweeping plane
+  quarters: [/\.quarter$/],                      // the `.quarter` pieces parts.py exports with cut=True
+  context: [],                                   // greys to calm for the close
+  rotors: [{ node: "fan.blade", rpm: 850, axis: "z", blur: true }],   // exported unrotated: axis is the node's local spin axis
+  hot: [/^pipe\.out$/],                          // the fluid loop: hot paths red, cold paths blue
+  cold: [],
+  flow: { rate: 1.4, pulses: 9 },                // rate: pulses per second past a point = the driving part's rate
+  stations: [                                    // nodes: null frames the whole asset; move: [t0, t1] of the pan/zoom into it
+    { nodes: null, margin: 1.05 },
+    { nodes: [/^fan\.blade$/, /^pump\.shell$/], margin: 1.08, move: [1.5, 2.6] },
+    { nodes: [/^pump\.(shell|stator|windings|rotor|shaft|piston)$/], margin: 2.5, move: [3.8, 5.0] },
+  ],
+  beats: { shellOut: [2.0, 2.8], cut: [4.2, 5.0], calm: [4.0, 4.8] },
+  // where: "top" | "bottom" | null (centre); until: the pin leaves then; labels short, in the film's language
+  pins: [
+    { node: "fan.blade", label: "Fan", at: 0.6, until: 4.4 },
+    { node: "pump.shell", label: "Shell", at: 3.3, until: 4.4 },
+    { node: "pump.windings", label: "Stator", at: 5.3, where: "top" },
+    { node: "pump.rotor", label: "Rotor", at: 5.7 },
+    { node: "pump.piston", label: "Piston", at: 6.1, where: "bottom" },
+  ],
+};
+// ---- end of HERO
+
+const W = 1080, H = 1920, DUR = HERO.duration, B = HERO.beats;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2), back = (u) => { u = clamp(u) - 1; return 1 + u * u * (2.7 * u + 1.7); };
+const exact = (s) => new RegExp("^" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$");
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.localClippingEnabled = true;
+const scene = new THREE.Scene(), camera = isoCamera(W, H);
+// parts.py material roles → plain colours
+const ROLE = { sheet_metal: "#E4E6E8", aluminium_fin: "#B7BEC4", copper: "#C98A5C", black_steel: "#4A4E55", plastic_fan: "#E9E4D8", rubber: "#2E2F33", foam: "#55595F",
+  pcb_green: "#4E9A68", casing_paint: "#EEEFEC", steel: "#9EA4AA", aluminium: "#C5CBD0", zinc: "#B8BEC4", brass: "#D4A84B" };
+const HOT = "#E2553B", COLD = "#3E86C6", CALM = "#D8D6D0", XRAY = "#BCD6EC", XRAY_LINE = "#6F9CC6";
+
+const asset = (await new GLTFLoader().loadAsync(HERO.glb)).scene;
+const pivot = new THREE.Group(); pivot.add(asset); scene.add(pivot);
+// GLTFLoader strips dots from o.name; the original name stays in userData.name
+const named = (res) => { const out = []; asset.traverse((o) => { const n = o.userData.name ?? o.name; if ([].concat(res).some((re) => re.test(n))) out.push(o); }); return out; };
+const meshesOf = (objs) => { const m = new Set(); for (const o of objs) o.traverse((x) => x.isMesh && m.add(x)); return [...m]; };
+asset.traverse((o) => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { const r = Object.keys(ROLE).find((k) => (m.name || "").toLowerCase().includes(k)); if (r) m.color = new THREE.Color(ROLE[r]); } });
+// a mesh gets its own material once: a second clone would copy (and so detach) its clipping plane
+const owned = new WeakSet(), own = (m) => { if (!owned.has(m)) { owned.add(m); m.material = m.material.clone(); } return m; };
+const hotPaths = meshesOf(named(HERO.hot)).map(own), coldPaths = meshesOf(named(HERO.cold)).map(own);
+for (const m of hotPaths) m.material.color = new THREE.Color(HOT); for (const m of coldPaths) m.material.color = new THREE.Color(COLD);
+isoLook(scene);
+// the softer, graded matcap
+const soft = (() => { const n = 64, d = new Uint8Array(n * n * 4), bk = new THREE.Vector3(1, 1, 1).normalize(), rt = new THREE.Vector3(1, 0, -1).normalize(), up = bk.clone().cross(rt), v = new THREE.Vector3();
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = ((i + 0.5) / n - 0.5) / 0.495, y = ((j + 0.5) / n - 0.5) / 0.495, z = Math.sqrt(Math.max(0, 1 - x * x - y * y));
+    v.set(0, 0, 0).addScaledVector(rt, x).addScaledVector(up, y).addScaledVector(bk, z).normalize();
+    const wt = Math.max(v.y, 0), wl = Math.max(v.z, 0), wr = Math.max(v.x, 0), s = wt + wl + wr || 1, f = (wt + wl * 0.88 + wr * 0.76) / s * (0.84 + 0.16 * Math.pow(z, 0.8)), o = (j * n + i) * 4;
+    d[o] = d[o + 1] = d[o + 2] = Math.round(255 * Math.min(1, f)); d[o + 3] = 255; }
+  const t = new THREE.DataTexture(d, n, n); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t; })();
+scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.isMeshMatcapMaterial) m.matcap = soft; });
+
+// flow pulses: a swept tube's vertices are written ring after ring, so a vertex's index is its place along the path
+const flowT = { value: 0 };
+for (const m of [...hotPaths, ...coldPaths]) {
+  const n = m.geometry.attributes.position.count, s = new Float32Array(n); for (let i = 0; i < n; i++) s[i] = i / n;
+  m.geometry.setAttribute("aS", new THREE.BufferAttribute(s, 1));
+  m.material.onBeforeCompile = (sh) => { sh.uniforms.uFlow = flowT;
+    sh.vertexShader = "attribute float aS;\nvarying float vS;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvS = aS;");
+    sh.fragmentShader = "uniform float uFlow;\nvarying float vS;\n" + sh.fragmentShader.replace("#include <dithering_fragment>", `#include <dithering_fragment>\nfloat p = smoothstep(0.75, 1.0, fract(vS * ${HERO.flow.pulses.toFixed(1)} - uFlow));\ngl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0, 0.96, 0.86), 0.55 * p);`); };
+}
+const shell = meshesOf(named(HERO.shell)).map(own);
+for (const m of shell) Object.assign(m.material, { color: new THREE.Color(XRAY), transparent: true, opacity: 0.3, depthWrite: false });
+const context = meshesOf(named(HERO.context)).map(own), ctxFrom = context.map((m) => m.material.color.clone()), calm = new THREE.Color(CALM);
+const cuttable = meshesOf([...named(HERO.quarters), ...named(HERO.front)]).map(own);
+// the section: one plane sweeps in from the camera side and cuts the front parts and the quarters away
+const cutPlane = new THREE.Plane(), cutDir = new THREE.Vector3();
+for (const m of cuttable) m.material.clippingPlanes = [cutPlane];
+inkLines(scene, { color: "#2A2926", angle: 28 });
+const lineOf = (m) => m.children.find((c) => c.userData.inkLine);
+for (const m of shell) { const l = lineOf(m); if (l) { l.geometry = new THREE.EdgesGeometry(m.geometry, 1); l.material = new THREE.LineBasicMaterial({ color: XRAY_LINE, transparent: true, opacity: 0.75 }); } }
+for (const m of cuttable) { const l = lineOf(m); if (l) { l.material = l.material.clone(); l.material.clippingPlanes = [cutPlane]; } }
+
+// a rotor at speed: faint blades under one blur disc (radial gradient: clear hub, the swept band, a soft rim)
+const discTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d"), gr = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, "rgba(233,228,216,0)"); gr.addColorStop(0.2, "rgba(233,228,216,0)"); gr.addColorStop(0.3, "rgba(233,228,216,0.75)"); gr.addColorStop(0.85, "rgba(222,217,205,0.6)"); gr.addColorStop(1, "rgba(222,217,205,0)");
+  x.fillStyle = gr; x.fillRect(0, 0, 256, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const rotors = HERO.rotors.map((r) => { const o = named(exact(r.node))[0]; if (!o) return null;
+  let disc = null;
+  if (r.blur) { const sz = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()), R = Math.max(sz.x, sz.y, sz.z) / 2, geo = new THREE.CircleGeometry(R, 64);
+    if (r.axis === "x") geo.rotateY(Math.PI / 2); if (r.axis === "y") geo.rotateX(-Math.PI / 2);
+    o.traverse((x) => { if (x.isMesh) Object.assign(own(x).material, { transparent: true, opacity: 0.45 }); if (x.userData.inkLine) x.visible = false; });
+    disc = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: discTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: [cutPlane] }));
+    disc.position.copy(o.position); disc.quaternion.copy(o.quaternion); o.parent.add(disc); }
+  return { o, disc, axis: r.axis, w: (r.rpm / 60) * Math.PI * 2 }; }).filter(Boolean);
+
+// camera stations: the iso camera pans and zooms (never tilts)
+const box = (res) => { const b = new THREE.Box3(); for (const o of named(res)) b.expandByObject(o); return b; };
+const ST = HERO.stations.map((s) => ({ pose: isoFrame(s.nodes ? box(s.nodes) : asset, { W, H, margin: s.margin }), move: s.move }));
+place(camera, ST[0].pose); camera.getWorldDirection(cutDir); cutDir.y = 0; cutDir.normalize();
+const cutS = (() => { const b = new THREE.Box3(); for (const m of cuttable) b.expandByObject(m); let lo = Infinity, hi = -Infinity; const v = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) { v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z); const d = cutDir.dot(v); lo = Math.min(lo, d); hi = Math.max(hi, d); } return [lo - 0.01, hi + 0.01]; })();
+const lerpPose = (a, b, u) => ({ target: a.target.clone().lerp(b.target, u), k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * u) });
+const poseAt = (t) => { let p = ST[0].pose; for (let i = 1; i < ST.length; i++) { const [a, b] = ST[i].move; if (t < a) break; p = lerpPose(ST[i - 1].pose, ST[i].pose, ease(seg(t, a, b))); } return p; };
+
+const PINS = HERO.pins.map((p, i, all) => ({ ...p, o: named(exact(p.node))[0], dx: i % 2 ? 1 : -1, dy: i % 3 === 2 ? 1 : -1,
+  n: 1 + all.slice(0, i).filter((q) => q.until === p.until).length }));   // numbers restart for each group that leaves together
+const composer = new EffectComposer(renderer, { stencilBuffer: true, multisampling: 0 });
+composer.addPass(new RenderPass(scene, camera));
+const ao = new N8AOPostPass(scene, camera, W, H);
+Object.assign(ao.configuration, { aoRadius: 0.04, distanceFalloff: 0.6, intensity: 1.6, halfRes: false, color: new THREE.Color("#2A2926") });
+composer.addPass(ao);
+const out = document.getElementById("out"), g = out.getContext("2d");
+
+function frame(t) {
+  pivot.rotation.y = THREE.MathUtils.degToRad(HERO.turn[0] + (HERO.turn[1] - HERO.turn[0]) * (t / DUR));
+  for (const r of rotors) { r.o.rotation[r.axis] = r.w * t; if (r.disc) r.disc.rotation[r.axis] = r.w * t; }
+  flowT.value = t * HERO.flow.rate;
+  const xr = 1 - seg(t, ...B.shellOut);
+  for (const m of shell) { m.material.opacity = 0.3 * xr; m.visible = xr > 0.001; const l = lineOf(m); if (l) l.material.opacity = 0.75 * xr; }
+  const cut = ease(seg(t, ...B.cut));
+  pivot.updateMatrixWorld(); cutPlane.set(cutDir, -(cutS[0] + (cutS[1] - cutS[0]) * cut)); cutPlane.applyMatrix4(pivot.matrixWorld);
+  context.forEach((m, i) => m.material.color.copy(ctxFrom[i]).lerp(calm, seg(t, ...B.calm)));
+  place(camera, poseAt(t));
+  renderer.clear(); composer.render();                                                   // the composer turns autoClear off: clear by hand or the last frame shows through
+  // the frame: grid paper, the render, the pins, crop marks
+  g.fillStyle = "#F3F2EE"; g.fillRect(0, 0, W, H); g.strokeStyle = "#E1E0DA"; g.lineWidth = 1;
+  for (let x = 0; x <= W; x += 27) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
+  for (let y = 0; y <= H; y += 27) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+  g.drawImage(renderer.domElement, 0, 0);
+  for (const { o, where, at, until, label, dx, dy, n } of PINS) {
+    const a = seg(t, at, at + 0.35); if (a <= 0 || !o || !o.visible || (until != null && t > until)) continue;
+    const b = new THREE.Box3().setFromObject(o); if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y);
+    const v = b.getCenter(new THREE.Vector3()).project(camera), x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H, px = x + dx * 120, py = y + dy * 50, s = back(a);
+    g.globalAlpha = clamp(a * 2); g.strokeStyle = "#1E1E20"; g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (px - x) * clamp(a * 1.6), y + (py - y) * clamp(a * 1.6)); g.stroke();
+    g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill();
+    g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(px, py, 33 * s, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(px, py, 28 * s, 0, 7); g.fill();
+    g.fillStyle = "#fff"; g.font = "700 30px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(n), px, py + 1);
+    g.font = "600 30px Helvetica Neue, Arial"; const tw = g.measureText(label).width, side = px + 44 + tw > W - 48 ? -1 : px - 44 - tw < 48 ? 1 : dx, lx = px + side * 44;   // the label stays inside the frame
+    g.textAlign = side > 0 ? "left" : "right"; g.fillStyle = "rgba(243,242,238,0.92)"; g.fillRect(side > 0 ? lx - 8 : lx - tw - 8, py - 22, tw + 16, 44); g.fillStyle = "#1E1E20"; g.fillText(label, lx, py + 1); g.globalAlpha = 1;
+  }
+  g.strokeStyle = "#8C8B85"; g.lineWidth = 3; for (const [x, y, dx, dy] of [[30, 30, 1, 1], [W - 30, 30, -1, 1], [30, H - 30, 1, -1], [W - 30, H - 30, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 36 * dy); g.lineTo(x, y); g.lineTo(x + 36 * dx, y); g.stroke(); }
+}
+
+const tl = gsap.timeline({ paused: true });
+tl.to({ v: 0 }, { v: 1, duration: DUR, ease: "none" }, 0);
+tl.eventCallback("onUpdate", () => frame(tl.time()));
+window.__timelines = window.__timelines || {};
+window.__timelines["main"] = tl;
+frame(0);
+</script>
+</body>
+</html>

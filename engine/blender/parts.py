@@ -1064,7 +1064,7 @@ def service_valve(size=0.00635, kind='2way', name='valve', stub_len=0.022):
         z = s / 2 + 0.0075 + k * 0.0021
         mb.ring(tr + 0.0007, tr - 0.0001, z, z + 0.001, 20, Mx)
     mb.lathe([(0, s / 2 + 0.02), (tr * 0.85, s / 2 + 0.02), (size / 2 + 0.001, s / 2 + 0.024), (0, s / 2 + 0.024)], 20, M=Mx)
-    # stub to the unit
+    # stub to the machine
     mb.use('copper').ring(size / 2 + 0.0015, size / 2, -s / 2 - stub_len, -s / 2 + 0.002, 16, Mx)
     mb.use('brass').ring(size / 2 + 0.003, size / 2 + 0.001, -s / 2 - 0.004, -s / 2 + 0.001, 16, Mx)
     # stem bonnet + cap (toward -Y)
@@ -1140,7 +1140,7 @@ def _wire_grid(mb, origin, u, v, nu_len, nv_len, pitch, r=0.0012, frame_r=0.002)
 def sheet_casing(w=0.78, h=0.54, d=0.27, z0=0.02, fan_c=(-0.12, 0.27), fan_open_r=0.215,
                  split_x=0.13, coil_end_x=0.33, valve_win=(-0.125, -0.045, 0.045, 0.175), foot_x=0.28,
                  prefix='casing'):
-    """Outer casing of a box unit as separate panels. Local: front -Y at y=-d/2, base at z=0
+    """Outer casing of a box machine as separate panels. Local: front -Y at y=-d/2, base at z=0
     (foot rails 0..z0, pan floor at z0), x centred. Returns panels, front grille and screws."""
     out = {}
     t = 0.0008

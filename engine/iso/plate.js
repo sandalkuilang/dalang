@@ -1,15 +1,15 @@
 // plate.js — the user's own thing, traced from their photo (scripts/trace.mjs, vtracer), standing in the isometric
 // world at its real size (DALANG, MIT). The trace is the photo's own view as vector layers; the plate stands it upright
 // at a world point, its lowest edge on the ground, and moves its layers by values: a part turns about its ellipse (a fan,
-// a wheel), a colour selection is tinted (copper pipes running hot, then cold), a flow runs along a path drawn on the
-// photo (refrigerant, air, current), and marks give overlays their pins on the photo's own parts.
+// a wheel), a colour selection is tinted (a pipe running hot, then cold), a flow runs along a path drawn on the
+// photo (a fluid, air, current), and marks give overlays their pins on the photo's own parts.
 //
 //   const plates = await loadPlates(WORLD);   // before the timeline: assets/plates/<plate>/ for every plate part
 //   build(iso, WORLD, { values: v, plates });
-//   { name: "unit", form: "plate", plate: "ac", w: 0.85,
-//     spin: { fan: "fanAngle" }, spread: { fan: "fanBlur" }, tint: { pipes: { color: "#E0523A", amount: "hot" } },
+//   { name: "unit", form: "plate", plate: "pump", w: 0.85,
+//     spin: { rotor: "rotorAngle" }, spread: { rotor: "rotorBlur" }, tint: { pipes: { color: "#E0523A", amount: "hot" } },
 //     flows: [{ path: [[0.62, 0.55], [0.7, 0.4]], color: "#E0523A", width: 6, at: "flow" }],
-//     marks: { compressor: [0.72, 0.68] } }
+//     marks: { motor: [0.72, 0.68] } }
 // Paths and marks are fractions of the photo (x of its width, y of its height), read off the photo.
 const each = (list, f) => { for (const p of list || []) { f(p); if (p.parts) each(p.parts, f); } };
 
