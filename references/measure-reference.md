@@ -6,7 +6,7 @@
 2. **Copying the script** and just changing the character names. Also theft, only slower.
 3. **Copying the craft**: measuring how the film is built, then using those measurements for your own story. **Only this one is used.**
 
-What you may take is the measurements: section lengths, number of cuts, camera movement, boil rate, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a channel's signature colour scheme is never copied.
+What you may take is the measurements: section lengths, number of cuts, camera movement, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a channel's signature colour scheme is never copied.
 
 One sentence covers it: **measure theirs, make yours.**
 
@@ -36,7 +36,6 @@ One folder per reference (`measure/<name>/` for two); a run clears its folder. I
 - `measure/contact/`: contact sheets, 16 stills per sheet (4×4). `measure/contact/index.txt` lists each sheet's seconds.
 - `measure/reference-board.jpg`: 8 stills, the Gate 3 benchmark board.
 - `measure/cuts.txt`: estimated time of every hard cut.
-- `measure/boil.txt`: estimated unique frames per second at a few points. About 5 means the lines are redrawn 5× per second.
 - `measure/stillness.txt` and `measure/loudness.txt`: stillness % and loudness (needs Node).
 - `measure/palette.txt`: the dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall top list (`scripts/palette.mjs`, needs Node; `node <skill-dir>/scripts/palette.mjs --compare <#hex> <#hex>` gives the lightness gap of two colours).
 - `measure/summary.txt`: all of the above.
@@ -59,7 +58,6 @@ Note: "still" depends heavily on the sensitivity threshold. Use the **same** one
 - Structure: <n> sections; length of each: ...
 - Shots: ... | hard cuts: ...
 - Dominant camera move: push-in / pull-out / static
-- Boil rate: ... redraws per second
 - Stillness: ...% (threshold: ...)
 - Beats: on average 1 every ... s
 - Loudness: ... LUFS
@@ -80,4 +78,4 @@ Note: "still" depends heavily on the sensitivity threshold. Use the **same** one
 - Deliberately different: story, characters, brand marks, ...
 ```
 
-The "quietly does" items (boil rate, captions fixed while the ground scrolls) are what watching misses; measure them.
+The "quietly does" items (captions fixed while the ground scrolls) are what watching misses; measure them.

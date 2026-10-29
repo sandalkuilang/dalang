@@ -142,7 +142,7 @@ function hit(el, d, t, point, outward) {
 
 // A flat boundary between two media: an infinite plane (a water surface, a window face) with `below` on the -normal side. `size`
 // (m) is only the drawn sheet.
-export function interfaceAt({ at, normal, below = "water", above = "air", size = 1 } = {}) {
+function interfaceAt({ at, normal, below = "water", above = "air", size = 1 } = {}) {
   const c = where(at, "interface"), n = unit(normal, "interface", "normal"), lo = material(below), hi = material(above);
   if (!positive(size)) throw new Error(`interface: size (m, the drawn sheet) must be > 0, got ${size}`);
   const mesh = place(new THREE.Mesh(new THREE.PlaneGeometry(size / M, size / M).rotateX(-Math.PI / 2), new THREE.MeshPhysicalMaterial({ color: 0xbfe3ee, transparent: true, opacity: 0.25, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false })), n, c.clone().multiplyScalar(1 / M));

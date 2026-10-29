@@ -104,7 +104,7 @@ const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000, kokoro: 4000 };
 const WHISPER_LANG = { jv: 'jw', iw: 'he', 'zh-tw': 'zh', 'zh-cn': 'zh', 'pt-br': 'pt' };
 
 function parseArgs(argv) {
-  const a = { engine: 'voicestudio', out: 'audio', model: null, language: null, name: 'narration', format: null, vsUrl: 'http://localhost:3900', seed: 42, steps: 32, align: 'auto' };
+  const a = { engine: 'voicestudio', out: 'audio', model: null, language: null, name: 'narration', vsUrl: 'http://localhost:3900', seed: 42, steps: 32, align: 'auto' };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     const next = () => {
@@ -119,8 +119,6 @@ function parseArgs(argv) {
       case '--voice-id': a.voiceId = next(); break;
       case '--model': a.model = next(); break;
       case '--language': a.language = next(); break;
-      case '--name': a.name = next(); break;
-      case '--format': a.format = next(); break;
       case '--speed': a.speed = parseFloat(next()); break;
       case '--tempo': a.tempo = parseFloat(next()); if (!(a.tempo >= 0.8 && a.tempo <= 1.2)) die('--tempo takes a number from 0.8 to 1.2 (below 1 slower, above 1 faster).'); break;
       case '--engine': a.engine = next(); break;
@@ -155,9 +153,8 @@ function parseArgs(argv) {
   }
   a.modelFrom = a.model ? '--model' : null;
   if (a.engine === 'elevenlabs') a.model ??= 'eleven_v4'; // VoiceStudio: the active model, read in main()
-  if (a.engine === 'kokoro') { a.model ??= 'Kokoro-82M'; a.modelFrom ??= '--engine kokoro'; a.format = 'wav'; }
-  if (a.engine === 'voicestudio') a.format = 'wav'; // parts are joined losslessly, then measured
-  a.format ??= 'mp3_44100_128';
+  if (a.engine === 'kokoro') { a.model ??= 'Kokoro-82M'; a.modelFrom ??= '--engine kokoro'; }
+  a.format = a.engine === 'elevenlabs' ? 'mp3_44100_128' : 'wav'; // VoiceStudio and Kokoro parts are joined losslessly, then measured
   return a;
 }
 
@@ -1368,11 +1365,10 @@ async function main() {
   if (unnamed && !a.sample) console.warn(`WARNING: ${unnamed} beat(s) have no |name and get auto names (b1, b2, ...) that shift when beats are added. Use {text|name}.`);
 
   await mkdir(a.out, { recursive: true });
-  const ext = f => f.startsWith('mp3') ? 'mp3' : f.startsWith('pcm') ? 'pcm' : f.startsWith('opus') ? 'opus' : f.startsWith('wav') ? 'wav' : f.startsWith('flac') ? 'flac' : 'audio';
+  const ext = f => f.startsWith('mp3') ? 'mp3' : 'wav'; // ElevenLabs: mp3_44100_128; VoiceStudio and Kokoro: wav
   // Samples get a name per voice + style + seed, so auditions of one voice never overwrite each other.
   const slug = s => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
   const baseFor = id => !a.sample ? a.name
-    : a.name !== 'narration' ? `sample-${slug(a.name)}`
     : ['sample', a.voice || id || 'voice', a.instructions && `${slug(a.instructions).slice(0, 24)}-${createHash('sha1').update(a.instructions).digest('hex').slice(0, 6)}`, a.engine === 'voicestudio' && `s${a.seed}`, a.speed && `x${a.speed}`].filter(Boolean).map(slug).join('-');
   let response;
   let voiceId = null;

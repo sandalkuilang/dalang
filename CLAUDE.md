@@ -16,8 +16,6 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   which proves an Express world (`scripts/iso_audit.mjs`). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
 - `engine/blender/`: the precision lane's hero assets, modelled once by script (`parts.py` library,
   `assemblies/<name>.py`, checked by `tests/blender-parts.mjs`). `engine/music/`: the bundled CC0 / public-domain beds.
-- `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
-  committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
 - `docs/`: workflow and architecture, with diagrams (`docs/assets/build.py` derives the light SVGs from the dark ones).
 
@@ -71,8 +69,6 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - Releases: `scripts/release.sh x.y.z`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
   moves `Unreleased` into `## [x.y.z] - date`, pins the README's clone example, merges that PR at once and tags the
   merged commit; the `release` workflow publishes the section and its own checks refuse a broken tag. No local gate
-  and no CI wait for a release (CI still runs on `main`). The golden eval (`node scripts/golden.mjs --version x.y.z`,
-  same machine as last time, commit `evals/golden/x.y.z/`) runs only when the release changes how films look (engine
-  look, lights, camera, render); then exit 3 needs `--explained "<why>"` and the same text in the CHANGELOG.
+  and no CI wait for a release (CI still runs on `main`).
 - The installed copy (`~/.claude/skills/dalang`) is a clone of this repo: update it with `git pull`, never edit
   it directly.

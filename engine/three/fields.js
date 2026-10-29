@@ -18,7 +18,7 @@ import { M, tone } from "./kit.js";
 // `mode: "world"` is depth tested but a real field has no light in it, so the in-world form of a field is the filings and
 // the compass, not lines. Constants: CODATA 2018 (Tiesinga et al., Rev. Mod. Phys. 93, 025010).
 
-export const EPS0 = 8.8541878128e-12; // vacuum permittivity, F/m
+const EPS0 = 8.8541878128e-12; // vacuum permittivity, F/m
 export const MU0 = 1.25663706212e-6; // vacuum permeability, N/A²
 const KE = 1 / (4 * Math.PI * EPS0); // Coulomb's constant, N·m²/C²
 const GOLDEN = Math.PI * (3 - Math.sqrt(5)); // the golden angle, rad

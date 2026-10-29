@@ -3,8 +3,7 @@
 # Cuts the release from origin/main: a release/vx.y.z branch that moves CHANGELOG's Unreleased into ## [x.y.z] - today
 # and pins the README's clone example, a PR merged at once (main asks for no status check), then the tag on the merged
 # commit. The tag starts the `release` workflow, whose own checks refuse a broken tag; CI runs on main as usual, in the
-# background. No local gate and no golden eval here: run `node scripts/golden.mjs --version x.y.z` before this only when
-# the release changes how films look (engine look, lights, camera, render).
+# background. No local gate.
 # GitHub writes go through GH_USER's token only (default: the repo owner's account).
 set -e
 v=${1#v}

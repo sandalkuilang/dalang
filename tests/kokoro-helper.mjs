@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const helper = fileURLToPath(new URL("../scripts/kokoro_tts.py", import.meta.url));

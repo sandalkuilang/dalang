@@ -56,7 +56,6 @@ function oneWay(keys) {
   }
 }
 
-const TAU = Math.PI * 2;
 
 // Speed ramp: keys [{ t, speed }] (1 normal, 0.25 slow motion, 0 a freeze), linear between keys, held outside. Returns
 // the story time τ at film time t, the integral of the speed, so a ramp into the impact slows without a jump.

@@ -22,7 +22,7 @@ export function oklchL([r, g, b]) {
   return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
 }
 export const hex = (rgb) => '#' + rgb.map((v) => v.toString(16).padStart(2, '0')).join('');
-export const parseHex = (h) => {
+const parseHex = (h) => {
   const m = /^#?([0-9a-f]{6})$/i.exec(h || '');
   if (!m) return null;
   const n = parseInt(m[1], 16);

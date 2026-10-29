@@ -59,12 +59,12 @@ import { parseNarration, splitSentences, stripTags } from './tts_timestamps.mjs'
 
 // ── ALLOWLIST: the attributes of a media element or a bus that the model applies or judges (INPUTS) or knows do not
 // change the mix (INERT; aria-* too). Written once; a new input is modelled only by adding it here and applying it.
-export const HF_MAX_GAIN = 10 ** (12 / 20); // HyperFrames clamps a gain to 0..+12 dB
-export const INPUTS = {
+const HF_MAX_GAIN = 10 ** (12 / 20); // HyperFrames clamps a gain to 0..+12 dB
+const INPUTS = {
   media: new Set(['src', 'data-start', 'data-end', 'data-duration', 'data-volume', 'data-media-start', 'data-playback-rate', 'data-automation', 'loop', 'data-audio-group', 'data-fx-chain', 'data-fade-in', 'data-fade-out', 'data-hidden', 'data-has-audio', 'muted']),
   bus: new Set(['data-volume', 'data-fx-chain', 'data-automation', 'data-hidden']),
 };
-export const INERT = new Set(['id', 'class', 'style', 'title', 'alt', 'type', 'width', 'height', 'poster', 'preload', 'crossorigin', 'referrerpolicy', 'controls', 'autoplay', 'playsinline', 'webkit-playsinline', 'disablepictureinpicture', 'disableremoteplayback', 'data-hf-id', 'data-hf-render-id', 'data-hf-auto-start', 'data-track-index', 'data-layer', 'data-label', 'data-name']);
+const INERT = new Set(['id', 'class', 'style', 'title', 'alt', 'type', 'width', 'height', 'poster', 'preload', 'crossorigin', 'referrerpolicy', 'controls', 'autoplay', 'playsinline', 'webkit-playsinline', 'disablepictureinpicture', 'disableremoteplayback', 'data-hf-id', 'data-hf-render-id', 'data-hf-auto-start', 'data-track-index', 'data-layer', 'data-label', 'data-name']);
 export const THRESHOLDS = {
   bedMaxUnder: 25, bedMinUnder: 8,        // dB of the bed under the narration: inaudible above the first, masking below the second
   clickRatio: 8, clickFloor: 0.1,         // a jump over 8x the local jump RMS and over 0.1 full scale
@@ -85,7 +85,7 @@ const toDb = (rms) => (rms > 1e-6 ? 20 * Math.log10(rms) : -120);
 const rmsOf = (x, a, b) => { let s = 0; for (let i = a; i < b; i++) s += x[i] * x[i]; return b > a ? Math.sqrt(s / (b - a)) : 0; };
 
 // RMS dBFS per frame of frameS seconds.
-export function frameDb(x, rate, frameS = 0.05) {
+function frameDb(x, rate, frameS = 0.05) {
   const n = Math.round(frameS * rate), out = [];
   for (let a = 0; a + n <= x.length; a += n) out.push(toDb(rmsOf(x, a, a + n)));
   return out;
@@ -440,7 +440,7 @@ const JS_TYPES = new Set(['module', 'application/ecmascript', 'application/javas
   'text/javascript1.4', 'text/javascript1.5', 'text/jscript', 'text/livescript', 'text/x-ecmascript', 'text/x-javascript']);
 // The script's type string as the HTML spec derives it: an empty or absent type is JavaScript unless a non-empty language
 // attribute stands alone (text/<language>); parameters (charset...) are dropped, on the safe side: a script is not skipped.
-export function isJsScript(attrs) {
+function isJsScript(attrs) {
   const has = (k) => Object.hasOwn(attrs, k) && String(attrs[k]).trim() !== '';
   const type = has('type') ? String(attrs.type) : has('language') && !Object.hasOwn(attrs, 'type') ? `text/${String(attrs.language).trim()}` : 'text/javascript';
   return JS_TYPES.has(type.split(';')[0].trim().toLowerCase());
@@ -457,9 +457,9 @@ export function isJsScript(attrs) {
 // what a name loads, so even an engine name is unknown: NOT CHECKED (UNRESOLVED).
 // What follows every "by ear": an agent cannot listen, and almost every film loads a script (the GSAP library and its own
 // timeline), so an unattended run meets this advice in nearly every film and must not read it as a pass.
-export const BY_EAR = 'check the bed by ear on the draft; with nobody to listen, name "bed level not checked" in the hand-off as a known bug';
-export const NON_ENGINE = `page runs a script that is not the engine library; ${BY_EAR}`;
-export const UNRESOLVED = `page loads scripts the check does not resolve; ${BY_EAR}`;
+const BY_EAR = 'check the bed by ear on the draft; with nobody to listen, name "bed level not checked" in the hand-off as a known bug';
+const NON_ENGINE = `page runs a script that is not the engine library; ${BY_EAR}`;
+const UNRESOLVED = `page loads scripts the check does not resolve; ${BY_EAR}`;
 // A NESTED DOCUMENT is judged the same way: an iframe srcdoc is read as a document like index.html (pageProblem); any other
 // document an element opens (FRAMES) that is not a remote http(s) page (another origin cannot reach this page) is a load
 // the check does not resolve; an empty one or about:blank is none.
@@ -522,7 +522,7 @@ export function scriptProblem(scripts, dir, read, { base = null, handlers = [], 
 // Every field scanHtml returns is judged: the code fields here (scriptProblem), the mix fields by the bed check of
 // index.html (media, groups, master; a srcdoc's own <audio> or <video> is a mix this check does not read). A field in
 // neither list is a scan nobody judges: it throws, so a new kind of input can never pass unread.
-export const SCAN_FIELDS = { code: ['scripts', 'handlers', 'frames', 'base'], mix: ['media', 'groups', 'master'] };
+const SCAN_FIELDS = { code: ['scripts', 'handlers', 'frames', 'base'], mix: ['media', 'groups', 'master'] };
 export function pageProblem(page, dir, read, { nested = null } = {}) {
   const unjudged = Object.keys(page).filter((k) => !SCAN_FIELDS.code.includes(k) && !SCAN_FIELDS.mix.includes(k));
   if (unjudged.length) throw new Error(`pageProblem: the scan field ${unjudged.join(', ')} is not judged`);
@@ -563,7 +563,7 @@ export function renderProblem(t, groups = new Map(), { narration = false } = {})
 // The linear gain of the tag's audio group bus (data-volume of its <hf-audio-group>), 1 without one.
 export const busGain = (t, groups = new Map()) => (t.group && groups.get(t.group) ? groups.get(t.group).volume : 1);
 // The timeline options of applyGain for a tag.
-export const clipOpts = (t) => ({ mediaStart: t.mediaStart, dur: clipLength(t), loop: t.loop, fadeIn: t.fadeIn, fadeOut: t.fadeOut });
+const clipOpts = (t) => ({ mediaStart: t.mediaStart, dur: clipLength(t), loop: t.loop, fadeIn: t.fadeIn, fadeOut: t.fadeOut });
 
 // The music cues among the tags: a name (the id, else the file name without extension) that is the word music, bgm, bed or
 // soundtrack, optionally "background-" before and an index or cue word after (music-a, bgm_2, background-music-loop).
@@ -607,7 +607,7 @@ export function tagRoles(tags, narrTag, lengthOf, music = [], groups = new Map()
 // The one place the Result is made. Each of CHECKS must end 'done' (judged) or, for the bed only, 'absent' (no music in
 // the film, proved by tagRoles); a check with neither outcome is NOT CHECKED, whatever path skipped it. So an unknown
 // can never print OK: OK is not a fallback, it needs every outcome.
-export const CHECKS = ['bed', 'clicks', 'voice'];
+const CHECKS = ['bed', 'clicks', 'voice'];
 export function verdict({ flags, notChecked, done, absent }) {
   const open = [...new Set([...CHECKS.filter((c) => !done.includes(c) && !(c === 'bed' && absent.includes('bed'))), ...notChecked])];
   const AWAY = ' Away from the user, name each NOT CHECKED item in the hand-off as a known bug: it is never a pass.';

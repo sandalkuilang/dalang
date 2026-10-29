@@ -367,7 +367,7 @@ try {
     // is a local file the .engine.json beside it lists, loaded by a <script src> (or an SVG <script href>).
     const none = () => ({ why: "x" }), scriptOf = (text, attrs = {}) => q.scriptProblem([{ attrs, text }], ".", none);
     const nonEngine = /page runs a script that is not the engine library; check the bed by ear on the draft/, unresolved = /page loads scripts the check does not resolve; check the bed by ear on the draft/;
-    // any script text, whatever it says (the words that used to decide are no longer read)
+    // any script text, whatever it says
     for (const code of ['tl.to("#music", { volume: 0.1 }, 2)', "el.volume = 0.2", "a.muted = true", 'tl.to("#title", { opacity: 1 }, 0)', "const volumes = 1; const mutedColor = 2; gains(); fxx();", 'fetch("https://x.test/a")', "// only a comment", "1"]) assert.match(scriptOf(code) || "", nonEngine, code);
     assert.equal(scriptOf(""), null, "an empty inline script runs nothing");
     assert.equal(scriptOf(" \n\t "), null, "a blank inline script runs nothing");

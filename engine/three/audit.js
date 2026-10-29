@@ -1,8 +1,7 @@
 // audit.js — two checks on a built set, in metres at any scale (kit.js M). Neither moves anything.
 //  - scaleAudit(root): a prop declares its real size in userData.real = { h, w, d } (metres, from the model's source or a
 //    cited size; h = world Y, w = world X, d = world Z: a prop turned about Y swaps w and d, so declare h or both).
-//    Off by more than tol -> reported. No declared size, at any depth in the tree -> "unchecked", never passed. A printed
-//    marking (markings.js) is ink on a surface, not part of the body: a prop is measured without it.
+//    Off by more than tol -> reported. No declared size, at any depth in the tree -> "unchecked", never passed.
 //  - zFight(root, { cameras }): coplanar-ish faces of two meshes closer than the depth buffer can tell apart at the
 //    camera depth z-fight. Depth step (m) = z² (far - near) / (far · near · 2^bits), a lower bound: a gap a few steps
 //    wide can still fight on a real GPU. A polygonOffset counts only by the window depth it shifts at each camera
@@ -14,20 +13,6 @@ const AXIS = { w: "x", h: "y", d: "z" };
 const label = (o) => o.name || (o.parent && o.parent.name ? o.parent.name + " " : "") + o.type;
 const some = (o, f) => { let hit = false; o.traverse((x) => { if (f(x)) hit = true; }); return hit; };
 
-// The box of a prop's own geometry. A printed marking (markings.js, userData.marking) is ink or paper on the surface, tens
-// of micrometres to a millimetre thick: it is not part of the body, so a subtree that carries one is measured without it.
-const measure = (o) => {
-  let marked = false;
-  o.traverse((x) => { if (x.userData.marking) marked = true; });
-  if (!marked) return new THREE.Box3().setFromObject(o, true);
-  const box = new THREE.Box3(), v = new THREE.Vector3();
-  o.traverse((x) => {
-    const p = x.isMesh && !x.userData.marking && x.geometry?.attributes.position;
-    if (p) for (let i = 0; i < p.count; i++) box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(x.matrixWorld));
-  });
-  return box;
-};
-
 export function scaleAudit(root, { tol = 0.15, mpu = M } = {}) {
   if (!(typeof tol === "number" && tol > 0)) throw new Error("scaleAudit(): tol is a positive fraction (got " + tol + ")");
   root.updateMatrixWorld(true);
@@ -37,7 +22,7 @@ export function scaleAudit(root, { tol = 0.15, mpu = M } = {}) {
     if (real === undefined) return;
     const keys = real && typeof real === "object" ? Object.keys(real) : [];
     if (!keys.length || keys.some((k) => !(k in AXIS))) { bad.push(label(o) + ": userData.real is { h, w, d } in metres"); return; }
-    const box = measure(o);
+    const box = new THREE.Box3().setFromObject(o, true);
     if (box.isEmpty()) { bad.push(label(o) + ": declares a size but has no geometry to measure"); return; }
     const size = box.getSize(new THREE.Vector3());
     for (const k of keys) {

@@ -1,12 +1,11 @@
 import { THREE, mergeVertices } from "./three-vendor.js";
 import { M, tone } from "./kit.js";
-import { surface } from "./surfaces.js";
 
 // A bulk of small things (rice in a jar, coffee in a sack, lentils in a pot, sand in a pit, gravel on a path) reads by
 // its separate grains, at the surface and at a cut. A smooth slab with a noise texture reads as foam or gravel, and
 // capsules read as pills. Grains here are plump ellipsoids (angular stones for sugar, sand and gravel) at their real
-// size, in two or more jittered layers, each its own tone, over a body whose faces wear the same packed-grain texture
-// (surfaces.js `grains`). It is static dressing, not a pour or a spill.
+// size, in two or more jittered layers, each its own tone, over a body in the grains' first tone. It is static dressing, not
+// a pour or a spill.
 //
 // grains(k, { preset | l, t, w, shape, colors, rough, at, radius | width + depth, bottom, height, layers = 2,
 //   jitter = 0.5, cut: { normal, offset }, instances = true, max = 40000, seed = 9 })
@@ -27,8 +26,8 @@ import { surface } from "./surfaces.js";
 // plane is read in the group's own frame at each call and the fill rebuilt only when it changed.
 // A fill shallower than its grains (`height` under about 1.3 grain thicknesses) is one layer resting on the floor: no
 // grain is ever below y = 0, so it stands a little above `height`.
-// `instances: false` (sugar or sand in a wide shot, grains under ~3 px) builds the body alone: its texture is the
-// grains. Above `max` grains the rest are dropped (`capped`, `counts` follow what is built) with a warning: shrink the
+// `instances: false` (sugar or sand in a wide shot, grains under ~3 px) builds the body alone, in the grains'
+// first tone. Above `max` grains the rest are dropped (`capped`, `counts` follow what is built) with a warning: shrink the
 // area or drop the instances.
 // A look that needs its own materials swaps `body.material` and `mesh.material` for its own; the shapes stay.
 
@@ -133,7 +132,7 @@ export function grains(k, { preset, at = new THREE.Vector3(), radius, width, dep
   const floorTop = ss * jf * Math.hypot(P.t / 2, (Math.sin(tilt) * P.l) / 2, (Math.sin(tilt) * P.w) / 2), floorFace = (ss * jf * Math.max(P.l, P.t, P.w)) / 2; // a face grain turns freely
 
   // The whole body: the footprint extruded up to yb (tapered to `bottom`), clipped per cut in build().
-  const bodyMat = surface(new THREE.MeshStandardMaterial({ color: P.colors[0], roughness: P.rough }), "grains", { size: P.w, long: P.l / P.w });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: P.colors[0], roughness: P.rough });
   let whole = null;
   if (yb > 0) {
     const poly = round ? Array.from({ length: 64 }, (_, i) => [radius * Math.cos((i / 64) * 2 * Math.PI), radius * Math.sin((i / 64) * 2 * Math.PI)]) : [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]];
