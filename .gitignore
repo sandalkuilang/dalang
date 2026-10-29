@@ -15,6 +15,11 @@ renders/
 *.response.json
 words.json
 beats.json
+# Blender hero output (engine/blender writes it next to the script by default; a film keeps its own copy)
+*.glb
+*.gltf
+*.blend
+*.blend1
 
 # Tooling / OS junk
 node_modules/

@@ -41,6 +41,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
 - `kit.js`: components every made thing is assembled from (fasteners, faces and controls, pipes, hoses, cables, tyres,
   springs, fins, containers, windows, doors, furniture, plants, lamps, tools), each a function of its sizes returning
   ordinary parts; `{ form: "kit", kit: "tyre", r, width }` in a spec. Anatomy's audit expands them the same way.
+- `palette.js`: `triad(hex)` → `[top, left, right]`, three readable tones from one base colour by fixed lightness steps in
+  OKLab (`STEP`; hue and chroma kept), so a dark or a pale material keeps all three faces where `tri()` would lose one;
+  `toOklab`, `fromOklab`. Pure. Use it where a part takes a colour: `{ form: "box", color: triad(COLORS.subject) }`.
 - `model.js`: `await loadModel(url)` reads a `.glb` or `.gltf` (with its `.bin` and textures; Draco and meshopt are
   refused) from `find_media.mjs --type model` (Poly Haven, Kenney, Smithsonian, NASA); `drawModel(iso, m, { size,
   palette, color, texels, max })` paints every triangle flat in three tones of its material's colour (a texture's mean

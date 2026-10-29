@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The merge gate: syntax, SKILL.md front-matter, README diagrams, the engine's self-check and preflight
-      # against a mock VoiceStudio. The same script runs locally (scripts/gate.sh, --fast for the static part).
+      # The merge gate (scripts/gate.sh): the static checks, the engine's self-check and every tests/*.mjs. The same
+      # script runs locally (--fast for the static part).
       - name: Gate
         run: scripts/gate.sh

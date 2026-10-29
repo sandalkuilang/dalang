@@ -6,8 +6,8 @@ pump, a bicycle hub, a lock, a microscope, a heart valve, a gearbox) is modelled
 `engine/blender/`, rendered stylized, and kept in the library for every later film. Supporting objects keep the
 cheaper routes (`visual-direction.md` §1.1: a CC0 model, an iso object, a drawn object).
 
-Blender (GPL) is a tool on the machine, never shipped. Missing: a Call 0 question with its size and licence, never
-installed on its own; declined, the hero falls back to a CC0 model or a three.js build, logged.
+Blender (GPL) is a tool on the machine, never shipped. Missing (preflight's Blender row): `brief.md` Call 0's Blender
+question (size, licence), never installed on its own; declined, the hero falls back to a CC0 model or a three.js build, logged.
 
 ## 1. Read the pictures
 

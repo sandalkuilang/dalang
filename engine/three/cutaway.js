@@ -20,8 +20,8 @@ import { M } from "./kit.js";
 // A part is a closed mesh (the stencil counts its front and back faces); an open one is flagged `shell`. A part that
 // must stay whole (a label, a hand reaching in) is `userData.cut = false` (listed in `uncut`). A part that cuts itself
 // (a granular fill, grains.js) is `cut = false` with `userData.cutTo(plane | null)`: cutaway() calls it with its plane on
-// every frame (null when off) and when it is made, so the part follows on(), off(), set() and a moved root. Instanced, skinned and
-// fur meshes are cut but get no cap (`nocap`), as does an all-transparent part. Flags go on before the part is added.
+// every frame (null when off) and when it is made, so the part follows on(), off(), set() and a moved root. Instanced and skinned
+// meshes are cut but get no cap (`nocap`), as does an all-transparent part. Flags go on before the part is added.
 // The renderer needs a stencil buffer: new THREE.WebGLRenderer({ stencil: true }) and EffectComposer(renderer,
 // { stencilBuffer: true }); ready(renderer) turns clipping on and fails loudly without it (the caps would vanish).
 
@@ -72,7 +72,7 @@ const smooth = (u) => u * u * (3 - 2 * u);
 // isoStudio). Returns { plane, group, parts, uncut, nocap, add, set, on, off, at, ready }.
 export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0, color, hatch, flat = false } = {}) {
   const n = normal.clone().normalize(), plane = new THREE.Plane(n.clone().negate(), 0); // keeps n·p <= constant
-  const group = new THREE.Group(); // the caps and their stencils; never under `root`, so its size and physics stay the assembly's
+  const group = new THREE.Group(); // the caps and their stencils; never under `root`, so its size and audit stay the assembly's
   group.name = "cutaway"; group.userData.cutaway = true;
   const parts = [], uncut = [], nocap = [], seen = new Set(), watched = new WeakSet(), clones = new WeakSet(), made = new Map(), followers = new Set();
   const capGeo = new THREE.PlaneGeometry(1, 1), capM = new THREE.Matrix4(), tex = hatch ? hatchTexture() : null;
@@ -137,7 +137,7 @@ export function cutaway(root, { normal = new THREE.Vector3(0, 0, 1), offset = 0,
     if (seen.has(o)) return;
     seen.add(o);
     if (!o.isMesh) return;
-    if (o.isInstancedMesh || o.isSkinnedMesh || o.userData.fur || mats(o).every((m) => m.transparent)) { nocap.push(o); return; }
+    if (o.isInstancedMesh || o.isSkinnedMesh || mats(o).every((m) => m.transparent)) { nocap.push(o); return; }
     o.updateWorldMatrix(true, false);
     const s = o.matrixWorld.getMaxScaleOnAxis() || 1, geo = shell ? thicken(o.geometry, (shell / M) / s) : o.geometry, order = 10000 + 2 * parts.length; // thickness: metres → the mesh's local units
     const stencil = (side, op) => quiet(Object.assign(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side, clippingPlanes: [plane], stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op })), { renderOrder: order }));

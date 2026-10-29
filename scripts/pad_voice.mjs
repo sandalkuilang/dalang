@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Room around the voice: the film opens on its first picture before anyone speaks and holds its last one after. Writes
-// audio/voice.wav (the take with `lead` s of silence before and `tail` s after) and moves every time the take's files
-// hold by `lead`: words.json, beats.json (+ duration, audio_file, a `pad` record), beats.js, narration.srt and, when
-// they exist, captions.json and captions.js. The take itself (the file beats.json names) is never touched, so a retake
-// still works on it; a retake rewrites the timing files unpadded, and this is run again after it.
+// audio/voice.wav (the take with `lead` = 1.45 s of silence before and `tail` = 1.35 s after, fixed by SKILL.md) and
+// moves every time the take's files hold by `lead`: words.json, beats.json (+ duration, audio_file, a `pad` record),
+// beats.js, narration.srt and, when they exist, captions.json and captions.js. The take itself (the file beats.json
+// names) is never touched, so a retake still works on it; a retake rewrites the timing files unpadded, and this is run
+// again after it.
 //
-// Usage: node pad_voice.mjs [project] [--lead 1.45] [--tail 1.35]
-// Exit 0 padded (or already padded: beats.json has its `pad` record); 1 a missing or unreadable file; 2 bad flags.
+// Usage: node pad_voice.mjs [project]
+// Exit 0 padded (or already padded: beats.json has its `pad` record); 1 a missing or unreadable file.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -14,9 +15,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 const args = process.argv.slice(2);
-const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? Number(args.splice(i, 2)[1]) : d; };
-const lead = opt('--lead', 1.45), tail = opt('--tail', 1.35);
-if (!(lead >= 0 && tail >= 0 && lead < 10 && tail < 10)) { console.error('--lead and --tail are seconds, 0 to 10'); process.exit(2); }
+const lead = 1.45, tail = 1.35;
 const dir = path.resolve(args[0] ?? '.'), A = path.join(dir, 'audio');
 const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
 const read = f => { try { return readFileSync(path.join(A, f), 'utf8'); } catch { return null; } };

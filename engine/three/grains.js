@@ -13,7 +13,7 @@ import { surface } from "./surfaces.js";
 //   → { group, body, mesh, counts: { top, face }, capped, preset, cutTo(plane | null) }
 // Everything is modelled in metres inside `group` (scaled 1/M, placed with `at`, the fill's bottom centre in units); the
 // caller adds the group to the scene like a kit prop. To nest it in a group already modelled in metres, set its scale
-// to 1 and its position in metres (examples/canister.js does). The body is a column of the footprint (circle `radius`,
+// to 1 and its position in metres. The body is a column of the footprint (circle `radius`,
 // or `width` × `depth`) up to the grains' lowest layer, tapering to `bottom` (radius at the base) for a bowl or a
 // flowerpot; the top is `layers` jittered grids of grains, each layer half a cell off the one below.
 // `cut` shows the inside: the same `{ normal, offset }` cutaway() takes, in WORLD space with all three components
@@ -30,7 +30,7 @@ import { surface } from "./surfaces.js";
 // `instances: false` (sugar or sand in a wide shot, grains under ~3 px) builds the body alone: its texture is the
 // grains. Above `max` grains the rest are dropped (`capped`, `counts` follow what is built) with a warning: shrink the
 // area or drop the instances.
-// A toon set swaps `body.material` and `mesh.material` for its own; the shapes stay.
+// A look that needs its own materials swaps `body.material` and `mesh.material` for its own; the shapes stay.
 
 export const presets = { // real sizes (m): l length, t thickness, w width; shape; colours; roughness
   lentil: { l: 0.005, t: 0.0022, w: 0.005, shape: "lens", colors: [0x8b7240, 0x7a6436, 0x9a8250], rough: 0.6 },

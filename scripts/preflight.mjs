@@ -5,13 +5,15 @@
 // dozen commands. Never prints secrets.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
-//                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro]
+//                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
 //   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
 //                  --skill-dir points it at another folder.
 //   --check-workspace  only the Workspace row (is the videos folder lean? workspace.mjs status); --workspace-dir
 //                  points it at a folder other than the current one.
 //   --check-kokoro only the Kokoro row (optional local Apache-2.0 voice, scripts/kokoro_tts.py --check): reads the
 //                  Python's packages and the weights cache, downloads nothing. DALANG_PYTHON picks the Python.
+//   --check-blender only the Blender row (Studio's hero asset, references/hero-asset.md): `blender --version`.
+//                  BLENDER picks the binary (default: the macOS app, else `blender` on PATH).
 //   --start  VoiceStudio STOPPED (macOS app installed, not running): open it and wait ≤ 60 s for the backend.
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
@@ -31,6 +33,7 @@ const asJson = args.includes('--json');
 const start = args.includes('--start');
 const checkSkill = args.includes('--check-skill');
 const checkKokoro = args.includes('--check-kokoro');
+const checkBlender = args.includes('--check-blender');
 const sdArg = args.indexOf('--skill-dir'), sdEq = args.find(a => a.startsWith('--skill-dir='));
 const sdRaw = sdEq ? sdEq.slice('--skill-dir='.length) : sdArg >= 0 ? args[sdArg + 1] : fileURLToPath(new URL('..', import.meta.url));
 if (!sdRaw) { console.error('--skill-dir needs a path'); process.exit(2); }
@@ -219,6 +222,25 @@ async function kokoro() {
   }
 }
 
+// Blender (references/hero-asset.md): a tool on the machine for Studio's hero asset, never shipped, never installed on
+// its own. Only "not there" (the binary does not exist) is MISSING, with the consent note asked in Brief Call 0; a
+// timeout, a crash or a reply without a version is WARN "rerun", never MISSING and never an install suggestion.
+async function blender() {
+  const item = 'Blender', app = '/Applications/Blender.app/Contents/MacOS/Blender';
+  const bin = process.env.BLENDER || (existsSync(app) ? app : 'blender');
+  const ask = 'optional, Studio\'s hero asset only (references/hero-asset.md); asked in Brief Call 0: Blender from blender.org, about 1 GB to download, GPL; install only with consent (declined: a CC0 model or a three.js build)';
+  try {
+    const r = await run(bin, ['--version'], Number(process.env.DALANG_PREFLIGHT_BLENDER_MS) || 30000);
+    if (!r.ok && r.code === 'ENOENT') return [[item, 'MISSING', `not installed${process.env.BLENDER ? ` (BLENDER=${clean(process.env.BLENDER)} does not exist)` : ''} — ${ask}`]];
+    if (r.killed) return [[item, 'WARN', 'could not check Blender (timeout) — rerun preflight; this is not "missing", install nothing']];
+    const v = /^Blender\s+(\d+\.\d+(?:\.\d+)?)/m.exec(r.out)?.[1];
+    if (!r.ok || !v) return [[item, 'WARN', `could not check Blender (${!r.ok ? clean(String(r.err).trim().split('\n').pop()).slice(0, 160) || `exit ${r.code}` : 'reply without a version'}) — rerun preflight; this is not "missing", install nothing`]];
+    return [[item, 'OK', `Blender ${v} (Studio's hero asset, references/hero-asset.md)`]];
+  } catch (e) {
+    return [[item, 'WARN', `could not check Blender (${clean(e.message) || 'error'}) — rerun preflight; this is not "missing", install nothing`]];
+  }
+}
+
 async function media() {
   const [r, sk] = await Promise.all([run('npx', ['--yes', 'hyperframes', 'media-use', 'resolve', '--doctor'], 120000), run('npx', ['--yes', 'hyperframes', 'skills', 'check', '--json'], 60000)]);
   const lines = (r.out + r.err).split('\n');
@@ -340,11 +362,11 @@ async function workspace() {
   return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}${agents ? '; it also installs the lean subagent types' : ''}`]];
 }
 
-const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), elevenlabs(), media()]);
+const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : checkBlender ? [blender()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), blender(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
 else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
-if (checkSkill || checkWorkspace || checkKokoro) process.exit(0);
+if (checkSkill || checkWorkspace || checkKokoro || checkBlender) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
 // The summary repeats the fix that matters, so a filtered read still gets it.

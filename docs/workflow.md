@@ -16,10 +16,10 @@ flowchart TD
     G1 -- ok --> S4["Step 4 · Voice + per-word timing<br/>tts_timestamps.mjs"]
     S4 --> G2{{"GATE 2<br/>approve narration audio"}}
     G2 -- respell / re-record --> S4
-    G2 -- ok --> S5["Step 5 · Look, storyboard, 3 style frames<br/>SPEC.md + storyboard.md"]
+    G2 -- ok --> S5["Step 5 · Look, storyboard<br/>Studio: hero from 2D pictures + 3 style frames<br/>SPEC.md + storyboard.md"]
     S5 --> G3{{"GATE 3<br/>approve the look"}}
     G3 -- changes --> S5
-    G3 -- ok --> S6["Step 6 · Build with HyperFrames<br/>pilot group, then groups in parallel<br/>blocking pass, then polish pass"]
+    G3 -- ok --> S6["Step 6 · Build with HyperFrames<br/>Studio: pilot, then groups in parallel<br/>Express: every group at once<br/>blocking pass, then polish pass"]
     S6 --> S7["Step 7 · Quality check<br/>check, stillness, loudness, audio, rubric"]
     S7 --> G4{{"GATE 4<br/>approve draft preview"}}
     G4 -- changes --> S6
@@ -32,13 +32,13 @@ flowchart TD
 | Step | Output | Gate |
 |---|---|---|
 | 0 Setup | one-line preflight result in `PRODUCTION.md` | — |
-| 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, energy, audience, voice, extras such as the second-language cut), so the user can leave afterwards | — |
+| 1 Brief | `BRIEF.md` (pre-filled by a series kit); every question of the run is asked here, in English, back to back (setup consents, mode, platform, language, angle, duration, energy, audience, voice, pictures of the subject (2D is enough), extras such as the second-language cut), so the user can leave afterwards | — |
 | 2 Reference (optional) | `reference-measurements.md` (numbers only) | — |
 | 3 Script | `script.md` (opens with `Promise:` and `Takeaway:`), `narration.txt` with `{beat\|name}` markers, followable by ear (one idea within a word budget, the voice says why while the picture shows what; `narration_lint.mjs`, text-only read-through); every number tagged; `model.mjs` → `numbers.json` for `[calc]` numbers (`numbers_lint.mjs`) | **1** |
 | 4 Voice | `audio/narration.*`, `words.json`, `beats.json`, `beats.js` | **2** |
-| 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`), `style-frames/` (3 stills), built from `review/refs-board-*.jpg` | **3** |
-| 6 Build | HyperFrames composition: builder subagents only, writing the set and its shot data (`shots.js`) rather than per-shot code: a pilot shot group, then the other groups built in parallel as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
-| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz | **4** |
+| 5 Look | `SPEC.md`, `storyboard.md` (`storyboard_lint.mjs`); Studio adds the hero asset from 2D pictures (`hero-asset.md`) and `style-frames/` (3 stills) from `review/refs-board-*.jpg`; Express plans in `express-planner.md`, no boards | **3** |
+| 6 Build | HyperFrames composition: builder subagents only, writing the set and its shot data (`shots.js`) rather than per-shot code: Studio: a pilot shot group, then the other groups built in parallel (Express: every group at once, no pilot) as sub-compositions (`compositions/<group>.html`) and assembled in `index.html`; every time = `BEATS.<name>.start` | — |
+| 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz; Express: `express.mjs assemble` (`film_gate.mjs`, `iso_audit.mjs`, the lints), no reviewer | **4** |
 | 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md`; optional second-language cut: `final.<lang>.mp4` + `narration.<lang>.srt` (same storyboard, `beats_lint.mjs`) | — |
 
 Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's

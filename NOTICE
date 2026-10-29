@@ -1,15 +1,42 @@
 dalang
 Copyright (c) 2026 Hendra Yudha Pratama — MIT License (see LICENSE)
 
-references/camera-motion.md paraphrases and adapts ideas from:
+Vendored code (each keeps its own licence file beside it):
 
-- visual-skills by Serge Shima — https://github.com/smixs/visual-skills
+- engine/iso/iso.js — from lemo-opuscar (https://github.com/lemomo-ai/lemo-opuscar @413a6bd,
+  styles/iso-infographic/demo/engine.js). MIT License, Copyright (c) 2026 LemoLab — see engine/iso/LICENSE.
+  Changed by dalang (named in the file's header): ink on feature edges, box bevels, a sphere outline.
+
+- engine/anatomy/audit.mjs, iso-kit.mjs, lathe.mjs, tube.mjs — from Anatomy
+  (https://github.com/wheresryan22/anatomy @1482e84), unchanged. MIT License, Copyright (c) 2026 Ryan —
+  see engine/anatomy/LICENSE. engine/anatomy/world.mjs is dalang's own.
+
+- engine/epic/ — from EpicInfographics (https://github.com/OrRon/EpicInfographics @bf97e58,
+  skills/epic-infographics/references/), only three design languages kept. MIT License,
+  Copyright (c) 2026 epic-infographics contributors — see engine/epic/LICENSE.
+
+Bundled media:
+
+- engine/music/*.mp3 — public-domain and CC0 recordings (Musopen, via Wikimedia Commons), re-encoded by dalang;
+  works, performers and sources in engine/music/CREDITS.md.
+
+Ideas adapted (no code copied):
+
+- references/camera-motion.md paraphrases and adapts ideas from visual-skills by Serge Shima —
+  https://github.com/smixs/visual-skills
   Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
   Adapted: shot functions, angle and camera-move motivation, cutting order, rhythm and
-  density ladders, story arcs, five anchors, faceless staging, de-slop image prompting.
-  Changes: rewritten for an HTML/GSAP 2.5D camera and dalang's free-tools and true-to-life rules.
+  density ladders, story arcs, five anchors, faceless staging.
+  Changes: rewritten for dalang's 2.5D isometric and three.js cameras and its free-tools and true-to-life rules.
   Parts of that work credit agentara/skills (MIT) — https://github.com/agentara/skills
 
 - iart-ai motion skills — https://github.com/iart-ai/motion-skills
   MIT License, Copyright (c) 2026 iart.ai. Rules and numbers paraphrased; no code copied.
   scripts/timing_lint.mjs implements check ideas from iart-ai/b-roll-skills.
+
+Used, not shipped:
+
+- three.js, n8ao, postprocessing, three-subdivide (MIT), pinned in engine/three/vendor/package.json and bundled
+  into each video project with their licences listed in its .engine.json.
+- Kokoro-82M (Apache-2.0) and vtracer (MIT): optional, installed only on the user's yes.
+- Blender (GPL): optional, run on the user's machine for engine/blender, never shipped.

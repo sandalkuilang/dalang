@@ -18,7 +18,6 @@ import { markings, textSize } from "./markings.js";
 // Every catalogue row names its source: the sizes are the standard case or package sizes of that family, and the table is
 // the one place a built size is checked against (selfcheck: every body is within 1 % of it, scaleAudit tol 0.01). A film
 // takes the sizes of its own part from its sources and passes them as `size` objects, or adds a row, never these values.
-// The part values and prints in examples/psu.js are example values.
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.5, ...o });
 const finite = (v) => typeof v === "number" && Number.isFinite(v);

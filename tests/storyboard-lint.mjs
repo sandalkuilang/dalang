@@ -74,6 +74,10 @@ const check = (rows, args = [], opts, brief) => {
   r = check(clean(12, { 2: text }), [], { step: 2 }); assert.equal(r.code, 0, r.out);
   r = check(clean(12, { 2: { ...text, act: "headline built as a three.js mesh, physical drop" }, 5: text }), [], { step: 2 });
   assert.equal(r.code, 0, r.out);
+  r = check(clean(12, { 2: { ...text, act: "headline extruded as an isometric slab by build()" }, 5: text }), [], { step: 2 });
+  assert.equal(r.code, 0, r.out); // Express's real visual exempts the row too
+  r = check(clean(12, { 2: { ...text, act: "headline falls in a physics simulation" }, 5: text }), [], { step: 2 });
+  assert.equal(r.code, 1, r.out); // the removed physics path exempts nothing: 2 of 12 over 15 %
   r = check(clean(12, three), ["--energy", "punchy"], { step: 1 });
   assert.equal(r.code, 0, r.out); // 3 of 12 = 25 %, at the punchy limit
 }

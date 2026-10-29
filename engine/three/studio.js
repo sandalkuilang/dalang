@@ -3,7 +3,7 @@ import { M } from "./kit.js";
 import { place, ISO } from "./camera.js";
 
 // One light and render rig for every set, so a film never hand-writes one and never types its numbers:
-//  - the colour pipeline: sRGB out, the tone mapping in the composer (AgX or Neutral; none for a toon look), a stencil
+//  - the colour pipeline: sRGB out, the tone mapping in the composer (AgX or Neutral), a stencil
 //    buffer for a cutaway, a RoomEnvironment at a stated intensity;
 //  - a key, a fill and a rim from a named preset (`warm`, `window`, `overcast`), standing round the set;
 //  - the key's shadow frustum is REFITTED to what the camera pose sees (the part of the set inside the frame's pyramid,
@@ -28,10 +28,9 @@ export const PRESETS = freeze({
   window: { key: [0xf4f7ff, 3.0, -80, 25], fill: [0xfff0dc, 0.4, 90, 10], rim: [0xe8eeff, 0.6, 180, 30] },
   overcast: { key: [0xeef2f6, 1.4, -20, 70], fill: [0xdfe8f2, 0.9, 140, 40], rim: [0xffffff, 0, 180, 30] },
 });
-// The perspective rig's defaults (kept for the engine's examples; films use the iso look below). ao.frac: of the view's half-size; min and max in metres.
+// The perspective rig's defaults (the object-studio look and examples/oner.js; the iso looks use isoStudio below). ao.frac: of the view's half-size; min and max in metres.
 export const LOOKS = freeze({
   diorama: { tone: "neutral", env: 0.9, preset: "warm", ao: { frac: 1 / 12, min: 0.004, max: 0.5, falloff: 1, intensity: 2.5 }, shadow: { map: 4096, radius: 12, margin: 1.25, bias: -0.0002 }, dof: false },
-  toon: { tone: "none", env: 0, preset: "overcast", ao: false, shadow: { map: 2048, radius: 2, margin: 1.25, bias: -0.0002 }, dof: false },
 });
 
 // aoFor(view, ao, mpu): N8AO radius (scene units) and falloff from the view's half-size `view` (units) and the scale
@@ -110,7 +109,7 @@ export function fitShadow(light, view, { set, map = 4096, margin = 1.25, height 
 }
 
 // studio(renderer, scene, camera, { look, preset, route, set, env, tone, ao, shadow, dof, finish, mpu, height, stencil })
-//   look: "diorama" | "toon"; preset: a name in PRESETS or { key, fill, rim }; route: anything with at(t) giving
+//   look: "diorama"; preset: a name in PRESETS or { key, fill, rim }; route: anything with at(t) giving
 //   { position, target, fov } (a camera.js route), used by render(t) without a pose; set: the Object3D or Box3 of
 //   everything that casts a shadow (default: the scene, measured once before the lights go in; a part that later moves
 //   outside it needs a Box3 covering its travel); env: RoomEnvironment intensity (0 = none); tone: "agx" | "neutral" |

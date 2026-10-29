@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# scripts/gate.sh [--fast] — the repo's gate, run from inside the checkout it checks. --fast: static checks (seconds): syntax,
-# SKILL.md front-matter, README diagrams, the reading list (state.mjs reading: headings exist, sections within budget), for a worker
-# before its PR. Without it, the merge gate: the static checks, then the engine built into a temp dir and its
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the palette measurement. CI runs the merge gate on every push and pull request.
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the SFX-from-impacts check. CI runs the merge gate on every push and pull request.
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the storyboard lint, the series kit. CI runs the merge gate on every push and pull request.
-# self-check, then preflight against a mock VoiceStudio, the voice-model licence cross-check, the asset licence gate with the engine manifest, the media search against a mock Openverse / Commons, the review-strips check, and the voice retake / busy / chunk-limit checks against a mock VoiceStudio, the scene lint, the numbers lint, the beats lint, fill_times --lang, the SFX-from-impacts check, the quiz score, the Kokoro take check. CI runs the merge gate on every push and pull request.
+# scripts/gate.sh [--fast] — the repo's gate, run from inside the checkout it checks. --fast: static checks (seconds): syntax
+# (scripts, engines, templates, tests, shell, Python), SKILL.md front-matter, README diagrams, the reading list and the doc
+# checks, for a worker before its PR. Without it, the merge gate: the static checks, then the engine built into a temp dir and
+# its self-check, then every tests/*.mjs (mocks stand in for VoiceStudio, Openverse / Commons, Python and Blender; the ffmpeg,
+# vtracer and Blender halves print SKIP where the tool is absent). CI runs the merge gate on every push and pull request.
 # Ends with a "Gate summary" block, one ✓/✗ line per step; exits non-zero when any step failed.
 set -u
 root=$(git rev-parse --show-toplevel) && cd "$root" || exit 2 # the tree the gate is run in (a PR worktree), never this file's own location
@@ -16,11 +14,14 @@ step() { # step <name> <command...>: runs it, prints its output only when it fai
   local out; out=$("$@" 2>&1)
   if [ $? -eq 0 ]; then summary+=("✓ $name"); else summary+=("✗ $name"); failed=1; printf '── %s failed ──\n%s\n' "$name" "$out"; fi
 }
-syntax() { local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js examples/golden/*.js tests/*.mjs; do node --check "$f" || return 1; done; bash -n scripts/measure_reference.sh scripts/gate.sh scripts/release.sh; }
+syntax() { # node --check every engine and script file (engine/anatomy: ours and the vendored ones), bash -n, Python ast.parse (writes no __pycache__)
+  local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js engine/iso/*.js engine/iso/templates/*.js engine/anatomy/*.mjs examples/golden/*.js tests/*.mjs; do node --check "$f" || return 1; done
+  bash -n scripts/measure_reference.sh scripts/gate.sh scripts/release.sh && python3 -c 'import ast, sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' scripts/*.py
+}
 frontmatter() { head -1 SKILL.md | grep -qx -- '---' && grep -q '^name: dalang$' SKILL.md && grep -q '^description: ' SKILL.md; }
 engine() { local d; d=$(mktemp -d) && node engine/three/build.mjs "$d" >/dev/null && node engine/three/selfcheck.mjs "$d"; local r=$?; rm -rf "$d"; return $r; }
 
-step "syntax (scripts, engine, tests)" syntax
+step "syntax (scripts, engines, templates, tests, shell, Python)" syntax
 step "SKILL.md front-matter" frontmatter
 step "README diagrams (light derived from dark)" python3 docs/assets/build.py --check
 step "reading list (headings exist, sections <= 8 KB, Steps 0–8 <= 60 KB)" node scripts/state.mjs reading
@@ -30,7 +31,7 @@ step "cue table (words per beat as the engine counts them)" node tests/cues.mjs
 step "express steps (no take, a take with a WARNING)" node tests/express.mjs
 if [ $fast -eq 0 ]; then
   step "engine build + self-check" engine
-  step "preflight vs mock VoiceStudio" node tests/preflight-mock.mjs
+  step "preflight vs mocks (VoiceStudio, skill clone, Kokoro, Blender, workspace)" node tests/preflight-mock.mjs
   step "voice model + licence cross-check" node tests/voice-licence.mjs
   step "asset licence gate (unknown file, wrong licence, engine manifest)" node tests/assets.mjs
   step "find_media vs mock Openverse / Commons" node tests/find-media.mjs

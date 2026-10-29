@@ -6,7 +6,7 @@
 // composition, a render worker and the self-check all run the same code. Draw it after the finisher, in the text band
 // (type.js `safeArea`); text is never under 36 px at 1080 px on the short side (craft-rules.md §6).
 //
-//   import { scope, meter, gauge, bar } from "./assets/engine/instruments.js";
+//   import { scope, meter, gauge, bar } from "./assets/instruments.js";
 //   finisher.draw(t);                                                      // the GL frame on the 2D canvas first
 //   scope(ctx, { signal: (tau) => state(tau).Vac, t, timeScale: 0.1, range: [-400, 400], units: "V", label: "Mains", x, y, w, h });
 //   meter(ctx, { value: state(t).Vdc, units: "V", label: "DC rail", x, y });

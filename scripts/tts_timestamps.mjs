@@ -119,7 +119,6 @@ function parseArgs(argv) {
       case '--voice-id': a.voiceId = next(); break;
       case '--model': a.model = next(); break;
       case '--language': a.language = next(); break;
-      case '--no-language': a.language = null; break;
       case '--name': a.name = next(); break;
       case '--format': a.format = next(); break;
       case '--speed': a.speed = parseFloat(next()); break;
@@ -643,11 +642,13 @@ async function resolveVoiceId(a) {
 }
 
 // Turn the raw narration into the clean text sent to the API,
-// recording where each {beat} and # section marker sits.
+// recording where each {beat} and # section marker sits. The one parser of narration.txt markup (# sections, [tags],
+// (1.5) pauses, Speaker: lines, {words|name} beats): audio_qc.mjs and scaffold.mjs import it. `fail` gets the first
+// fault's message (here: die; an importer passes its own).
 const SPEAKER_RE = /^([\p{L}][\p{L}\p{N} _.'-]{0,30}):\s+(.+)$/u;
 const PAUSE_RE = /^\(\s*(\d+(?:\.\d+)?)\s*s?\s*\)$/;
 
-function parseNarration(raw, sample) {
+export function parseNarration(raw, sample, fail = die) {
   let lines = raw.replace(/\r\n/g, '\n').split('\n');
   const sectionsPending = [];
   let spokenLines = [];
@@ -667,7 +668,7 @@ function parseNarration(raw, sample) {
   if (dialogue) {
     spokenLines = spokenLines.map(l => { const m = l.match(SPEAKER_RE); speakers.push(m[1].trim()); return m[2].trim(); });
   } else if (seq.some(s => s.pause)) {
-    die('Pause lines like "(1.5)" only work in dialogue files, where every spoken line is "Speaker: text".');
+    fail('Pause lines like "(1.5)" only work in dialogue files, where every spoken line is "Speaker: text".');
   }
   let spoken = spokenLines.join('\n');
   if (sample) {
@@ -690,12 +691,12 @@ function parseNarration(raw, sample) {
   for (let i = 0; i < spoken.length; i++) {
     const ch = spoken[i];
     if (ch === '{') {
-      if (inBeat) die('Found { inside { } — braces cannot be nested.');
+      if (inBeat) fail('Found { inside { } — braces cannot be nested.');
       inBeat = { cs: clean.length };
       continue;
     }
     if (ch === '}') {
-      if (!inBeat) die('Found } without a matching {.');
+      if (!inBeat) fail('Found } without a matching {.');
       // {text|name}: the |name part is not spoken
       beats.push({ cs: inBeat.cs, ce: clean.length, label: inBeat.label || null, text: clean.slice(inBeat.cs) });
       inBeat = null;
@@ -703,7 +704,7 @@ function parseNarration(raw, sample) {
     }
     if (ch === '|' && inBeat) {
       const close = spoken.indexOf('}', i);
-      if (close === -1) die('Found {...| without a closing }.');
+      if (close === -1) fail('Found {...| without a closing }.');
       inBeat.label = spoken.slice(i + 1, close).trim();
       i = close - 1; // the loop picks up the '}' next
       continue;
@@ -711,7 +712,7 @@ function parseNarration(raw, sample) {
     clean += ch;
     if (ch === '\n') lineStartsClean.push(clean.length);
   }
-  if (inBeat) die('Found a { that is never closed with }.');
+  if (inBeat) fail('Found a { that is never closed with }.');
   const sections = sample ? [] : sectionsPending.map(s => ({ title: s.title, cleanIndex: lineStartsClean[s.lineIndex] ?? clean.length }));
   // Each dialogue line's span in the clean text, plus the order with pauses for multi-voice TTS.
   const dlines = dialogue && !sample ? speakers.map((speaker, k) => {
@@ -820,7 +821,7 @@ const tagMask = str => {
   for (const t of str.matchAll(/\[[^\]]*\]/g)) for (let i = t.index; i < t.index + t[0].length; i++) m[i] = true;
   return m;
 };
-const stripTags = str => str.replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim();
+export const stripTags = str => str.replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim();
 const stripPunct = w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 const round = x => Math.round(x * 1000) / 1000;
 
@@ -1005,7 +1006,7 @@ const SENTENCE_SEP = /(?<=[.!?…。！？]["'”’)\]]*)[ \t]+|\n+/g;
 const NO_SPACES = /^(ja|zh|th|lo|km|my)(-|$)/i; // one "word" is a whole sentence there: heard-vs-script words cannot be compared
 
 // The [start, end) character spans between sentence ends and line breaks.
-function splitSentences(clean) {
+export function splitSentences(clean) {
   const spans = []; let cs = 0;
   for (const m of clean.matchAll(SENTENCE_SEP)) { spans.push([cs, m.index]); cs = m.index + m[0].length; }
   spans.push([cs, clean.length]);
@@ -1571,4 +1572,6 @@ async function main() {
   console.log(`DONE ${audioPath}`);
 }
 
-main().catch(e => die(e.stack || String(e)));
+// Run as a CLI only: audio_qc.mjs and scaffold.mjs import parseNarration, splitSentences and stripTags from here.
+const real = f => { try { return realpathSync(f); } catch { return f; } };
+if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) main().catch(e => die(e.stack || String(e)));

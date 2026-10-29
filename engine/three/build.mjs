@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Installs the engine into a video project: node build.mjs <project>/assets/engine
-// Copies the modules and builds three-vendor.js (three + add-ons, ~1 MB) from pinned
-// versions. The npm install is cached in vendor/node_modules, so later projects only copy and bundle.
+// Installs the engine into a video project: node build.mjs <project>/assets (scaffold.mjs does, for object-studio).
+// Copies the modules, with engine/iso's cinema.js and parallax.js (the film camera and finish the Studio iso rig uses),
+// and builds three-vendor.js (three + add-ons, ~1 MB) from pinned versions. The npm install is cached in
+// vendor/node_modules, so later projects only copy and bundle.
 // Also writes .engine.json beside them: every file it wrote with its real origin and licence (the repo's MIT for the
 // engine's own files; each pinned npm package and its licence for a bundle). scripts/check_assets.mjs reads it, so the
 // engine's files are never listed in ASSETS.json by hand.
@@ -11,7 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url)), vendor = join(here, "vendor"), out = resolve(process.argv[2] || "");
-if (!process.argv[2]) { console.error("usage: node build.mjs <project>/assets/engine"); process.exit(1); }
+if (!process.argv[2]) { console.error("usage: node build.mjs <project>/assets"); process.exit(1); }
 mkdirSync(out, { recursive: true });
 if (!existsSync(join(vendor, "node_modules", "three"))) execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: vendor, stdio: "inherit" });
 const esbuild = join(vendor, "node_modules", ".bin", "esbuild");
@@ -20,6 +21,9 @@ for (const [entry, file] of bundles)
   execFileSync(esbuild, [join(vendor, entry), "--bundle", "--format=esm", "--minify", "--legal-comments=none", "--outfile=" + join(out, file)], { stdio: "inherit" });
 for (const f of readdirSync(here)) if (f.endsWith(".js")) cpSync(join(here, f), join(out, f));
 cpSync(join(here, "examples"), join(out, "examples"), { recursive: true }); // ready pieces built on the systems: import from "./examples/…"
+// engine/iso's film camera and finish (no imports): isoStudio's `finish` is cinema.js makeFinish().apply, depth is parallax.js.
+const iso = join(here, "..", "iso"), isoFiles = ["cinema.js", "parallax.js"];
+for (const f of isoFiles) cpSync(join(iso, f), join(out, f));
 
 // The Draco decoder (wasm build) that three's DRACOLoader fetches next to the engine, so a Draco-compressed glTF loads.
 const dracoSrc = join(vendor, "node_modules", "three", "examples", "jsm", "libs", "draco", "gltf"), dracoFiles = ["draco_decoder.wasm", "draco_wasm_wrapper.js"];
@@ -30,7 +34,8 @@ for (const f of dracoFiles) cpSync(join(dracoSrc, f), join(out, "draco", f));
 const REPO = "https://github.com/sandalkuilang/dalang";
 const walk = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const own = [...readdirSync(here).filter((f) => f.endsWith(".js")), ...walk(join(here, "examples")).map((p) => p.slice(here.length + 1).split(/[\\/]/).join("/"))];
-const rows = own.map((file) => ({ file, source: `DALANG engine, ${REPO} (engine/three/${file})`, licence: "MIT" }));
+const rows = [...own.map((file) => ({ file, source: `DALANG engine, ${REPO} (engine/three/${file})`, licence: "MIT" })),
+  ...isoFiles.map((file) => ({ file, source: `DALANG engine, ${REPO} (engine/iso/${file})`, licence: "MIT" }))];
 const packages = (entry) => [...new Set([...readFileSync(join(vendor, entry), "utf8").matchAll(/from\s+["']([^"']+)["']/g)]
   .map((m) => m[1]).filter((s) => !s.startsWith(".")).map((s) => s.split("/").slice(0, s.startsWith("@") ? 2 : 1).join("/")))];
 for (const [entry, file] of bundles) {

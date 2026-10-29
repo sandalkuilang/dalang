@@ -8,8 +8,8 @@
 //   list                                                        the kits, one line each
 //   apply <name> [project] [--force]                            kit files -> project, BRIEF.md pre-filled, rules printed
 //   note <name> "<rule>"                                        append a channel-level rule to SERIES.md
-// Never in a kit: scene code (a module that builds a scene or imports the engine's 3D / physics: heuristic, see
-// isScene), per-video files (script, storyboard, audio, BRIEF.md ...), the engine copy, env files, anything outside
+// Never in a kit: scene code (a module that builds a scene or imports a scene module of either engine, three.js or
+// isometric: heuristic, see isScene), per-video files (script, storyboard, audio, BRIEF.md ...), the engine copy, env files, anything outside
 // the project, symlinks. The real guarantee: save copies only the files named with --file, apply copies only files/.
 // Exit 0 ok, 1 refused / problem (nothing written), 2 cannot read (WARN: rerun; never read as "no kits"): every read
 // goes through fsRead, the one choke point that turns any error other than "missing" into that WARN.
@@ -76,10 +76,13 @@ const checkRel = rel => {
   if (PER_VIDEO.has(l) || /^(audio|style-frames|renders|review|\.git|node_modules|assets\/engine)\//.test(l)) return 'a per-video file or the engine copy';
   return null;
 };
-const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|camera|air|grains|cutaway|surfaces|finish|kit|examples\/[^'"]+)(?:\.m?js)?['"]/;
-const SCENE_CODE = /\bnew\s+(?:THREE\.)?(?:Scene|WebGLRenderer|PerspectiveCamera)\b|\bbakeCached\s*\(/;
+// Scene modules of engine/three (three-vendor ... examples/) and of engine/iso, Express's isometric engine (iso, build,
+// plate, parallax, cinema, forms, figure, model, templates) and its per-video world.js. Overlay and token modules
+// (editorial.js, type.js, palette.js) are channel-level and may be saved.
+const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|camera|air|grains|cutaway|surfaces|finish|kit|examples\/[^'"]+|iso|build|plate|parallax|cinema|forms|figure|model|templates|world)(?:\.m?js)?['"]/;
+const SCENE_CODE = /\bnew\s+(?:THREE\.)?(?:Scene|WebGLRenderer|PerspectiveCamera)\b/;
 const isScene = (rel, text) => /\.(m?js|html)$/i.test(rel) && (ENGINE_3D.test(text) || SCENE_CODE.test(text))
-  ? 'a scene module (builds a scene or imports the engine\'s 3D / physics): scene code stays per video' : null;
+  ? 'a scene module (builds a scene or imports an engine scene module): scene code stays per video' : null;
 const checkName = n => /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(n ?? '') ? null : `series name "${n ?? ''}": letters, digits, - and _ (start with a letter or digit)`;
 
 // ---- fs helpers

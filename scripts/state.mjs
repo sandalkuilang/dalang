@@ -23,6 +23,7 @@
 //        node state.mjs reading [--skill <dir>] [--json]
 //                                                 -> checks the reading table: every heading exists, each section
 //                                                    is ≤ 8 KB, the main-context reading of Steps 0–8 ≤ 60 KB
+//                                                    (optional Step 2 shown on its own line, not in the total)
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -70,7 +71,7 @@ const ready = g => GATES[g].files.every(f => existsSync(path.join(dir, f)));
 const express = cmd !== 'reading' && existsSync(path.join(dir, 'BRIEF.md')) && /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(dir, 'BRIEF.md'), 'utf8'));
 if (express) GATES[3].files = GATES[3].files.filter(f => f !== 'style-frames');
 const BENCH = 'review/benchmark.md';
-const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'text system', 'overlays caused by physics', 'framing', 'macro quality'];
+const BENCH_ROWS = ['detail density', 'material truth', 'light and shadow', 'text system', 'overlays caused by motion', 'framing', 'macro quality'];
 const newest = p => statSync(p).isDirectory() ? Math.max(0, ...readdirSync(p).map(f => newest(path.join(p, f)))) : statSync(p).mtimeMs;
 const benchmarkOf = () => {
   const p = path.join(dir, BENCH);
@@ -103,7 +104,7 @@ const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'wai
 // outside the 60 KB: it is not the main context).
 // A section is the heading line through the line before the next heading of ANY level, ignoring lines inside ```
 // fences, trailing blank lines dropped; a heading must match exactly one line outside fences.
-const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB;
+const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB, OPTIONAL_STEP = '2';
 const of = (file, ...headings) => headings.map(h => [file, h]);
 const LOOKS = of('looks.md', '# The looks: isometric-world first, cutaway, blueprint (Step 5 reads this)');
 const VD_ENERGY = of('visual-direction.md', '## 3. Energy (the Step 1 "Energy" option)');
@@ -122,12 +123,12 @@ const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO, ...LEAN_WORKSPACE], sub: [] },
   1: {
     name: 'Brief', sub: [],
-    refs: [...of('express.md', '# Express mode (the default)'), ...LOOKS, ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
+    refs: [...of('express.md', '# Express mode (the default)'), ...LOOKS, ...of('looks.md', '### Set dressing, real scale, interior style, condition'), ...of('hero-asset.md', '# Hero asset: from 2D pictures to a 3D model, once'), ...VD_HERO, ...VD_ENERGY, ...VD_RESTRAINT, ...of('camera-motion.md', '## 10. A-roll, B-roll and real camera moves'), ...of('voice.md', '## Setup — VoiceStudio', '### Clone (VoiceStudio, free, local)'), ...of('measure-reference.md', null), ...of('brief.md', '### Series kit (save once, start each video of a channel from it)'), ...LEAN_WORKSPACE, SECOND_CUT[0]],
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Call 4 — Extras (the last call; only the questions that apply)', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
   3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...of('script-voice.md', '### Narration craft: one idea, followed on one hearing'), ...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
-  4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)'), ...SFX_MUSIC], sub: [] },
+  4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)', '### Timing, warnings and retakes (Step 4, look up when needed)'), ...SFX_MUSIC], sub: [] },
   5: {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against a reference board)'),
     refs: [
@@ -222,11 +223,12 @@ const buildReading = skill => {
       s.commands[tier] = commandsOf(found[tier], tier !== 'refs'); // an index line is one section, never a range of several
     }
     if (s.lessonsBytes > SECTION_MAX) errors.push(`FAILED: Step ${n} lessons are ${kb(s.lessonsBytes)} KB, over the 8 KB budget: move a tag or trim a headline`);
-    total += s.read.reduce((a, e) => a + e.bytes, 0) + s.lessonsBytes;
+    s.bytes = s.read.reduce((a, e) => a + e.bytes, 0) + s.lessonsBytes;
+    if (n !== OPTIONAL_STEP) total += s.bytes; // Step 2 runs only with a reference video: shown, never in the total
     steps[n] = s;
   }
   for (const entry of Object.values(EXPRESS).flat()) { const e = locate(skill, entry); if (e.error) errors.push(`FAILED: ${e.error}`); else if (e.bytes > SECTION_MAX) errors.push(`FAILED: express.md "${label(e.heading)}" is over the 8 KB section budget`); }
-  if (total > TOTAL_MAX) errors.push(`FAILED: Steps 0–8 read ${kb(total)} KB in the main context, over the 60 KB budget`);
+  if (total > TOTAL_MAX) errors.push(`FAILED: Steps 0–8 (Step 2 optional, not counted) read ${kb(total)} KB in the main context, over the 60 KB budget`);
   return { steps, total, errors };
 };
 const sum = list => list.reduce((a, e) => a + e.bytes, 0);
@@ -331,7 +333,8 @@ if (cmd === 'approve') {
   if (json) console.log(JSON.stringify({ steps: r.steps, total: r.total, errors: r.errors }, null, 2));
   else {
     for (const [n, s] of Object.entries(r.steps)) console.log(`Step ${n} ${s.name.padEnd(9)} read ${kb(sum(s.read))} KB + lessons ${kb(s.lessonsBytes)} KB · refs ${kb(sum(s.refs))} KB · subagent ${kb(sum(s.sub))} KB`);
-    console.log(`Total read, Steps 0–8: ${kb(r.total)} KB of ${TOTAL_MAX / KB} KB`);
+    console.log(`Total read, Steps 0–8 without optional Step 2: ${kb(r.total)} KB of ${TOTAL_MAX / KB} KB`);
+    console.log(`Optional Step 2 (a reference video), not in the total: ${kb(r.steps[OPTIONAL_STEP].bytes)} KB`);
   }
   r.errors.forEach(e => console.error(e));
   process.exit(r.errors.length ? 1 : 0);

@@ -55,6 +55,7 @@ import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { osProblem } from './palette.mjs';
+import { parseNarration, splitSentences, stripTags } from './tts_timestamps.mjs';
 
 // ── ALLOWLIST: the attributes of a media element or a bus that the model applies or judges (INPUTS) or knows do not
 // change the mix (INERT; aria-* too). Written once; a new input is modelled only by adding it here and applying it.
@@ -280,13 +281,14 @@ export function voiceFlags(sentences) {
   return { f0Med, cMed, flags, judged, voiced: f0s.length };
 }
 
-// The sentences of narration.txt with their word ranges in words.json, or null when the counts differ. The split and
-// the word rule (a token with a letter or digit; [tags] and the |names| of {beats|names} are not spoken) are those of
-// tts_timestamps.mjs, so the numbers are the ones --retake takes.
+// The sentences of narration.txt with their word ranges in words.json, or null when the counts differ (or the markup
+// does not parse). The parse and the split are tts_timestamps.mjs's own (parseNarration, splitSentences, stripTags) and
+// the word rule is its too (a token with a letter or digit; [tags], Speaker: names and the |names| of {beats|names} are
+// not spoken), so the numbers are the ones --retake takes.
 export function sentencesFrom(text, words) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#') && !/^\(\s*\d+(?:\.\d+)?\s*s?\s*\)$/.test(l));
-  const clean = lines.join('\n').replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\{([^}|]*)\|[^}]*\}/g, '$1').replace(/[{}]/g, '');
-  const parts = clean.split(/(?<=[.!?…。！？]["'”’)\]]*)[ \t]+|\n+/g);
+  let clean;
+  try { clean = parseNarration(text, false, (m) => { throw new Error(m); }).clean; } catch { return null; }
+  const parts = splitSentences(clean).map(([s, e]) => stripTags(clean.slice(s, e)));
   const out = []; let at = 0, total = 0;
   for (const part of parts) {
     const count = [...part.matchAll(/\S+/g)].filter((m) => /[\p{L}\p{N}]/u.test(m[0])).length;

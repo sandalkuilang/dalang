@@ -3,7 +3,7 @@
 // and the self-check all run the same code (phrases() also runs in Node, see scripts/captions.mjs). Sizes are at
 // 1080 px on the short side (craft-rules.md §6, visual-direction.md §9); zones are the platform's safe zones.
 //
-//   import { drawCaption, pinLabel, repeats, layoutFrame } from "./assets/engine/type.js";
+//   import { drawCaption, pinLabel, repeats, layoutFrame } from "./assets/type.js";
 //   // audio/captions.js (node scripts/captions.mjs audio/narration.txt audio/words.json, after every take) sets CAPTIONS
 //   finisher.draw(t);                                                     // the GL frame on the 2D canvas first
 //   pinLabel(ctx, { at: valveMesh, camera, text: "valve" }, { format: "shorts" });

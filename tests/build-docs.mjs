@@ -248,6 +248,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
 {
   const looks = read("references/looks.md"), vd = read("references/visual-direction.md"), qty = read("engine/three/quantity.js");
   assert.deepEqual(fs.readdirSync(new URL("../engine/epic/languages", import.meta.url)).sort(), ["blueprint.md", "cutaway.md", "isometric-world.md"], "engine/epic/languages holds the three languages");
+  assert.deepEqual(fs.readdirSync(new URL("../engine/epic", import.meta.url)).filter((f) => f.endsWith(".md")).sort(), ["README.md", "charts.md", "composition.md"], "engine/epic keeps only the references a step points to");
   assert.match(looks, /^# The looks: isometric-world first, cutaway, blueprint/, "looks.md: isometric-world first");
   assert.match(looks, /`blueprint` only on the beats that need engineering-grade detail/, "looks.md: blueprint only on engineering-grade beats");
   assert.match(looks, /isoCamera.*isoLook.*isoStudio.*inkLines.*blueprintLook/s, "looks.md names the three.js recipes");

@@ -26,7 +26,7 @@ const has = (base, rel) => fs.existsSync(path.join(base, rel));
 
 const BRIEF = [
   "# Brief", "", "- Topic: how a siphon works", "- Platform: YouTube Shorts", "- Ratio & resolution: 9:16, 1080×1920", "- fps: 30",
-  "- Narration language: en", "- Angle: Step by step", "- Look: G. Stylised 3D diorama", "- Energy: Punchy social",
+  "- Narration language: en", "- Angle: Step by step", "- Look: isometric-world", "- Energy: Punchy social",
   "- Audience: General public", "- Voice engine: VoiceStudio", "- Voice model: omnivoice", "- Voice: narrator-a", "- Duration: 60 s",
   "- Signoff: see you next time", "",
 ].join("\n");
@@ -34,6 +34,8 @@ const OVERLAYS = 'import { drawCaption } from "../assets/engine/type.js"; export
 const PALETTE = '{"ground":"#f3ede4"}\n';
 const FILM = 'import * as THREE from "../assets/engine/three-vendor.js"; const s = new THREE.Scene();\n';
 const SET = 'import { makeKit } from "../assets/engine/kit.js"; makeKit();\n';
+const GROUP = 'import { build } from "./assets/build.js"; import { camAt } from "./assets/cinema.js"; build();\n';
+const HUD = 'import { makeOverlay } from "./assets/editorial.js"; export const hud = makeOverlay;\n';
 
 const fixture = () => {
   const p = mkdir("src");
@@ -42,6 +44,8 @@ const fixture = () => {
   put(p, "src/palette.json", PALETTE);
   put(p, "src/film.js", FILM);
   put(p, "src/set.js", SET);
+  put(p, "src/group.js", GROUP);
+  put(p, "src/hud.js", HUD);
   put(p, "src/index.tpl.html", "<html></html>\n");
   put(p, ".env", "KEY=x\n");
   put(p, "assets/engine/type.js", "export {};\n");
@@ -61,7 +65,7 @@ const fresh = () => `kit${++k}`;
   const r = run(["save", "chan", "--from", src, ...GOOD]);
   assert.equal(r.code, 0, r.out);
   const md = read(root, "chan/SERIES.md");
-  for (const l of ["- Platform: YouTube Shorts", "- fps: 30", "- Voice: narrator-a", "- Signoff: see you next time", "- Look: G. Stylised 3D diorama"]) assert.ok(md.includes(l), `SERIES.md lacks ${l}`);
+  for (const l of ["- Platform: YouTube Shorts", "- fps: 30", "- Voice: narrator-a", "- Signoff: see you next time", "- Look: isometric-world"]) assert.ok(md.includes(l), `SERIES.md lacks ${l}`);
   for (const w of ["Topic", "Angle", "Duration", "siphon"]) assert.ok(!md.includes(w), `SERIES.md carries ${w}`);
   assert.equal(read(root, "chan/files/src/overlays.js"), OVERLAYS);
   assert.equal(read(root, "chan/files/src/palette.json"), PALETTE);
@@ -70,7 +74,7 @@ const fresh = () => `kit${++k}`;
 
 // 2. save refuses scene code, env, per-video files, escapes and symlinks; nothing is written (also in a mixed list).
 {
-  const bad = ["src/film.js", "src/set.js", ".env", "../x.js", path.join(src, "src/overlays.js"), "assets/engine/type.js", "audio/words.json", "script.md", "src/index.tpl.html", "src/link.js", "BRIEF.md", "src/missing.js"];
+  const bad = ["src/film.js", "src/set.js", "src/group.js", ".env", "../x.js", path.join(src, "src/overlays.js"), "assets/engine/type.js", "audio/words.json", "script.md", "src/index.tpl.html", "src/link.js", "BRIEF.md", "src/missing.js"];
   for (const f of bad) {
     const name = fresh();
     const r = run(["save", name, "--from", src, "--file", f]);
@@ -89,6 +93,16 @@ const fresh = () => `kit${++k}`;
   assert.ok(!has(root, name));
   // no BRIEF.md at all
   assert.equal(run(["save", fresh(), "--from", mkdir("empty")]).code, 1);
+}
+
+// 2b. an Express overlay module (editorial.js) is channel-level and saves; an Express group module (build, cinema ...)
+// is scene code and was refused above.
+{
+  const name = fresh();
+  const r = run(["save", name, "--from", src, "--file", "src/hud.js"]);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(read(root, `${name}/files/src/hud.js`), HUD);
+  fs.rmSync(path.join(root, name), { recursive: true }); // the kit list below expects only "chan"
 }
 
 // 3. bad names.

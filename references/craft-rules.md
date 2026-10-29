@@ -1,13 +1,6 @@
 # Motion and style rules
 
-These are the numbers that make code-made animation feel alive. They come from measuring an "ink + watercolour" cartoon made with Claude + HyperFrames. Use them as a starting point, then adjust to a reference video's measurements if there is one.
-
-## 1. Boil: lines that "shiver"
-
-- **What:** ink lines are redrawn with slight variation at a fixed rate while the paper behind stays still. This is what makes a drawing feel hand-made and alive instead of printed.
-- **Numbers:** at 30 fps, redraw the lines **every 6 frames** — 5× per second. Objects that *move position* still move smoothly at the full 30 fps. Only the line shape steps.
-- **How:** search the catalog first (`npx hyperframes catalog --query "hand-drawn line boil wobble"`), since the registry's hand-drawn family already has boil helpers. If you must build it, use SVG `feTurbulence` + `feDisplacementMap` with a `seed` that changes every 6 frames.
-- **Important:** HyperFrames renders by seeking to every frame, not by playing the video from the start. So the `seed` **must be derived from timeline time**, e.g. `Math.floor(time * 30 / 6)`. Never use `setInterval`, `Date.now()`, or unseeded `Math.random()`. Anything that depends on wall-clock time breaks or flickers in the render.
+These are the numbers that make code-made animation feel alive. They come from measuring hand-made explainer films. Use them as a starting point, then adjust to a reference video's measurements if there is one.
 
 ## 2. Push-in: camera, not scissors
 
@@ -24,8 +17,8 @@ These are the numbers that make code-made animation feel alive. They come from m
 ## 4. Motion budget: no dead seconds
 
 - Target: "still" ≤ 10% of the total duration. A good reference film is only about 5%.
-- Every shot needs at least one **continuous** motion: boil, the subject acting (wheels turning, a needle moving), drifting clouds or a drifting background plate, a light sweeping across the hero, or a camera that keeps pushing in. Breathing or pulsing text and UI is not continuous motion; `/hyperframes` lists it as a tell of generated video.
-- `stillness.mjs` measures change across the whole frame, so small motions on a mostly empty ground still count as "still". Flat and minimal looks need a moving background plate or camera. Measure the final file too: a cleaner high-quality encode can raise the still share.
+- Every shot needs at least one **continuous** motion: the subject acting (wheels turning, a needle moving, a fill rising); the camera or a light sweep only supports it (`visual-direction.md` §3 "Minimum motion"). Breathing or pulsing text and UI is not continuous motion; `/hyperframes` lists it as a tell of generated video.
+- `stillness.mjs` measures change across the whole frame, so small motions on a mostly empty ground still count as "still". Flat and minimal looks need the subject acting, not a moving plate. Measure the final file too: a cleaner high-quality encode can raise the still share.
 - A moving mouth alone **does not count** as motion. It is the number-one reason films feel dead.
 - Measure with `scripts/stillness.mjs`.
 

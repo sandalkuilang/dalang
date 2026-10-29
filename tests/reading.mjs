@@ -22,7 +22,7 @@ const put = (proj, rel, text = "x\n") => { const p = path.join(proj, rel); fs.mk
 const skillCopy = (name) => { const p = mk(name); fs.cpSync(path.join(root, "references"), path.join(p, "references"), { recursive: true }); return p; };
 const edit = (skill, file, fn) => { const p = path.join(skill, "references", file); fs.writeFileSync(p, fn(fs.readFileSync(p, "utf8"))); };
 // A Gate 3 benchmark verdict (every row within 1 point of the board): approve 3 needs one.
-const BENCH = ["Detail density", "Material truth", "Light and shadow", "Text system", "Overlays caused by physics", "Framing", "Macro quality"]
+const BENCH = ["Detail density", "Material truth", "Light and shadow", "Text system", "Overlays caused by motion", "Framing", "Macro quality"]
   .map((r) => `| ${r} | 4 | 4 | |`).join("\n") + "\n";
 const filler = (bytes) => Array.from({ length: Math.ceil(bytes / 50) }, (_, i) => `Filler line ${String(i).padStart(4, "0")} for the section budget check...`).join("\n") + "\n";
 const after = (heading, text) => (src) => { const i = src.indexOf(heading + "\n"); assert.ok(i >= 0, `fixture heading ${heading} not in the source`); const j = i + heading.length + 1; return src.slice(0, j) + text + src.slice(j); };
@@ -43,7 +43,10 @@ try {
   }
   const plain = run("reading");
   assert.equal(plain.code, 0);
-  assert.match(plain.out, /Total read, Steps 0–8: [\d.]+ KB of 60 KB/);
+  assert.match(plain.out, /Total read, Steps 0–8 without optional Step 2: [\d.]+ KB of 60 KB/);
+  assert.match(plain.out, /Optional Step 2 \(a reference video\), not in the total: [\d.]+ KB/);
+  const counted = Object.entries(json.steps).filter(([n]) => n !== "2").reduce((a, [, s]) => a + s.read.reduce((b, e) => b + e.bytes, 0) + s.lessonsBytes, 0);
+  assert.equal(json.total, counted, "the total counts every step but the optional Step 2");
   assert.equal(run("reading", "--json", "--skill", mk("no-skill")).code, 1, "a skill copy without references fails, never passes");
 
   // 2. `next` walks a fixture project: the step from the files, only that step's commands, approvals unchanged.
@@ -226,7 +229,7 @@ try {
   const d = skillCopy("s-total"); // every section stays under 8 KB; only the sum is over 60 KB
   let need = TOTAL_MAX - json.total + 300;
   const seen = new Set();
-  const roomy = Object.values(json.steps).flatMap((s) => s.read).filter((e) => e.heading && !seen.has(e.file + e.heading) && seen.add(e.file + e.heading));
+  const roomy = Object.entries(json.steps).filter(([n]) => n !== "2").flatMap(([, s]) => s.read) // Step 2 is not in the total.filter((e) => e.heading && !seen.has(e.file + e.heading) && seen.add(e.file + e.heading));
   for (const e of roomy.sort((x, y) => x.bytes - y.bytes)) { // most headroom first
     if (need <= 0) break;
     const add = Math.min(need, SECTION_MAX - e.bytes - 200);

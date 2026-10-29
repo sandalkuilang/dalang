@@ -81,7 +81,7 @@ if (need('size', 'Size', 'repeated-shot check')) {
 // (c) share of rows whose focal point is text only (heuristic)
 if (need('see', 'What we see', 'text-only check') && need('act', 'Subject action', 'text-only check')) {
   const TEXT = /\b(text|title|headline|kicker|typograph\w*|caption|quote|lettering|kinetic type|words?)\b/i;
-  const REAL = /\b(3d|three\.?js|physics|simulat\w*|registry|composited)\b/i;
+  const REAL = /\b(3d|three\.?js|iso(?:metric)?|registry)\b|\bbuild\(\)/i; // text made a real visual: a 3D or isometric build
   const t = rows.filter(r => TEXT.test((r.c[C.see] ?? '').split(/;|\(| — /)[0]) && !REAL.test(r.c[C.act] ?? ''));
   const share = rows.length ? t.length / rows.length : 0;
   if (share > lim.text) problems.push(`storyboard.md:${hi + 1} ${t.length} of ${rows.length} rows (${Math.round(share * 100)} %) show text only, over ${Math.round(lim.text * 100)} % for ${energy} (rows ${t.map(r => r.n).join(', ')}): give them a subject or a real visual`);

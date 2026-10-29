@@ -28,7 +28,7 @@ Board: measure/reference-board.jpg
 | Material truth | 4 | 3 | one point behind: allowed |
 | Light and shadow | 4 | 4 | |
 | Text system | 3 | 4 | |
-| Overlays caused by physics | 3 | 3 | |
+| Overlays caused by motion | 3 | 3 | |
 | Framing | 4 | 4 | |
 | **Macro quality** | 4 | 3 | |
 `;
