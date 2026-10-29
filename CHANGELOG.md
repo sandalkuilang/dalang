@@ -32,6 +32,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-29
+
 ### Added
 
 - `express.mjs scaffold`: the planner lints the storyboard and scaffolds the groups itself and returns the builders'
@@ -1780,7 +1782,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...v4.0.0
 [3.10.0]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sandalkuilang/dalang/compare/v3.9.0...v3.9.1
