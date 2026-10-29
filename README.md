@@ -43,9 +43,37 @@ node ~/.claude/skills/dalang/scripts/preflight.mjs
 </picture>
 
 - **Words first.** The voice is recorded before any frame exists; every cut lands on a timed word, with room before the first word and after the last, and a free music bed under it.
-- **Two lanes, two looks.** Express (the default, 20 minutes of work) draws a Canvas 2D isometric world; Studio (the precision lane) builds it in three.js, its hero modelled once from your 2D pictures as a Blender script. Looks: `isometric-world` (with `cutaway` and `blueprint` beats) or `object-studio` 3D, in either lane; the camera is a slow one-way orbit.
+- **Two lanes, two looks.** Express or Studio (below); looks `isometric-world` (with `cutaway` and `blueprint` beats) or `object-studio` 3D, in either lane; the camera is a slow one-way orbit.
 - **Hands-off.** All questions up front; the agent passes its own gates and hands you the film with its metrics.
 - **Lean.** Parallel builders on a code-written frame, small subagents, measured tokens.
+
+## Express or Studio
+
+The Brief asks once; both run hands-off after it.
+
+| | **Express** (default, fast lane) | **Studio** (precision lane) |
+|---|---|---|
+| Pick it for | a 30–90 s explainer, ready in about 20 minutes of work | a subject that must look exactly like the real thing, opened up |
+| The subject | drawn as true shapes (isometric), or a model already in your library | modelled once from your 2D pictures as a Blender script, kept in your library for later films |
+| Renderer | Canvas 2D isometric (`engine/iso`); `object-studio` uses three.js | three.js iso look (matcap + ink) or `object-studio` |
+| You give | the topic (photos optional) | the topic and 3–5 pictures of the subject (photos, a cutaway diagram, a manual page) |
+| You get | `final.mp4` (one render), captions, `POST.md`, metrics | `final.mp4` (high render), captions, `POST.md`, metrics, the subject asset for reuse |
+
+**Express workflow**
+1. Preflight and every Brief question at once.
+2. Facts, then the script; Gate 1 runs the lints itself.
+3. The voice take; a clean take is padded and captioned (Gate 2).
+4. One planner writes `SPEC.md` and the storyboard, then scaffolds the shot groups.
+5. Builders fill the groups in parallel; one assemble check (Gate 3).
+6. One render, Gate 4, the film.
+
+**Studio workflow**
+1. Preflight and every Brief question at once (Blender asked if missing).
+2. Facts, then the script (Gate 1), the voice (Gate 2).
+3. The subject: your pictures read into a parts sheet, modelled in Blender, its still checked against the pictures.
+4. Look: `SPEC.md`, storyboard, style frames scored by a fresh reviewer (Gate 3).
+5. Build: a pilot shot group, then the rest in parallel, the motion posed from its cause (x-ray, section planes, parts turning at their real rate, numbered pins).
+6. QC: one check runner, review strips, a reviewer, fix rounds (Gate 4); a high render, the film.
 
 More: [workflow](docs/workflow.md) · [architecture](docs/architecture.md) · [changelog](CHANGELOG.md)
 

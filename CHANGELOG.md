@@ -32,6 +32,10 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Changed
+
+- README: what Express and Studio each ask for, their steps and what each hands over.
+
 ## [4.2.0] - 2026-10-29
 
 ### Removed
