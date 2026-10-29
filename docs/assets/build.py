@@ -23,6 +23,9 @@ LIGHT = {
     "timing":   "--card:#ffffff;--card2:#ffffff;--bd:#d1d9e0;--tx:#1f2328;--mu:#59636e;"
                 "--dim:#818b98;--ac:#bc4c2e;--acbd:#bc4c2e;--acsoft:#fdf1ec;--bl:#0969da;"
                 "--blsoft:#eaf2fd;--tr:#d1d9e0;--wave:#6ea2d8",
+    "lanes":    "--card:#ffffff;--card2:#ffffff;--bd:#d1d9e0;--tx:#1f2328;--mu:#59636e;"
+                "--dim:#818b98;--ac:#bc4c2e;--acbd:#bc4c2e;--acsoft:#fdf1ec;--bl:#0969da;"
+                "--blsoft:#eaf2fd;--tr:#d1d9e0",
 }
 # banner.svg is dark in both themes on purpose, so it has no light twin.
 

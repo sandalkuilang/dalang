@@ -34,7 +34,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Changed
 
-- README: what Express and Studio each ask for, their steps and what each hands over.
+- README: what Express and Studio each ask for, their steps and what each hands over, with an animated diagram of both
+  lanes (`docs/assets/lanes.*.svg`, light derived from dark).
 
 ## [4.2.0] - 2026-10-29
 

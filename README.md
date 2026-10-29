@@ -49,13 +49,18 @@ node ~/.claude/skills/dalang/scripts/preflight.mjs
 
 ## Express or Studio
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lanes.dark.svg">
+  <img alt="Express: Brief, Script, Voice, Plan, Build, Render in about 20 minutes. Studio: Brief with pictures, Script and voice, the subject modelled once in Blender, Look, Build, QC and a high render." src="docs/assets/lanes.light.svg" width="100%">
+</picture>
+
 The Brief asks once; both run hands-off after it.
 
 | | **Express** (default, fast lane) | **Studio** (precision lane) |
 |---|---|---|
 | Pick it for | a 30–90 s explainer, ready in about 20 minutes of work | a subject that must look exactly like the real thing, opened up |
 | The subject | drawn as true shapes (isometric), or a model already in your library | modelled once from your 2D pictures as a Blender script, kept in your library for later films |
-| Renderer | Canvas 2D isometric (`engine/iso`); `object-studio` uses three.js | three.js iso look (matcap + ink) or `object-studio` |
+| Engines | voice: VoiceStudio or Kokoro · scene: **Canvas 2D** (`engine/iso`); `object-studio`: **three.js** · video: **HyperFrames** + ffmpeg | voice: VoiceStudio or Kokoro · subject: **Blender** (`engine/blender`) · scene: **three.js** (`engine/three`) · video: **HyperFrames** + ffmpeg |
 | You give | the topic (photos optional) | the topic and 3–5 pictures of the subject (photos, a cutaway diagram, a manual page) |
 | You get | `final.mp4` (one render), captions, `POST.md`, metrics | `final.mp4` (high render), captions, `POST.md`, metrics, the subject asset for reuse |
 
