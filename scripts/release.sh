@@ -11,6 +11,8 @@ echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "usage: scripts/releas
 cd "$(dirname "$0")/.."
 export GH_TOKEN="$(gh auth token -u "${GH_USER:-sandalkuilang}")"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "the working tree has uncommitted changes: commit or stash them first"; exit 1; }
+# three.js and its add-ons stay on their latest releases: a release that is behind says so (it never blocks; `node scripts/vendor_latest.mjs --update` fixes it)
+node scripts/vendor_latest.mjs 2>/dev/null | grep -E "^(behind|capped)" || true
 git fetch -q --tags origin
 prev=$(git describe --tags --abbrev=0 origin/main)
 git rev-parse -q --verify "refs/tags/v$v" >/dev/null && { echo "v$v already exists"; exit 1; }

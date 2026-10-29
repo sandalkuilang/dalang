@@ -24,6 +24,7 @@ const { shots, cueTime } = await use("shots.js");
 const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
+const BK = await use("bokeh.js");
 const ED = await use("editorial.js");
 
 const scene = new THREE.Scene();
@@ -1652,8 +1653,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     const BAND = { kicker: "How it works", headline: "The cell drives the LED through the driver", tag: "Illustration" };
     const SHOTS = [
       { name: "wide", beat: "hook", action: "flow", transition: "cut", camera: [{ station: "wide" }], band: BAND, labels: [{ part: "cell", text: "cell" }, { part: "driver", text: "driver" }], dims: [{ dim: "cell" }] },
-      { name: "medium", beat: "inside", action: "flow", transition: "cut", camera: [{ station: "medium" }], band: BAND, labels: [{ part: "driver", text: "driver" }, { part: "star", text: "star board" }], dims: [{ dim: "gap" }] },
-      { name: "macro", beat: "detail", action: "flow", transition: "cut", camera: [{ station: "macro" }], band: BAND, labels: [{ part: "led", text: "LED" }, { part: "reflector", text: "reflector" }], dims: [{ dim: "reflector" }] },
+      { name: "medium", beat: "inside", action: "flow", transition: "cut", view: 90, camera: [{ station: "medium" }], band: BAND, labels: [{ part: "driver", text: "driver" }, { part: "star", text: "star board" }], dims: [{ dim: "gap" }] },
+      { name: "macro", beat: "detail", action: "flow", transition: "cut", view: 180, camera: [{ station: "macro" }], band: BAND, labels: [{ part: "led", text: "LED" }, { part: "reflector", text: "reflector" }], dims: [{ dim: "reflector" }] },
     ];
     const set = { stations: fr, parts: sp, dims: sdims, cut: scut, group: sg, keep: [], actions: ["flow"], at: () => ({}), place: placeSt };
     const T = { beats: BEATS, words: WORDS, end: 9.5, fps: 30, W, H, set, pill: PILL };
@@ -1689,6 +1690,11 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     bad((l) => { l[0].action = "spin"; }, /not one of set.actions/, "an action the set does not have");
     bad((l) => { l[0].camera.push({ station: "medium", at: "w2" }); }, /arrive cue/, "a move that leaves on a word needs its arrival cue");
     bad((l) => { l[0].labels.push({ part: "cell", text: "cell", at: "w9" }); }, /read time/, "a label cued 0.4 s before its shot ends");
+    bad((l) => { l[1].view = 40; }, /cuts to the same view \(35° from the shot before\)/, "a cut that turns the view under 60° is a jump cut");
+    bad((l) => { delete l[1].view; }, /cuts to the same view \(5° from the shot before\)/, "a cut at the same view at a new size");
+    { const l = structuredClone(SHOTS); l[1].view = 0; l[1].newSubject = true; assert.doesNotThrow(() => shots(l, T), "a cut to another subject is exempt");
+      const t = structuredClone(SHOTS); t[1].view = 0; t[1].transition = "travel"; assert.doesNotThrow(() => shots(t, T), "a travel is not a cut: the same view is fine");
+      const w = structuredClone(SHOTS); w[1].view = 270; w[2].view = 360; assert.doesNotThrow(() => shots(w, T), "the view turns the short way round (270° → 360° is 90°, a side)"); }
   }
 
   // dimension(): drafting style, kept in the safe area, or nothing and the reason.
@@ -1902,4 +1908,47 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
 }
 
-console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
+// Detail focus (bokeh.js): three.js's BokehPass on the pmndrs composer; no GL needed (a mock renderer records the depth render).
+{
+  const sc = new THREE.Scene(), plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), sc2 = new THREE.Scene();
+  const solid = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ clippingPlanes: [plane], side: THREE.DoubleSide }));
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.3 }));
+  const ink = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial()), hid = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+  hid.visible = false; sc.add(solid, glass, ink, hid); sc.background = new THREE.Color(0xff0000);
+  const persp = new THREE.PerspectiveCamera(30, 1, 0.1, 100), ortho = isoCamera(1080, 1920);
+  persp.position.set(0, 0, 10); persp.lookAt(0, 0, 0); persp.updateMatrixWorld();
+  const dp = BK.detailFocus(sc, persp), db = dp.pass.bokeh;
+  assert.ok(db._renderTargetDepth && db._fsQuad && db._oldClearColor && db.materialBokeh.defines && db.uniforms.focus, "BokehPass keeps the fields bokeh.js builds on (three is pinned: re-check them on an upgrade)");
+  assert.ok(!db.materialBokeh.fragmentShader.includes("gl_FragColor.a = 1.0") && !db.materialBokeh.fragmentShader.includes("texture2D( tColor,") && db.materialBokeh.fragmentShader.includes("tapColor("), "the bokeh shader keeps the frame's alpha (taps weighted by alpha; a transparent frame stays transparent)");
+  assert.ok(!dp.pass.enabled && dp.blur === 0, "blur 0 by default: the pass is off, wide frames are untouched");
+  dp.focusOn(new THREE.Vector3(3, 2, 4));
+  assert.ok(Math.abs(db.uniforms.focus.value - 6) < 1e-9, "focusOn: the distance along the view (6), not the distance to the point");
+  dp.set({ blur: 0.012 });
+  assert.ok(dp.pass.enabled && Math.abs(db.uniforms.maxblur.value - 0.012) < 1e-12 && Math.abs(db.uniforms.aperture.value - 0.012 / (0.25 * 6)) < 1e-9, "set: maxblur = blur; aperture = blur / range (default 0.25 x the focus distance, perspective)");
+  dp.set({ range: 0.5 });
+  assert.ok(Math.abs(db.uniforms.aperture.value - 0.024) < 1e-12 && dp.blur === 0.012, "set({ range }): aperture = blur / range, blur kept");
+  dp.set({ blur: 0 });
+  assert.ok(!dp.pass.enabled && db.uniforms.maxblur.value === 0, "blur 0 disables the pass again");
+  placeCamera(ortho, { target: new THREE.Vector3(1, 2, 3), k: 2 });
+  const dor = BK.detailFocus(sc2, ortho), pt = new THREE.Vector3(5, 0, -2), fw = ortho.getWorldDirection(new THREE.Vector3());
+  dor.focusOn(pt); dor.set({ blur: 0.01 });
+  assert.ok(Math.abs(dor.pass.bokeh.uniforms.focus.value - pt.clone().sub(ortho.position).dot(fw)) < 1e-9, "focusOn (iso, ortho): the distance along the view");
+  assert.ok(Math.abs(dor.pass.bokeh.uniforms.aperture.value - 0.01 / (0.25 * 1920 / 2)) < 1e-9, "iso default range = 0.25 x the frame height in world units (zoom counted)");
+  // the depth render, on a mock renderer
+  const seen = [], mock = (boom) => ({ autoClear: true, getClearColor: (c) => c.set(0x123456), getClearAlpha: () => 0.5, setClearColor() {}, setClearAlpha() {}, setRenderTarget() {}, clear() {},
+    render(s, c) { if (!s.isScene) return; seen.push({ bg: s.background, ov: s.overrideMaterial, solid: solid.material, glass: glass.visible, ink: ink.visible, hid: hid.visible, auto: this.autoClear }); if (boom) throw new Error("boom"); } });
+  const before = [solid.material, glass.material, glass.visible, ink.visible, hid.visible, sc.background, sc.overrideMaterial], after = () => [solid.material, glass.material, glass.visible, ink.visible, hid.visible, sc.background, sc.overrideMaterial];
+  sc.overrideMaterial = null; dp.set({ blur: 0.01 }); const out = { texture: {} };
+  dp.pass.render(mock(), { texture: {} }, out);
+  const d = seen[0];
+  assert.ok(d.solid.isMeshDepthMaterial && d.solid.depthPacking === THREE.RGBADepthPacking && d.solid.blending === THREE.NoBlending && d.solid.clippingPlanes[0] === plane && d.solid.side === THREE.DoubleSide, "depth: a depth material that keeps the clipping plane and the side (a section is cut in the depth too)");
+  assert.ok(!d.glass && !d.ink && !d.hid && d.bg === null && d.ov === null && d.auto === false, "depth: glass and ink lines are hidden, the background is off, nothing else is drawn");
+  assert.ok(after().every((v, i) => v === before[i]), "depth: materials, visibility, background and overrideMaterial are restored exactly");
+  assert.equal(dp.pass.bokeh.materialBokeh.defines.PERSPECTIVE_CAMERA, 1, "a perspective camera keeps PERSPECTIVE_CAMERA 1");
+  const dom = BK.detailFocus(sc, ortho); dom.set({ blur: 0.01 }); dom.pass.render(mock(), { texture: {} }, out);
+  assert.equal(dom.pass.bokeh.materialBokeh.defines.PERSPECTIVE_CAMERA, 0, "an orthographic (iso) camera sets PERSPECTIVE_CAMERA 0");
+  sc.overrideMaterial = new THREE.MeshBasicMaterial(); const ov = sc.overrideMaterial; before[6] = ov;
+  assert.throws(() => dp.pass.render(mock(true), { texture: {} }, out), /boom/);
+  assert.ok(after().every((v, i) => v === before[i]) && sc.overrideMaterial === ov, "a throwing render still restores everything");
+}
+console.log("selfcheck ok:detail focus (BokehPass on the composer: focus along the view, aperture = blur / range, 0 = off, ortho define, depth keeps the section and hides glass and ink, restored on a throw), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");

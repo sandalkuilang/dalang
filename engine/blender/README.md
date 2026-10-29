@@ -11,7 +11,8 @@ shipped) by a Python script (MIT), exported as glTF and reused by every film. Ho
   library lacks is added here, generic and named by what it is.
 - `templates/hero.clip.tpl.html`: the HyperFrames clip of one hero GLB in the engine/three iso look (x-ray shell,
   sweeping section, rotor blur, coded flow, numbered pins, iso pan/zoom between stations). A film copies it and fills
-  only the `HERO` block at the top: GLB path, node patterns per role, rotors, stations, beats, pins.
+  only the `HERO` block at the top: GLB path, node patterns per role, rotors, stations, beats, `detail` (one
+  detail-focus window per beat: `from`, `to`, `node`, `blur`, `range`), pins.
 
 Assemblies are the owner's, not the skill's: each lives in `<videos folder>/library/hero/<name>/` (its `<name>.py`,
 GLB and filled clip). An assembly puts the installed skill's `engine/blender` on `sys.path`, imports `parts`, and builds with:

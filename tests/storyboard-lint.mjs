@@ -2,7 +2,8 @@
 // node tests/storyboard-lint.mjs — scripts/storyboard_lint.mjs against fixture storyboards. The lint reads the shot
 // table of storyboard.md (the one with a "Subject action" column) and flags, each at its row: an empty Subject
 // action or Camera cell; 3+ consecutive rows with the same size and angle; the share of rows whose focal point is
-// text only, over the energy's limit; an average shot over the energy's limit (limits: visual-direction.md §3).
+// text only, over the energy's limit; an average shot over the energy's limit (limits: visual-direction.md §3); a hard cut
+// that keeps the view (the angle cell) or turns it under 60°.
 // Other tables are ignored. A storyboard it cannot read or parse is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -32,7 +33,7 @@ const build = (rows, { nocam = false, step = 2.5 } = {}) => {
     const k = i + 1;
     const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow push-in, the valve fills the frame", act: "water flows out of the valve (3D, physics)", ...r };
     at[k] = lines.length + 1;
-    const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, "cut", "-", "-"];
+    const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, d.out ?? "dissolve", "-", "-"];
     lines.push(`| ${cells.join(" | ")} |`);
   });
   return { text: lines.join("\n") + "\n", at };
@@ -110,6 +111,29 @@ const check = (rows, args = [], opts, brief) => {
   const f = found(r.out);
   for (const k of [2, 5, 6]) assert.ok(f.includes(r.at[k]), `row ${k}: ${r.out}`);
   assert.match(r.out, /text only/); assert.match(r.out, /average shot/);
+}
+// 8. a hard cut changes the view (the angle cell: front, a side, the back; 60° or more)
+{
+  const cut = { out: "hard cut on the hook word" };
+  // the same angle at a new zoom: a jump cut
+  let r = check(clean(3, { 1: { size: "wide · iso", ...cut }, 2: { size: "close · iso" } }));
+  assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), [r.at[1]], r.out); assert.match(msg(r.out, r.at[1]), /hard cut keeps the view \(iso → iso\)/);
+  // under 60° apart: front to front-right is 45°
+  r = check(clean(3, { 1: { size: "wide · front", ...cut }, 2: { size: "close · front-right" } }));
+  assert.equal(r.code, 1, r.out); assert.match(msg(r.out, r.at[1]), /45°/);
+  // a new view: front to the right side (90°), front to the back (180°), a plain "cut" too
+  for (const [a, b] of [["front", "right side"], ["front", "back"], ["left side", "right side"]]) {
+    r = check(clean(3, { 1: { size: `wide · ${a}`, out: "cut on action" }, 2: { size: `close · ${b}` } }));
+    assert.equal(r.code, 0, `${a} → ${b}: ${r.out}`);
+  }
+  // not a hard cut, or a cut that is allowed: a push, a dissolve, a match cut, a cut to a new subject
+  for (const out of ["push through to the cutaway", "dissolve", "match cut: the grille becomes the dial", "hard cut to a new subject"]) {
+    r = check(clean(3, { 1: { size: "wide · iso", out }, 2: { size: "close · iso" } }));
+    assert.equal(r.code, 0, `${out}: ${r.out}`);
+  }
+  // the last row's transition goes nowhere
+  r = check(clean(2, { 2: { size: "wide · iso", ...cut } }));
+  assert.equal(r.code, 0, r.out);
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("storyboard-lint: ok");

@@ -9,12 +9,15 @@ import { dimension } from "./quantity.js";
 //   const run = shots(SHOTS, { beats: BEATS, words: WORDS, end: NARRATION_DURATION, fps, W, H, format, set });
 //   // each frame: run.at(t, camera); render; then on the 2D canvas: run.draw(ctx, t, camera); layoutFrame(ctx, t)
 //
-// A shot: { name, beat, action, transition, camera, cut, highlight, band, labels, dims, custom }
+// A shot: { name, beat, action, transition, view, newSubject, camera, cut, highlight, band, labels, dims, custom }
 //   beat        the cue the shot starts on; it ends where the next one starts (the last at `end`)
 //   action      what the subject does in it, one of set.actions (visual-direction.md §3: the subject acts in every
 //               shot). null only for a breath of at most 1.5 s (a camera-only plate)
 //   transition  "cut" (the camera is on the first key at the shot's start) or "travel" (it leaves the previous shot's
 //               last pose at the start and arrives on the first key)
+//   view        degrees: the subject's yaw (the set turns it) added to the first station's own azimuth; an isometric station has
+//               none, so a cut between isometric shots needs it. A "cut" must turn the view by 60° or more from where the shot
+//               before ended (a jump cut at the same view shows nothing new: travel instead); newSubject: true exempts a cut to another subject
 //   camera      [{ station, at?, arrive?, ease?, lift? }]: station names a key of set.stations. The first key holds from
 //               the start (or is arrived at on "travel"); each later key is a move that leaves on `at` and arrives on
 //               `arrive` (default: the end of the beat `at` names). ease: "inOut" (default), "linear", "in", "out" or a
@@ -52,13 +55,15 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
   if (!set?.stations || !set.parts) throw new Error("shots(): set is { stations, parts, dims?, cut?, group?, keep?, actions?, at?(t), place?(camera, station, W, H) }");
   const problems = [], say = (s, msg) => problems.push(`shot "${s.name}": ${msg}`);
   const cue = (s, c) => { try { return snap(cueTime(c, { beats, words }), fps); } catch (e) { say(s, e.message); return NaN; } };
+  const az = (p) => (p.position ? Math.atan2(p.position.x - p.target.x, p.position.z - p.target.z) * 180 / Math.PI : 0);
+  const turned = (a, b) => { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d); };
   const station = (s, k) => set.stations[k.station] ?? (say(s, `station "${k.station}" is not one of ${Object.keys(set.stations).join(", ")}`), null);
 
   // times, then the camera's segments: holds and moves, each a pure function of t
   const out = list.map((s) => ({ ...s, start: cue(s, s.beat) }));
   out.forEach((s, i) => { s.end = i + 1 < out.length ? out[i + 1].start : snap(end, fps); });
   const segs = [];
-  let last = null;
+  let last = null, lastView = 0;
   for (const [i, s] of out.entries()) {
     if (!(s.end > s.start)) say(s, `starts at ${s.start} s, not before the next shot (${s.end} s): list shots in narration order`);
     if (s.action == null ? s.end - s.start > 1.5 : set.actions && !set.actions.includes(s.action))
@@ -71,6 +76,12 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
     keys.forEach((k, j) => {
       const to = station(s, k);
       if (!to) return;
+      if (j === 0) {
+        const v = az(to) + (s.view ?? 0);
+        if (s.transition === "cut" && i && !s.newSubject && turned(v, lastView) < 60)
+          say(s, `cuts to the same view (${Math.round(turned(v, lastView))}° from the shot before): a cut turns the view 60° or more (a side, the back: set \`view\`, or another station), else "travel"; newSubject: true for another subject`);
+        lastView = v;
+      }
       const move = j > 0 || s.transition === "travel";
       if (!move) { segs.push({ s, from: to, to, start: s.start, dur: 0 }); from = to; return; }
       const at = j === 0 ? s.start : cue(s, k.at), name = typeof k.at === "string" ? k.at.replace(/\.end$/, "") : s.beat;
@@ -85,7 +96,7 @@ export function shots(list, { beats, words = [], end, fps, W, H, format = "short
       if (from && ease && arrive > at) segs.push({ s, from, to, start: at, dur: arrive - at, ease, lift: k.lift });
       from = to; t0 = arrive;
     });
-    last = from;
+    last = from; if (from) lastView = az(from) + (s.view ?? 0);
   }
 
   const fail = () => { if (problems.length) throw new Error("shots(): " + problems.length + " problem(s)\n  " + problems.join("\n  ")); };
