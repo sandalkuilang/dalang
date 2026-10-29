@@ -44,10 +44,10 @@ function mock(o = {}) {
 }
 const freePort = () => new Promise((ok) => { const s = http.createServer().listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => ok(p)); }); });
 const run = (args, sealDir = seal, env = {}) => new Promise((ok) => execFile(process.execPath, [preflight, ...args], { env: { ...process.env, AUDIOSEAL_CACHE_DIR: sealDir, ...env }, timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
-// Text rows: status (11), item (22), note.
+// Text rows: "STATUS item: note" (no padding; VoiceStudio's own rows indented, the note optional).
 const parse = (out) => {
   const rows = {}, lines = out.split("\n");
-  for (const l of lines) if (/^[A-Z]+ +/.test(l) && l.length > 34) rows[l.slice(12, 34).trim()] = { status: l.slice(0, 11).trim(), note: l.slice(35) };
+  for (const l of lines) { const m = /^([A-Z]+) +([^:]+?)(?:: (.*))?$/.exec(l); if (m) rows[m[2].trim()] = { status: m[1], note: m[3] ?? "" }; }
   return { rows, voice: (lines.find((l) => l.startsWith("Voice: ")) || "").slice(7), lines };
 };
 

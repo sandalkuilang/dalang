@@ -1,79 +1,79 @@
 # Lessons from real runs
 
-Each line is a failure that already happened, tagged with the steps it belongs to (`[5]`, `[5,6]`); `state.mjs next` names a step's lines; a line without a tag fails the gate. Never read this file whole: when something goes wrong, `grep -n -i '<word>'` it. The fixes are already built into `SKILL.md`; this file says why.
+Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `state.mjs next` prints a step's headlines; an untagged line fails the gate. Never read this file whole: `grep -n -i '<word>'` it. The fixes are already in the rules; a line says why.
 
 ## Script and facts
-- [1,6] **A look that looked 3D moved the film to Studio on its own**, and Studio's pilot made two group builders wait about 20 minutes. Mode is the workflow and look the drawing: both are asked in the Brief and locked after it; Express starts every group at once.
-- [5] **A title block on a 9:16 film made it read as coursework** (the viewer called it a thesis). Sheet furniture (title block, sheet number) only on 16:9.
-- [1,5] **The look was guessed, never asked**: the user's references were 3D renders on a sweep, the agent tried a print look, a blueprint, then isometric before 3D (four looks, about 2.5 h of rebuilds). The look is now asked in the Brief, one of two, and a reference gives palette, type and overlays.
-- [3] **Comparing numbers measured by different methods** and turning a tiny gap into a "narrow win" twist. A small gap with different methods is a tie.
-- [1] **The format was never asked**, so the user wanted a vertical short but the brief stayed 16:9. Platform always goes through AskUserQuestion.
-- [1] **The script was rewritten five times** because the brief (duration, language) was settled late. Ask everything in Step 1, before the first draft.
+- [1,6] **A 3D-looking look moved the film to Studio on its own** (the pilot kept two builders waiting ~20 min). Mode and look are both asked in the Brief and locked; Express starts every group at once.
+- [5] **A title block on 9:16 read as coursework.** Sheet furniture only on 16:9.
+- [1,5] **The look was guessed, never asked** (four looks, ~2.5 h of rebuilds). The Brief asks one of two; a reference gives palette, type and overlays.
+- [3] **Numbers measured by different methods were compared** into a "narrow win". A small gap across methods is a tie.
+- [1] **The format was never asked.** Platform always goes through AskUserQuestion.
+- [1] **The script was rewritten five times** because duration and language were settled late. Ask everything in Step 1.
 
 ## Voice and timing
-- [4] **A warning that says "listen" is not actionable for an agent.** A low-alignment warning pointed at a spot to listen to; the agent moved on and the user heard the noise there. A full re-take costs 15–25 min, so three bad sentences were re-spoken and hand-spliced with ad-hoc crossfades. `--retake auto|<n,…>|changed` re-speaks and splices only those sentences; every warning names a command, never "listen" or "check by ear".
-- [4] **Per-sentence timing ≠ per-word timing.** A per-sentence transcript is accurate only to ~1/6 s. Use `words.json`.
-- [4] **One number-heavy section is not a representative pace sample** (2.09 vs 2.30 words/s for the full script, same voice). After the full generation, re-check the real duration.
-- [4] **Accent tags changed the pace** (2.30 → 2.57 words/s; 134 s against a 150 s target). Calibrate with the tags you will use; fix small misses with `--speed`.
-- [0,4] **Time lost on account issues:** 401 (key permission) and 400 `paid_plan_required` surfaced only after a clone sample was prepared. `preflight.mjs` shows the tier first.
-- [0] **VoiceStudio "loaded forever"** on the first generation: the backend downloaded the AudioSeal watermark inline, stopped answering `/health`, and the app restarted it every ~60 s. Pre-download outside the backend (`voice.md`).
-- [0] **A wait loop trusted `installed: true`** while a model was still downloading; the first request hung the single Apple Silicon worker for 30 minutes. Wait for `incomplete: false`.
-- [4] **The transcription endpoint ignored the installed MLX turbo model** and demanded a 3 GB one. Activate faster-whisper turbo through the balanced tier (`voice.md`).
-- [4] **"Use the voice from this chat voice note" stalled Step 4** for ~10 tool calls: no clone path was written down. Now `voice.md` "Clone".
-- [1,4] **Three voices were auditioned before anyone asked** — the user wanted their own saved profile. Ask which saved profile to try first (`script-voice.md` §4).
-- [1] **A saved clone was used for a public channel without asking:** the user first saw it in the Gate 1 summary and rejected it. The Brief asks the voice by audience (`brief.md` Call 3). Saving the approved designed audition then failed on its length; `--save-profile` now cuts it at a word end from its `.words.json`.
-- [4] **A clone spoke slower and paused longer than its sample suggested,** with ~1 s pauses holding room tone that `silenceremove` cannot see, and dropped a word in a long take (its "estimated" warnings were real gaps). Measure the pace on the clone itself, rephrase a dropped line, cap pauses by cutting on `words.json` gaps, then retime with `--from-audio` (without `--own-recording`: the cut take keeps its model's licence).
+- [4] **A warning that says "listen" is not actionable.** Every warning names a command (`--retake auto|<n,…>|changed` re-speaks and splices only those sentences).
+- [4] **Per-sentence timing ≠ per-word timing** (~1/6 s off). Use `words.json`.
+- [4] **A number-heavy section misjudged the pace** (2.09 vs 2.30 words/s). Re-check the real duration after the full take.
+- [4] **Accent tags changed the pace** (2.30 → 2.57 words/s). Calibrate with the tags you will use; small misses with `--speed`.
+- [0,4] **Account errors (401, 400 `paid_plan_required`) surfaced late.** `preflight.mjs` shows the tier first.
+- [0] **VoiceStudio "loaded forever"** while the backend downloaded AudioSeal inline. Pre-download outside the backend (`voice.md`).
+- [0] **A wait loop trusted `installed: true`** mid-download and hung the worker 30 min. Wait for `incomplete: false`.
+- [4] **Transcription ignored the installed MLX turbo model.** Use faster-whisper turbo through the balanced tier (`voice.md`).
+- [4] **"Use the voice from this voice note" stalled Step 4** (~10 calls). `voice.md` "Clone".
+- [1,4] **Three voices were auditioned before asking** — the user wanted their saved profile. Ask which saved profile first (`script-voice.md` §4).
+- [1] **A saved clone went to a public channel unasked.** The Brief asks the voice by audience (`brief.md` Call 3); `--save-profile` cuts an audition at a word end.
+- [4] **A clone spoke slower than its sample,** held ~1 s room-tone pauses and dropped a word. Measure pace on the clone, rephrase a dropped line, cut pauses on `words.json` gaps, retime with `--from-audio` (without `--own-recording`).
 
 ## Visuals
-- [5] **The animation looked cheap and generated:** "the brief is settled, don't re-ask" made `/hyperframes` skip its SPEC/LOOK step; the hero (a vehicle) was drawn from SVG primitives; banned defaults appeared (cream ground, pill chips, side-by-side panels on 9:16, the same pop-in everywhere, a small hero in an empty frame); nine scenes were built before anyone saw one finished frame. Fixed by `SPEC.md`, the true-shape rule, style frames, and blocking/polish passes.
-- [5,6] **Half the film was still** because only mouths moved. A good reference film is ~5 % still.
-- [5] **A vector animal passed every check** because the illustrated look allowed a generic vector stand-in and the subject test was "N/A". The subject is now drawn or built on purpose from its real shapes, and the Set and Reality tests apply to every look: a stylized machine still has every part where the real one has it.
-- [1,5] **A "cartoon" pass in saturated candy pastels on a coloured backdrop was rejected as cheap**; the user preferred a designed object on a seamless light sweep (now `object-studio`), a calm palette with few accents, soft even light, a three-quarter view. Stylized means designed, not loud.
-- [1,5] **A palette went three rounds before it was liked.** A light hero on a light ground of the same value merged (uncomfortable to watch); a muted mid-grey ground read sleepy; a saturated ground read garish. What worked was measured from a reference the user liked: a light, warm set and a hero that reads through its dark parts and contact shadow (rubric Figure-ground).
-- [5,6] **People looked stiff** — poses and movement read as puppets, far from real. A person is now a stylized figure with the mitten rule and small squash, or staged faceless; never a rig or an animated cutout pretending to be real (`visual-direction.md` §1 "People").
-- [1] **Calm cinematic built to its numbers was 24 % still.** Calm needs real continuous motion too (`visual-direction.md` §3 "Minimum motion").
-- [1] **Step 1 preview promised banned defaults** (navy gradient + starfield) and the user picked it. Previews now follow the banned list.
-- [6] **Half a character vanished:** SVG parts inside `<template>` parse as HTML (self-closing `<path/>` is ignored, shapes nest and don't draw). Keep reusable SVG in `<defs>` and clone it with `<use>` or JS.
-- [6] **A crossfade between two shots of the same hero showed two of it** for 0.3 s. Same hero across a seam → match cut (same screen position and size), never a crossfade.
-- [6] **`mix-blend-mode` on an SVG `<rect>` rendered opaque** and hid the hero. Use a CSS `filter` on the shot wrapper.
-- [6] **Text rendered in a fallback font:** the face was set with the CSS `font:` shorthand, and the render's font subsetter reads only `font-family` declarations, so the bundled face was never embedded. Set `font-family` on its own (`look-build.md` scaffold facts).
-- [6] **An animation moved an object in another scene:** two scenes reused one scene-local `id` (`title`, `card`), and the lookup found the first scene's element. Prefix every `id` with its scene (`look-build.md` scaffold facts).
-- [5] **A licensed Commons "documentary" clip was a cartoon** (37 MB downloaded for nothing). Look at posters on a contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
-- [6] **Missing GSAP include and a timed `<video>` inside a timed wrapper** each cost a check round (`look-build.md` Step 6 item 4).
-- [5] **Non-English catalog queries** return zero results.
-- [5] **A machine had a major part outside its body**, then on the wrong component, with the reference "checked" from memory. Machines start from downloaded photos and the Reality check compares against them, including where the action happens (`visual-direction.md` §1 "Machines", "Reality check").
+- [5] **The film looked generated:** skipped SPEC/LOOK, a hero from SVG primitives, banned defaults, nine scenes before one finished frame. `SPEC.md`, true shapes, style frames, blocking and polish passes.
+- [5,6] **Half the film was still** because only mouths moved (a good reference is ~5 % still).
+- [5] **A generic vector animal passed every check.** Set and Reality tests apply to every look.
+- [1,5] **Candy pastels on a coloured backdrop read cheap.** Stylized means designed, not loud (calm palette, few accents).
+- [1,5] **A palette took three rounds.** Same-value hero and ground merged; measure from a liked reference (rubric Figure-ground).
+- [5,6] **People looked stiff.** A stylized figure with the mitten rule, or faceless (`visual-direction.md` §1 "People").
+- [1] **Calm cinematic was 24 % still.** Calm needs real motion (`visual-direction.md` §3 "Minimum motion").
+- [1] **A Step 1 preview promised banned defaults.** Previews follow the banned list.
+- [6] **Half a character vanished:** SVG inside `<template>` doesn't draw. Keep it in `<defs>` and clone with `<use>` or JS.
+- [6] **A crossfade showed the same hero twice.** Same hero across a seam → match cut.
+- [6] **`mix-blend-mode` on an SVG `<rect>` rendered opaque.** Use a CSS `filter` on the wrapper.
+- [6] **Text rendered in a fallback font** (the `font:` shorthand is skipped by the subsetter). Set `font-family` alone.
+- [6] **An animation moved an object in another scene** (a shared `id`). Prefix every `id` with its scene.
+- [5] **A licensed "documentary" clip was a cartoon** (37 MB wasted). Contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
+- [6] **Missing GSAP and a timed `<video>` in a timed wrapper** each cost a round (`look-build.md` Step 6 item 4).
+- [5] **Non-English catalog queries** return nothing.
+- [5] **A machine had a part outside its body,** checked from memory. Compare against downloaded photos (`visual-direction.md` §1 "Machines", "Reality check").
 
 ## Audio and reference
-- [7,8] **The first render was ~8 dB too quiet.** Always run `loudness.mjs`; normalising the narration before the mix gets it right first time.
-- [7] **`hyperframes preview` opened the user's own Chrome**: its `--open` defaults to true. Always `--no-open`, on every re-run with other flags too, and in the `dev` script `hyperframes init` writes to `package.json` (it has none); then the URL in Claude's isolated built-in browser (`qc.md` §7). HyperFrames' headless render Chrome is its own bundled copy and is fine.
-- [5,7] **`snapshot` sends frames to Gemini** whenever `GEMINI_API_KEY` is set. Pass `--describe false`.
-- [6] **No music source** left Step 6 undefined. Music is now a licensed free track (Openverse, CC0 first then CC BY, no key; `scripts/find_media.mjs --type music`, `look-build.md` "Sound effects and music"); nothing fits → narration + SFX, and say so.
-- [2] **YouTube auto-captions had gaps**, including in the key sentence. Transcribe a reference again and read it to the end.
-- [2] **The assistant studying a video cannot hear.** Sound effects read from images are guesses; mark them.
-- [6] **`media-use resolve --type sfx` found no provider**; the free sources are the bundled `/media-use` library and Openverse CC0, both through `scripts/find_media.mjs --type sfx` (`look-build.md` "Sound effects and music").
+- [7,8] **The first render was ~8 dB too quiet.** Always `loudness.mjs`, before the mix.
+- [7] **`hyperframes preview` opened the user's Chrome.** Always `--no-open` (and in the `dev` script); open the URL in Claude's built-in browser (`qc.md` §7).
+- [5,7] **`snapshot` sends frames to Gemini** when `GEMINI_API_KEY` is set. Pass `--describe false`.
+- [6] **No music source left Step 6 undefined.** `find_media.mjs --type music` (`look-build.md` "Sound effects and music"); nothing fits → narration + SFX, said.
+- [2] **YouTube auto-captions had gaps.** Transcribe a reference again, to the end.
+- [2] **The assistant studying a video cannot hear.** SFX read from images are guesses; mark them.
+- [6] **`media-use resolve --type sfx` found no provider.** Use `find_media.mjs --type sfx`.
 
 ## Working speed
-- [0,1] **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.
-- [1] **24 fps looked choppy on a 30 fps platform:** frames repeat and rendered 3D has no blur, so moves strobe. Default fps is the platform's (30); 24 is a chosen look that blurs moves (`camera-motion.md` §8).
-- [7] **A 30 fps draft render took 39 min** (the next took under 3): nobody stopped it. A render far slower than the last → stop and look for the cause.
-- [7] **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
-- [7] **An unattended run delivered known "looks wrong" P1s** (Reality, Clarity); the user's first ask was to fix them: another polish pass and another final render. Those P1s (and Set ones) now block the final (`qc.md` Step 7 ship rules).
-- [8] **Generic build traps went into the user's private memory**, so the skill and its other users never learned them. The hand-off's `## Skill feedback` section carries them upstream (`qc.md` Step 8).
-- [4] **Whisper timed sentence starts early** (it counts the pause as part of the next word, up to 0.7 s). Forced alignment against the known script fixed it — beats on sentence starts land on the voice.
-- [4] **VoxCPM2 timed out** (300 s compute limit) on its first call while OmniVoice and a benchmark held the memory; alone it worked at ~22× real time. Heavy model jobs run one at a time; VoxCPM2 gets ~120-character chunks.
-- [5,6] **Two queued jobs waited on `pgrep -f <job>` for 25 min with nothing running**: each waiting shell's own command line matched. Chain heavy jobs in one background command, or wait on a PID (SKILL.md).
-- [5] **The machine sat idle through a 58 min gate wait**, then assets and music ran serially after it. Free local jobs that a "no" only discards run during the wait.
-- [5] **The film read as a PowerPoint slideshow:** 14 drifting stills with text in 61 s (Punchy energy wants ≥ 34 shots), the key action a frozen photo, nothing shown of the mechanism the narration explained. `stillness.mjs` said 0.8 % still because the rule let a ≥ 30 px/s drift count as motion. Now the subject must act in every shot, camera-only plates are ≤ 15 %, every "why" gets a mechanism shot, and the reviewer runs an Action test (`visual-direction.md` §3, §8, §11).
-- [5] **Every "camera move" was CSS on a still** (pushes and drifts on 14 stills): no tracking, no orbit, no slow motion, no B-roll — the film had no cinematography to speak of. Real moves come from a rig camera (2.5D layers or three.js), cut as A-roll and B-roll with one wow shot (`camera-motion.md` §8).
-- [7] **Rework, not rendering, was the slow part** of a 3 h 43 min run: a 27 % stillness fail (static plates) cost a 7.5 min re-render; 5 of the reviewer's 7 P0s were asset defects found after the full build; `check` next to a model job took 9× longer. Now: scene-prefixed ids and overlapping whips from the first draft (`look-build.md` Step 6 item 4), an asset pass before building (`review.md`), browser steps never beside a model job.
-- [5,6] **A stylized room read as a toy** with its furniture in place; adding dense small props (things on every surface, cables, real-leaf plants, a pinboard) and a few small life motions lifted it more than any lighting or material pass. Set dressing is now a recipe and a review test (`looks.md`, `visual-direction.md` §11).
-- [6] **A desk chair swivelled around a corner of its base** on an endless sine: the kit model's origin was not its pivot, and nothing caused the motion. Motion now has a cause: pushes decelerate at μ·g, contacts posed from their cause, real pivots (`camera-motion.md` §5).
-- [5,6] **A cozy stylized room read as boxy and CG** after the set dressing: faceted kit models, flat untextured colours, a lamp that glowed but lit nothing, a monitor picture floating in front of its bezel. Subdividing everything melted hard furniture into clay; subdividing only soft goods, procedural surfaces on every material, physical lamp cones and a screen fitted to the model fixed it (`looks.md`, true shapes and surfaces).
-- [6] **Two black frames** came from a swept tube's closed tip: zero normals became NaN in the shader and bloom spread them over the frame.
-- [6] **A fan's wind passed through a monitor** to move a paper strip behind it. The jet is now blocked by the objects in its way (`air.js`, tested once every prop is placed).
-- [6] **A whole set ran at the wrong scale:** the kit's unit was 1.95 m, so gravity at 9.81 units/s² made everything fall 1.4× too fast (the "miniature" look), a cat was 54 cm curled up and books twice their size. Measure metres per unit from known objects first; motion in real units, props at real size.
-- [6] **Placement looked fine and was wrong in four ways:** a desk dropped 24 cm through the floor (one ray under its centre fell between its legs), a cushion hung on the edge of a sofa back (first contact, never a stability check), a plant's leaves inside the books beside it, a phone sunk into the desk top and then dropped through it. Lowest-points settling and every settle miss read with the report fixed them.
-- [6] **A decal scaled flat sank under its surface:** a crack, a seam line or a stripe was flattened with `mesh.scale.y` about a parent-local origin off the surface, so it went under what it sat on and showed in no frame. Flatten it in its geometry, or offset it along the surface normal; never scale it about an origin off the surface.
-- [7] **Reading a stale preview iframe** gave identical numbers after a change: the Studio keeps an old player iframe beside the new one. Read the newest (`_t=` in its URL) and record build errors on the host object.
-- [6,7] **Context grew to ~590k tokens in one run, never compacted:** 21 full-size snapshots and every verification log stayed in it, and each of 257 calls re-read it all. Verification loops run in a subagent that returns a text verdict; the user is told at Gates 3 and 4 that `/compact` is safe.
-- [6] **Scene files were patched with inline scripts** (`python3 - <<EOF`, `sed -i`): about 50 patches, ~94 k characters of tool input, and two swallowed the code after an inline comment. Scene changes are `Edit` calls.
+- [0,1] **A 242k-token session** carried detours and five drafts. One session per video; resume from `BRIEF.md` + `PRODUCTION.md`.
+- [1] **24 fps looked choppy on a 30 fps platform.** Default 30; 24 is a chosen look that blurs moves (`camera-motion.md` §8).
+- [7] **A draft render took 39 min** (the next under 3). Far slower than the last → stop and find the cause.
+- [7] **A 10 fps draft gave the same verdicts in half the time.** QC renders at 10 fps.
+- [7] **An unattended run shipped known P1s.** Set, Reality and Clarity P1s block the final (`qc.md` Step 7).
+- [8] **Build traps went into the user's private memory.** The hand-off's `## Skill feedback` carries them upstream (`qc.md` Step 8).
+- [4] **Whisper timed sentence starts early** (up to 0.7 s). Forced alignment against the script.
+- [4] **VoxCPM2 timed out** beside other model jobs. Heavy model jobs one at a time; VoxCPM2 in ~120-character chunks.
+- [5,6] **Two jobs waited 25 min on `pgrep -f`** matching their own shells. Chain heavy jobs or wait on a PID.
+- [5] **The machine sat idle through a 58 min gate wait.** Free local jobs a "no" only discards run during the wait.
+- [5] **The film read as a slideshow** (drifting stills, no mechanism). The subject acts in every shot, camera-only ≤ 15 %, a mechanism shot per "why", the Action test (`visual-direction.md` §3, §8, §11).
+- [5] **Every "camera move" was CSS on a still.** Real rig moves, A/B roll, one wow shot (`camera-motion.md` §8).
+- [7] **Rework, not rendering, was the slow part** (5 of 7 P0s were asset defects). Scene-prefixed ids and overscanned whips from the first draft, the asset pass before building (`review.md`), browser steps never beside a model job.
+- [5,6] **A stylized room read as a toy.** Dense small props and small life motions lift it most (`looks.md` set dressing).
+- [6] **A chair swivelled round a corner on an endless sine.** Motion has a cause; find the real pivot (`camera-motion.md` §5).
+- [5,6] **A cozy room read as boxy CG.** Subdivide soft goods only, drawn surfaces, lamps that light, a screen fitted to its model (`looks.md` true shapes).
+- [6] **Two black frames** from a swept tube's zero normals. Set them to the tube's axis.
+- [6] **A fan's wind passed through a monitor.** The jet is blocked by objects (`air.js`).
+- [6] **A whole set ran at the wrong scale** (kit unit 1.95 m: falls 1.4× too fast). Measure metres per unit first.
+- [6] **Placement looked fine and was wrong in four ways** (centre-ray drop, edge hang, overlap, sinking). Lowest-points settling and its report.
+- [6] **A decal scaled flat sank under its surface.** Flatten in geometry or offset along the normal.
+- [7] **A stale preview iframe gave identical numbers.** Read the newest (`_t=` in its URL).
+- [6,7] **Context grew to ~590k tokens:** full-size snapshots and logs stayed in it. Verification runs in a subagent returning text; `/compact` is safe at Gates 3 and 4.
+- [6] **Scene files were patched with inline scripts** (~50 patches, two swallowed code). Scene changes are `Edit` calls.

@@ -1,7 +1,7 @@
 # object-studio kit: the whole API a builder needs
 
-Read this, `SPEC.md` and the two templates beside it. Never print the kit's sources: every signature is here. Times are
-absolute narration seconds from cues; lengths in metres; the frame is 1080 × 1920.
+Every signature is here: never print the kit's sources. Times are absolute narration seconds from cues; lengths in
+metres; the frame is 1080 × 1920.
 
 ## objectStudio.js
 - `makeSet(canvas, { G0, G1 })` → `S`: `S.world.add(obj)` (subjects), `S.scene.add(obj)` (shadows, backdrop), `S.light()`

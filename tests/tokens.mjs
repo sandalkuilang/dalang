@@ -83,13 +83,13 @@ assert.match(r.err, /cannot be read/);
 for (const [f, s] of [["script.md", "# s\n"], ["narration.txt", "words\n"]]) put(path.join(other, f), s);
 const a = spawnSync(process.execPath, [state, "approve", "1", other, "--by", "agent"], { encoding: "utf8", env });
 assert.equal(a.status, 0, a.stdout + a.stderr);
-assert.match(a.stdout, /^Tokens: main \d/m);
+assert.match(a.stdout, / · Tokens: main \d/);
 const st = JSON.parse(fs.readFileSync(path.join(other, "state.json"), "utf8"));
 assert.match(st.approvals[1].tokens, /^main /);
 for (const [f, s] of [["script.md", "# s\n"], ["narration.txt", "words\n"]]) put(path.join(lone, f), s);
 const c = spawnSync(process.execPath, [state, "approve", "1", lone, "--by", "agent"], { encoding: "utf8", env: { ...env, CLAUDE_CONFIG_DIR: path.join(tmp, "nowhere") } });
 assert.equal(c.status, 0, c.stdout + c.stderr);
-assert.match(c.stdout, /^Tokens: not checked/m);
+assert.match(c.stdout, / · Tokens: not checked/);
 
 // Express budget: BRIEF.md mode: express flags a builder over 30 turns or 150K context, and a film over 10M tokens.
 {

@@ -1,54 +1,48 @@
 # Motion and style rules
 
-These are the numbers that make code-made animation feel alive. They come from measuring hand-made explainer films. Use them as a starting point, then adjust to a reference video's measurements if there is one.
+Starting numbers, measured from hand-made explainers; a reference video's measurements override them.
 
 ## 1. Push-in: camera, not scissors
 
-- The reference film, almost 9 minutes long, has only about **4 hard cuts**.
-- Everything else uses a camera pushing in or pulling out, plus objects that **appear in place** (drawn on, growing from small, or "crossed out").
-- Scale numbers, eases and when a push needs a reason: `camera-motion.md` §2 (up to 1.15 only for the illustrated looks). Move the world or the hero, never creep the scale of a landed title late in a scene — `/hyperframes` lists that as a generated-video tell. Move the visual wrapper, not the clip element that carries `data-start`. Technical details are in `references/motion.md` of the `/hyperframes` skill.
+- Few hard cuts (a good reference: ~4 in 9 minutes). Change the view by pushing in or pulling out, and bring objects in **in place** (drawn on, grown from small, crossed out).
+- Scale numbers, eases and the reason a push needs: `camera-motion.md` §2. Move the world or the hero, never creep the scale of a landed title. Move the visual wrapper, never the clip element carrying `data-start` (`/hyperframes` `references/motion.md`).
 
 ## 2. Beats: everything lands on a word
 
-- Nearly every change on screen happens exactly on a spoken word.
-- Sync means the thing is **readable on the word**, not that its tween starts there. Per element, choose: **lead** — structure the eye can prepare (axes, a card, a set) arrives ~0.2 s early; **sync** — a new fact or object lands by the word: start = `BEATS.<name>.start` minus its entrance time (a 1.4 s count-up is `{{name - 1.4}}`, so the value is settled when it is said; a quick entrance starts 0.03–0.08 s early); **wait** — a punchline, negation or withheld answer is gated to the revealing word. Never late: it feels late.
-- Quick test: if an object appears without a word triggering it, the object is probably unnecessary, or the script is missing a word.
+- Nearly every change on screen happens on a spoken word, **readable on the word**. Per element: **lead** — structure the eye can prepare (axes, a card, a set) arrives ~0.2 s early; **sync** — a new fact lands by the word: start = `BEATS.<name>.start` minus its entrance time (a 1.4 s count-up is `{{name - 1.4}}`; a quick entrance starts 0.03–0.08 s early); **wait** — a punchline, negation or withheld answer is gated to the revealing word. Never late.
+- An object no word triggers is probably unnecessary, or the script lacks a word.
 
 ## 3. Motion budget: no dead seconds
 
-- Target: "still" ≤ 10% of the total duration. A good reference film is only about 5%.
-- Every shot needs at least one **continuous** motion: the subject acting (wheels turning, a needle moving, a fill rising); the camera or a light sweep only supports it (`visual-direction.md` §3 "Minimum motion"). Breathing or pulsing text and UI is not continuous motion; `/hyperframes` lists it as a tell of generated video.
-- `stillness.mjs` measures change across the whole frame, so small motions on a mostly empty ground still count as "still". Flat and minimal looks need the subject acting, not a moving plate. Measure the final file too: a cleaner high-quality encode can raise the still share.
-- A moving mouth alone **does not count** as motion. It is the number-one reason films feel dead.
-- Measure with `scripts/stillness.mjs`.
+- "Still" ≤ 10 % of the duration (`scripts/stillness.mjs`; a good reference is ~5 %). Measure the final file too: a cleaner encode can raise it.
+- Every shot has at least one **continuous** motion from the subject acting (wheels turning, a needle moving, a fill rising); camera or light only support it (`visual-direction.md` §3 "Minimum motion"). Breathing or pulsing text and UI, or a moving mouth alone, do not count.
+- `stillness.mjs` measures the whole frame: small motions on a mostly empty ground still read "still".
 
 ## 4. The mitten rule (stylised characters only)
 
-- Only for a stylized figure in the iso world (a small person for scale, a character the user asked for). Real people follow `visual-direction.md` §1 "People are the hardest subject".
-- No fingers, no elbows, no body part bending at more than one point.
-- Why: fewer joints, fewer bugs. Five-fingered hands holding objects are the most common source of errors in code-made animation.
-- Suggested base shapes: round/oval head, bean-shaped body, mitten hands, short legs. Expression through eyes, brows, and mouth is enough.
+- For a stylized figure in the iso world (a person for scale, a character the user asked for); real people: `visual-direction.md` §1 "People are the hardest subject".
+- No fingers, no elbows, no part bending at more than one point. Base shapes: round head, bean body, mitten hands, short legs; expression through eyes, brows and mouth.
 
 ## 5. On-screen text
 
-- Captions stay in a fixed position on screen; they do not move with the camera.
-- On-screen text is in the narration language from `BRIEF.md`. Check that the chosen font has every glyph that language needs (accents, CJK, Arabic, Devanagari, ...); right-to-left languages need `dir="rtl"`.
-- The format comes from `BRIEF.md`. Safe zones per format (keep important text out of these areas):
-  - **9:16 Shorts:** text only in the 168–1330 px band (`/hyperframes` `references/types/vertical.md`); below 1330 only decoration; nothing readable under the right-hand rail (x > 950).
-  - **9:16 Reels and TikTok:** bottom 25% (the platform's caption + handle overlay; the caption is the one deliberate exception, see below), top 12%, right 12%.
-  - **4:5 feed:** 8% on every side. Text must read without sound.
-  - **16:9 landscape:** 5% on every side. Reserve the bottom 15% for captions/subtitles.
-- **Caption position (a target, not only a keep-out).** The caption block (its one or two lines, centred, the hero composed above it) sits in the lower third, as fractions of the frame height:
-  - **9:16 Reels and TikTok:** block top 72–76 %, block bottom at most about 82 %.
-  - **9:16 Shorts:** block bottom at the end of the band (1330 px, 69 %): as low as the band allows, never higher.
-  - **4:5 feed:** block bottom at the safe edge (92 %), top about 76–80 %.
-  - **16:9 landscape:** block inside the bottom 15 % (85–95 %).
-  - The lowest lines may brush the platform's caption/handle overlay. Check it on the phone sheet (`npx hyperframes snapshot --review`) instead of lifting the captions toward the middle: captions near the middle compete with the hero, which the subject framing already puts in the upper middle. On Reels and TikTok a 9:16 caption block whose top edge is above ~70 % of the height is a P1 in review; on Shorts, one whose bottom edge is above ~65 % (the 70 % line never applies there: the band ends at 69 %).
-- At most about 7 words per caption line (about 16 characters for CJK). Break long sentences at the speech pauses in `words.json`. The engine's `type.js` does this (`phrases()`: a narration line end, a sentence end, `,` `:` after 3 words, a run over 7 words at its longest pause of at least 0.3 s with 2 words on each side and, with no pause, in near-equal parts, a phrase held through the pause that follows; `drawCaption` never draws outside the caption zone: a phrase that does not fit in two lines at 54 px is shrunk, so keep phrases short; `node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`).
-- The same module holds the zones above (`safeArea`) and the drawing (`drawCaption`, `pinLabel`) and the layout record: call `layoutFrame(ctx, t, { format, hero: heroBox(camera, heroObject, W, H) })` (`heroBox` from `camera.js`) LAST in the frame function, after every caption, label and card (the `shots.js` runner does it for you). It draws nothing; it hands the text boxes and the hero's box to `strips.mjs`, so the Step 7 reviewer reads them as numbers (`review.md`). Use the module, never per-film caption code. The caption sits at the target position above, under the subject; world labels stay above it.
+- Captions are fixed to the screen, never moved with the camera.
+- On-screen text is in the narration language from `BRIEF.md`; the font has every glyph it needs; right-to-left languages need `dir="rtl"`.
+- Safe zones (format from `BRIEF.md`):
+  - **9:16 Shorts:** text only in the 168–1330 px band (`/hyperframes` `references/types/vertical.md`); nothing readable right of x 950.
+  - **9:16 Reels and TikTok:** keep text out of the bottom 25 % (captions excepted), top 12 %, right 12 %.
+  - **4:5 feed:** 8 % on every side.
+  - **16:9 landscape:** 5 % on every side; the bottom 15 % for captions.
+- **Caption position (a target):** the block (one or two centred lines, the hero composed above it), as fractions of the height:
+  - **9:16 Reels and TikTok:** top 72–76 %, bottom ≤ ~82 %.
+  - **9:16 Shorts:** bottom at the band's end (1330 px, 69 %).
+  - **4:5 feed:** bottom at 92 %, top ~76–80 %.
+  - **16:9 landscape:** inside 85–95 %.
+  - The lowest lines may brush the platform overlay: check the phone sheet (`npx hyperframes snapshot --review`), never lift captions toward the middle. Review P1: on Reels and TikTok a block top above ~70 %; on Shorts a block bottom above ~65 %.
+- ≤ ~7 words per caption line (~16 characters for CJK), broken at the speech pauses: `type.js` `phrases()` does it (`node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`); `drawCaption` shrinks a phrase that won't fit two lines at 54 px, so keep phrases short.
+- `type.js` holds the zones (`safeArea`), the drawing (`drawCaption`, `pinLabel`) and the layout record: call `layoutFrame(ctx, t, { format, hero: heroBox(camera, heroObject, W, H) })` LAST in the frame function, after every caption, label and card (the `shots.js` runner does it); it hands text and hero boxes to `strips.mjs` for the reviewer. Never per-film caption code. World labels stay above the caption.
 
 ## 6. Sound
 
-- The narration is always clear. Background music ducks under the narration and never disappears completely.
-- A sound with a physical cause (an impact, a latch, a break) is placed at its computed contact time and may be dense; use the other sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.
-- Final target: about −14 LUFS, true peak ≤ −1 dBTP (works for YouTube, Instagram, and TikTok). Check with `scripts/loudness.mjs`.
+- The narration is always clear; music ducks under it, never to silence.
+- A sound with a physical cause lands on its computed contact time and may be dense; other SFX sparingly on key beats only.
+- Final: about −14 LUFS, true peak ≤ −1 dBTP (`scripts/loudness.mjs`).

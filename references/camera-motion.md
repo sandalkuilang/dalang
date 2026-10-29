@@ -1,303 +1,235 @@
 # Camera and motion: film grammar, physical timing, compositing
 
-Read in Step 5 (§1–4, §7–10 for the storyboard and `SPEC.md`) and in Step 6's polish pass (§5–6). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
-
-**The camera is chosen by the agent, never asked.** Step 5 writes a camera plan on the SPEC CAMERA line: 6–10 techniques from §9 (Express: 4–6; this is the one home of both counts), each tied to a beat's job (table). The art keeps its projection; the moves are 2.5D, depth layers moved against each other (`engine/iso/cinema.js`: `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `bokeh`, `discs`, with `parallax.js`); Studio's iso camera (`isoCamera`, `isoFrame`, `route`) pans and zooms with the same layer effects. `blueprint` beats hold a locked frame or a slow pan. In `object-studio` the same table plays with a real perspective camera (`camera.js`: `fovFromMm`, `dofFor`, `orbit`, `crane`, `dollyZoom`, `drone`): the lens in mm and the f-stop in place of the layer effects. One move per beat, at most one dolly zoom and one drone per film. **Aperture follows the size:** a wide at f5.6 (the world sharp), a zoom-in or macro at f1.2–2.8, the background melting in the lens's blur (the dramatic beat). Two signature moves build on it (§9.2, §9.3): **arrive and orbit** (a zoom ends on its subject and a slow orbit starts at once, the edges blurred and the centre clear) and **aperture points at the part** (a close part named in the narration is the sharp spot, the rest melts).
-
-| Beat job | Technique |
-|---|---|
-| Hook, establish | `drone25` (a wide descending onto the hero) + haze, deep focus `bokeh(5.6)` |
-| Context, path | `orbit25` (the world slides round the subject), or a pan along the path |
-| Mechanism | a push-in with a rack focus cause → effect, `bokeh(2.8)`; a `cutaway` beat opens the thing; a close part named in the narration: `focusRing` at f1.2–2.8 on it |
-| Arrival on a subject (a zoom in or out that lands) | arrive and orbit (§9.3): the zoom with `focusRing`, then a slow orbit from the landing pose |
-| Crack | the one `dollyZoom25` |
-| Acceleration | shorter shots, `whip`, a faster orbit (one way) |
-| Impact | a close zoom, `bokeh(1.4)` + `discs` on the lights, a speed ramp; a `blueprint` inset when the claim is a measure |
-| Aftermath, bookend | `crane25` up to the wide, ending on the opening framing |
+Step 5 reads §1–4 and §7–10 (storyboard, `SPEC.md`); Step 6's polish pass reads §5–6. Adds to `visual-direction.md` §4–9, never repeats it. **[D]** = derived from physics or maths, **[O]** = default to tune by eye.
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
-Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from three.js 3D (§8). Angle and perspective are baked into the asset: a low-angle shot is a low-angle drawing or render, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** drawing or modelling. **Isometric looks:** the Angle table and the lens rows do not apply (the view never tilts; zoom stands in for lens, layer blur for aperture), and light becomes the grade and palette; they apply in full to `object-studio`'s perspective rig.
+Over a flat still a camera changes only a layer's **size, position, focus and time**; real moves come from the 2.5D layer rigs or three.js (§8). Angle is baked into the asset: a low angle is a low-angle drawing or render, never a CSS `rotateX` on a flat plate. Decide size, angle and lens in the storyboard **before** drawing or modelling. **Isometric looks** (Express, Studio iso): the view never tilts, so the Angle and lens rules apply to `object-studio` only; zoom stands in for lens, layer blur for aperture, the grade and palette for light.
 
 | Size | Job | Sourcing rule |
 |---|---|---|
-| Extreme wide | establish the world; isolation; aftermath | the place is the hero (the one exception to the 45 % rule, at most one per section); its own asset |
-| Wide | geography: where the hero, the goal and the exit are; space for action | needed before any fast sequence |
-| Medium | behaviour, explanation, relation between two things | the narration workhorse |
-| Close-up | emotion, realisation, the decision | crop only if the source has the output's pixels in the crop |
-| Macro insert | the detail that matters: evidence, mechanism, the anchor object | **its own macro asset** — a scaled-up wide photo has the wrong resolution and depth of field |
+| Extreme wide | establish; isolation; aftermath | the place is the hero (the one exception to the 45 % rule, at most one per section); its own asset |
+| Wide | geography: hero, goal, exit | needed before any fast sequence |
+| Medium | behaviour, explanation, relation | the narration workhorse |
+| Close-up | emotion, realisation, decision | crop only if the source has the output's pixels in the crop |
+| Macro insert | evidence, mechanism, anchor object | **its own macro asset**, never a scaled-up wide |
 
-Tighten toward the beat that matters (wide → medium → close → macro → impact), release to wide for the aftermath. A size change coincides with a change of the shot's job, never "for variety". For each physical hero, source three sizes of the same subject in the same light (wide, medium, insert) before building: the edit can then cut on story, not on what exists.
+Tighten toward the key beat (wide → medium → close → macro → impact), release to wide for the aftermath. Change size only when the shot's job changes. Build each physical hero in three sizes in the same light (wide, medium, insert) before building shots.
 
-| Angle | Reads as | Use for |
-|---|---|---|
-| Eye level | parity, neutral | establishing, explanation |
-| Low | power, awe, threat; product heroism | the power or impact beat |
-| High | smallness, vulnerability, consequence | aftermath |
-| Top-down | pattern, process, overview | how-it-works steps, hands at a table |
-| Dutch | instability | once per film, on the one instability beat |
-| POV / over-the-shoulder | discovery, "what they see" | reveals, a person looking at the thing explained |
-| Profile, silhouette, back-lit | distance, anonymity | people without lip-sync (§4 "Faceless") |
+**Angle (`object-studio`):** eye level = neutral (establish, explain); low = power, product heroism (the impact beat); high = smallness, consequence (aftermath); top-down = process (how-it-works steps); Dutch = instability, once per film; POV / over-the-shoulder = discovery; profile, silhouette, back-lit = people without lip-sync (§4 "Faceless").
 
-Lens feel sets the parallax: 24 mm = big differential (bg 0.2×, fg 1.3×), deep focus, a near object at the frame edge; 35–50 mm = the default far 0.2–0.5 / subject 1 / near 1.3–1.6 (the depth convention of `parallax.js`, `express.md` Step 6); 85–100 mm = small differential (bg 0.7–0.85× of the hero), strong background blur; telephoto = background nearly locked to the hero, heavy blur. Never board a whole film on one lens.
+**Parallax by lens feel:** default far 0.2–0.5 / subject 1 / near 1.3–1.6 (the `parallax.js` convention, `express.md` "Look rules"); wide-lens feel = bigger spread (bg 0.2×, fg 1.3×, deep focus); long-lens feel = bg 0.7–0.85× of the hero, strong blur. Never board a whole film on one lens feel.
 
-Choose stills that carry **implied motion** (a pose that resolves forward, blur on one moving part, a sharp subject on a blurred field). A neutral at-rest still plus a push-in looks dead.
+Pick stills with **implied motion** (a pose resolving forward, blur on one moving part); an at-rest still plus a push-in looks dead.
 
 ## 2. Camera moves: every perceptible move answers "what changed?"
 
-- **Drift vs move.** Drift is sub-perceptual (scale ≤ 1.04 over a shot) and always allowed, but drift — of any speed — is never the shot's motion: the subject acts (`visual-direction.md` §3 "Minimum motion"). A **move** (scale ≥ 1.06, a translate, a focus change) needs a reason written in the storyboard: a decision, new information, rising pressure, a look the camera follows. No reason → locked camera, motion from the subject or the light.
-- **One camera move per beat:** push *or* pan *or* tilt *or* rack focus. Push + pan + rotate together reads as chaos.
-- **Push-in (dolly):** starts on the trigger word, stops on the reaction. Scale **per layer** so the parallax changes (fg 1.00→1.10, hero 1.00→1.06, bg 1.00→1.03), `transform-origin` on the focal point (the eyes, the detail), not the frame centre, `power2.inOut`; an optional background blur ramp 0 → 3 px sells the depth. A **zoom** scales all layers equally — flatter, observational; use it knowingly.
-- **Pull-back:** consequence, isolation, scale revealed; needs overscanned plates; lands on the aftermath.
-- **Pan / tilt:** translate the layers at their parallax ratios, in the scene's axis direction (§3), with lead room ahead of the subject; the subject sits about a third from the trailing edge.
-- **Crash zoom:** scale 1.0 → 1.2–1.3 in 4–6 frames, `expo.out`, motion blur on; punchy energy only, once per film.
-- **Dolly-zoom:** one realisation beat only. Hero layer constant, background scales 1.00 → 1.15 over 0.6–1.2 s (in 3D: `fov = 2·atan(tan(fov0/2)·d0/d)`).
-- **Rack focus with breathing:** while focus moves, scale the frame 1.00 → 1.01–1.02 (stills lenses breathe; skip it for a "cine lens" look). A focus puller eases `power2.inOut` and lands slightly early. Pre-render 3–4 blur levels with `media-treatment` and crossfade along the ease.
-- **No handheld, ever [2.5D][3D]:** a shake made of sines reads as a wobble, left and right, and worst on a close-up. A camera's life is a slow orbit in one direction (Express `orbit25`, the film's `ORBIT`; Studio iso: the subject turns slowly one way under a fixed view, never the camera; `object-studio`: `orbit`, `from` → `to`), and tension is a faster orbit, shorter shots and whips, never a shake.
-- **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam. A rolling-shutter skew (`skewX(atan(v·readout/H))`, readout 9–28 ms) sells "phone or mirrorless"; leave it off for "cinema camera".
-- Orbit, crane, aerial, tracking, fly-through: a real camera only (§8), never faked on a still.
+- **Drift vs move.** Drift (scale ≤ 1.04 over a shot) is always allowed but is never the shot's motion: the subject acts (`visual-direction.md` §3 "Minimum motion"). A **move** (scale ≥ 1.06, a translate, a focus change) needs a reason in the storyboard: a decision, new information, rising pressure, a look the camera follows. No reason → locked camera.
+- **One camera move per beat:** push *or* pan *or* tilt *or* rack focus.
+- **Push-in:** starts on the trigger word, stops on the reaction. Scale **per layer** (fg 1.00→1.10, hero 1.00→1.06, bg 1.00→1.03), `transform-origin` on the focal point, `power2.inOut`; optional bg blur 0 → 3 px. A **zoom** scales all layers equally (flatter, observational).
+- **Pull-back:** consequence, isolation, scale; needs overscanned plates; lands on the aftermath.
+- **Pan / tilt:** layers at their parallax ratios, in the scene's axis direction (§3), lead room ahead; subject a third from the trailing edge.
+- **Crash zoom:** scale 1.0 → 1.2–1.3 in 4–6 frames, `expo.out`, motion blur on; once per film, punchy energy only.
+- **Dolly zoom:** one realisation beat. Hero constant, bg 1.00 → 1.15 over 0.6–1.2 s (3D: `fov = 2·atan(tan(fov0/2)·d0/d)`).
+- **Rack focus:** `power2.inOut`, landing slightly early; scale 1.00 → 1.01–1.02 while focus moves (lens breathing).
+- **No handheld, ever:** no sine shake. A camera's life is a slow orbit in one direction (Express `orbit25`, the film's `ORBIT`; Studio iso: the subject turns slowly one way under a fixed view; `object-studio`: `orbit`, `from` → `to`). Tension = a faster orbit, shorter shots, whips.
+- **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam.
+- Orbit, crane, aerial, tracking, fly-through: a real rig only (§8), never faked on a still.
 
 ## 3. Axis, eyelines, cuts, rhythm
 
-- **One axis per scene**, written in the storyboard header ("hero moves L→R, exit frame right"). All shots keep that side; cross only through a neutral head-on shot, a visible camera move or an insert. Flip an asset with `scaleX(-1)` only when it has no text, logo or handed asymmetry (watch hand, driving side, a known face), then re-run the Reality check.
-- **Eyeline match:** the subject looks off-frame right → the next shot shows what they see, placed where the eye continues. Labels go on the side the subject faces.
-- **Where to cut (Murch's order):** emotion > story > rhythm > eye-trace > screen plane > 3D space. Cut on the word that carries the emotional or story change, not every N seconds. For a smooth cut the incoming focal point sits within ~20 % of frame width of the outgoing one; far away only for a jolt on the impact.
-- **Cut on action:** a move starts in shot A and finishes in B at the same direction and speed — A ends on `power2.in`, B starts on `power2.out`. **Match cut:** incoming shape within ~5 % of frame on position and 10–20 % on size, same motion direction, cut on the frame of most overlap; colour match = hue ± 10°, OKLCH lightness ± 0.1. **Occlusion wipe:** a blurred foreground cut-out at 1.4× parallax crosses the lens and hides the seam. **Smash cut:** calm ↔ violent or loud ↔ silent with no transition, impact only. No white flash (glow family): hard cut, smash cut or black.
-- **Seams carry motion through the cut:** the outgoing move is still travelling and the incoming one enters partway along its path, never from rest. A zoom keeps the sign of its scale change across the cut (a pull-back is answered by a shrink or a hold, never a grow-from-small). One seam direction for the whole film; up, push-through and pull-back are kept for their meaning (a reveal, going deeper, arriving), and a reversal needs a visible force. Two or three seam types per film, repeated. A clip starts hidden at its cut time; a retake or any change to a scene's first or last second means checking that seam again (Express: `film_gate.mjs`, run by `express.mjs assemble`, measures it from the cameras).
-- **J/L cuts on ambience and SFX** (the narration is continuous): the next scene's room tone or SFX leads its picture by 4–12 frames (`data-start="{{beat - 0.3}}"`); the outgoing bed tails 12–24 frames under the new picture.
-- **Rhythm staircase:** shot lengths shorten toward the key beat, then **a pause**, then the impact; one long hold after it. Uniform shot lengths read flat. Never two bursts back to back. Average shot length follows the energy (`visual-direction.md` §3); changes come at uneven intervals around it — a metronome reads as boredom.
+- **One axis per scene**, written in the storyboard header ("hero moves L→R, exits right"). Cross only through a head-on shot, a visible camera move or an insert. Flip an asset with `scaleX(-1)` only when it has no text, logo or handed asymmetry (watch hand, driving side), then re-run the Reality check.
+- **Eyeline match:** the subject looks off-frame right → the next shot shows what they see, where the eye continues. Labels go on the side the subject faces.
+- **Where to cut:** emotion > story > rhythm > eye-trace > screen plane > 3D space. Cut on the word that carries the change, never every N seconds. Smooth cut: incoming focal point within ~20 % of frame width of the outgoing one; far only for a jolt on the impact.
+- **Cut on action:** A ends on `power2.in`, B starts on `power2.out`, same direction and speed. **Match cut:** shape within ~5 % on position and 10–20 % on size, same direction, cut on the frame of most overlap; colour match = hue ± 10°, OKLCH L ± 0.1. **Occlusion wipe:** a blurred foreground cut-out at 1.4× parallax crosses the lens. **Smash cut:** calm ↔ violent, impact only. No white flash: hard cut, smash cut or black.
+- **Seams carry motion through the cut:** the incoming move enters partway along its path, never from rest; a zoom keeps the sign of its scale change across the cut (a pull-back is answered by a shrink or a hold). One seam direction per film; up, push-through and pull-back keep their meaning (reveal, deeper, arriving); a reversal needs a visible force. Two or three seam types per film, repeated. A clip starts hidden at its cut time; a retake or a change to a scene's first or last second means re-checking that seam (Express: `film_gate.mjs`, run by `express.mjs assemble`).
+- **J/L cuts on ambience and SFX:** the next scene's room tone or SFX leads its picture by 4–12 frames (`data-start="{{beat - 0.3}}"`); the outgoing bed tails 12–24 frames.
+- **Rhythm staircase:** shots shorten toward the key beat, **a pause**, the impact, one long hold. Never two bursts back to back. Average shot length follows the energy (`visual-direction.md` §3), varied at uneven intervals.
 
 ## 4. Story shape, the loaded frame, faceless staging
 
-- **Arc and beat map** are set at Gate 1 (`script-voice.md` §3). The storyboard turns them into shots: Acceleration = shots shorten, Impact = the payoff frame, Aftermath = held still.
-- **Three jobs:** every shot changes emotion, advances information, or raises pressure. "A beautiful establishing shot" is not a job; delete shots without one.
-- **Five anchors** in `SPEC.md`: one main emotion, one visual motif (the reused metaphor), one anchor object, one break, one final image (= the payoff frame).
-- **The loaded frame:** one focal point, three depth layers **each with a job** (foreground frames or puts us inside; middle = the subject and the act; background = stakes or context), no dead objects. An object carries feeling only when it changes state: show the moment after a threshold (needle in the red, liquid mid-pour), never a parked product.
-- **Carry something across every cut:** the same object crosses, or a push into a detail that becomes the next scene. Props, light and time of day persist.
-- **Faceless staging** (`visual-direction.md` §1 "People"): a face does four jobs — feeling, gaze, cost, decision. Without it: the decision → hands mid-action on a verb (grip, press, release; tendons, creases, one hard side light); the inner state → an object crossing a threshold; gaze and rivalry → space and composition; anyone whose face can't be real → silhouette or contre-jour with a rim. A deliberate style, not a compromise.
+- **Arc and beat map** come from Gate 1 (`script-voice.md` §3): Acceleration = shots shorten, Impact = the payoff frame, Aftermath = held still.
+- **Every shot** changes emotion, advances information, or raises pressure; delete a shot with none.
+- **Five anchors** in `SPEC.md`: one main emotion, one visual motif, one anchor object, one break, one final image (= the payoff frame).
+- **The loaded frame:** one focal point, three depth layers each with a job (fg frames or puts us inside; middle = subject and act; bg = stakes or context), no dead objects. Show an object just past a threshold (needle in the red, liquid mid-pour), never parked.
+- **Carry something across every cut:** an object crosses, or a push into a detail becomes the next scene. Props, light and time of day persist.
+- **Faceless staging** (`visual-direction.md` §1 "People"): the decision → hands mid-action on a verb (grip, press, release); the inner state → an object crossing a threshold; gaze and rivalry → space and composition; anyone whose face can't be true → silhouette or contre-jour with a rim.
 
 ## 5. Physical timing
 
 ### 5.1 Curves, springs, distance, gravity
 
-- **Curves.** An After Effects influence pair (out `a` %, in `b` %) is `cubic-bezier(a/100, 0, 1−b/100, 1)` **[D]**. Arrivals have incoming influence ≥ 75 % and reach peak speed in the first 20–35 % of the move: `(0.33,0,0.2,1)`, `(0.2,0,0.2,1)`. Register once with `CustomEase` (free since GSAP 3.13): emphasized-decelerate `(0.05,0.7,0.1,1)` for arrivals that land with authority, emphasized-accelerate `(0.3,0,0.8,0.15)` for exits, quart-inOut `(0.76,0,0.24,1)` for a motion-control camera. The symmetric 33/33 `(0.33,0,0.67,1)` is the generated look.
-- **Springs [D]:** overshoot = `e^(−ζπ/√(1−ζ²))`, so the ≤ 4 % cap means damping ratio **ζ ≥ 0.72** (0.8 → 1.5 %, 0.9 → 0.15 %); settle ≈ `4/(ζω)`. Use the closed form as an ease so every frame renders on its own: `x(t) = 1 − e^(−ζωt)(cos ωd t + (ζω/ωd) sin ωd t)`, `ωd = ω√(1−ζ²)`. Opacity and colour: ζ = 1, always.
-- **Duration grows with distance, by square root [O]:** `dur ≈ base·√(dist/base_dist)` (0.3 s at 200 px → 0.6 s at 800 px). **Mass:** heavy things start slower, overshoot less (ζ ≥ 0.85) and make the surface react (a 0.3–0.6 % camera bump for 3–5 frames, a shadow or dust pulse); light things snap (ζ 0.6–0.75) and flutter.
-- **1/3 rule:** nothing travels more than a third of the frame in one unbroken tween without an intermediate key or a scale change. **No velocity cliffs:** a multi-point path is **one** tween (`keyframes: {x: [...], y: [...], easeEach: "none"}, ease: "power2.inOut"`, or MotionPath `curviness: 1–1.5`), never chained `to()`s that stop at every key.
-- **Gravity [D]:** fall time `√(2h/g)` — 1 m = 0.45 s (13.5 frames at 30 fps), 0.5 m = 0.32 s, 2 m = 0.64 s; set px-per-metre from a known size in the frame. `power2.in` **is** free fall (`power2.out` for the rise). A bounce with restitution e: height × e², airtime × e (ball ≈ 0.75–0.85, wood ≈ 0.5, putty 0); `CustomBounce` with strength ≈ 1−e. Velocity changes within one frame on impact — never ease into a collision. Paper and leaves: ease in for ~0.2 s, then linear with sway.
+- **Curves [D]:** AE influence (out `a` %, in `b` %) = `cubic-bezier(a/100, 0, 1−b/100, 1)`. Arrivals: incoming influence ≥ 75 %, peak speed in the first 20–35 %: `(0.33,0,0.2,1)`, `(0.2,0,0.2,1)`. Register once with `CustomEase`: emphasized-decelerate `(0.05,0.7,0.1,1)` (arrivals), emphasized-accelerate `(0.3,0,0.8,0.15)` (exits), quart-inOut `(0.76,0,0.24,1)` (motion-control camera). Never the symmetric `(0.33,0,0.67,1)`.
+- **Springs [D]:** overshoot = `e^(−ζπ/√(1−ζ²))`; the ≤ 4 % cap means **ζ ≥ 0.72**; settle ≈ `4/(ζω)`. Use the closed form as an ease: `x(t) = 1 − e^(−ζωt)(cos ωd t + (ζω/ωd) sin ωd t)`, `ωd = ω√(1−ζ²)`. Opacity and colour: ζ = 1.
+- **Duration ∝ √distance [O]:** `dur ≈ base·√(dist/base_dist)` (0.3 s at 200 px → 0.6 s at 800 px). **Mass:** heavy = slower start, ζ ≥ 0.85, the surface reacts (0.3–0.6 % camera bump for 3–5 frames, a shadow or dust pulse); light = snaps (ζ 0.6–0.75).
+- **1/3 rule:** nothing travels more than a third of the frame in one tween without an intermediate key or a scale change. A multi-point path is **one** tween (`keyframes: {x: [...], y: [...], easeEach: "none"}, ease: "power2.inOut"`, or MotionPath `curviness: 1–1.5`), never chained `to()`s.
+- **Gravity [D]:** fall time `√(2h/g)`: 1 m = 0.45 s, 0.5 m = 0.32 s, 2 m = 0.64 s; px-per-metre from a known size in frame. `power2.in` is free fall (`power2.out` the rise). Bounce with restitution e: height × e², airtime × e (ball 0.75–0.85, wood 0.5, putty 0); `CustomBounce` strength ≈ 1−e. Velocity changes within one frame on impact. Paper and leaves: ease in ~0.2 s, then linear with sway.
 
 ### 5.2 Contact is caused: units, mass, mechanisms
 
-- **3D objects that touch, fall or collide are posed from their cause, never floated or looped.** Every motion is a pure function of t from a cause the viewer can read (a push, a cue, a ratio, gravity), so any frame renders on its own and two renders match. There is no physics engine: a fall is `y = y0 − ½·g·t²` in real units until contact, then a landing eased over 2–4 frames with a contact squash ≤ 4 % (stiff things less) and a bounce by restitution (§5.1 Gravity); a pushed thing decelerates at μ·g (Coulomb: casters ~0.05, wood on wood ~0.3) and stops; a part reaching its stop rests exactly on it.
-  - **Run it in real units** (`looks.md`, real scale): the place's gravity (`makeKit({ gravity })`: 9.81 m/s² on Earth, 1.62 on the Moon, 0 in orbit; negligible at molecular scale) divided by M metres per unit, pushes and resistances given in m/s and m/s² and converted; report in real mm and m/s.
-  - **Mass decides the timing** (look it up: a desk chair ~12 kg, books ~700 kg/m³, wood ~600, steel 7,850): heavy things start slower and overshoot less (§5.1 Mass); the same push moves a light thing further.
-  - **Mechanisms are posed from their driver, never animated part by part:** a part that slides or turns between stops is clamped to them; its return spring follows the closed-form damped spring (§5.1 Springs); what holds it until a cue is a latch on that beat; gears, belts and chains take the driver's angle times the tooth ratio, so the whole train turns as one.
-  - **Nothing passes through anything:** at every contact frame the parts touch, never overlap; check one still at each contact beat.
+- **Things that touch, fall or collide are posed from their cause as a pure function of t**, never floated or looped; any frame renders on its own. No physics engine: a fall is `y = y0 − ½·g·t²` in real units until contact, then a landing eased over 2–4 frames with contact squash ≤ 4 % (stiff things less) and a bounce by restitution (§5.1); a pushed thing decelerates at μ·g (casters ~0.05, wood on wood ~0.3) and stops; a part reaching its stop rests exactly on it.
+  - **Real units** (`looks.md`, real scale): the place's gravity (`makeKit({ gravity })`: 9.81 Earth, 1.62 Moon, 0 in orbit) divided by M metres per unit; pushes in m/s and m/s²; report in mm and m/s.
+  - **Mass decides the timing** (look it up: desk chair ~12 kg, books ~700 kg/m³, wood ~600, steel 7,850): the same push moves a light thing further.
+  - **Mechanisms are posed from their driver:** a sliding or turning part is clamped to its stops; a return spring follows §5.1 Springs; a latch holds it until its cue; gears, belts and chains take the driver's angle × tooth ratio.
+  - **Nothing passes through anything:** check one still at each contact beat.
 
 ### 5.3 Hits, sound, blur
 
-- **Hits drive sound and reactions:** a contact's time comes from its cause (the fall time `√(2h/g)`, the push, the cue), never from the eye. A living thing reacts ~150 ms after the loudest hit (a book landing on the floor, not the first touch).
-- **Sound on the contact, verified** (CC0 from Openverse, `look-build.md` "Sound effects and music"): each `<audio>` starts at its contact time and the cause's time (the push), written in the HTML with the computed time in a comment. Contacts within ~40 ms are one sound (the hardest keeps it).
-- **Motion blur:** a frame where a part travels ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter (each pose at `t + k·dt`, so it stays deterministic); still frames render once.
+- **A contact's time comes from its cause** (`√(2h/g)`, the push, the cue), never the eye. A living thing reacts ~150 ms after the loudest hit.
+- **Sound on the contact** (`look-build.md` "Sound effects and music"): each `<audio>` starts at its contact time, with the computed time in an HTML comment. Contacts within ~40 ms are one sound (the hardest keeps it).
+- **Motion blur:** a frame where a part moves ≥ ~4 px is the mean of 5 sub-frame renders across a 180° shutter (`t + k·dt`, deterministic); still frames render once.
 
 ### 5.4 Air, any subject's own law, rest, groups, frames
 
-- **Air is drawn by its law** (`air.js` `jet`). A fan that is on is a round turbulent jet along its head's axis: core speed u₀ (desk or floor fan ~1.5–3 m/s) out to ~2 blade diameters, then ∝ 1/x, Gaussian across with half-width D/2 + 0.11·x, ±25 % gusts at a few Hz; an oscillating head sweeps it (±40°, ~10 s a cycle). Air does not pass through things: behind any object of the set between the blades and a point only ~15 % arrives (test the segment against the objects' boxes, once every prop is placed). Light things in the air (a ribbon, a paper strip) lean by the air's speed, never wave on their own. Spinning blades are filmed as a blur: a disc whose opacity is the fraction of the exposure a blade covers it. A running fan is heard (a low steady whoosh under the hits).
-- **Any subject moves by its own law, not only things that fall.** Orbits by gravity (a planet's period² ∝ its distance³; the Moon 27.3 days), ions and molecules by drift in their field plus diffusion (spread √(2Dt)), heat by conduction, a heart at its rhythm, a crowd or a population by its equation. Take the law and its constants from a cited source, model it in real units, and check the numbers it produces against that source. When the real scale can't be seen (a lithium ion is ~0.15 nm across, Neptune 30 AU out while Earth is 1/11,700 of an AU wide, a reaction over in picoseconds), change the fewest scales needed (size, distance, time: one each at most), keep the ratios within each, and show every change on screen (a clock running slow, a scale bar, "sizes not to scale"). Electricity moves by its circuit: current from the numbers model, pulses at a stated visualisation speed in the waveform's shape (ac sine, dc straight, pwm blocks, three phases), the mains frequency slowed by a shown time scale (50 Hz cannot be seen at 30 fps), heat glowing by black-body colour, a lamp dimming by its cited curve, an arc lit only for its frames (`engine/three/circuit.js`, `instruments.js`). Invisible fields and light are drawn by their law too: field lines traced from the sources in real units and spaced by flux (denser = stronger), filings and a compass needle aligned by the field, rays bent by Snell's law with the index of a cited material, a lens's focus and image traced rather than drawn, and the number said in the narration from the model (`engine/three/fields.js`, `optics.js`). A sine wave or a hand-timed tween standing in for a law is a Reality fail.
-- **Every prop at rest touches its support, measured, not typed.** Typed heights leave props millimetres inside a surface or centimetres above it. Register each resting prop (`kit.js` `rest`) and `settle()` once all are placed: it drops as gravity would from any height, by the smallest gap under its lowest points (a 6 × 6 grid over its footprint, so legs and edges land, not its centre), lowest first so supports land before what they carry; only lower objects count as support; lift out of a surface up to 3 cm (a typed height a little low), deeper means it was placed inside something: report it; a `foot` part when the lowest point isn't what rests (a pot with hanging vines). Then audit every object against the set (gap or overlap 0.5–30 mm under its centre is an error). Thin layers have thickness (a rug ~5 mm, a sheet of paper 0.1 mm), so what stands on them stands on top; a tilted object needs something to lean on; a cable or a hose lies on what is under it and ends where it connects; a container is open and what is in it leans on its rim.
-- **Ambient motion is the real amount** (e.g. indoors): still air (nothing stirs), LED strings are steady, a quartz second hand jumps in ~30 ms with a hair of overshoot, a desk chair swivels on its column (find the real pivot: kit models often have their origin on a corner). A perpetual sine loop on an object that would come to rest is a Craft fail.
-- **Data never overshoots:** numbers, bars and serious content ease to their value and hold ≥ 0.5 s.
-- **Group timing:** a group's total stagger `(n−1)·offset + dur` stays ≤ ~0.8 s; beyond that shrink the offset or stagger outward from the focal point. Items that belong together share **identical** ease, duration and direction (common fate); unrelated items differ in at least one. The contact shadow settles with its object; labels follow 40–60 ms later.
-- **Motion blur [D]:** blur length per frame = displacement per frame × shutter / 360. Turn `data-motion-blur="on"` on above ~8 px/frame at 1080p; 45–90° shutter for staccato impact, 270–360° for a dreamy smear.
-- **On twos** (hold each pose 2 frames, `tq = Math.floor(t*12)/12`): stylised looks only, never the camera, no motion blur on stepped layers.
+- **Air by its law** (`air.js` `jet`): a running fan is a round turbulent jet along its axis: core u₀ (desk fan ~1.5–3 m/s) to ~2 blade diameters, then ∝ 1/x, Gaussian across with half-width D/2 + 0.11·x, ±25 % gusts at a few Hz; an oscillating head sweeps ±40° over ~10 s. Behind any object only ~15 % arrives (test against the objects' boxes once all props are placed). Light things lean by the air's speed, never wave on their own. Spinning blades = a disc whose opacity is the fraction of exposure a blade covers. A running fan is heard (a low steady whoosh).
+- **Any subject moves by its own law:** orbits by gravity (period² ∝ distance³), ions by drift plus diffusion (√(2Dt)), heat by conduction, a heart at its rhythm, a population by its equation. Take the law and constants from a cited source, model in real units, check the output against the source. When real scale can't be seen, change the fewest scales (size, distance, time: one each at most), keep ratios within each, and show each change on screen (a slowed clock, a scale bar, "sizes not to scale"). Electricity: current from the numbers model, pulses at a stated visualisation speed in the waveform's shape (ac sine, dc straight, pwm blocks, three phases), mains slowed by a shown time scale, heat by black-body colour, an arc lit only for its frames (`circuit.js`, `instruments.js`). Fields and light: field lines traced from the sources and spaced by flux, filings and needles aligned, rays bent by Snell's law with a cited index, focus and image traced (`fields.js`, `optics.js`). A sine or hand-timed tween standing in for a law is a Reality fail.
+- **Every prop at rest touches its support, measured:** register each resting prop (`kit.js` `rest`) and `settle()` once all are placed: it drops by the smallest gap under its lowest points (6 × 6 grid over its footprint), lowest first; only lower objects support; it lifts out of a surface up to 3 cm, deeper is reported as placed inside something; a `foot` part when the lowest point isn't what rests. Then audit every object (gap or overlap 0.5–30 mm under its centre = error). Thin layers have thickness (rug ~5 mm, paper 0.1 mm); a tilted object leans on something; a cable lies on what is under it and ends where it connects; a container is open and its contents lean on its rim.
+- **Ambient motion is the real amount:** indoors the air is still, LED strings steady, a quartz second hand jumps in ~30 ms with a hair of overshoot, a desk chair swivels on its real pivot. A perpetual sine loop on something that would rest is a Craft fail.
+- **Data never overshoots:** numbers and bars ease to their value and hold ≥ 0.5 s.
+- **Group timing:** total stagger `(n−1)·offset + dur` ≤ ~0.8 s, else shrink the offset or stagger out from the focal point. Items that belong together share **identical** ease, duration and direction; unrelated items differ in at least one. A contact shadow settles with its object; labels follow 40–60 ms later.
+- **Motion blur [D]:** length per frame = displacement per frame × shutter / 360. `data-motion-blur="on"` above ~8 px/frame at 1080p; 45–90° for staccato impact, 270–360° for a smear.
+- **On twos** (`tq = Math.floor(t*12)/12`): stylised layers only, never the camera, no motion blur on stepped layers.
 - **Snap every cut and key** to `Math.round(t*fps)/fps`. A hold registers from ~4 frames; an accent pose holds 6–12.
-- **Never compare a raw cue with a snapped cut:** a cue up to half a frame before a cut lands in the shot before it. Look a cue's shot up with `shotAt` / `overlayWindow` (`camera.js`: they snap the cue as the cut is snapped) and run `windowProblems` over every overlay and label: a window that is empty, or shorter than its `readTime`, is an error that names the cue.
+- **Never compare a raw cue with a snapped cut:** find a cue's shot with `shotAt` / `overlayWindow` (`camera.js`) and run `windowProblems` over every overlay and label: an empty window, or one shorter than its `readTime`, is an error.
 
 ## 6. Design in time
 
-- **Hierarchy over time:** arrival order = reading order. The most important element arrives alone, holds longest, keeps the strongest contrast; secondary information arrives as a group 150–300 ms later. One hierarchy level changes per beat.
-- **One grid for the whole film** (e.g. 12 columns, 8 px baseline at 1080 wide): motion endpoints snap to it, and elements that persist across a cut keep their grid position.
-- **Colour in OKLCH:** sRGB tweens pass through grey (blue → yellow) or mud (blue → red). Gradients `linear-gradient(in oklch, …)`; colour tweens through a registered `@property` colour or `color-mix(in oklch, A p%, B)` on a 0–1 proxy. Keep lightness within ± 0.1 across a colour flood so the cut doesn't flash. Neutrals tinted toward the primary hue (chroma 0.005–0.02); on dark grounds the accent at L 0.70–0.85, C 0.12–0.18. Grade order, the same on every shot: exposure and white balance → contrast → saturation → split-tone (< 0.15) → unify.
-- **Infographics and diagrams:** design the **final static frame first**; animation only decides when each placed element appears. Reveal by hierarchy (title → icon → number → label → connector; a connector draws in the gap after its source, before its target, 0.4–0.6 s). Focus + context: the active element full, the rest at ~0.35 opacity within 0.3 s. A chart holds 1–1.5 s before moving so the axes can be read; axes stay still; data states cross-dissolve, never wipe.
-- **Overlays (`editorial.js` `envelope`, `IN_DUR`, `EASE`):** an entrance grows with the element's size (chip 0.2 s, pill 0.25, card 0.3, headline 0.4; never over 0.8 s) on a strong ease-out; its exit takes 0.7 of that, accelerating away, and leaves the way it came. Nothing appears from nothing: an icon or chip starts at 0.9–0.96 scale from its anchor (pin, leader end, card corner); only data marks grow from zero. Furniture that recurs (headline card, chips, captions) gets the film's quietest entrance; the delight is spent once, on the wow shot. A crossfade that shows two states at once takes 2–5 px of blur at its middle (none at either end), so it reads as one change.
+- **Arrival order = reading order.** The most important element arrives alone, holds longest, keeps the strongest contrast; secondary information arrives as a group 150–300 ms later. One hierarchy level changes per beat.
+- **One grid for the film** (e.g. 12 columns, 8 px baseline at 1080 wide): motion endpoints snap to it; elements that persist across a cut keep their position.
+- **Colour in OKLCH:** gradients `linear-gradient(in oklch, …)`; colour tweens through a registered `@property` or `color-mix(in oklch, A p%, B)` on a 0–1 proxy. Lightness within ± 0.1 across a colour flood. Neutrals tinted toward the primary hue (chroma 0.005–0.02); on dark grounds the accent at L 0.70–0.85, C 0.12–0.18. Grade order on every shot: exposure and white balance → contrast → saturation → split-tone (< 0.15) → unify.
+- **Infographics:** design the **final static frame first**; animation only decides when each element appears (title → icon → number → label → connector; a connector draws after its source, before its target, 0.4–0.6 s). Focus + context: active element full, the rest ~0.35 opacity within 0.3 s. A chart holds 1–1.5 s before moving; axes stay still; data states cross-dissolve, never wipe.
+- **Overlays (`editorial.js` `envelope`, `IN_DUR`, `EASE`):** entrance by size (chip 0.2 s, pill 0.25, card 0.3, headline 0.4; never over 0.8) on a strong ease-out; exit 0.7 of that, accelerating away the way it came. An icon or chip starts at 0.9–0.96 scale from its anchor; only data marks grow from zero. Recurring furniture (headline card, chips, captions) gets the quietest entrance. A crossfade showing two states takes 2–5 px of blur at its middle.
 - **One number moves at a time;** its label fades in **after** the count lands.
-- **Kinetic type:** a line mask reveal (`SplitText` with `mask: "lines"`, `yPercent: 100 → 0`, 0.6–0.9 s, emphasized-decelerate, 0.08–0.12 s between lines) is the robust default; split after fonts load. Display tracking −1 to −3 %. A variable font animates one axis per beat (weight on the stressed word), never size and weight at once. ≤ 3–4 words/s on screen.
-- **Modern now:** a true-to-life stylized subject with restrained graphic overlays; motion from its real cause and cameras that move like real rigs; bold flat colour with physical timing; one ground (light or dark) kept for the whole film. **Dated:** see `visual-direction.md` §5 "Banned".
+- **Kinetic type:** line mask reveal (`SplitText` `mask: "lines"`, `yPercent: 100 → 0`, 0.6–0.9 s, emphasized-decelerate, 0.08–0.12 s between lines), split after fonts load. Display tracking −1 to −3 %. A variable font animates one axis per beat, never size and weight at once. ≤ 3–4 words/s on screen.
 
 ## 7. The motion-language line in `SPEC.md`
 
-Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = the rulebook (§10: frame ratio, lens set, movement rule, light rule, palette and its arc, texture, never-shown, rule breaks with their reason), frame rate and shutter, the rigs the film uses (§8), the A/B pattern, the one wow shot and the film's technique palette (§9's count); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
+Lock before animating, next to the LOOK line: **CAMERA** = the rulebook (§10), frame rate and shutter, the rigs (§8), the A/B pattern, the one wow shot, the technique palette (§9); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat; **ANCHORS** = the five anchors (§4). Review checks consistency against it.
 
 ## 8. A-roll, B-roll and real camera moves
 
-The difference between a slideshow and a film is a real camera. A faceless explainer cuts two lines together:
+Both are built in the film's look (no lane films footage):
 
-- **A-roll — the explanation.** The subject the narration names, acting, on screen while the claim is spoken: the mechanism in 3D or drawn. It carries the claim.
-- **B-roll — the cinema.** Short shots (0.8–2 s) of the topic's world with a real camera move, built in the same style as the A-roll: a macro of the material on a slider move, a tracking shot past the machine, a push into the workspace, a rack focus across the bench. It sets mood and rhythm, bridges sections and lands on the music; it never carries a claim alone. **[O]** About one B in three shots at Punchy, one in four at Calm; a B before each new section and right after the impact; never two Bs of the same set in a row.
+- **A-roll:** the subject the narration names, acting, while the claim is spoken. It carries the claim.
+- **B-roll:** 0.8–2 s shots of the topic's world on a real camera move (a macro of the material, a track past the machine, a push into the workspace). Mood, rhythm, section bridges; never a claim alone. **[O]** One B in three shots at Punchy, one in four at Calm; a B before each new section and right after the impact; never two Bs of the same set in a row.
 
-**Where each move comes from:**
+**Moves:** push, slider, tracking, crane, orbit, drone, dolly zoom come from the 2.5D layer moves (§9) or a pan or zoom of the iso view. Over a still: drift, push ≤ 1.06, rack focus, parallax, as accents only.
 
-| Move | Real source |
-|---|---|
-| Push / dolly, slider, tracking, gimbal follow, crane, orbit, drone, dolly zoom | the 2.5D layer moves (table above), or a pan or zoom of the iso view |
-| Over a still | drift, push ≤ 1.06, rack focus, layered parallax — accents inside a shot, never its move |
+**Every camera moves like a rig:** Studio: `isoFrame` stations and a `route` of legs (one ease per leg, no stop mid-leg); Express: `cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped); depth of field by layer (`cinema.js` `focus`), the pull on the beat word; motion blur on a fast leg (`pose.speed`).
 
-**Every camera moves like a rig:** Studio: `isoFrame` stations and a `route` of legs (one ease per leg, no stop mid-leg); Express: `engine/iso/cinema.js` `camAt`. The target trails a moving subject by 80–150 ms (critically damped), so the frame is operated, not glued (§2 "No handheld"); depth of field by layer (`cinema.js` `focus`), the focus pull on the beat word; motion blur on a fast leg (`pose.speed`).
+**Frame rate:** 30 fps by default. 24 fps only when `BRIEF.md` says fps 24; then camera moves and fast bodies average 4–8 sub-frames across a 180° shutter (`finish.layer`, §5.3), and at 30 the same for any move that still strobes. Never 60 (doubles the render, re-encoded to 30). Slow motion: render the sub-frames needed, or a `rate` lane speed ramp (`/hyperframes` `motion.md`, registry `beat-freeze-cut`).
 
-**Frame rate and speed:** 30 fps is the default: the platforms play at 30, and a 24 fps upload repeats one frame in four and judders on pans and dollies. 24 fps with a 180° shutter (motion blur on every layer above ~8 px/frame, §5) reads as film: a look the user picks (`BRIEF.md` fps 24), never the default for rendered 3D. **24 fps with 3D motion needs blur:** a three.js frame is a sharp instant, so 24 sharp frames per second strobe on camera moves and fast bodies (a falling object, a spinning part). When the brief is 24 and the film has camera moves or fast bodies, average 4–8 sub-frames across a 180° shutter (`finish.layer`; §5.3 for bodies, a camera leg the same way); at 30 the same applies to any move that still strobes. **No 60:** rendering 60 for a 30 fps platform doubles the render time and is re-encoded to 30; a 60 fps source is for slow motion only. Slow motion in three.js runs at any speed: render the sub-frames you need, or a `rate` lane speed ramp (`/hyperframes` `motion.md`, registry `beat-freeze-cut`).
+**One wow shot per film**, on the impact beat, built first and shown in the style frames (a zoom through a cutaway into the mechanism, a slow-motion action with a ramp, a fast pull-out to the whole world on its slab).
 
-**One wow shot per film**, on the impact beat, built first and shown in the style frames: a zoom through a cutaway into the mechanism, a close slow-motion action with a ramp, a fast pull-out to the whole world on its slab.
-
-**A and B must cut as one film:** the same palette, light and grain on every shot; matched motion direction across the cut (§3).
+**A and B cut as one film:** same palette, light and grain; matched motion direction (§3).
 
 ## 9. The cinematographer's toolbox
 
-A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take the count of the intro (Studio 6–10, Express 4–6) from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[3D]** three.js rig (§10), **[2.5D]** layered drawings with depth (Express), **[C]** compositing in HyperFrames.
+**The agent chooses the camera, never asks.** Step 5 writes the camera plan on the SPEC CAMERA line: a palette of 6–10 techniques from §1–3, §9 and §10 (Express: 4–6; this is the one home of both counts), each tied to a beat's job; a technique outside it needs a reason in the storyboard. The art keeps its projection; moves are 2.5D, depth layers moved against each other (`engine/iso/cinema.js`: `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `bokeh`, `discs`, with `parallax.js`); Studio's iso camera (`isoCamera`, `isoFrame`, `route`) pans and zooms with the same layer effects; `blueprint` beats hold a locked frame or a slow pan; `object-studio` plays the same table with a perspective camera (`camera.js`: `fovFromMm`, `dofFor`, `orbit`, `crane`, `dollyZoom`, `drone`), lens in mm and f-stop in place of layer effects. One move per beat; at most one dolly zoom and one drone per film. **Aperture follows size:** a wide at f5.6, a zoom-in or macro at f1.2–2.8. Tags: **[3D]** three.js, **[2.5D]** layered drawings (Express), **[C]** HyperFrames compositing.
+
+| Beat job | Technique |
+|---|---|
+| Hook, establish | `drone25` onto the hero + haze, `bokeh(5.6)` |
+| Context, path | `orbit25`, or a pan along the path |
+| Mechanism | push-in with a rack focus cause → effect, `bokeh(2.8)`; a `cutaway` beat; a named close part: `focusRing` f1.2–2.8 on it |
+| Arrival on a subject | arrive and orbit (§9.3) |
+| Crack | the one `dollyZoom25` |
+| Acceleration | shorter shots, `whip`, a faster one-way orbit |
+| Impact | close zoom, `bokeh(1.4)` + `discs`, a speed ramp; a `blueprint` inset when the claim is a measure |
+| Aftermath, bookend | `crane25` up to the wide, ending on the opening framing |
 
 ### 9.1 Light — mood and where to look
-- **Contrast ratio** key:fill, `(key + fill) : fill`, each stop doubling it **[D]**: 2:1 bright and neutral (a friendly explainer), 4:1 dramatic, 8:1 and up low-key (mystery, danger, the problem). Set it per section in the colour script; a ratio change is a mood change.
-- **Colour-temperature contrast:** a warm key (~3200 K) against cool ambient (~5600–6500 K) separates the subject from its world; flip it on the beat where something goes wrong.
-- **Practicals:** a lamp, screen or window inside the frame motivates the key and makes the set read as real.
-- **Edge light and negative fill:** a rim separates a dark subject from a dark ground; one shadow side kept dark. Flat front light flattens the subject.
-- **Light as the event:** a shadow sweeps across, a door throws light in, a lamp switches on at the reveal, the sun moves (timelapse). It is real action without moving the camera **[3D]**.
-- **Story vs explanation grading** (option for a film that wraps an explanation in a small story, e.g. a failure explainer's cold open and bookend): grade the story sections as night, blue-grey, low-key (8:1 and up), dim practical light only; grade the explanation in bright neutral light, 2:1. The change of grade at the pivot is the film's one rule break (§10 *rule breaks*, logged under the CAMERA line); the bookend returns to the night grade, the same set and framing as the opening, now working. Write both moods per section in the storyboard's colour-script line.
-- **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
+Isometric looks are unlit: mood comes from the grade and palette per section of the colour script. `object-studio` lights:
+- **Contrast ratio [D]** key:fill = `(key + fill) : fill`: 2:1 friendly explainer, 4:1 dramatic, 8:1+ low-key (mystery, the problem). A ratio change is a mood change.
+- **Colour temperature:** warm key (~3200 K) against cool ambient (5600–6500 K) separates the subject; flip it where something goes wrong.
+- **Practicals** (a lamp, screen or window in frame) motivate the key. A rim separates a dark subject from a dark ground; keep one shadow side dark; never flat front light.
+- **Light as the event** (any look): a shadow sweeps, a lamp switches on at the reveal, the sun moves.
+- **Story vs explanation grading** (a film that wraps an explanation in a small story): story sections graded night, blue-grey, low-key (8:1+), dim practicals; the explanation bright and neutral, 2:1. The switch at the pivot is the film's one rule break (§10); the bookend returns to the night grade, same set and framing as the opening, now working. Write both moods per section in the colour-script line.
 
 ### 9.2 Lens — how the world feels
-- **Lens as layers:** `bokeh(fstop, { focus, mm })` blurs layers by their depth from the focus plane (f1.2–2 melts the background for the key beat, f5.6–8 keeps the world sharp for context), `discs` paints out-of-focus lights, `haze` pales far layers. Rack the focus from cause to effect on the word.
-- **Aperture points at the part.** Whenever the narration names a part of an object seen close (the valve, the hinge, the one blade, the clasp), open the lens to **f1.2–2.8** with the focus on that part: it stays sharp, everything else melts into bokeh, and the viewer knows without a label which part is being talked about. f1.2 on a macro or a single small part, f2.8 when the part is bigger or its neighbours must stay readable. The sharp spot lands on the part's first word (`focus` racked from the previous part over 0.3–0.5 s, `power2.inOut`, landing slightly early) and stays until its last; a second part named is a rack focus to it, never a cut. **Express:** `bokeh(fstop, { focus, mm })` blurs whole layers by depth, so give the part its own depth layer when it has one; `focusRing(target, buffer, { cx, cy, fstop, clear, feather, amount })` isolates a spot inside one layer (centre on the part, `clear` ≈ its size in frame heights) and `hold(t, t0, t1, t2, t3)` times it to the words. **Studio:** the real lens, `dofFor({ mm, fstop, focusM })` with `focusM` the distance to the part. Out-of-focus lights in the blur get `discs`. Skip it when the whole object is the subject (a wide stays f5.6).
-- **Scale by zoom:** a wide hold shows the whole world, a close zoom is the macro, the mechanism at its own scale; a circular inset shows a close-up while the wide stays.
-- **Into the thing:** a cutaway (a skin slid off, `cutaway.js` in Studio) and a zoom through it.
+- **Lens as layers:** `bokeh(fstop, { focus, mm })` blurs layers by depth from the focus plane (f1.2–2 melts the bg on the key beat, f5.6–8 keeps the world sharp), `discs` paints out-of-focus lights, `haze` pales far layers.
+- **Aperture points at the part.** When the narration names a part seen close (the valve, the hinge, one blade), open to **f1.2–2.8** with focus on it (f1.2 a macro or small part, f2.8 when neighbours must stay readable). Focus lands on the part's first word (racked from the previous part over 0.3–0.5 s, `power2.inOut`, slightly early) and stays to its last; a second part named is a rack focus, never a cut. **Express:** give the part its own depth layer when it has one; otherwise `focusRing(target, buffer, { cx, cy, fstop, clear, feather, amount })` (`clear` ≈ its size in frame heights), timed with `hold(t, t0, t1, t2, t3)`. **Studio:** `dofFor({ mm, fstop, focusM })`, `focusM` = distance to the part. Skip it when the whole object is the subject (a wide stays f5.6).
+- **Scale by zoom:** a wide hold = the whole world, a close zoom = the macro; a circular inset shows a close-up while the wide stays.
+- **Into the thing:** a cutaway (`cutaway.js` in Studio) and a zoom through it.
 
 ### 9.3 Movement — beyond §2
-- **Reveal:** move past a foreground occluder (a wall edge, a leaf, a machine part) to uncover the subject or its scale **[3D][2.5D]**.
-- **Push-through:** the camera passes through a surface (a window, a mesh, a keyhole, the shell of an object) into the next space — a scene change with no cut **[3D]**.
-- **Crane up / down [2.5D]:** `crane25`: the boom rises from the detail to the context (consequence, scale) or lowers into it; the aim holds.
-- **Drone [2.5D]:** `drone25`: a high wide descends to the hero (the hook) or climbs away from it (the bookend). The wow shot or nothing.
-- **Dolly zoom [2.5D]:** `dollyZoom25`: the subject holds its size while the world stretches behind it. One realisation beat per film, the Crack.
-- **Tracking:** alongside a moving subject at its speed — it holds its place in frame while the world streams past **[3D]**.
-- **Arrive and orbit [2.5D][3D]:** every zoom that lands on a subject, in or out, hands over to a slow orbit with no stop between. The zoom is one move on the key beat (§2 push-in or pull-back); while it travels, the **edges blur and the centre stays clear** (`focusRing` centred on the subject, `fstop` 1.4–2.8, `hold(t, zoomStart, zoomStart + 0.25·zoomDur, orbitEnd − 0.3·orbitDur, orbitEnd)`: the blur grows over the first quarter of the travel, stays through the orbit, and releases before the cut). The instant it lands the orbit starts from the arrival pose, slowly: 6–12° over the shot in `object-studio` (**[3D]** `orbit` with `from` = the push's end angle and the same radius and elevation, so the join is invisible), `orbit25(t, { rest, start: landing, dur, from: 0, to: ±1, sweep: 0.08–0.14 })` in 2.5D, with `rest` the camera held at the landing pose (Studio iso: the subject turns instead, the view stays fixed). **The agent picks the direction** from the composition: orbit toward the open side of the frame (the side with the empty space or the lead room), the side that reveals what the narration names next, and alternate sides between consecutive arrivals; a vertical orbit (`crane25`, a rise or a dip of a few degrees of elevation in 3D) when the subject's height or its top or underside is the point. Zoom out is the same with the framing reversed: the pull-back lands on the wide of the subject in its world and the orbit shows its surroundings. One arrival per beat, at most three per film (it is the film's signature: more reads as a template), and never under text meant to be read. Express: the zoom is `camAt` keys ending at the landing time, the orbit starts there, and `focusRing` runs on the frame after `drawLayers`, before `finish.apply`.
-- **Orbit [2.5D]:** `orbit25`: the world slides round a centred subject, far and near layers against each other; slow, on context beats. **One direction** for the whole film (right, or left, never back; Express locks it with `filmOrbit`, and every shot's orbit goes that way): a camera that swings right and left reads as a wobble, not a move round the subject (`camAt` refuses keys that turn back with no hold). A subject may also turn itself on a visible turntable or in a hand.
-- **Oner:** one unbroken move through a whole process, explaining step by step as the camera travels; cuts hidden in dark passes or whips **[3D]**. The engine's form is `engine/three/camera.js`: named `stations`, a `route` of legs between them (a leg that starts before the one before ends is refused: a leg cannot jump), `loopEnd` for a Short, and `examples/oner.js` (home, dive, inside, home on any set).
-- **Home shot + dives:** one persistent world, one camera, no cut. The home shot is the wide of the whole world on its slab (`isoFrame`), and it is where the A/B comparison lives. Each dive pushes in to one subject and back out; a push-through enters the part at its own scale (a cross-section with the flow shown); every station is its own framing of the same world. The viewer never loses their place, because every detail sits visibly inside the home shot. Any subject: a kitchen appliance and its heating element, a bicycle drivetrain and its freewheel, a beehive and one brood frame, a server rack and one fan. `travel` arcs over the set (`over`, a Box3: the set's box, or the envelope of a moving part's travel; `route` measures an object once, when it is built, so a lid opening or a bouncing ball never moves the camera) instead of cutting through it, eases in and out, and reports `speed` (m/s) every frame **[3D]**.
-- **Attention by ghosting:** on each beat everything outside the beat's subject fades to a light, desaturated, translucent ghost (about 25 % opacity), and the subject alone keeps its colour and the accent. Context comes back as the camera pulls out. The floor or sweep stays whole (`keep`), or the world shows the void under it. A fast travel carries motion blur (`pose.speed` and the frame rate give the pixels per frame: the ~4 px rule of §5), and a soft foreground object sells depth on a push. `engine/three/camera.js` `attend(root, { keep, ghost, desat, dur, edge })` does it on cloned materials and puts the original back by reference; `look.at(t)` runs once per frame, after every other `at()` **[3D]**.
-- **Loop end (9:16 Shorts):** the last frame equals the first, so the Short replays seamlessly. `loopEnd(st, { end: (frames - 1) / fps })` brings the camera back to `home` exactly on the last frame; release the attention before it, and finish its fade before the last frame (`oner` refuses a `look.dur` longer than the time it has), and return the subject's own state too (a part that moved must be back where it started, or the loop jumps) **[3D]**.
-- **Motion-control repeat:** the identical move over two states (before / after, option A / option B, new / worn), then cut or wipe between them. It's the strongest comparison shot there is **[3D]**.
-- **Frozen moment:** time stops on the instant (an impact, a splash, a reaction) and the view zooms in on it, then lets time run again.
-- **Drone / FPV dive:** from the sky into the subject. It's the wow shot or nothing (§8).
+- **Reveal:** move past a foreground occluder to uncover the subject or its scale **[3D][2.5D]**.
+- **Push-through:** the camera passes through a surface (window, mesh, shell) into the next space, a scene change with no cut **[3D]**.
+- **Crane [2.5D]:** `crane25` rises from detail to context or lowers into it; the aim holds.
+- **Drone [2.5D]:** `drone25` descends to the hero (hook) or climbs away (bookend). The wow shot or nothing.
+- **Dolly zoom [2.5D]:** `dollyZoom25`, the Crack, once.
+- **Tracking:** alongside a moving subject at its speed **[3D]**.
+- **Arrive and orbit [2.5D][3D]:** every zoom that lands on a subject, in or out, hands over to a slow orbit with no stop. While the zoom travels the **edges blur and the centre stays clear** (`focusRing` on the subject, `fstop` 1.4–2.8, `hold(t, zoomStart, zoomStart + 0.25·zoomDur, orbitEnd − 0.3·orbitDur, orbitEnd)`). On landing the orbit starts from the arrival pose: 6–12° over the shot in `object-studio` (`orbit` with `from` = the push's end angle, same radius and elevation); `orbit25(t, { rest, start: landing, dur, from: 0, to: ±1, sweep: 0.08–0.14 })` in 2.5D; Studio iso: the subject turns, the view stays. Orbit toward the open side of the frame, or the side that reveals what the narration names next; alternate sides between consecutive arrivals; a vertical orbit (`crane25`, a few degrees of elevation) when height, top or underside is the point. A pull-back lands on the wide and orbits its surroundings. At most one per beat and three per film, never under text meant to be read. Express: `camAt` keys end at the landing, the orbit starts there, `focusRing` runs after `drawLayers`, before `finish.apply`.
+- **Orbit [2.5D]:** `orbit25`, slow, on context beats. **One direction for the whole film** (Express locks it with `filmOrbit`; `camAt` refuses keys that turn back with no hold). A subject may turn itself on a visible turntable or in a hand.
+- **Oner [3D]:** one unbroken move through a process; cuts hidden in dark passes or whips. `camera.js`: named `stations`, a `route` of legs (a leg starting before the previous one ends is refused), `loopEnd` for a Short; `engine/three/examples/oner.js` (home, dive, inside, home).
+- **Home shot + dives [3D]:** one world, one camera, no cut. Home = the wide of the world on its slab (`isoFrame`), where the A/B comparison lives; each dive pushes in to one subject and back out; a push-through enters a part at its own scale. `travel` arcs over the set (`over`: a Box3 of the set or a moving part's envelope, measured once when built), eases in and out, reports `speed` (m/s) each frame.
+- **Attention by ghosting [3D]:** on each beat everything but the subject fades to a light desaturated ghost (~25 % opacity); context returns as the camera pulls out. The floor stays whole (`keep`). `attend(root, { keep, ghost, desat, dur, edge })` on cloned materials; `look.at(t)` runs once per frame, after every other `at()`.
+- **Loop end (9:16) [3D]:** last frame = first. `loopEnd(st, { end: (frames - 1) / fps })` returns the camera to `home` on the last frame; release attention and finish its fade before it (`oner` refuses a longer `look.dur`); moved parts return to their start.
+- **Motion-control repeat [3D]:** the identical move over two states (before / after, A / B, new / worn), then cut or wipe between them. The strongest comparison shot.
+- **Frozen moment:** time stops on the instant, the view zooms in, then time runs again.
 
 ### 9.4 Time
-- **Slow motion** for what the eye can't see — splashes, mechanisms, breaking (any speed in 3D, §8).
-- **Timelapse** for slow processes (wear, growth, a day, a build); **hyperlapse** is a timelapse with a travelling camera **[3D]**.
-- **Freeze-frame and annotate:** stop at the key instant, draw labels and leader lines on it, then release — an explainer staple **[C]**.
+- **Slow motion** for what the eye can't see (§8). **Timelapse** for slow processes; **hyperlapse** = timelapse with a travelling camera **[3D]**.
+- **Freeze-frame and annotate:** stop, draw labels and leaders, release **[C]**.
 - **Reverse** to show the cause; **speed ramp** for emphasis (§8).
 
 ### 9.5 Editing — beyond §3
-- **Cross-cutting:** alternate two lines (A vs B, two processes) in the same framing, so the comparison lives in the rhythm.
-- **Collision montage:** two shots that together mean a third thing (waste next to a bin of money) — for an argument, not a fact.
-- **Graphic or morph match:** a shape becomes a similar shape in the next shot (a circle → a wheel → a gauge) to jump scale or idea.
-- **Invisible cut:** hidden behind a dark pass, a whip or an object crossing the lens (§3 "Occlusion wipe"); it keeps a oner unbroken.
-- **Insert as evidence:** a macro detail cut into a wide beat to prove the claim being spoken.
-- **Split screen** only on 16:9 for things happening at the same time; on 9:16, stacked top / bottom only if both read at 360 px (`visual-direction.md` §7).
+- **Cross-cutting:** alternate two lines (A vs B) in the same framing.
+- **Collision montage:** two shots that together mean a third thing, for an argument, not a fact.
+- **Graphic match:** a shape becomes a similar shape (circle → wheel → gauge) to jump scale or idea.
+- **Invisible cut:** behind a dark pass, a whip or an object crossing the lens (§3 "Occlusion wipe").
+- **Insert as evidence:** a macro cut into a wide beat to prove the spoken claim.
+- **Split screen** on 16:9 only, for simultaneous things; on 9:16 stacked only if both read at 360 px (`visual-direction.md` §7).
 
 ### 9.6 Educational signatures — the scale and the inside
-- **Scale journey ("powers of ten"):** one continuous zoom from human scale down to the microscopic (or out to the cosmic), with a scale bar counting **[3D]** (layered scale planes, real micrographs at the bottom).
-- **X-ray / ghost shell:** the outer surface fades to 20–35 % with a bright fresnel edge so the inner mechanism works visibly inside it **[3D]** (`attend(...)` with `edge` for the rim, on a lit material).
-- **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]** (`engine/three/cutaway.js`: one plane on the whole assembly; the exterior shot and the section shot are the same set with `cut.off(t)` / `cut.on(t)`, and a slow `cut.set(offset, t)` slides the section through).
-- **Exploded view:** parts separate along their assembly axes, get labelled, then reassemble (`/hyperframes` `types/3d.md`) **[3D]**.
-- **World-space labels:** text pinned to the object in 3D (it moves and parallaxes with the camera), with a leader line to the part — never floating UI **[3D]**.
-- **Map / terrain zoom:** from the globe down to the street for place-based topics; bake the camera move (`/hyperframes` `film.md`) **[C]**.
-- **Hands-on macro B-roll:** hands doing the real thing, very close and shallow — the faceless presenter **[3D]**.
+- **Scale journey:** one continuous zoom from human scale to the microscopic (or cosmic) with a scale bar counting **[3D]**.
+- **X-ray / ghost shell:** the outer surface at 20–35 % with a bright fresnel edge, the mechanism working inside (`attend(...)` with `edge`) **[3D]**.
+- **Cutaway section:** one section plane through the assembly (`cutaway.js`), cut face solid or hatched; exterior and section are the same set with `cut.off(t)` / `cut.on(t)`; `cut.set(offset, t)` slides it **[3D]**.
+- **Exploded view:** parts separate along their assembly axes, labelled, then reassemble (`/hyperframes` `types/3d.md`) **[3D]**.
+- **World-space labels:** pinned to the object with a leader line, moving with the camera **[3D]**.
+- **Map / terrain zoom:** globe to street for place topics (`/hyperframes` `film.md`) **[C]**.
+- **Hands-on macro:** hands doing the real thing, very close and shallow **[3D]**.
 
 ## 10. Emotion drives every parameter: the rulebook
 
-A shot's lens, height, move, light, colour and frame ratio are chosen from the feeling it serves, never from a generic "cinematic" default. **Every storyboard row names one emotion and a motivation for each choice; a move, lens, light or colour without a motivation is removed.** Restraint is the default: static unless motivated, few lenses, few colours, few cuts. Restraint reads as authorship; a frame where every choice obeys one idea beats a run of impressive, unrelated shots. Isometric looks use Size, Focus, Movement, Colour, Shutter and Ratio; Angle and Lens do not apply (zoom stands in for lens, layer blur for aperture) and Light becomes the grade and palette. All columns, §10.1's Kelvin table and §10.2's camera height apply in full to `object-studio`.
+Each storyboard row names one emotion and a motivation for each choice; a move, lens, light or colour without one is removed. Static unless motivated; few lenses, colours and cuts. Isometric looks use the Size, Focus, Movement, Colour and Ratio columns; Lens · angle and Light are `object-studio` only. Shutter is 180° except panic (45–90°) and memory (270–360°).
 
-| Emotion | Size | Angle | Lens (FF) | Focus | Movement | Light (ratio) | Colour | Shutter | Ratio |
-|---|---|---|---|---|---|---|---|---|---|
-| Intimacy, tenderness | MCU, CU | eye | 35–50 mm, close | shallow | static or very slow push | soft, 2:1, warm practicals | warm, low saturation | 180° | 1.37 / 1.66 |
-| Isolation, loneliness | WS, EWS | eye or slightly high | 85–135 mm from far, or 24 mm static | deep, or shallow on a tiny subject | static; slow pull-out | one source, 6:1+ | cool, desaturated, one warm accent | 180° | 2.39 or 1.37 (headroom) |
-| Dread, tension | MS → CU, tightening | eye, slightly low | 35–40 mm | medium | static long take or creeping push | short-side key, 8:1, top light | desaturated green-teal, crushed shadows | 180° | 1.85 / 2.39 |
-| Panic, chaos | MCU, CU | shifting | 18–28 mm close | deep | a fast one-way orbit, whips | hard, mixed temperatures | dirty, clashing | 45–90° | 1.85 |
-| Power, dominance | MS, FS | low | 24–35 mm | deep | static symmetry or slow crane up | hard top or edge | high contrast, rich blacks | 180° | 2.39 |
-| Vulnerability | MS, CU with headroom | high | 85 mm+ | shallow | static | soft, low key | pale, cold | 180° | 1.37 |
-| Memory, nostalgia | inserts, CU details | varied | 50 mm, soft | shallow | a slow one-way orbit | backlight, flare, halation | warm, faded blacks, more grain | 270–360° | 1.33 / 1.37 |
-| Awe, freedom | EWS, WS | eye or ground | 24–35 mm, or 135 mm landscape compression | deep | slow lateral or crane | low-sun backlight | golden, natural | 180° | 2.39 |
-| Unease, surreal | CU, centred WS | dead centre | 14–24 mm very close | deep | static or slow arc | hard, unmotivated colour | one unnatural hue | 180° | 1.19 / 1:1 |
-| Joy, curiosity | FS, MS | child's-eye (~1 m) | 28–35 mm | medium | follow at walking pace | bright, soft, open shade | saturated pastels | 180° | 1.85 |
-| Grief | WS, one CU late | eye; high at the collapse | 50 mm | medium | static, long holds | low key, overcast or window | desaturated, cool | 180° | 1.85 |
-| Revelation | MS → CU | eye | 35–50 mm | rack focus to the discovery | slow push, or the one dolly-zoom | the light changes mid-shot | the palette shifts from this shot on | 180° | same, or opens wider |
+| Emotion | Size | Lens · angle | Focus | Movement | Light | Colour | Ratio |
+|---|---|---|---|---|---|---|---|
+| Intimacy | MCU, CU | 35–50 mm close, eye | shallow | static or very slow push | soft 2:1, warm practicals | warm, low sat | 1.37 / 1.66 |
+| Isolation | WS, EWS | 85–135 mm far or 24 mm, slightly high | deep, or shallow on a tiny subject | static; slow pull-out | one source, 6:1+ | cool, desat, one warm accent | 2.39 / 1.37 |
+| Dread | MS → CU | 35–40 mm, slightly low | medium | static long take or creeping push | short-side key 8:1, top light | desat green-teal | 1.85 / 2.39 |
+| Panic | MCU, CU | 18–28 mm close, shifting | deep | fast one-way orbit, whips | hard, mixed temperatures | dirty, clashing | 1.85 |
+| Power | MS, FS | 24–35 mm, low | deep | static symmetry or slow crane up | hard top or edge | high contrast | 2.39 |
+| Vulnerability | MS, CU with headroom | 85 mm+, high | shallow | static | soft, low key | pale, cold | 1.37 |
+| Memory | inserts, CU | 50 mm soft | shallow | slow one-way orbit | backlight, flare | warm, faded blacks, grain | 1.33 / 1.37 |
+| Awe | EWS, WS | 24–35 mm, eye or ground | deep | slow lateral or crane | low-sun backlight | golden | 2.39 |
+| Unease | CU, centred WS | 14–24 mm very close, dead centre | deep | static or slow arc | hard, unmotivated colour | one unnatural hue | 1.19 / 1:1 |
+| Joy, curiosity | FS, MS | 28–35 mm, ~1 m height | medium | follow at walking pace | bright, soft | saturated pastels | 1.85 |
+| Grief | WS, one CU late | 50 mm, eye; high at the collapse | medium | static, long holds | low key, overcast | desat, cool | 1.85 |
+| Revelation | MS → CU | 35–50 mm, eye | rack to the discovery | slow push, or the one dolly zoom | changes mid-shot | palette shifts from here | same, or wider |
 
-**The rulebook** is the CAMERA line of `SPEC.md` (§8), 5–10 rules: the frame ratio, the zoom levels (2–3: the wide, the medium, the close, the closest reserved for the climax), the movement rule ("static unless the inner state changes, then a slow push"), the light rule (motivated sources only, short-side key, ratio), the palette (2–3 hues + 1 accent) and its arc across sections, the texture (grain, halation), the shutter, and what is never shown. **Rule breaks** are logged under it with their story reason, one per turning point at most: a change of rules *is* the turning point (the orbit turning faster when control is lost, the first colour shift, the frame ratio opening wider at a release).
+**The rulebook** is the CAMERA line of `SPEC.md`, 5–10 rules: frame ratio, zoom levels (2–3, the closest kept for the climax), movement rule ("static unless the inner state changes, then a slow push"), light rule (`object-studio`: motivated sources, short-side key, ratio), palette (2–3 hues + 1 accent) and its arc, texture, shutter, what is never shown. **Rule breaks** are logged under it with their story reason, at most one per turning point (the orbit turning faster when control is lost, the first colour shift, the ratio opening wider).
 
-**Structure:** establish wide, tighten as the feeling rises, keep the tightest size and the longest lens for the climax; rhyme the final image with the opening composition so the change in meaning is felt; one idea per shot (two ideas = two shots); hold a beat after the line — the reaction is often the story; keep key action off screen when sound can carry it.
+**Structure:** establish wide, tighten as the feeling rises, tightest size for the climax; the final image rhymes with the opening composition; one idea per shot; hold a beat after the line; keep key action off screen when sound carries it.
 
 ### 10.1 Light
-- **Motivated:** every light seems to come from a source in the world (window, lamp, screen, sky).
-- **Short-side key:** light the side of the subject away from camera. Camera-side (broad) light is flat and reads as TV.
-- **Subtract to shape:** dark negative fill on one side beats adding lamps. Design colour in the set, wardrobe and practicals first; the grade only enhances.
-- **Colour temperature as world-building:** leave mixed sources uncorrected when they define the place.
-- **three.js light colours from Kelvin:**
-
-  | Source | Kelvin | Hex |
-  |---|---|---|
-  | Candle | 1900 K | `#ff8400` |
-  | Sodium street lamp | 2000 K | `#ff890e` |
-  | Household bulb | 2700 K | `#ffa757` |
-  | Film tungsten | 3200 K | `#ffb87b` |
-  | Cool fluorescent (add a green tint) | 4000 K | `#ffcea6` |
-  | Noon sun | 5600 K | `#ffefe1` |
-  | Overcast | 6500 K | `#fffefa` |
-  | Shade, blue hour | 8000 K | `#dde6ff` |
+`object-studio` only. Every light motivated by a source in the world; short-side key (light the side away from camera); shape with negative fill before adding lamps; leave mixed sources uncorrected when they define the place. three.js colours from Kelvin: candle 1900 K `#ff8400` · sodium 2000 K `#ff890e` · household bulb 2700 K `#ffa757` · tungsten 3200 K `#ffb87b` · cool fluorescent 4000 K `#ffcea6` (+ green tint) · noon sun 5600 K `#ffefe1` · overcast 6500 K `#fffefa` · shade 8000 K `#dde6ff`.
 
 ### 10.2 Composition
-- **Thirds:** eyes on the upper third, look room ahead of the gaze. Centre and symmetry mean order, control, unease or authority.
-- **Headroom:** tight is normal. A subject low under large headroom reads as small or oppressed.
-- **Negative space:** 60–80 % of the frame left empty reads as isolation.
-- **Frame in frame:** a doorway, window or mirror reads as entrapment or watching.
-- **Foreground:** something in the foreground removes flatness (§4 "The loaded frame").
-- **Dialogue:** in shot / reverse shot, eyelines match and lens and distance are the same on both sides.
-- **3D camera height:** eye ~1.5–1.7 m, child ~1.0 m, low 0.3–0.6 m, all scaled to the set.
+- **Thirds:** eyes on the upper third, look room ahead. Centre and symmetry = order, control, unease or authority.
+- **Headroom** tight; a subject low under large headroom reads small. **Negative space** 60–80 % reads as isolation. **Frame in frame** (doorway, window) = entrapment or watching. A **foreground** object removes flatness (§4).
+- **`object-studio` camera height:** eye ~1.5–1.7 m, child ~1.0 m, low 0.3–0.6 m, scaled to the set.
 
 ### 10.3 Frame ratio inside the canvas
-
-**Frame ratio inside the canvas** (16:9 films only; 9:16 and 4:5 stay full-bleed, since platform UI covers the bars' space). The ratio is a story decision, constant unless a logged break changes it. At 1920×1080:
-
-| Ratio | Image area | Bars |
-|---|---|---|
-| 2.39 | 1920×804 | 138 px top and bottom |
-| 1.85 | 1920×1038 | 21 px top and bottom |
-| 1.66 | 1792×1080 | 64 px each side |
-| 1.37 | 1480×1080 | 220 px each side |
-| 1.33 | 1440×1080 | 240 px each side |
-| 1:1 | 1080×1080 | 420 px each side |
-
-Build the mask as the top layer of the root composition (two black `div`s), so bars stay pure black with no grain on them. Captions and safe areas sit inside the image area.
+16:9 films only (9:16 and 4:5 stay full-bleed). Constant unless a logged break changes it. At 1920×1080: 2.39 = 138 px bars top and bottom · 1.85 = 21 px top and bottom · 1.66 = 64 px each side · 1.37 = 220 px each side · 1.33 = 240 px each side · 1:1 = 420 px each side. The mask is the top layer of the root composition (two black `div`s, no grain); captions and safe areas sit inside the image area.
 
 ### 10.4 Finishing order, identical on every shot
-1. Grade or LUT.
-2. Halation: a red-orange glow around highlights; subtle; film looks only.
-3. Grain.
-4. Vignette.
-5. Aspect mask, last.
-
-Apply them in the finisher pass.
+In the finisher pass: 1. grade; 2. halation (subtle, only when the rulebook names it); 3. grain; 4. vignette; 5. aspect mask, last.
 
 ### 10.5 Approach presets
-
-**Approach presets.** Borrow a film's approach, never its shots. Start the rulebook from the nearest preset and adapt it:
-
-| Preset | After | Ratio | Lens · move | Light · colour |
-|---|---|---|---|---|
-| intimate-realism | *The Florida Project*, *American Honey* | 1.37 / 1.85 | 28–35 mm close at child's-eye height, a slow one-way orbit, follow | open shade; saturated pastels, fine grain |
-| austere-portrait | *Ida* | 1.37 | 35–50 mm, deep, static | soft, diffuse; subjects low under huge headroom |
-| subjective-tunnel | *Son of Saul* | 1.37 | one 40 mm, very shallow, follows behind the head | available light; the background horror out of focus, carried by sound |
-| lyrical-colour | *Moonlight* | 2.39 | close, slow arcs | glowing skin, saturated backlight; cyan and magenta, deep blacks |
-| cold-observation | *The Zone of Interest* | 1.85 | wide, deep, static, several hidden angles | flat natural light; the horror kept off screen |
-| dreamy-memory | *Aftersun* | 1.85 + 4:3 home-video inserts | 50 mm soft, a slow one-way orbit | backlight, reflections; warm, faded blacks, halation |
-| landscape-awe | *Nomadland* | 2.39 | 24–35 mm, deep, slow lateral | low-sun backlight; figures small in vast space |
-| period-texture | *Carol* | 1.85 | 50 mm through glass, restrained | soft window light; Super 16 grain, muted greens and pinks |
+Start the rulebook from the nearest preset (borrow an approach, never shots): **intimate-realism** 1.37/1.85, 28–35 mm at child height, slow one-way orbit, pastels · **austere-portrait** 1.37, static deep, subjects low under huge headroom · **subjective-tunnel** 1.37, one 40 mm very shallow behind the subject, the background carried by sound · **lyrical-colour** 2.39, close slow arcs, saturated backlight, cyan and magenta · **cold-observation** 1.85, wide deep static, the horror off screen · **dreamy-memory** 1.85 + 4:3 inserts, 50 mm soft, warm faded blacks · **landscape-awe** 2.39, 24–35 mm slow lateral, figures small in vast space · **period-texture** 1.85, 50 mm through glass, soft window light, muted greens and pinks.
 
 ## Sources
 
-Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots); §10's emotion table, rulebook, Kelvin, ratio and finishing practice follow award-winning indie cinematography (DP approaches of the films named, paraphrased).
+Paraphrased from Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0; parts credit [agentara/skills](https://github.com/agentara/skills), MIT) and [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai).

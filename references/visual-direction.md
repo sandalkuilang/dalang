@@ -1,190 +1,180 @@
 # Visual direction
 
-Left alone, code-made video lands on one look: flat shapes on a cream or dark ground, pill chips, everything popping in, a small object in an empty frame (`/hyperframes` `references/spec.md` "BANNED by default"). This file turns "modern, top-notch, not overdone, true to life" into decisions and numbers. Read the § a step names; where it and `/hyperframes` overlap, `/hyperframes` wins on mechanics, this file on the look and the craft bar. Pipeline order (story → look → storyboard → style frames → blocking → polish → review) is SKILL.md's steps; never jump from storyboard to polished scenes.
+Turns "modern, top-notch, not overdone, true to life" into numbers. Read the § a step names; where it overlaps `/hyperframes`, `/hyperframes` wins on mechanics, this file on the look and the craft bar. Never jump from storyboard to polished scenes.
 
 ## 1. The hero is true (real reference, drawn or built)
 
-Every film is **stylized**: a designed look, one style per film, never footage or a photoreal render. The subject is still true to reality: right anatomy, parts, proportions, scale and behaviour, in a world dressed with what is really there. DALANG installs no image or video model and films nothing.
+Every film is **stylized** (one designed look, never footage or a photoreal render) and true to reality: right anatomy, parts, proportions, scale and behaviour, in a world dressed with what is really there. DALANG installs no image or video model and films nothing.
 
-The hero is made one of three ways: **drawn** as true shapes (Express, the fast lane); **modelled once** from 2D pictures as a Blender script and rendered in three.js (Studio, the precision lane: `hero-asset.md`); or, for what neither covers, **built** in three.js from its own law and real measures. Supporting objects may be a **CC0 / public-domain 3D model** re-dressed into the film's style (below). Vector or CSS shapes stand in for what has no real appearance (diagrams, charts, maps, UI, icons, type, abstract ideas) and sit beside the subject, never instead of it.
+The hero is **drawn** as true shapes (Express), **modelled once** from 2D pictures as a Blender script and rendered in three.js (Studio: `hero-asset.md`), or **built** in three.js from its own law and real measures. Supporting objects may be a **CC0 / public-domain 3D model** re-dressed into the style (§1.1). Vector or CSS shapes stand in only for what has no real appearance (diagrams, charts, maps, UI, icons, type) and sit beside the subject, never instead of it.
 
 ### 1.1 Per subject: machines, models, people, checks
 
-- **Machines and mechanisms start from a real reference.** Download 3-5 photos of the real thing (`find_media.mjs --type image`, make and model as the query, or the user's own) and read the layout from them before drawing or modelling a part.
-- **Any supporting made object with internal anatomy (a radiator behind the hero, a tool on the bench): try a CC0 model before modelling it by hand** (`find_media.mjs --type model --query "<1-2 English words>" --out review/models`: Poly Haven, Smithsonian CC0, NASA public domain and Kenney; each licence is read from its source, and it prints size, triangles, the stated size and a contact sheet to look at before `--take ... --as assets/models/<name>.glb`). Every part is already where it really is, and rebuilding that per film is slow and token-heavy. Dress it with `kit.model(path, { palette, kinds, real })` (`real` = the stated size, which `scaleAudit` checks; none stated: listed unchecked). Model by hand when no found model fits, or for the part the film is about when the found model's version of it is wrong.
-- **Sourcing, fast.** Commons search: 1-2-word English queries (long ones return nothing), at most one query per 2 s (429s follow bursts). Look before you download: check thumbnails on one contact sheet, since a licence filter does not catch cartoons, logos or watermarks. Credit every CC BY file in `CREDITS.md`.
-- **Moving subjects** move by their own law: posed from their cause in three.js (`camera-motion.md` §5) or, in Express, eased with gravity and contact squash. A drawn cutout moved with bare transforms reads as a paper doll.
-- **People are the hardest subject**; viewers spot stiff human motion instantly. A person on screen is a stylized figure that follows the mitten rule (`craft-rules.md` §4) and acts with squash 8 % or less, or is staged faceless (`camera-motion.md` §4): hands mid-action, an object crossing a threshold, a silhouette, or a cut to what they talk about. Never a stock 3D human or a still face with only a moving mouth.
-- **Reality check before use.** For every drawn, built or found asset, download one real reference photo of the subject (`review/ref-<object>.jpg`, any licence: it is never published) and compare them side by side on one contact sheet, never against memory: parts and their count, proportions, materials, colour pattern, scale against nearby objects, physics (shadows, contact, motion direction), and **where the action happens**: a hand, tool or liquid acts on the part where it really does (a key goes into the lock, not beside it; a part sits in its machine, not loose on a table). Simplify shapes; never invent, drop or move a part. A process the narration explains (a reflex, a mechanism, a reaction) follows a cited diagram or measurement, frame for frame where it matters.
-- If a beat needs an asset no source can supply, say so **before** writing the storyboard and decide without asking (the Brief already asked for photos): build it from its reference (in three.js for Studio, as a drawn object for Express), else rewrite that beat around what exists; log the choice.
+- **Machines start from a real reference:** 3–5 photos of the real thing (`find_media.mjs --type image`, make and model as the query, or the user's own); read the layout from them before drawing or modelling a part.
+- **A supporting made object with internal anatomy: try a CC0 model before modelling by hand** (`find_media.mjs --type model --query "<1-2 English words>" --out review/models`; it prints licence, size, triangles, stated size and a contact sheet; then `--take ... --as assets/models/<name>.glb`). Dress it with `kit.model(path, { palette, kinds, real })` (`real` = the stated size, checked by `scaleAudit`). Model by hand when no model fits, or when its version of the film's part is wrong.
+- **Sourcing, fast:** Commons queries of 1–2 English words, at most one per 2 s. Check thumbnails on one contact sheet before downloading (licence filters miss cartoons, logos, watermarks). Credit every CC BY file in `CREDITS.md`.
+- **Moving subjects move by their own law:** posed from their cause (`camera-motion.md` §5), in Express eased with gravity and contact squash; never a cutout on bare transforms.
+- **People are the hardest subject:** a stylized figure under the mitten rule (`craft-rules.md` §4), squash ≤ 8 %, or staged faceless (`camera-motion.md` §4). Never a stock 3D human or a still face with only a moving mouth.
+- **Reality check before use:** for every drawn, built or found asset, download one real reference photo (`review/ref-<object>.jpg`, never published) and compare side by side on one contact sheet: parts and count, proportions, materials, colour pattern, scale, physics (shadows, contact, motion direction), and **where the action happens** (a key goes into the lock, a part sits in its machine). Simplify shapes; never invent, drop or move a part. A process the narration explains follows a cited diagram or measurement.
+- An asset no source can supply: say so **before** the storyboard and decide without asking: build it from its reference, else rewrite the beat around what exists; log the choice.
 
 ## 2. Looks
 
-Express and Studio share three isometric design languages, `isometric-world` first, `cutaway` for the inside of one thing, `blueprint` for very detailed data (`looks.md`, which also says how to pick). Step 5 reads it there and in the chosen `engine/epic/languages/<name>.md`.
+The three languages and how beats pick them: `looks.md`.
 
 ## 3. Energy (the Step 1 "Energy" option)
 
-| Energy | Average shot | Text-only rows | Moves | Springs | Music | Fits |
+| Energy | Average shot | Text-only rows | Moves | Springs (ζ) | Music | Fits |
 |---|---|---|---|---|---|---|
-| **Calm cinematic** | 3–5 s | ≤ 10 % | slow dollies, rack focus, long holds | 1.0 (no bounce) | 70–95 BPM | documentary, premium, serious topics |
+| **Calm cinematic** | 3–5 s | ≤ 10 % | slow dollies, rack focus, long holds | 1.0 | 70–95 BPM | documentary, serious topics |
 | **Modern balanced** (default) | 1.8–3 s | ≤ 15 % | motivated transitions, 0.3–0.6 s moves | 0.8 | 95–115 BPM | most explainers |
-| **Punchy social** | 0.8–1.8 s | ≤ 25 % | whips, punch-ins, kinetic type on every line | 0.72 | 115–130 BPM | 9:16 hooks, lists, entertainment |
+| **Punchy social** | 0.8–1.8 s | ≤ 25 % | whips, punch-ins, kinetic type every line | 0.72 | 115–130 BPM | 9:16 hooks, lists |
 
-Calm cinematic's 24 fps film-look variant (YouTube landscape only) is its own Step 1 option, `brief.md` Call 2 item 6.
+Calm's 24 fps variant (YouTube landscape only): `brief.md` Call 2 item 6. Energy changes rhythm, never restraint (§5); every energy holds 0.3–0.75 s before the payoff. `storyboard_lint.mjs` checks the average shot and text-only share against this table.
 
-Energy changes rhythm, never restraint: §5 still holds at every energy. Even punchy films hold 0.3–0.75 s before the payoff.
-
-**Minimum motion (every energy): the subject acts, the camera alone doesn't count.** A still plate with a drift, a push or a light sweep is a slideshow, however well `stillness.mjs` scores it (pixels change, nothing happens; a whole film of drifting stills measured 0.8 % "still" and read as PowerPoint). Every shot shows something physically happening: liquid flowing, a part turning or sliding, an object entering, falling, filling or wearing out, a cutaway opening, a molecule moving. A camera-only plate is a breath: ≤ 1.5 s, ≤ 15 % of the runtime. Calm means slow action, not no action. Plan each shot's action and its source in the storyboard's "Subject action" column (`look-build.md` §5).
-
-`storyboard_lint.mjs` checks the table against this one: the longest average shot and the text-only share (focal point is type, no physical subject acting from a real source) per energy.
+**Minimum motion (every energy): the subject acts, the camera alone doesn't count.** Every shot shows something physically happening (liquid flowing, a part turning, an object entering, falling, filling, a cutaway opening). A camera-only plate (drift, push, light sweep) is a breath: ≤ 1.5 s, ≤ 15 % of the runtime, whatever `stillness.mjs` scores. Calm = slow action, not no action. Plan each shot's action in the storyboard's "Subject action" column (`look-build.md` §5).
 
 ## 4. Animation principles, in code numbers
 
-The classic principles of animation, translated into what a timeline can do:
-
-- **Timing & spacing** — ease by role (`/hyperframes` `motion.md`): arrivals on a long tail (`expo.out`), camera both ways (`power2.inOut`), exits accelerate (`power3.in`). The same 0.5 s `power2.out` on everything is the generated look.
-- **Anticipation** — before a big move, a counter-move of 3–6 % of the distance for 80–120 ms.
-- **Follow-through & overlap** — parts of one object settle 60–120 ms after the main body; the next element starts when the previous is 30–50 % done.
-- **Arcs** — organic things (hands, thrown objects, characters, cameras) travel on curves, never straight diagonals. Machines and UI may move straight.
-- **Squash & stretch** — stylised characters only, ≤ 8 %. A real thing gets only its contact squash (`camera-motion.md` §5.2, the one home of that value); never on text or UI.
-- **Secondary action** — one, at 50–70 % of the main move's distance, starting 100–200 ms later.
-- **Staging** — one idea per shot; the eye knows where to look within 0.3 s (contrast, size, motion, and the accent all point at the same thing).
-- **Exaggeration** — restrained: overshoot ≤ 4 % on arrivals (spring damping ζ ≥ 0.72), none on text, numbers or data. Physical timing (gravity, mass, √distance durations, springs): `camera-motion.md` §5.
-- **Appeal / solid drawing** — readable silhouettes at thumbnail size; one consistent light direction; consistent proportions across shots.
+- **Timing:** ease by role (`/hyperframes` `motion.md`): arrivals `expo.out`, camera `power2.inOut`, exits `power3.in`; never the same 0.5 s `power2.out` on everything.
+- **Anticipation:** a counter-move of 3–6 % of the distance for 80–120 ms before a big move.
+- **Follow-through:** parts settle 60–120 ms after the body; the next element starts when the previous is 30–50 % done.
+- **Arcs:** organic things and cameras travel on curves; machines and UI may move straight.
+- **Squash & stretch:** stylised characters only, ≤ 8 %; real things get only their contact squash (`camera-motion.md` §5.2); never text or UI.
+- **Secondary action:** one, at 50–70 % of the main move's distance, 100–200 ms later.
+- **Staging:** one idea per shot; contrast, size, motion and accent point at the same thing within 0.3 s.
+- **Exaggeration:** overshoot ≤ 4 % on arrivals (ζ ≥ 0.72), none on text, numbers or data (`camera-motion.md` §5).
+- **Appeal:** silhouettes read at thumbnail size; one light direction; proportions consistent across shots.
 
 ## 5. Restraint: top-notch, not overdone
 
-- **One hero move per shot.** Everything else holds still or moves as secondary action.
-- At most **two** things move at once, not counting the background or camera.
-- The accent colour appears on **one** element per shot. Colour is a legend for the whole film (one hue per material or role, e.g. heat, current, cold, a warning), each hue only for its meaning; the shot's one accent element is the caption's key-word box.
-- Text besides the caption follows the layers of §12: one claim headline (at most 8 words) and at most 3 cards on screen at once; an evidence or calculation card is sized by its own rule. The caption never repeats any of them word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns when it does).
-- 3–5 kinds of transition in a film, each caused by something on screen (`/hyperframes` `references/motion.md`). Never the same entrance two beats in a row.
-- Allowed finish: grain, vignette, depth of field, motion blur on fast moves (`data-motion-blur="on"`).
-- Banned: glow, bloom, particles as decoration (a glow caused by current or heat, `circuit.js`, is the subject, not decoration; a light shaft or caustic traced by `optics.js` is the subject too), lens flares, glass cards, pill chips (a caption's own per-line backing, `drawCaption` `pill`, and a label pill on a leader line, `pinLabel` `pill`, are not chips), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji as icons, stock "tech" circuit patterns; also the dated 2026 tells: text scramble or decode, RGB split or glitch, chromatic aberration as a style (the ≤ 1 px edge imperfection above is fine), liquid blobs and morphing gradients, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax, the "imperfection kit" (tape, torn paper, VHS), white-flash transitions, pulsing or looping UI, over-smooth AI-gloss renders.
-- One "wow" moment per film; a second cancels the first.
-- Continuous motion comes first from the **subject acting** (§3 "Minimum motion"), supported by the **camera** (a real move, `camera-motion.md` §8–9) and the **light** (a sweep, a shadow passing). Never from breathing or pulsing text and UI.
+- **One hero move per shot;** at most **two** things move at once (background and camera not counted).
+- The accent colour appears on **one** element per shot. Colour is a legend for the film (one hue per material or role); by default the shot's accent is the caption's key-word box.
+- Text besides the caption follows §12: one claim headline (≤ 8 words), at most 3 cards at once; the caption never repeats them word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns).
+- 3–5 transition kinds per film, each caused by something on screen; never the same entrance two beats in a row.
+- Allowed finish: grain, vignette, depth of field, motion blur on fast moves.
+- **Banned:** decorative glow, bloom or particles (a glow caused by current or heat, `circuit.js`, or a light shaft traced by `optics.js`, is the subject), lens flares, glass cards, pill chips (a caption's line backing and a leader-line label pill are not chips), neon, mesh gradients, corner labels, HUD decoration, three cards in a row, emoji icons, stock circuit patterns, text scramble, RGB split or glitch, chromatic aberration as a style, liquid blobs, morphing gradients, Corporate-Memphis characters, elastic bounce, a whoosh on every cut, Ken Burns on a still without parallax, tape / torn paper / VHS, white-flash transitions, pulsing or looping UI, AI-gloss renders.
+- One "wow" moment per film.
+- Continuous motion comes from the **subject acting** (§3), supported by the camera (`camera-motion.md` §8–9) and the light; never from breathing or pulsing text and UI.
 
 ## 6. Cinematography
 
-Shot sizes, angles and moves chosen by their job, the axis, cutting and rhythm: `camera-motion.md` §1–3.
+Shot sizes, angles, moves, axis, cutting, rhythm: `camera-motion.md` §1–3. Here only:
 
-
-- **Shot sizes vary like a film:** establishing wide → medium → close-up → macro detail (insert). Never more than two shots in a row at the same size.
-- **Lens feel:** product and portrait shots as if at 85–100 mm (little perspective, shallow focus); environments at 24–35 mm (depth, leading lines). In the isometric looks, zoom and layer blur stand in (`camera-motion.md` §1).
-- **Depth:** three layers by depth (`express.md` Step 6, the one home of the ratios): far, the subject at 1, near; text and captions stay fixed to the frame. An occasional out-of-focus foreground element (5–10 % of the frame, heavily blurred) sells depth.
-- **Rack focus** is a transition: the blur moves from one layer to the other in 0.4–0.6 s.
-- **Screen direction:** what is on the left stays on the left; progress moves left → right (right → left for right-to-left languages). Keep a comparison's sides fixed for the whole film.
-- **Motivated light:** every highlight has a source you could point at. One key direction per scene.
-- **Colour script:** each section gets a colour mood that shifts with the story (for example cool and neutral for the problem, warm for the answer; a story wrapped around an explanation may grade the story as night and the explanation bright, `camera-motion.md` §9.1), written per section in `storyboard.md`.
+- **Shot sizes vary:** wide → medium → close-up → insert; never more than two shots in a row at one size.
+- **Lens feel** (`object-studio`): product shots as at 85–100 mm, environments at 24–35 mm; isometric looks use zoom and layer blur (`camera-motion.md` §1).
+- **Depth:** three layers (`express.md` "Look rules" holds the ratios); text and captions fixed to the frame; an occasional blurred foreground element (5–10 % of the frame).
+- **Rack focus** as a transition: 0.4–0.6 s.
+- **Screen direction:** left stays left; progress moves left → right (right → left for RTL languages); a comparison's sides fixed for the film.
+- **Motivated light:** every highlight has a source; one key direction per scene.
+- **Colour script:** a mood per section that shifts with the story (cool for the problem, warm for the answer; story-vs-explanation grading: `camera-motion.md` §9.1), written per section in `storyboard.md`.
 
 ## 7. Composition (read the format from `BRIEF.md`)
 
-- The hero fills at least **45 % of the frame height or 70 % of its width** (stricter than `/hyperframes`' 40 %; this one wins). A small object in an empty frame is never a shot: push in, crop, or give it a world.
-- Use thirds or a strong centre on purpose, never by default; leave lead room in the direction something faces or moves.
+- The hero fills ≥ **45 % of the frame height or 70 % of its width** (this wins over `/hyperframes`' 40 %): push in, crop, or give it a world.
+- Thirds or a strong centre on purpose; lead room where something faces or moves.
 - Text safe zones per format: `craft-rules.md` §5.
-- Comparisons on 9:16 are sequential, stacked, one object in two states, or two subjects each with a data card anchored beside it (each card ≤ 30 % of the frame width, §12), which reads well at phone size; never two side-by-side columns of prose.
-- When a number is the point, it is the biggest thing on screen (220–320 px at 1080 wide), in tabular figures, counting up over 1.2–1.6 s and then holding.
-- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (its `[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. A card counts toward the 3 cards of §12: its quote is at most about 12 words and a calculation card at most 4 lines, with labels of at least 36 px, and the caption never repeats it word for word.
+- Comparisons on 9:16: sequential, stacked, one object in two states, or two subjects each with a card beside it (≤ 30 % of the width, §12); never side-by-side columns of prose.
+- A number that is the point is the biggest thing on screen (220–320 px at 1080 wide), tabular figures, counting up over 1.2–1.6 s, then holding.
+- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (`[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. Cards follow §12.
 
 ## 8. What the best educational videos do
 
-- **The first frame is already the story** — no logo, no title card, no "in this video". The hook's visual lands with the hook's first word.
-- **Motion is the explanation.** Top educational shorts don't show a picture and talk over it: the thing happens on screen. Show the mechanism behind every "why" — a cutaway or x-ray into the machine, the camera flying into the part, a macro of the material changing, molecules or particles behaving (3D, §1: three.js, built procedurally when the mechanism is simple and must be exact — a piston and crank, gears, a valve opening, a fluid film between two moving surfaces). Data moves physically too: things fall, stack, fill, pour, wear, with weight.
-- **Visualise the claim, don't illustrate the words.** If the narration says "twice as much", show two things at true scale, not the word "2×".
-- **Something new every 2–4 s** (a beat, a camera move, a reveal) — the retention curve punishes static stretches more than fast ones.
-- **One visual metaphor per idea**, introduced once and reused (callbacks), so the viewer learns the film's language.
-- **Progressive disclosure:** build a diagram piece by piece in reading order, on the words that name each piece.
-- **Real numbers as physical comparisons** (a stack of coins, a distance on a map, a fill level, the quantity shown as an everyday object at true scale) beat bar charts; a small running tally beside them (§12) keeps the thread across sections.
-- **Payoff frame:** the last idea is the cleanest, biggest frame of the film, held at least 2 s.
+- **The first frame is already the story:** no logo, title card or "in this video"; the hook's visual lands on the hook's first word.
+- **Motion is the explanation:** the thing happens on screen. Show the mechanism behind every "why" (a cutaway into the machine, the camera flying into the part, particles behaving; built procedurally when simple and exact: a piston and crank, gears, a valve). Data moves physically: things fall, stack, fill, pour, with weight.
+- **Visualise the claim, not the words:** "twice as much" = two things at true scale, not "2×".
+- **Something new every 2–4 s** (a beat, a move, a reveal).
+- **One visual metaphor per idea**, introduced once and reused.
+- **Progressive disclosure:** build a diagram piece by piece, on the words that name each piece.
+- **Real numbers as physical comparisons** (a stack of coins, a fill level, an everyday object at true scale) beat bar charts; a running tally (§12) keeps the thread.
+- **Payoff frame:** the cleanest, biggest frame of the film, held ≥ 2 s.
 
 ## 9. Type, light, colour
 
-- One display face with character and one body face. From the bundled set: Archivo Black, Outfit 700–800, Montserrat 800, or Oswald for condensed numerals. Inter, Poppins, Space Grotesk, Geist and Instrument Serif are generated-look defaults; use them only if the brand does. Check the face covers every glyph of the narration language (`craft-rules.md` §5).
-- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140 px, labels at least 36 px, captions 54–64 px. `drawCaption` and `pinLabel` in the engine's `type.js` enforce these, pick light or dark ink from the ground under the text and keep labels in the safe area above the caption (a long label wraps; a caption phrase too long for two lines at 54 px shrinks and reports `shrunk`, so cut it shorter). The accent colour of the active word counts as the one accent element of the shot (unless an impact numeral holds it, §12 accent budget).
-- Titles enter in one of the varied ways in `/hyperframes` `motion.md`; once landed, text is dead still until it leaves.
-- The ground is a **set**, never a flat void: a radial light falloff (linear gradients band under H.264), a photo plate, a desk or paper plane, or a 3D sweep (`object-studio`'s seamless sweep with a soft ground shadow).
-- Every object that sits on something has a contact shadow (an ellipse with ~30 px blur at 0.4 opacity) plus one soft drop shadow (y 24 px, 48 px blur, 0.18 opacity), in the scene's light direction.
-- Grade, grain and blur on photos go through `npx hyperframes media-treatment`, never CSS filters (the `/hyperframes` contract).
-- Colour: one ground, one ink, one accent, plus the subject's own colours. Atmosphere at 15–25 % opacity; anything at 5 % vanishes in compression. The ground is light by default and the hero separates by value (dark detail on a light set; ≥ ~0.2 OKLCH L), never by a dark or saturated backdrop unless the user or a reference asks.
+- One display face and one body face. Bundled: Archivo Black, Outfit 700–800, Montserrat 800, Oswald for condensed numerals. Inter, Poppins, Space Grotesk, Geist and Instrument Serif only if the brand uses them. The face covers every glyph of the narration language (`craft-rules.md` §5).
+- Sizes at 1080 wide: hero numbers 220–320 px, titles 96–140, labels ≥ 36, captions 54–64. `drawCaption` and `pinLabel` (`type.js`) enforce them, pick ink from the ground and keep labels above the caption; a caption phrase too long for two lines at 54 px reports `shrunk`: cut it. The active word's accent is the shot's one accent (unless an impact numeral holds it, §12).
+- Titles enter in varied ways (`/hyperframes` `motion.md`); landed text is dead still until it leaves.
+- The ground is a **set**, never a flat void: a radial light falloff (linear gradients band under H.264), a desk or paper plane, or `object-studio`'s sweep with a soft ground shadow.
+- An object on a surface has a contact shadow (ellipse, ~30 px blur, 0.4 opacity) plus one soft drop shadow (y 24 px, 48 px blur, 0.18), in the scene's light direction.
+- Colour: one ground, one ink, one accent, plus the subject's own colours. Atmosphere at 15–25 % opacity (5 % vanishes in compression). Ground light by default; the hero separates by value (≥ ~0.2 OKLCH L), never by a dark or saturated backdrop unless the user or a reference asks.
 
 ## 10. Style frames: approve the look before building
 
-Three style frames at final quality plus a moving hook sample, approved at Gate 3: how to build them is in `look-build.md` §5.
+Studio: `look-build.md` §5.
 
 ## 11. Review rubric (Step 7, on every beat frame)
 
 | Test | Pass when |
 |---|---|
-| Action | Muted and scrubbed, every shot has the subject doing something besides the camera moving (no drifting still longer than 1.5 s); every "why" beat shows its mechanism. A slideshow is a P0. |
-| Stranger | One sentence describes the frame, and the hero reads as the real thing without its label. |
-| Set | The world around the subject is the one true to it, at its real density (`looks.md` Set dressing): a room's used surfaces, a lab bench's glassware, space's sparse stars, an electrolyte crowded with ions; a place left bare where the real one is full reads as a toy. A type-only or chart shot is judged on its own design language instead. One style in every shot (same tone ramp, line weight, palette), silhouettes read at thumbnail size, contact shadows present, light direction and palette consistent across objects, believable scale, nothing that looks like clip-art or a puppeted cutout. |
-| Reality | Checked against a real reference: anatomy, proportions, materials and colours correct; no modelling artefacts (extra or warped parts, melted detail, garbled text); a process shown moves the way the real one does. People: natural weight and balance, relaxed hands, blinks, no frozen limbs, lips in sync — judged in motion (scrub the clip), not on a still. |
+| Action | Muted and scrubbed, every shot has the subject doing something besides the camera (no drifting still over 1.5 s); every "why" beat shows its mechanism. A slideshow is a P0. |
+| Stranger | One sentence describes the frame; the hero reads as the real thing without its label. |
+| Set | The world is the one true to the subject at its real density (`looks.md` Set dressing); a bare place where the real one is full reads as a toy. A type-only or chart shot is judged on its design language. One style in every shot, silhouettes read at thumbnail size, contact shadows, consistent light and palette, believable scale, nothing clip-art or puppeted. |
+| Reality | Checked against a real reference: anatomy, proportions, materials, colours; no modelling artefacts (extra or warped parts, garbled text); a process moves the way the real one does. People: natural weight, relaxed hands, no frozen limbs, judged in motion. |
 | Restraint | At most two moving things, the accent used once, nothing from the banned list. |
-| Craft | Eases vary by role, arrivals overlap, organic paths arc, no identical entrance two beats in a row; falls, landings and bounces obey gravity and mass; no velocity cliffs on multi-point paths. 3D: contacts and collisions are posed from their cause (fall time from gravity, stops, tooth ratios), parts touch and never overlap at the contact frame, the placement audit is empty, every motion has a visible cause, objects at rest touch their surface, cables end in sockets, ambient motion is the real amount (`camera-motion.md` §5). |
-| Consistency | Comparable moves use the same eases and durations on the MOTION line's base unit and stagger; groups move together. |
-| Strobing | At 24 fps, camera moves and fast bodies blur across a 180° shutter: adjacent frames smear. Sharp doubles or a judder on a pan = P1 "strobing on camera moves" (at 30: only if it shows). |
-| Camera | The film uses its SPEC technique palette, each technique doing a story job; every perceptible move comes from a real camera (the 2.5D layer moves or the three.js rig; CSS only drifts) and has its reason from the storyboard, one move per beat; A and B shots (`camera-motion.md` §8) cut as one film; the wow shot lands on the impact; angle and lens came from the asset, not a CSS rotation; the scene's axis and eyelines hold; cuts land on the emotional or story word. |
-| Cinematography | Shot sizes change with the shot's job and tighten toward the key beat, screen direction is kept, the colour script shifts by section. Each shot's lens, move, light and colour fit its named emotion (`camera-motion.md` §10) and the SPEC rulebook; the frame ratio, grain and halation are constant except at a logged rule break; light is motivated with a short-side key; the final image rhymes with the opening. |
-| Composition | The hero meets the 45 % / 70 % size, text sits in the safe band, no side-by-side columns of prose on 9:16 (anchored side cards, §12, are fine), and the caption sits at its target position (`craft-rules.md` §5): a 9:16 caption block whose top edge is above ~70 % of the height (Reels, TikTok) or whose bottom edge is above ~65 % (Shorts) is a P1, "captions too high, compete with the hero". |
-| Figure-ground | At thumbnail size (360 px wide, squinted) the hero's silhouette separates from the ground behind it by value: its dark parts, AO and contact shadow give ≥ ~0.2 OKLCH L (`palette.mjs --compare`, colours picked from a snapshot). A weak separation is a P1; a hero that merges into its ground is a P0. |
-| Clarity | The claim is visualised (not just written), and the eye lands on the right thing within 0.3 s. |
-| Quantity | Every quantity the film compares is shown by a device in the world (§13: twin sets, flow arrows, the formula on the set, condition tags, a macro insert) before or as it is said, not only by a caption or a card. A comparison carried by text alone is a P1 (Clarity). |
-| Sound off | Muted, headlines and cards only: a viewer can state the claim of each section. A section whose claim only the narration carries is a P1 (Clarity). |
-| No repeat | One fact, one layer: no fact appears in two of caption, headline, card and label (a caption repeating a headline or card word for word, a headline restating a card's number). A repeat is a P1. |
-| Phone | Every line meant to be read is readable at 360 px wide (`npx hyperframes snapshot --review`); the captions clear the hero and the platform overlay at that size. |
+| Craft | Eases vary by role, arrivals overlap, organic paths arc, no identical entrance two beats in a row; falls and bounces obey gravity and mass; no velocity cliffs. 3D: contacts posed from their cause, parts touch and never overlap at contact, the placement audit is empty, resting objects touch their surface, cables end in sockets, ambient motion is the real amount (`camera-motion.md` §5). |
+| Consistency | Comparable moves share eases and durations on the MOTION line's base unit and stagger. |
+| Strobing | At 24 fps, camera moves and fast bodies smear across a 180° shutter; sharp doubles or judder on a pan = P1 (at 30: only if it shows). |
+| Camera | The SPEC technique palette, each technique doing a story job; every perceptible move from a real rig (2.5D layers or three.js; CSS only drifts) with its storyboard reason, one per beat; A and B shots cut as one film (`camera-motion.md` §8); the wow shot on the impact; angle from the asset, never a CSS rotation; axis and eyelines hold; cuts on the story word. |
+| Cinematography | Sizes change with the job and tighten toward the key beat; screen direction kept; the colour script shifts by section; each shot fits its named emotion (`camera-motion.md` §10) and the SPEC rulebook; ratio, grain and halation constant except at a logged break; the final image rhymes with the opening. |
+| Composition | The hero meets 45 % / 70 %, text in the safe band, no side-by-side prose on 9:16, the caption at its target position (`craft-rules.md` §5): a 9:16 caption block whose top is above ~70 % of the height (Reels, TikTok) or whose bottom is above ~65 % (Shorts) is a P1. |
+| Figure-ground | At 360 px wide, squinted, the hero separates from the ground behind it by ≥ ~0.2 OKLCH L (`palette.mjs --compare` on snapshot colours). Weak = P1; merged = P0. |
+| Clarity | The claim is visualised, not just written; the eye lands on the right thing within 0.3 s. |
+| Quantity | Every compared quantity is shown by a §13 device before or as it is said; carried by text alone = P1. |
+| Sound off | Muted, headlines and cards only: each section's claim can be stated. Otherwise P1. |
+| No repeat | One fact, one layer (caption, headline, card, label). A repeat is a P1. |
+| Phone | Every line meant to be read is readable at 360 px wide (`npx hyperframes snapshot --review`); captions clear the hero and the platform overlay. |
 
-Fix every failure before Gate 4; a Set or Reality fail (P0) is never "kept as weakest shot", and neither is a hero merged into its ground (Figure-ground, P0); a smaller detail (P1) follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (not in `SPEC.md`: editing it makes Gate 3 stale). Judge on full-resolution `snapshot` stills (rendered from the composition at final quality; zoom on the subject with `--zoom`), never on frames of the 10 fps draft or the contact sheet alone.
+Fix every failure before Gate 4; a Set, Reality or merged Figure-ground fail (P0) is never kept; a P1 follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (never `SPEC.md`: editing it makes Gate 3 stale). Judge on full-resolution `snapshot` stills (`--zoom` on the subject), never on draft frames or the contact sheet alone.
 
 ## 12. Information layers: headline, cards, labels, captions
 
-With the sound off, on-screen text is how the viewer follows the argument. Up to four layers run at once, each with one job and its own style, never repeating each other: **one fact appears in one layer only** (the caption speaks it, the headline states its takeaway, a card holds its number, a label names its part). Sizes are px at the 1080 px short side (the `type.js` scale); every line meant to be read is at least 36 px and in the narration language.
+**One fact appears in one layer only** (the caption speaks it, the headline states its takeaway, a card holds its number, a label names its part). Sizes are px at the 1080 px short side; every line meant to be read is ≥ 36 px, in the narration language.
 
 | Layer | Job | Size | Where and when |
 |---|---|---|---|
-| Claim headline | the current claim as a takeaway, its key term styled (italic + underline, in ink); over it a kicker (section or source, monospace caps, tracked +8–12 %); under it an optional status tag that says what the picture is: ILLUSTRATION (`[illus]`, `script-voice.md` §3), SPED UP (time compressed), OUR MODEL (`[calc]`), in the narration language, one colour per tag kept for the film | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes on each claim beat (about one every 3–5 s); read alone, the headlines tell the argument; `textBand()` draws kicker, headline and tag on a light scrim when the ground behind is busy |
-| Data card | one option's value, counting in sync with what happens in the world (a reading on the object, a gauge filling segment by segment) | ≤ 30 % of the frame width; value 72–110 px tabular figures, label 36 px | beside its subject: option A left, option B right, one hue per option for the whole film (§6 screen direction) |
-| World label | names a part ("PART · size") with a leader line | ≥ 36 px (`pinLabel`) | on its part, above the caption; the language's label pin (dot → leader → rule → text) in its ink, never over the subject, ≤ 3 per frame |
+| Claim headline | the current claim as a takeaway, its key term italic + underline in ink; a kicker over it (section or source, monospace caps, tracked +8–12 %); an optional status tag under it: ILLUSTRATION (`[illus]`), SPED UP, OUR MODEL (`[calc]`), one colour per tag for the film | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes each claim beat (every 3–5 s); read alone, the headlines tell the argument; `textBand()` adds a scrim on a busy ground |
+| Data card | one option's value, counting in sync with the world | ≤ 30 % of the width; value 72–110 px tabular, label 36 px | beside its subject: A left, B right, one hue per option for the film |
+| World label | names a part ("PART · size") with a leader | ≥ 36 px (`pinLabel`) | on its part, above the caption, the language's pin style, never over the subject, ≤ 3 per frame |
 | Caption | the spoken words | 54–64 px (`drawCaption`) | its target position (`craft-rules.md` §5) |
 
-Card types that carry the argument (each counts as one of the 3 cards):
-- **Evidence card** (`[src]`): a short quote (about 12 words or less, 44–52 px), then the source and "translation ours" when translated, in 36 px monospace.
-- **Calculation card** (`[calc]`): the kicker "our calculation", the arithmetic one line per step, at most 4 lines at 44–56 px, `[assume]` inputs on a line labelled "assumption".
-- **Running tally**: a card that persists across sections and accumulates rows and bars (row 1 fills; later row 2 joins and outgrows it), at most 4 rows, labels 36–44 px, in the same place all film: the argument's state and a callback device, next to (never instead of) the physical comparison of §8.
-- **Time-compressed paired run** (`[calc]` numbers with a `state(t)`, `script-voice.md` "Numbers model"): two identical sets that differ in one variable (two tank sizes over a month of showers, two gear ratios on one climb, two chargers on one battery) run side by side on the model's `state(t)`. The A and B data cards tick live, and each subject's status (a dot reading RUNNING or OFF, a level) changes exactly when the model says. The headline's status tag reads SPED UP while time is compressed, and a 36 px footnote under the cards names the inputs ("sped up: one month, 6 h a night · our model"). Every value comes from `numbers` and `state(t)`, never typed; the A and B cards count toward the 3.
-- **Impact numeral**: a large accent number ("≈ 4×", "+2 h"), 220–320 px (§7), that lands on its beat word next to its subject; while it is on screen it holds the shot's accent (see the accent budget below).
-- **Recap checklist**: in the conclusion, one icon row added per spoken item, at most 5 rows at 44–56 px.
+Card types (each counts as one of the 3 cards):
+- **Evidence card** (`[src]`): a quote of ≤ ~12 words (44–52 px), then the source and "translation ours" when translated, 36 px monospace.
+- **Calculation card** (`[calc]`): kicker "our calculation", one line per step, ≤ 4 lines at 44–56 px, `[assume]` inputs on a line labelled "assumption".
+- **Running tally:** persists across sections and gains rows, ≤ 4 rows, labels 36–44 px, same place all film, beside (never instead of) the physical comparison of §8.
+- **Time-compressed paired run** (`[calc]` numbers with a `state(t)`, `script-voice.md` "Numbers model"): two identical sets differing in one variable run side by side on `state(t)`; the A and B cards tick live, each status (RUNNING / OFF, a level) changes when the model says; the tag reads SPED UP and a 36 px footnote names the inputs ("sped up: one month · our model"). Every value from `numbers` and `state(t)`, never typed.
+- **Impact numeral**: a large number ("≈ 4×"), 220–320 px (§7), landing on its beat word beside its subject; while on screen it takes the accent (accent budget below).
+- **Recap checklist:** in the conclusion, one icon row per spoken item, ≤ 5 rows at 44–56 px.
 
-Positions inside the format's text band (`craft-rules.md` §5, `safeArea` in `type.js`), as fractions of the height:
+Positions inside the text band (`craft-rules.md` §5, `safeArea` in `type.js`), as fractions of the height:
 
 | Format | Headline (kicker, tag) | Cards | Caption |
 |---|---|---|---|
-| 9:16 Reels, TikTok | 13–28 %, inside x 6–88 % | 30–68 %, beside the subject, nothing right of 88 % | 72–82 % |
+| 9:16 Reels, TikTok | 13–28 %, x 6–88 % | 30–68 %, nothing right of 88 % | 72–82 % |
 | 9:16 Shorts | 9–25 % (from 168 px) | 27–58 %, nothing right of x 950 px | ends at 69 % |
-| 4:5 feed | 8–22 % | 25–72 %, inside the 8 % margins | 76–92 % |
-| 16:9 landscape | 5–20 %, left-aligned, ≤ 50 % of the width | 22–80 %, beside the subject | 85–95 % |
+| 4:5 feed | 8–22 % | 25–72 %, inside 8 % margins | 76–92 % |
+| 16:9 landscape | 5–20 %, left-aligned, ≤ 50 % width | 22–80 % | 85–95 % |
 
-- **Accent budget** (§5: one accent element per shot): every layer above uses ink, except the impact numeral. The shot's single accent goes to the impact numeral when one is on screen; the caption's active word then stays in ink (no box) until the numeral leaves. In a shot without a numeral the accent stays with the caption's active word, as in §9. The A/B hues of the data cards are the options' own identity colours (§9 "the subject's own colours"), not the accent.
-- At most **3 cards** on screen besides the caption (the headline and labels are not cards), never three in a row (§5 Banned); the hero still meets §7's size.
-- A/B sides and hues are fixed for the film; a card stays beside its own subject.
-- A layer **enters on its beat word** (`BEATS`/`WORDS`), is **dead still while read** (§9), and **transforms, not vanishes**, when the claim changes: the headline's words change in place, a card's value counts to the new value, the tally gains a row. A layer leaves only when its subject or section does.
-- Text is decided in the storyboard's Overlay column (`look-build.md` Step 5), before the build, never per scene; Step 6 draws it from there and adds headline and card texts to `repeats()`.
-- Examples: two training plans compared over weeks (a card per plan with the weekly load, a tally of total hours); two ways to store bread over days (a card per method counting days, an evidence card for the source); two routes across a city (minutes and cost per route, an impact numeral on the difference); a household device's monthly cost (a calculation card: power × hours × price, a recap checklist of the savings).
-- A quantity the narration compares is shown in the world first, by a device of §13; the card only records it.
+- **Accent budget** (§5): every layer uses ink except the impact numeral. With a numeral on screen it holds the shot's one accent and the caption's active word stays in ink (no box) until it leaves; otherwise the accent stays with the active word (§9). The A/B card hues are the options' identity colours, not the accent.
+- At most **3 cards** besides the caption (headline and labels are not cards), never three in a row; the hero still meets §7.
+- A/B sides and hues are fixed for the film; a card stays beside its subject.
+- A layer **enters on its beat word**, is **dead still while read**, and **transforms, not vanishes**, when the claim changes (words change in place, a value counts on, the tally gains a row); it leaves only with its subject or section.
+- Text is decided in the storyboard's Overlay column (`look-build.md` Step 5); Step 6 draws it from there and adds headline and card texts to `repeats()`.
+- A compared quantity is shown in the world first (§13); the card only records it.
 
 ## 13. Showing a quantity: twin sets, flow arrows, the formula on the set, tags, sound words, gauges
 
-A number the narration compares is seen in the world before it is said; the card (§12) only records it. Each device is one of the shot's moving things (§5), enters on its beat word, is dead still while read, and follows §12: sizes in px at the 1080 px short side, one fact in one layer, the accent budget. Values come from `numbers` and `state(t)` (`script-voice.md` "Numbers model"), never typed: an arrow's value, the cells a tile fill shows and the range card's value are the same number.
+Each device is one of the shot's moving things (§5), enters on its beat word, is still while read, and follows §12. Values come from `numbers` and `state(t)` (`script-voice.md` "Numbers model"), never typed: an arrow, a tile fill and a range card show the same number.
 
-| Device | Use it when | Size and rules | Examples |
+| Device | Use it when | Size and rules | Example |
 |---|---|---|---|
-| Twin sets | two options differ in one variable | one set built twice (same room, props, light, camera; `twinSets`, `examples/twin.js`), side by side or stacked on 9:16 (A left or on top, §12 hues); only the variable differs and the same event plays in both at once, so the difference reads without a word. Over time it becomes §12's time-compressed paired run | two kettles of different power boiling the same litre; two tyre pressures on the same road; two insulation thicknesses on the same wall |
-| Flow arrows | an input and an output, or two flows, whose ratio is the claim | flat arrows whose width is the value on one scale for the film (`flowArrow`, `quantity.js`), the thinnest at least 12 px wide at the shot's distance; each labelled with its value (`pinLabel` on its `anchor`, ≥ 36 px); a ratio of 3 reads as 3 times the width before it is said | a pulley: the pull in, the load lifted; a gearbox: speed in, torque out; a solar panel: sunlight in, electricity out |
-| Formula on the set | a product or a sum is the claim ("area × rate", "people × litres") | each factor is a tag on the thing it measures (edge tags "3 m", "4 m" on `tileFill`'s `edges`); the result fills in the world one unit at a time as the count runs (`tileFill(...).show(n)`, cups, crates); then a range card (`rangeBar`, `type.js`) fills to the need with a tick at each option's capacity and the option that fits highlighted | paint for a wall: its area in tiles, then litres against tin sizes; water for a hike: litres per hour × hours against bottle sizes |
-| Condition tags | a decision rule with conditions | each condition the narration names is a visible thing on the set with its label (`pinLabel`), entering on its word; at most 3 at once | choosing a tent: tags on the wind, the rain, a second sleeper; a shelf's load: tags on the books, the plant pot, the span |
-| Sound word | a mechanism's discrete physical event (a click, a snap, a pop) | one or two words ("CLICK!"), 120–200 px, on the part at the frame of the event, in sync with its SFX (the contact time), 0.5–0.8 s; once or twice per film, only on a physical event, never on a claim | a light switch's contacts closing; a seatbelt latching; a toaster popping |
-| Dimension line | a size the narration names (a bore, a width, a length, a cut depth) on a real part | drafting style: extension lines, arrowheads, a monospace value from the numbers model (`dimension`, `quantity.js`); it is drawn on the frame over the parts, no part hides it, so measure an edge nothing stands in front of; it stays inside the label safe area: it flips side or shortens its offset, and when nothing fits it draws nothing and says why (reframe, or dimension a part nearer the centre); value ≥ 36 px | a pipe's bore "22 mm", a tyre's width "205 mm", a cell's length "50 mm", a key's cut depth "2 mm" |
-| Macro insert | the quantity is real but invisible (a gap, a pressure, a thin film) | a push-in (`camera-motion.md` §9.6) to a real instrument in the world: a gauge with its target and actual reading, the gap in a tag; or a leader label on the evidence itself | a tyre gauge at 1.8 bar against its 2.4 bar mark; condensation on a cold glass; a spirit level's bubble off centre |
+| Twin sets | two options differ in one variable | one set built twice (`twinSets`, `examples/twin.js`), side by side or stacked on 9:16 (A left or top); only the variable differs, the same event plays in both; over time it becomes §12's paired run | two kettles of different power boiling the same litre |
+| Flow arrows | an input and an output whose ratio is the claim | width = value on one scale for the film (`flowArrow`, `quantity.js`), thinnest ≥ 12 px; each labelled (`pinLabel` on its `anchor`, ≥ 36 px) | a gearbox: speed in, torque out |
+| Formula on the set | a product or sum is the claim | each factor a tag on what it measures (edge tags on `tileFill`'s `edges`); the result fills one unit at a time (`tileFill(...).show(n)`); then a range card (`rangeBar`, `type.js`) fills to the need with a tick per option's capacity, the fitting option highlighted | paint for a wall: area in tiles, then litres against tin sizes |
+| Condition tags | a decision rule with conditions | each named condition a visible labelled thing on the set (`pinLabel`), entering on its word; ≤ 3 at once | choosing a tent: wind, rain, a second sleeper |
+| Sound word | a discrete physical event (click, snap, pop) | one or two words, 120–200 px, on the part at the event frame, in sync with its SFX, 0.5–0.8 s; once or twice per film, never on a claim | a seatbelt latching |
+| Dimension line | a size the narration names on a real part | drafting style, monospace value from the numbers model (`dimension`, `quantity.js`), drawn on the frame over the parts so no part hides it; measure an edge nothing stands in front of; inside the label safe area (flips or shortens, else draws nothing and says why); value ≥ 36 px | a pipe's bore "22 mm" |
+| Macro insert | the quantity is real but invisible (a gap, a pressure) | a push-in (`camera-motion.md` §9.6) to a real instrument in the world (a gauge with target and reading), or a leader label on the evidence | a tyre gauge at 1.8 bar against its 2.4 bar mark |
 
-- The highlight (the option that fits, a gap tag) is the shot's one accent while it is on screen (§12 accent budget), never in a shot with an impact numeral.
-- One fact, one layer: an arrow's label carries its value, so no card repeats it; the caption may say the ratio, not read out the label.
-- Size for 9:16 at phone size: twin sets stacked keep each set at least 40 % of the height; arrows, tags and sound words stay inside the format's text band (`safeArea` in `type.js`) except a sound word, which sits on its part.
+- The highlight (the fitting option, a gap tag) is the shot's one accent while on screen, never in a shot with an impact numeral.
+- An arrow's label carries its value: no card repeats it; the caption may say the ratio.
+- 9:16: stacked twin sets keep each set ≥ 40 % of the height; arrows and tags stay inside `safeArea`; a sound word sits on its part.

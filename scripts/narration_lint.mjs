@@ -55,7 +55,7 @@ if (script !== null) {
   }
 }
 
-console.log(`Narration lint: ${dir}`);
+console.log('Narration lint');
 for (const p of problems) console.log(`  PROBLEM  : ${p}`);
 for (const w of warns) console.log(`  WARN     : ${w}`);
 console.log(problems.length ? `  Result   : ${problems.length} problem(s)` : warns.length ? `  Result   : ${warns.length} warning(s) — rerun, then lint again` : '  Result   : OK');

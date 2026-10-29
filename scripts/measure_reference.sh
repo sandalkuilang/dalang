@@ -39,15 +39,13 @@ AUD=$(ffprobe -v error -select_streams a -show_entries stream=codec_name,channel
   echo "Resolution : $RES"
   echo "FPS        : $FPS"
   echo "Audio      : ${AUD:-none}"
-} | tee "$OUT/info.txt"
+} > "$OUT/info.txt"   # printed once, in the summary below
 
 # 2) One frame per second (480 px wide)
-echo "Extracting 1 frame per second..."
 ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -vf "fps=1,scale=480:-2" "$OUT/frames/%04d.jpg"
 NFRAMES=$(ls "$OUT/frames" | wc -l | tr -d ' ')
 
 # 3) 4x4 contact sheets (16 seconds per sheet)
-echo "Building contact sheets..."
 ffmpeg -hide_banner -loglevel error -y -framerate 1 -i "$OUT/frames/%04d.jpg" \
   -vf "tile=4x4:padding=4:margin=4:color=white" "$OUT/contact/sheet_%03d.jpg"
 : > "$OUT/contact/index.txt"
@@ -61,7 +59,6 @@ done
 
 # 3b) Reference board: 8 stills spread evenly over the film on one 4x2 sheet, the Gate 3 benchmark board
 #     (references/review.md "Benchmark review"). Local only: never published or committed.
-echo "Building the reference board..."
 BN=$(( NFRAMES < 8 ? NFRAMES : 8 ))
 if (( BN > 0 )); then
   BD="$OUT/.board"; rm -rf "$BD"; mkdir -p "$BD"
@@ -75,7 +72,6 @@ if (( BN > 0 )); then
 fi
 
 # 4) Estimated hard cuts
-echo "Detecting hard cuts (threshold $SCENE)..."
 ffmpeg -hide_banner -nostats -i "$VIDEO" -map 0:v:0 -vf "select='gt(scene,$SCENE)',showinfo" -f null - 2>&1 \
   | grep -o 'pts_time:[0-9.]*' | cut -d: -f2 \
   | awk '{ printf "%.2f\n", $1 }' > "$OUT/cuts.txt" || true
@@ -102,5 +98,4 @@ fi
   [[ -f "$OUT/palette.txt" ]] && grep -m1 '^FAILED' "$OUT/palette.txt" | sed 's/^/palette.txt: /' || true
 } | tee "$OUT/summary.txt"
 
-echo
-echo "Done. Next: read the contact sheets, palette.txt + the full transcript, then write reference-measurements.md."
+echo "Next: read the contact sheets, palette.txt + the full transcript, then write reference-measurements.md."

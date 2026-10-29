@@ -1,55 +1,13 @@
 # Measuring a reference video ethically
 
-## Ground rules: three ways to imitate
+**Measure theirs, make yours.** Take only measurements: section lengths, cuts, camera moves, stillness %, which words are beats, loudness, and the palette as values (dominant colours and their share, ink and caption treatment). Never take script lines, character designs, images, music, logos or a channel's signature colour scheme. Use a video the user may access or provides, for measuring only; never redistribute it, delete the raw file when the user no longer needs it, and credit the creator as inspiration in the description.
 
-1. **Copying the images** — downloading and re-uploading, or tracing frame by frame. This is theft.
-2. **Copying the script** and just changing the character names. Also theft, only slower.
-3. **Copying the craft**: measuring how the film is built, then using those measurements for your own story. **Only this one is used.**
+A link that will not download: a subagent watches it to the end in Claude's built-in browser and writes `reference-measurements.md` (cut rhythm, palette, type, overlays, captions, camera; craft only, what it could not measure is `[unknown]`). With a file:
 
-What you may take is the measurements: section lengths, number of cuts, camera movement, stillness %, which words are beats, loudness, and the palette as measured values (dominant colours and their share, ink and caption treatment). What you may not take: script lines, character designs, images, music, and logos. Colours are measured to steer your own palette; a channel's signature colour scheme is never copied.
-
-One sentence covers it: **measure theirs, make yours.**
-
-About the file: use a video the user is allowed to access, or one the user provides. It is for measuring only. Don't redistribute it, and delete the raw file afterwards if the user no longer needs it. Still credit the original creator as inspiration in the video description.
-
-## How to measure
-
-A link only (a reel or a page that will not download to a file): a subagent opens it in Claude's built-in browser, watches it to the end and writes `reference-measurements.md` from what it sees: cut rhythm, palette, type, overlay system, caption style, camera. Craft only, no brand; what it could not measure is `[unknown]`. With a file, measure as below.
-
-### 1. Full transcript (read to the end)
-
-- Auto-captions often have gaps, and the gaps are often exactly the sentences with the important numbers. When in doubt, transcribe again from the audio (Whisper, or the transcription path in `/media-use`).
-- **Read the whole transcript**, not fragments. A transcript with gaps produces mistakes that sound very convincing.
-- Accuracy note: if the transcript only has per-sentence timing, word timing derived from it is only accurate to about 1/6 s.
-- The reference may be in a different language from your narration. Measure rhythm in seconds (beats per second, section lengths), not in word counts, so the numbers carry over between languages.
-
-### 2. The mechanical part (use the script)
-
-```bash
-bash <skill-dir>/scripts/measure_reference.sh reference.mp4 measure/
-```
-
-One folder per reference (`measure/<name>/` for two); a run clears its folder. It produces:
-
-- `measure/info.txt`: duration, resolution, fps, and audio channels.
-- `measure/frames/`: one still per second.
-- `measure/contact/`: contact sheets, 16 stills per sheet (4×4). `measure/contact/index.txt` lists each sheet's seconds.
-- `measure/reference-board.jpg`: 8 stills, the Gate 3 benchmark board.
-- `measure/cuts.txt`: estimated time of every hard cut.
-- `measure/stillness.txt` and `measure/loudness.txt`: stillness % and loudness (needs Node).
-- `measure/palette.txt`: the dominant colours of a frame every second (quantised, % of frame, OKLCH lightness L) and an overall top list (`scripts/palette.mjs`, needs Node; `node <skill-dir>/scripts/palette.mjs --compare <#hex> <#hex>` gives the lightness gap of two colours).
-- `measure/summary.txt`: all of the above.
-
-Note: "still" depends heavily on the sensitivity threshold. Use the **same** one for the reference and your own draft, then compare.
-
-### 3. Reading the contact sheets
-
-- With subagents, read the contact sheets in 4 parallel parts.
-- For each shot, note: start–end time, what is visible (described in general terms, never copied), camera movement, and the beat word that triggers the change (from the transcript).
-- **Colour and type.** With `palette.txt`, name what each dominant colour is (ground and walls, floor, hero, its dark parts, accents and the job each accent has, such as heat, current or cold), and read the type: ink colour, kicker and headline treatment, any tag or label style, the caption box and the highlight of the spoken word. Note how the hero separates from the ground: value (dark parts, shadow) or a coloured backdrop.
-- **Limitation:** an assistant reading images cannot hear. Sound effects written from images are guesses; mark them `(guess)`.
-
-### 4. Write `reference-measurements.md`
+1. **Transcript, read to the end.** Auto-captions drop sentences, often the ones with the numbers: when in doubt, transcribe the audio again (Whisper, or `/media-use`). Per-sentence timing gives word timing to about 1/6 s. Measure rhythm in seconds, not words, so it carries across languages.
+2. **Mechanics:** `bash <skill-dir>/scripts/measure_reference.sh reference.mp4 measure/` (one folder per reference; a run clears it) writes `info.txt`, `frames/` (one still per second), `contact/` (4×4 sheets, `index.txt` lists their seconds), `reference-board.jpg` (the Gate 3 benchmark board), `cuts.txt`, `stillness.txt`, `loudness.txt`, `palette.txt` (dominant colours per second with share and OKLCH L; `node <skill-dir>/scripts/palette.mjs --compare <#hex> <#hex>` gives a lightness gap) and `summary.txt`. Use the same stillness threshold for the reference and your draft.
+3. **Contact sheets**, in 4 parallel subagent parts. Per shot: start–end, what is visible (in general terms), camera move, the beat word that triggers it. From `palette.txt`, name each dominant colour's job (ground, floor, hero, its dark parts, each accent's job) and read the type: ink, kicker, headline, tags, caption box, active-word highlight; note how the hero separates from the ground (value or a coloured backdrop). Sound effects read from images are marked `(guess)`. Measure what watching misses (captions fixed while the ground scrolls).
+4. **Write `reference-measurements.md`:**
 
 ```markdown
 # Reference measurements: <title> by <creator> (inspiration, not source material)
@@ -77,5 +35,3 @@ Note: "still" depends heavily on the sensitivity threshold. Use the **same** one
 - Palette: our ground / hero / ink / accents, steered by the measured values above
 - Deliberately different: story, characters, brand marks, ...
 ```
-
-The "quietly does" items (captions fixed while the ground scrolls) are what watching misses; measure them.

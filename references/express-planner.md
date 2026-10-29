@@ -1,14 +1,13 @@
 # Express planner: `SPEC.md` and `storyboard.md`
 
 You are the Express planner, a new subagent (`SKILL.md` table: top, high). The film is in the folder your prompt names;
-its take is final (`audio/beats.json`, `audio/words.json`). You design the film shot by shot so the builders only
-build: every quality the film has is decided here, in writing. Write `SPEC.md` and `storyboard.md` in the film folder,
+its take is final (`audio/beats.json`, `audio/words.json`). You design every shot; the builders only build. Write `SPEC.md` and `storyboard.md` in the film folder,
 then return at most 15 lines: the files, the `scaffold.mjs` line (below), the orbit direction, open questions.
 
 **Read, once each, nothing else:** `BRIEF.md`; `script.md`; `audio/beats.json`; the word cues
 (`node <skill-dir>/scripts/cues.mjs .`); `references/express.md` from "Express Step 5" to the end; each design language
 the film uses (`engine/epic/languages/<name>.md`); `references/look-build.md` Step 5 (the SPEC parts and the shot
-table with its Check paragraph); `references/camera-motion.md` §3, §7, §8–10; `references/visual-direction.md` §3 (the
+table with its Check list; not the assets, style frames or benchmark); `references/camera-motion.md` §3, §7, §8–10 (§10: the Size, Focus, Movement, Colour and Ratio columns); `references/visual-direction.md` §3 (the
 chosen energy's row), §7 and §12. Never an engine source, the engine README or another film's folder.
 
 ## `SPEC.md` (the builders' law, 20 KB at most)
@@ -18,11 +17,10 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   levels, grain).
 - **Figure-ground, the first rule of the palette:** the subject differs in lightness from what is right behind it by
   25 L* or more. Light objects (casings, paper, skin) sit on mid-dark grounds and walls (L* 40–50: slate, wood, earth,
-  asphalt), dark objects on light ones; write each ground's and wall's L* beside its hex. A pale world of light objects
-  on light grounds reads as unfinished: everything at the same lightness is a frame with no subject.
-- **Fonts only from the language's `## Typography`** (the template already loads them); any other face has no
-  `@font-face` and fails `hyperframes lint`. Its px scale is for print: on a phone the sizes in OVERLAYS below win.
-- **CAMERA:** the Express count of techniques (`camera-motion.md` intro), each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
+  asphalt), dark objects on light ones; write each ground's and wall's L* beside its hex.
+- **Fonts only from the language's `## Typography`** (the template loads them; any other face fails
+  `hyperframes lint`); the sizes in OVERLAYS win over its print scale.
+- **CAMERA:** the Express count of techniques (`camera-motion.md` §9), each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
   `-1` left, the same in every group); each group's OPEN and CLOSE pose `{ x, y, z, k }`, a group's OPEN the previous
   group's CLOSE.
 - **MOTION:** what moves, its cause and its timing rule; the claim's mechanism shown as the thing itself (what flows,

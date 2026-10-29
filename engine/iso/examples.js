@@ -1,5 +1,5 @@
-// examples.js — specs for build() (DALANG, MIT): proof of how a few forms make very different things, and the test's
-// fixtures. Sizes in metres. A film writes its own spec from its own reference; it never needs these.
+// examples.js — finished build() specs (DALANG, MIT) and the tests' fixtures, in metres. Builders copy their density
+// and detail per object, never the objects: a film's spec comes from its own reference.
 
 // An office tower on a plot cut to show the ground: footprint extruded, windows as nested arrays, roof plant on top.
 export const tower = {

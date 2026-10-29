@@ -45,9 +45,21 @@ try {
   assert.match(read(d, "assets/world.js"), /^export const STUB/m, "the world starts as a stub the other groups can wait on");
   assert.ok(JSON.parse(read(d, "assets/.engine.json")).some(r => r.file === "world.js" && r.licence === "own"), "the film's world is in the engine manifest, so check_assets passes it");
   assert.match(bIntro, /6 or more set props/, "the world's builder gets the density bar");
-  assert.match(bBody, /grep -q '\^export const STUB'/, "another group waits for the world before its snapshot");
+  // each group's check round is one script: the world's owner checks at once, every other group waits for the world first
+  const cIntro = read(d, "review/check-intro.sh"), cBody = read(d, "review/check-body.sh");
+  assert.match(cBody, /grep -q '\^export const STUB'/, "another group waits for the world before its checks");
+  assert.doesNotMatch(cIntro, /STUB/, "the world's owner does not wait for itself");
+  for (const [g, c] of [["intro", cIntro], ["body", cBody]]) {
+    assert.match(c, new RegExp(`fill_times\\.mjs" src/compositions/${g}\\.tpl\\.html compositions/${g}\\.html`), `${g}: fills its own group`);
+    assert.match(c, /lint_scene\.mjs/); assert.match(c, new RegExp(`film_gate\\.mjs" \\. --group ${g}`), `${g}: film_gate on its own seams`);
+    assert.match(c, /^exit \$f$/m, `${g}: the script's exit is the checks' verdict`);
+    assert.equal(spawnSync("sh", ["-n", path.join(d, "review", `check-${g}.sh`)]).status, 0, `${g}: the check script parses`);
+    assert.ok(fs.statSync(path.join(d, "review", `check-${g}.sh`)).mode & 0o100, `${g}: the check script is executable`);
+    assert.match(read(d, `review/builder-${g}.md`), new RegExp(`sh review/check-${g}\\.sh`), `${g}: the brief runs its check script`);
+  }
+  assert.ok(read(d, "review/builder-body.md").length < 3500 && bIntro.length < 4500, "the briefs stay short (each byte is read by a builder)");
   assert.match(bBody, /under a third of the frame height/, "the look check names the subject's size");
-  assert.match(bBody, /written by the `intro` builder: import it, never copy/, "every other builder imports it");
+  assert.match(bBody, /is the `intro` builder.s: import it, never copy/, "every other builder imports it");
   assert.match(bBody, /cues\.mjs \. --beats middle/, "a brief names its cue table");
   assert.match(bBody, /`assets\/examples\.js` \(finished specs/, "a brief opens the finished example specs, for their density");
   assert.match(bBody, /No other engine source in `assets\/`/, "a brief forbids reading the other engine sources");
@@ -69,7 +81,7 @@ try {
   r = run(d, "--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close");
   assert.equal(r.code, 0, r.out);
   assert.match(read(d, "src/compositions/body.tpl.html"), /<!-- edited -->/, "a rerun never overwrites");
-  assert.match(r.out, /kept {4}src\/index\.tpl\.html/);
+  assert.match(r.out, /^scaffold: wrote .*; kept .*src\/index\.tpl\.html/m);
 
   // refusals write nothing
   for (const [groups, why] of [["a:middle,b:hook", /narration order/], ["a:hook,b:nowhere", /no beat "nowhere"/], ["A b:hook", /group name/], ["a:hook,a:middle", /twice/]]) {

@@ -4,7 +4,8 @@
 // exist and every section is within the 8 KB budget; `next` finds the step from a project's files and prints that
 // step's commands only (the same strings as `reading --json`); every printed command runs from any folder; the gate
 // approvals are unchanged (a gate cannot be approved out of order, a stale approval is not approved); and the check
-// fails on a section over budget, a heading that is gone, a bad lesson tag and a total over 60 KB.
+// fails on a section over budget, a heading that is gone, a bad lesson tag, a Studio path over 60 KB, an Express path
+// over 45 KB and a SKILL.md over 10 KB (or missing).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -14,12 +15,13 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const state = path.join(root, "scripts", "state.mjs");
-const SECTION_MAX = 8192, TOTAL_MAX = 61440;
+const SECTION_MAX = 8192, TOTAL_MAX = 61440, EXPRESS_MAX = 46080, SKILL_MAX = 10240;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-reading-"));
 const run = (...args) => { const r = spawnSync(process.execPath, [state, ...args], { encoding: "utf8" }); return { code: r.status, out: r.stdout, err: r.stderr }; };
 const mk = (name) => { const p = path.join(tmp, name); fs.mkdirSync(p, { recursive: true }); return p; };
 const put = (proj, rel, text = "x\n") => { const p = path.join(proj, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); };
-const skillCopy = (name) => { const p = mk(name); fs.cpSync(path.join(root, "references"), path.join(p, "references"), { recursive: true }); return p; };
+// a fixture skill: the repo's references and a small SKILL.md, so a fixture fails only on what it changes
+const skillCopy = (name) => { const p = mk(name); fs.cpSync(path.join(root, "references"), path.join(p, "references"), { recursive: true }); fs.writeFileSync(path.join(p, "SKILL.md"), "---\nname: dalang\n---\nfixture\n"); return p; };
 const edit = (skill, file, fn) => { const p = path.join(skill, "references", file); fs.writeFileSync(p, fn(fs.readFileSync(p, "utf8"))); };
 // A Gate 3 benchmark verdict (every row within 1 point of the board): approve 3 needs one.
 const BENCH = ["Detail density", "Material truth", "Light and shadow", "Text system", "Overlays caused by motion", "Framing", "Macro quality"]
@@ -33,7 +35,10 @@ try {
   assert.equal(real.code, 0, `reading --json on the repo: ${real.err}`);
   const json = JSON.parse(real.out);
   assert.deepEqual(json.errors, [], "no errors on the repo");
-  assert.ok(json.total <= TOTAL_MAX, `Steps 0–8 read ${json.total} B, over the budget`);
+  assert.ok(json.total <= TOTAL_MAX, `Studio path reads ${json.total} B, over the budget`);
+  assert.ok(json.express <= EXPRESS_MAX, `Express path reads ${json.express} B, over the budget`);
+  assert.equal(json.skillMd, fs.statSync(path.join(root, "SKILL.md")).size, "SKILL.md measured");
+  assert.ok(json.skillMd <= SKILL_MAX, `SKILL.md is ${json.skillMd} B, over the budget`);
   for (let n = 0; n <= 8; n++) {
     const s = json.steps[n];
     assert.ok(s, `step ${n} present`);
@@ -43,10 +48,24 @@ try {
   }
   const plain = run("reading");
   assert.equal(plain.code, 0);
-  assert.match(plain.out, /Total read, Steps 0–8 without optional Step 2: [\d.]+ KB of 60 KB/);
-  assert.match(plain.out, /Optional Step 2 \(a reference video\), not in the total: [\d.]+ KB/);
+  assert.match(plain.out, /^SKILL\.md: [\d.]+ KB of 10 KB$/m);
+  assert.match(plain.out, /^Studio path \(Steps 0–8, Step 2 not counted\): [\d.]+ KB of 60 KB$/m);
+  assert.match(plain.out, /^Express path \(express\.md for Steps 5–7\): [\d.]+ KB of 45 KB$/m);
+  assert.match(plain.out, /^Optional Step 2 \(a reference video\), not counted: [\d.]+ KB$/m);
   const counted = Object.entries(json.steps).filter(([n]) => n !== "2").reduce((a, [, s]) => a + s.read.reduce((b, e) => b + e.bytes, 0) + s.lessonsBytes, 0);
   assert.equal(json.total, counted, "the total counts every step but the optional Step 2");
+  // the Express path: Steps 5–7 swapped for express.md (what `next` prints there), Step 2 not counted
+  {
+    const p = mk("ex-path"); fs.writeFileSync(path.join(p, "BRIEF.md"), "mode: express\n");
+    const kbOf = (out) => Number(out.match(/^Read now \(([\d.]+) KB\)/m)[1]);
+    let sumKb = 0;
+    for (const st of ["0", "1", "3", "4", "5", "6", "7", "8"]) {
+      const out = run("next", p, "--step", st).out;
+      const less = out.match(/^Lessons \(/m) ? out.split(/^Lessons \(.*$/m)[1].split(/^(Look up|For the subagent)/m)[0].split("\n").filter((l) => l.startsWith("  ")).reduce((a, l) => a + Buffer.byteLength(l + "\n"), 0) : 0;
+      sumKb += kbOf(out) * 1024 + less;
+    }
+    assert.ok(Math.abs(sumKb - json.express) < 600, `the Express path (${json.express} B) is what express \`next\` prints at Steps 0–8 (${Math.round(sumKb)} B)`);
+  }
   assert.equal(run("reading", "--json", "--skill", mk("no-skill")).code, 1, "a skill copy without references fails, never passes");
 
   // 2. `next` walks a fixture project: the step from the files, only that step's commands, approvals unchanged.
@@ -92,7 +111,7 @@ try {
   {
     const p = run("next", proj, "--step", "6", "--print");
     assert.equal(p.code, 0, p.err);
-    assert.doesNotMatch(p.out.split(/\nLessons for|\nLook up when needed/)[0], /^sed -n /m, "the Read now block is text, not commands");
+    assert.doesNotMatch(p.out.split(/\nLessons \(|\nLook up when needed/)[0], /^sed -n /m, "the Read now block is text, not commands");
     const heads = [...p.out.matchAll(/^===== (\S+):(\d+)$/gm)].map((m) => `${m[1]}:${m[2]}`);
     assert.deepEqual(heads, json.steps[6].read.map((e) => `${e.file}:${e.from}`), "--print prints every section of the step");
     for (const e of json.steps[6].read) if (e.heading) assert.ok(p.out.includes(`\n${e.heading}\n`), `${e.heading} text printed`);
@@ -165,19 +184,23 @@ try {
     }
   }
 
-  // 3b. The refs tier is a look-up index, not reading: one line per section (its heading and the exact sed command),
-  // no body printed, outside the 60 KB total (which counts what "Read now" and the lesson headlines print).
+  // 3b. The refs tier is a look-up index, not reading: one line per section ("<file> <from>,<to> <heading> (KB)", the
+  // header naming the one sed shape and the references folder once), no body printed, outside the 60 KB total.
   for (let n = 0; n <= 8; n++) {
     const s = json.steps[n];
     const out = run("next", mk(`p-index-${n}`), "--step", String(n)).out;
     const lines = out.split("\n"); const i = lines.findIndex((l) => l.startsWith("Look up when needed"));
     if (!s.refs.length) { assert.equal(i, -1, `step ${n}: no refs, no index`); continue; }
     assert.ok(i >= 0, `step ${n}: an index block "Look up when needed" in:\n${out}`);
-    const idx = []; for (const l of lines.slice(i + 1)) { if (!l.startsWith("sed -n ")) break; idx.push(l); }
+    assert.ok(lines[i].includes(path.join(root, "references")), `step ${n}: the index header names the references folder`);
+    const idx = []; for (const l of lines.slice(i + 1)) { if (!/^[\w.-]+\.md \d+,\d+ /.test(l)) break; idx.push(l); }
     assert.equal(idx.length, s.refs.length, `step ${n}: one index line per section, none merged into a range`);
+    assert.ok(!idx.some((l) => l.includes(root)), `step ${n}: no index line repeats the absolute path`);
     s.refs.forEach((e, k) => {
-      assert.ok(idx[k].startsWith(s.commands.refs[k]), `step ${n}: line ${k} starts with the exact command`);
+      assert.ok(idx[k].startsWith(`${e.file} ${e.from},${e.to} `), `step ${n}: line ${k} names the file and its exact lines`);
       assert.ok(idx[k].includes((e.heading ?? "").replace(/^#+ /, "")), `step ${n}: line ${k} names the heading "${e.heading}"`);
+      const first = fs.readFileSync(path.join(root, "references", e.file), "utf8").split("\n")[e.from - 1];
+      assert.ok(e.heading === null || first === e.heading, `step ${n}: line ${k}'s range starts at its heading`);
     });
     const body = spawnSync("sh", ["-c", s.commands.refs[0]], { encoding: "utf8" }).stdout.split("\n").filter((l) => l.trim() && !l.startsWith("#"))[0];
     if (body) assert.ok(!out.slice(out.indexOf("Look up when needed")).includes(body), `step ${n}: the index prints no section body`);
@@ -229,19 +252,56 @@ try {
   const d = skillCopy("s-total"); // every section stays under 8 KB; only the sum is over 60 KB
   let need = TOTAL_MAX - json.total + 300;
   const seen = new Set();
-  const roomy = Object.entries(json.steps).filter(([n]) => n !== "2").flatMap(([, s]) => s.read) // Step 2 is not in the total.filter((e) => e.heading && !seen.has(e.file + e.heading) && seen.add(e.file + e.heading));
-  for (const e of roomy.sort((x, y) => x.bytes - y.bytes)) { // most headroom first
+  // Studio-only sections first (Steps 5–7: Express reads express.md there), so the fixture tests the Studio budget; the
+  // shared steps only when those have no room left. Step 2 is not in the total. Each section once, most headroom first.
+  const sectionsOf = (pick) => Object.entries(json.steps).filter(([n]) => pick(n)).flatMap(([, s]) => s.read).filter((e) => e.heading && !seen.has(e.file + e.heading) && seen.add(e.file + e.heading)).sort((x, y) => x.bytes - y.bytes);
+  const roomy = [...sectionsOf((n) => ["5", "6", "7"].includes(n)), ...sectionsOf((n) => !["2", "5", "6", "7"].includes(n))];
+  for (const e of roomy) {
     if (need <= 0) break;
-    const add = Math.min(need, SECTION_MAX - e.bytes - 200);
+    const add = Math.min(Math.max(need, 100), SECTION_MAX - e.bytes - 200);
     if (add < 100) continue;
-    edit(d, e.file, after(e.heading, filler(add)));
-    need -= add;
+    const text = filler(add); // filler(n) is close to n bytes, not exact: count what was added
+    edit(d, e.file, after(e.heading, text));
+    need -= Buffer.byteLength(text);
   }
   assert.ok(need <= 0, "the fixture could add enough text without breaking a section budget");
   const rdd = rd(d);
   assert.equal(rdd.code, 1, "a total over 60 KB fails");
-  assert.match(rdd.err, /60 KB/);
+  assert.match(rdd.err, /Studio path.*60 KB/);
   assert.doesNotMatch(rdd.err, /section budget/, "no single section is over its own budget");
+
+  // SKILL.md is loaded every session: over 10 KB fails, missing fails (never read as small).
+  const sk1 = skillCopy("s-skill-over");
+  fs.writeFileSync(path.join(sk1, "SKILL.md"), filler(11000));
+  const rs1 = rd(sk1);
+  assert.equal(rs1.code, 1, "a SKILL.md over 10 KB fails");
+  assert.match(rs1.err, /SKILL\.md is [\d.]+ KB, over the 10 KB budget/);
+  const sk2 = skillCopy("s-skill-gone");
+  fs.rmSync(path.join(sk2, "SKILL.md"));
+  const rs2 = rd(sk2);
+  assert.equal(rs2.code, 1, "a skill copy without SKILL.md fails");
+  assert.match(rs2.err, /SKILL\.md not found/);
+  // The Express path: express.md grows past 45 KB with every section within 8 KB: Express fails, Studio does not.
+  const ex = skillCopy("s-express");
+  {
+    let need = EXPRESS_MAX - json.express + 300;
+    for (const h of ["## Express Step 5 — Look in one frame", "## Express Step 6 — Build", "## Express Step 7 — Render → GATE 4", "## Express Steps 3–4 — Script and voice"]) {
+      if (need <= 0) break;
+      const cur = fs.readFileSync(path.join(ex, "references", "express.md"), "utf8");
+      const i = cur.indexOf(h + "\n"); const rest = cur.slice(i + h.length + 1); const j = rest.search(/^#{1,6} /m);
+      const size = Buffer.byteLength(h + "\n" + (j < 0 ? rest : rest.slice(0, j)));
+      const add = Math.min(Math.max(need, 100), SECTION_MAX - size - 200);
+      if (add < 100) continue;
+      const text = filler(add);
+      edit(ex, "express.md", after(h, text));
+      need -= Buffer.byteLength(text);
+    }
+    assert.ok(need <= 0, "the fixture could grow express.md without breaking a section budget");
+  }
+  const rex = rd(ex);
+  assert.equal(rex.code, 1, "an Express path over 45 KB fails");
+  assert.match(rex.err, /Express path.*45 KB/);
+  assert.doesNotMatch(rex.err, /Studio path|section budget/, "the Studio path and each section stay within budget");
 
   // The look-up index keeps the section checks (budget, heading) but is outside the Read-now total.
   const refHeading = "## Setup — VoiceStudio"; // Step 0's index entry in voice.md

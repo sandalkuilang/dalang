@@ -22,8 +22,10 @@
 //                                                 total, minutes per step, each subagent's model, effort and tokens
 //        node state.mjs reading [--skill <dir>] [--json]
 //                                                 -> checks the reading table: every heading exists, each section
-//                                                    is ≤ 8 KB, the main-context reading of Steps 0–8 ≤ 60 KB
-//                                                    (optional Step 2 shown on its own line, not in the total)
+//                                                    is ≤ 8 KB, SKILL.md (loaded every session) ≤ 10 KB, the
+//                                                    main-context reading of Steps 0–8 ≤ 60 KB on the Studio path and
+//                                                    ≤ 45 KB on the Express path (express.md for Steps 5–7); optional
+//                                                    Step 2 shown on its own line, in neither total
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -104,7 +106,7 @@ const status = g => { const a = state.approvals[g]; return !a ? (ready(g) ? 'wai
 // outside the 60 KB: it is not the main context).
 // A section is the heading line through the line before the next heading of ANY level, ignoring lines inside ```
 // fences, trailing blank lines dropped; a heading must match exactly one line outside fences.
-const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB, OPTIONAL_STEP = '2';
+const KB = 1024, SECTION_MAX = 8 * KB, TOTAL_MAX = 60 * KB, EXPRESS_MAX = 45 * KB, SKILL_MAX = 10 * KB, OPTIONAL_STEP = '2';
 const of = (file, ...headings) => headings.map(h => [file, h]);
 const LOOKS = of('looks.md', '# The looks: isometric-world first, cutaway, blueprint (Step 5 reads this)');
 const VD_ENERGY = of('visual-direction.md', '## 3. Energy (the Step 1 "Energy" option)');
@@ -164,6 +166,7 @@ const isFence = l => /^\s*```/.test(l);
 const kb = b => (b / KB).toFixed(1);
 const shq = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const label = h => h ? h.replace(/^#+ /, '') : 'whole file';
+const indexLine = e => `${e.file} ${e.from},${e.to} ${label(e.heading)} (${kb(e.bytes)} KB)`;
 // [file, heading] -> { file, heading, path, lines, from, to, bytes } (1-based, inclusive), or { file, heading, error }.
 const locate = (skill, [file, heading]) => {
   const p = path.join(skill, 'references', file);
@@ -190,7 +193,7 @@ const commandsOf = (found, merge = true) => {
     if (merge && g && g.path === e.path && e.from > g.to && g.lines.slice(g.to, e.from - 1).every(l => !l.trim())) { g.to = e.to; g.bytes += e.bytes; g.more++; }
     else groups.push({ path: e.path, lines: e.lines, file: e.file, heading: e.heading, from: e.from, to: e.to, bytes: e.bytes, more: 0 });
   }
-  return groups.map(g => `sed -n ${shq(`${g.from},${g.to}p`)} ${shq(g.path)}   # ${g.file} ${label(g.heading)}${g.more ? ` (+${g.more} more sections)` : ''} (${kb(g.bytes)} KB)`);
+  return groups.map(g => `sed -n ${shq(`${g.from},${g.to}p`)} ${shq(g.path)}   # ${label(g.heading)}${g.more ? ` (+${g.more})` : ''} (${kb(g.bytes)} KB)`);
 };
 // Every step's lists from a skill copy: the sections, the lesson headlines tagged for the step, the commands, the errors.
 const buildReading = skill => {
@@ -227,9 +230,19 @@ const buildReading = skill => {
     if (n !== OPTIONAL_STEP) total += s.bytes; // Step 2 runs only with a reference video: shown, never in the total
     steps[n] = s;
   }
-  for (const entry of Object.values(EXPRESS).flat()) { const e = locate(skill, entry); if (e.error) errors.push(`FAILED: ${e.error}`); else if (e.bytes > SECTION_MAX) errors.push(`FAILED: express.md "${label(e.heading)}" is over the 8 KB section budget`); }
-  if (total > TOTAL_MAX) errors.push(`FAILED: Steps 0–8 (Step 2 optional, not counted) read ${kb(total)} KB in the main context, over the 60 KB budget`);
-  return { steps, total, errors };
+  // Express path: express.md replaces Steps 5–7 (no lessons there, as `next` prints them) and joins Step 3's own reading.
+  const exBytes = {};
+  for (const [n, entries] of Object.entries(EXPRESS)) {
+    exBytes[n] = 0;
+    for (const entry of entries) { const e = locate(skill, entry); if (e.error) errors.push(`FAILED: ${e.error}`); else { exBytes[n] += e.bytes; if (e.bytes > SECTION_MAX) errors.push(`FAILED: express.md "${label(e.heading)}" is over the 8 KB section budget`); } }
+  }
+  const express = Object.entries(steps).filter(([n]) => n !== OPTIONAL_STEP).reduce((a, [n, s]) => a + (['5', '6', '7'].includes(n) ? 0 : s.bytes) + (exBytes[n] ?? 0), 0);
+  const sp = path.join(skill, 'SKILL.md'), skillMd = existsSync(sp) ? statSync(sp).size : null;
+  if (skillMd === null) errors.push(`FAILED: SKILL.md not found in ${skill}`);
+  else if (skillMd > SKILL_MAX) errors.push(`FAILED: SKILL.md is ${kb(skillMd)} KB, over the 10 KB budget (loaded every session)`);
+  if (total > TOTAL_MAX) errors.push(`FAILED: Studio path (Steps 0–8, Step 2 not counted) reads ${kb(total)} KB, over the 60 KB budget`);
+  if (express > EXPRESS_MAX) errors.push(`FAILED: Express path (express.md for Steps 5–7) reads ${kb(express)} KB, over the 45 KB budget`);
+  return { steps, total, express, skillMd, errors };
 };
 const sum = list => list.reduce((a, e) => a + e.bytes, 0);
 // Where the video stands, from its files and approvals. A build is "finished" once Step 6 is logged (or QC-REVIEW.md
@@ -271,10 +284,7 @@ if (cmd === 'approve') {
   const tokens = (t.stdout || '').match(/^Result: (.+)$/m)?.[1].trim() || 'not checked';
   state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }), tokens, ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
-  console.log(`DONE gate ${g} (${GATES[g].name}) approved by ${by}`);
-  console.log(`Tokens: ${tokens}${t.status === 3 ? ' — WARN rows: node <skill-dir>/scripts/tokens.mjs' : ''}`);
-  if (lint) console.log(`Storyboard lint: ${lint}`);
-  if (bench) console.log(`Benchmark: ${bench.summary}`);
+  console.log([`DONE gate ${g} (${GATES[g].name}) approved by ${by}`, `Tokens: ${tokens}${t.status === 3 ? ' (WARN rows: tokens.mjs)' : ''}`, lint && `Storyboard lint: ${lint}`, bench && `Benchmark: ${bench.summary}`].filter(Boolean).join(' · '));
 } else if (cmd === 'log') {
   if (!gateArg?.includes('|')) { console.error('FAILED: log needs "<step> | <output> | <problems or ->"'); process.exit(1); }
   // the build starts from an approved storyboard: Step 6 cannot be logged without it
@@ -330,11 +340,13 @@ if (cmd === 'approve') {
   process.exit(s.startsWith('approved') ? 0 : 3);
 } else if (cmd === 'reading') {
   const r = buildReading(skillArg ? path.resolve(skillArg) : SKILL);
-  if (json) console.log(JSON.stringify({ steps: r.steps, total: r.total, errors: r.errors }, null, 2));
+  if (json) console.log(JSON.stringify({ steps: r.steps, total: r.total, express: r.express, skillMd: r.skillMd, errors: r.errors }, null, 2));
   else {
-    for (const [n, s] of Object.entries(r.steps)) console.log(`Step ${n} ${s.name.padEnd(9)} read ${kb(sum(s.read))} KB + lessons ${kb(s.lessonsBytes)} KB · refs ${kb(sum(s.refs))} KB · subagent ${kb(sum(s.sub))} KB`);
-    console.log(`Total read, Steps 0–8 without optional Step 2: ${kb(r.total)} KB of ${TOTAL_MAX / KB} KB`);
-    console.log(`Optional Step 2 (a reference video), not in the total: ${kb(r.steps[OPTIONAL_STEP].bytes)} KB`);
+    for (const [n, s] of Object.entries(r.steps)) console.log(`Step ${n} ${s.name}: read ${kb(sum(s.read))} + lessons ${kb(s.lessonsBytes)} · refs ${kb(sum(s.refs))} · subagent ${kb(sum(s.sub))} KB`);
+    console.log(`SKILL.md: ${r.skillMd === null ? 'not found' : kb(r.skillMd)} KB of ${SKILL_MAX / KB} KB`);
+    console.log(`Studio path (Steps 0–8, Step 2 not counted): ${kb(r.total)} KB of ${TOTAL_MAX / KB} KB`);
+    console.log(`Express path (express.md for Steps 5–7): ${kb(r.express)} KB of ${EXPRESS_MAX / KB} KB`);
+    console.log(`Optional Step 2 (a reference video), not counted: ${kb(r.steps[OPTIONAL_STEP].bytes)} KB`);
   }
   r.errors.forEach(e => console.error(e));
   process.exit(r.errors.length ? 1 : 0);
@@ -345,26 +357,26 @@ if (cmd === 'approve') {
   const r = buildReading(SKILL), s = r.steps[now];
   if (express && EXPRESS[now]) {   // Express: express.md replaces Steps 5–7 (no Studio look-ups) and joins Step 3's own sections
     const found = [...(now === 3 ? s.read.map(e => locate(SKILL, [e.file, e.heading])) : []), ...EXPRESS[now].map(e => locate(SKILL, e))].filter(e => !e.error);
-    Object.assign(s, { read: found, lessons: now === 3 ? s.lessons : [], sub: [] }, { commands: { read: commandsOf(found), refs: now === 3 ? s.commands.refs : [], sub: [] } });
+    Object.assign(s, { read: found, lessons: now === 3 ? s.lessons : [], refs: now === 3 ? s.refs : [], sub: [] }, { commands: { read: commandsOf(found), refs: now === 3 ? s.commands.refs : [], sub: [] } });
   }
   console.log(`Step ${now} ${s.name}${express ? ' (express)' : ''} — ${why}`);
-  if (now === 3 && !existsSync(path.join(dir, 'script.md'))) console.log(`Optional Step 2 (a reference video): node ${shq(path.join(SKILL, 'scripts', 'state.mjs'))} next ${shq(dir)} --step 2`);
+  if (now === 3 && !existsSync(path.join(dir, 'script.md'))) console.log('Optional Step 2 (a reference video): add --step 2');
   // an entry that cannot be found means this skill copy is out of date: say so, print the rest
-  r.errors.filter(e => !/over the \d+ KB|budget/.test(e)).forEach(e => console.log(`WARN: ${e.replace(/^FAILED: /, '')} — the skill copy may be out of date; rerun scripts/gate.sh --fast in the skill repo`));
+  r.errors.filter(e => /not found|appears \d+ times|not a readable lesson/.test(e)).forEach(e => console.log(`WARN (skill copy out of date): ${e.replace(/^FAILED: /, '')}`));
   console.log(`Read now (${kb(sum(s.read))} KB):`);
   // --print: the sections' text itself, so a step's reading is one call instead of one per section
   if (print) s.read.map(e => e.lines ? e : locate(SKILL, [e.file, e.heading])).filter(e => !e.error)
     .forEach(e => console.log(`\n===== ${e.file}:${e.from}\n${e.lines.slice(e.from - 1, e.to).join('\n')}`));
   else s.commands.read.forEach(c => console.log(c));
   if (s.lessons.length) {
-    console.log(`\nLessons for Step ${now} (one in full: grep -n -i '<word>' ${shq(path.join(SKILL, 'references', 'lessons.md'))}):`);
+    console.log(`Lessons (one in full: grep -n -i '<word>' ${shq(path.join(SKILL, 'references', 'lessons.md'))}):`);
     s.lessons.forEach(h => console.log(`  ${h}`));
   }
-  if (s.commands.refs.length) { console.log("\nLook up when needed (nothing here is read now; when the step's text points to one, run only that line, never the whole file):"); s.commands.refs.forEach(c => console.log(c)); }
-  if (s.commands.sub.length) { console.log('\nFor the subagent (put these commands in its prompt; do not run them here):'); s.commands.sub.forEach(c => console.log(c)); }
+  // the index: file, line range, heading; one command shape for all, so no absolute path is repeated per line
+  if (s.refs.length) { console.log(`Look up when needed (only the line the text points to): sed -n '<from>,<to>p' ${shq(path.join(SKILL, 'references'))}/<file>`); s.refs.forEach(e => console.log(indexLine(e))); }
+  if (s.commands.sub.length) { console.log('For the subagent (paste into its prompt; do not run here):'); s.commands.sub.forEach(c => console.log(c)); }
 } else {
   for (const g of [1, 2, 3, 4]) console.log(`Gate ${g} ${GATES[g].name.padEnd(7)} ${status(g)}`);
   const next = [1, 2, 3, 4].find(g => !status(g).startsWith('approved'));
-  console.log(next ? `Next: work toward gate ${next} (${GATES[next].name}).` : 'Next: final render (Step 8).');
-  console.log(`Reading list: node ${shq(path.join(SKILL, 'scripts', 'state.mjs'))} next${dir === '.' ? '' : ' ' + shq(dir)}`);
+  console.log(`${next ? `Next: gate ${next} (${GATES[next].name})` : 'Next: final render (Step 8)'}. Reading list: node ${shq(path.join(SKILL, 'scripts', 'state.mjs'))} next${dir === '.' ? '' : ' ' + shq(dir)}`);
 }

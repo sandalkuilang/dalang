@@ -61,18 +61,14 @@ const pct = (total / duration) * 100;
 const longest = counted.reduce((m, s) => Math.max(m, s.end - s.start), 0);
 const flagged = counted.filter(s => s.end - s.start > a.maxStill);
 
-console.log(`Stillness: ${a.file}`);
-console.log(`  Video length        : ${duration.toFixed(1)} s`);
-console.log(`  Total still         : ${total.toFixed(1)} s = ${pct.toFixed(1)}%  (target ≤ ${a.target}%)`);
-console.log(`  Longest still       : ${longest.toFixed(1)} s  (limit ${a.maxStill})`);
-console.log(`  Still stretches     : ${counted.length}${a.allow.length ? ` (+${segs.length - counted.length} deliberate pauses ignored)` : ''}`);
 const ok = pct <= a.target && flagged.length === 0;
+// one line (score_run.mjs reads "= N%" and "Longest still : N"; measure_reference.sh greps "Total still")
+console.log(`Stillness: Total still ${total.toFixed(1)} s = ${pct.toFixed(1)}% of ${duration.toFixed(1)} s (target ≤ ${a.target}%) · Longest still : ${longest.toFixed(1)} s (limit ${a.maxStill}) · ${counted.length} stretches${a.allow.length ? ` (+${segs.length - counted.length} pauses ignored)` : ''} · --noise ${a.noise}${ok ? ' · Result: OK' : ''}`);
 // On a fail, list where the stillness is (longest first), even when no single stretch is over --max-still.
 const show = ok ? [] : (flagged.length ? flagged : [...counted].sort((x, y) => (y.end - y.start) - (x.end - x.start)).slice(0, 12));
 if (show.length) {
   console.log('  Needs more motion:');
   for (const s of show) console.log(`    ${fmt(s.start)} – ${fmt(s.end)}  (${(s.end - s.start).toFixed(1)} s)`);
 }
-console.log(`  Result              : ${ok ? 'OK — enough motion.' : 'NEEDS MOTION — add continuous motion in the stretches above.'}`);
-console.log(`  (threshold --noise ${a.noise}; keep it the same when comparing with a reference video)`);
+if (!ok) console.log('Result: NEEDS MOTION — add continuous motion in the stretches above.');
 process.exit(ok ? 0 : 3);

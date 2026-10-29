@@ -1521,10 +1521,12 @@ async function main() {
   const { beatList, sectionList, lineList, duration, publicWords } = await emit(t);
 
   const nWords = publicWords.length;
-  console.log(`\nAudio      : ${audioPath} (${duration} s)`);
-  console.log(`Words      : ${nWords} spoken words (tags excluded), ${(nWords / Math.max(duration, 0.001)).toFixed(2)} words/s, ${(stripTags(clean).replace(/\s/g, '').length / Math.max(duration, 0.001)).toFixed(2)} chars/s`);
-  if (!a.sample) console.log(`Beats      : ${beatList.length} | Sections: ${sectionList.length}${lineList.length ? ` | Dialogue lines: ${lineList.length} (${[...new Set(lineList.map(l => l.speaker))].join(', ')})` : ''}`);
-  if (!a.fromResponse) console.log(a.fromAudio || a.engine !== 'elevenlabs' ? 'Billed     : 0 (local)' : `Billed     : ${clean.length} ElevenLabs characters`);
+  // the take in one line (the path is on the DONE line): length, pace, counts, how it was timed, what it cost
+  const timing = aligned?.ok ? 'forced alignment (score per word in words.json)' : aligned?.note ? `transcript (${aligned.note})` : '';
+  const billed = a.fromResponse ? '' : a.fromAudio || a.engine !== 'elevenlabs' ? 'billed 0 (local)' : `billed ${clean.length} ElevenLabs characters`;
+  console.log(['Take: ' + `${duration} s, ${nWords} words, ${(nWords / Math.max(duration, 0.001)).toFixed(2)} words/s, ${(stripTags(clean).replace(/\s/g, '').length / Math.max(duration, 0.001)).toFixed(2)} chars/s`,
+    !a.sample && `${beatList.length} beats, ${sectionList.length} sections${lineList.length ? `, ${lineList.length} dialogue lines (${[...new Set(lineList.map(l => l.speaker))].join(', ')})` : ''}`,
+    timing && `timing: ${timing}`, billed].filter(Boolean).join(' · '));
   const silent = lineList.filter(l => l.start === null);
   if (silent.length) console.log(`WARNING    : ${silent.length} dialogue line(s) matched no word in the audio: ${silent.map(l => `${l.speaker}: "${l.text.slice(0, 30)}"`).join('; ')}`);
   if (response.transcript) {
@@ -1532,7 +1534,6 @@ async function main() {
     if (Math.abs(heard - nWords) > Math.max(2, nWords * 0.05)) console.log(`WARNING    : the transcript heard ${heard} words but the narration has ${nWords}. Often a spelled-out number heard as digits (harmless if the words below are timed); otherwise a skipped or misread word — --retake auto re-speaks the sentences that differ.`);
   }
   if (aligned?.ok) {
-    console.log('Timing     : forced alignment against the script (score per word in words.json).');
     // Three or more low-score words in a row: the voice did not say what the script says.
     let run = [];
     for (const w of [...publicWords, { score: 1 }]) {
@@ -1540,7 +1541,7 @@ async function main() {
       if (run.length >= 3) console.log(`WARNING    : low alignment score on "${run.map(x => x.text).join(' ')}" (${run[0].start.toFixed(2)}s) — the voice may not say the script there; --retake auto re-speaks that sentence.`);
       run = [];
     }
-  } else if (aligned?.note) console.log(`Timing     : transcript (${aligned.note}).`);
+  }
   if (!exact && !aligned?.ok) console.log('Note       : spelling in the timing data differs from the narration (e.g. numbers rewritten); matched per word.');
   if (missing) {
     const est = publicWords.filter(w => w.est);
@@ -1562,9 +1563,8 @@ async function main() {
   }
   const bad = beatList.filter(b => b.start === null);
   if (bad.length) console.log(`WARNING    : ${bad.length} beat(s) matched no word: ${bad.map(b => b.text).join(', ')}`);
-  if (!a.sample) {
-    for (const b of beatList) if (b.start !== null) console.log(`  ${String(b.start.toFixed(2)).padStart(7)}s  ${b.name.padEnd(16)} "${b.text}"`);
-  }
+  // beat names and starts on one line; their words are in narration.txt, their timing per word in cues.mjs
+  if (!a.sample && beatList.some(b => b.start !== null)) console.log(`Beats: ${beatList.filter(b => b.start !== null).map(b => `${b.name} ${b.start.toFixed(2)}`).join(' · ')}`);
   console.log(`DONE ${audioPath}`);
 }
 
