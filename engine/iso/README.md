@@ -28,6 +28,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
   slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a
   key of `values` so the timeline drives it. It returns `{ at }`, each part's pin point. Parts paint in an order taken
   from their boxes (below, behind, inside go first), so a plate never covers what stands on it.
+- `templates.js`: the made things films need most, assembled from kits and parametric (a scooter or underbone
+  two-wheeler, a sedan, hatch or van, a single-cylinder engine whose piston and rod ride the crank under a cutaway
+  housing, a room, a fridge, washer, wall AC or server rack, a broadleaf or pine tree); `{ form: "kit", kit: "car" }`.
 - `figure.js`: a person as a jointed 3D body in real proportions (head, hair, eyes, neck, torso, elbows, hands, knees,
   shoes), posed by preset or joint angles, a hand reaching a point by two-bone IK, feet always set on the ground or the
   pelvis on a seat; build()'s `figure` form draws it. The vendor's flat `person()` billboard is no longer used.

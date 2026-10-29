@@ -9,7 +9,8 @@ import { lathe, extrude, sweep, gearOutline } from "../engine/iso/forms.js";
 import { build } from "../engine/iso/build.js";
 import { parseModel, drawModel } from "../engine/iso/model.js";
 import * as EX from "../engine/iso/examples.js";
-import { KIT } from "../engine/iso/kit.js";
+import { KIT, expandKit } from "../engine/iso/kit.js";
+import { TEMPLATES } from "../engine/iso/templates.js";
 import { figureSolids } from "../engine/iso/figure.js";
 import { auditWorld } from "../engine/anatomy/world.mjs";
 
@@ -69,7 +70,8 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
     assert.ok(r.fills().length > 0 && !JSON.stringify(r.calls).includes("NaN"), `kit ${k} draws, finite`);
     assert.ok(Object.keys(r.out.at).some((n) => n.startsWith("it.")), `kit ${k}: parts named under the kit part`);
     if (["pipe", "hose", "cable", "handle"].includes(k)) continue;
-    const W = [{ name: "set", parts: [{ name: "slab", form: "box", at: [0, 0, -0.05], w: 4, d: 4, h: 0.05 }] }, { name: "o", parts: [p] }];
+    // the kit's own parts, proven one by one (the world audit sees a kit as one rigid assembly)
+    const W = [{ name: "set", parts: [{ name: "slab", form: "box", at: [0, 0, -0.05], w: 4, d: 4, h: 0.05 }] }, { name: "o", parts: [{ name: "it", form: "group", parts: expandKit(p) }] }];
     assert.deepEqual(auditWorld(W, { ground: ["set"] }).problems.map((q) => q.text), [], `kit ${k} stands proven`);
   }
   assert.throws(() => draw([{ parts: [{ form: "kit", kit: "nope" }] }], {}), /kits: bolt/, "an unknown kit names the kits");
@@ -79,6 +81,18 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   assert.ok(tb.findIndex(isRed) > tb.findLastIndex(isBlue), "a kit at a floor's far corner paints after the floor");
   const turned = draw([{ parts: [{ name: "v", form: "kit", kit: "vent", face: "x" }] }], {}).out.at;
   assert.ok("v.face" in turned, "face: x turns a face component as one group");
+}
+// Templates: each style draws finite and, as one assembly, stands on a slab in the world audit
+for (const [k, o] of [["motorbike", {}], ["motorbike", { style: "underbone" }], ["car", {}], ["car", { style: "hatch" }], ["car", { style: "van" }], ["engine", { crank: 1 }], ["room", {}], ["appliance", {}], ["appliance", { kind: "washer" }], ["appliance", { kind: "ac" }], ["appliance", { kind: "server" }], ["tree", {}], ["tree", { kind: "pine" }]]) {
+  const p = { name: "it", form: "kit", kit: k, ...o }, r = draw([{ name: "x", parts: [p] }], {}, { x: 0, y: 0, z: 0, k: 100 });
+  assert.ok(r.fills().length > 10 && !JSON.stringify(r.calls).includes("NaN"), `template ${k} ${o.style || o.kind || ""} draws, finite`);
+  const W = [{ name: "set", parts: [{ name: "slab", form: "box", at: [0, 0, -0.05], w: 9, d: 9, h: 0.05 }] }, { name: "o", parts: [p] }];
+  assert.deepEqual(auditWorld(W, { ground: ["set"] }).problems.map((q) => q.text), [], `template ${k} stands as one assembly`);
+}
+assert.ok(Object.keys(TEMPLATES).every((k) => !(k in KIT)), "a template never shadows a kit");
+{
+  const piston = (crank) => draw([{ parts: [{ name: "e", form: "kit", kit: "engine", crank }] }], {}).out.at["e.piston"][2];
+  assert.ok(piston(0) - piston(Math.PI) > 0.05, "the engine's piston rides the crank: top dead centre above bottom");
 }
 // Figure: a jointed person; feet on the ground in every pose, a seat under the thighs, a hand on its reach target
 {
