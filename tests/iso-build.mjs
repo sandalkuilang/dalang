@@ -10,6 +10,7 @@ import { build } from "../engine/iso/build.js";
 import { parseModel, drawModel } from "../engine/iso/model.js";
 import * as EX from "../engine/iso/examples.js";
 import { KIT } from "../engine/iso/kit.js";
+import { figureSolids } from "../engine/iso/figure.js";
 import { auditWorld } from "../engine/anatomy/world.mjs";
 
 const canvas = () => {
@@ -78,6 +79,22 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   assert.ok(tb.findIndex(isRed) > tb.findLastIndex(isBlue), "a kit at a floor's far corner paints after the floor");
   const turned = draw([{ parts: [{ name: "v", form: "kit", kit: "vent", face: "x" }] }], {}).out.at;
   assert.ok("v.face" in turned, "face: x turns a face component as one group");
+}
+// Figure: a jointed person; feet on the ground in every pose, a seat under the thighs, a hand on its reach target
+{
+  const zs = (f) => f.solids.flatMap((q) => q.faces.flat().map((p) => p[2]));
+  for (const pose of ["stand", "walk", "point", "carry", "crouch", "kneel", "wave"]) {
+    const f = figureSolids({ h: 1.7, pose, phase: 0.3 }), z = zs(f);
+    assert.ok(Math.abs(Math.min(...z)) < 0.005 && z.every(Number.isFinite), `figure ${pose}: feet on the ground (${Math.min(...z).toFixed(3)})`);
+    if (pose === "stand") assert.ok(Math.abs(f.top - 1.7) < 0.05, `a standing figure is its height tall (${f.top.toFixed(2)})`);
+  }
+  const sit = figureSolids({ h: 1.7, pose: "sit", seat: 0.45 });
+  assert.ok(Math.abs(Math.min(...zs(sit))) < 0.005 && sit.top < 1.45, "seated: feet on the floor, the head lower");
+  const T = [0.45, -0.15, 0.95], hand = figureSolids({ h: 1.7, pose: "reach", reach: T }).solids.filter((q) => q.color === "#C98B62").at(-3);
+  const c = hand.faces.flat().reduce((a, p) => a.map((v, i) => v + p[i] / hand.faces.flat().length), [0, 0, 0]);
+  assert.ok(Math.hypot(c[0] - T[0], c[1] - T[1], c[2] - T[2]) < 0.08, "the right hand reaches its target");
+  const r = draw([{ parts: [{ name: "mech", form: "figure", h: 1.7, pose: "point", hat: "cap", coat: "#E8E6E1" }] }], {});
+  assert.ok(r.fills().length > 40 && Math.abs(r.out.at.mech[2] - 1.7) < 0.08, "build draws the figure in solids, its pin at the head");
 }
 const S = sweep([[0, 0, 0], [0, 0, 1], [1, 0, 1]], { r: 0.1, n: 6 });
 assert.equal(S.length, 2 * 6 + 2, "sweep: a band per segment and two caps");

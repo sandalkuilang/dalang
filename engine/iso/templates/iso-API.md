@@ -33,7 +33,9 @@ part three readable faces at any base: `color: triad(COLORS.subject)`.
 - forms: `box { w, d, h, bevel }` (top edges chamfered, 8 % of its least side by default) · `cyl { r, h, axis }` · `cone { r, h }` · `sphere { r }` · `roof { w, d, h, ridge }` ·
   `lathe { profile: [[r, z], …] }` (anything turned) · `extrude { outline: [[u, v], …], h, plane }` · `sweep { path, r }`
   (pipes, roads) · `gear { teeth, module, width, mesh: { with, phase } }` · `wheel { r, width, axis }` ·
-  `board { w, d, layers: [{ h, color }] }` · `figure { h, pose: stand|walk|point|carry, phase, face }` ·
+  `board { w, d, layers: [{ h, color }] }` · `figure { h, pose: stand|walk|point|carry|reach|sit|crouch|kneel|wave, phase, reach: [x, y, z] (the right hand
+  there; reachL the left), seat (sit: the seat height), lean, look, joints, color (shirt), legs, skinTone, hair, hairStyle
+  short|long|bald|cap, hat: "cap", sleeves: "long", coat }` (a jointed 3D person facing +x, feet always on the ground; `turn` faces it) ·
   `model { model, size, max }` · `flat { outline }` · `line { path, width, dash }` · `group { parts }` ·
   `kit { kit, …its fields }` (below)
 - **Kits first** (`kit.js`): a made thing is assembled from components, never drawn from bare boxes. Each expands into
