@@ -51,7 +51,7 @@ node ~/.claude/skills/dalang/scripts/preflight.mjs
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lanes.dark.svg">
-  <img alt="Express: Brief, Script, Voice, Plan, Build, Render in about 20 minutes. Studio: Brief with pictures, Script and voice, the subject modelled once in Blender, Look, Build, QC and a high render." src="docs/assets/lanes.light.svg" width="100%">
+  <img alt="Two swimlane charts, one row per engine and one column per step: when Claude Code, the subagents, the voice engine, Blender, three.js, Canvas 2D, HyperFrames, the checking scripts and the reviewer each work, in Express and in Studio, with the four gates marked." src="docs/assets/lanes.light.svg" width="100%">
 </picture>
 
 The Brief asks once; both run hands-off after it.
