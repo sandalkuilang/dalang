@@ -66,6 +66,7 @@ if [ $fast -eq 0 ]; then
   step "timing lint (cuts and flash clips inside shot groups, unreadable group = exit 1)" node tests/timing-lint.mjs
   step "audio QC (bed level, clicks, dropouts, voice drift)" node tests/audio-qc.mjs
   step "workspace (init writes only the project file, keeps unknown keys, undo byte for byte, no --yes = no write)" node tests/workspace.mjs
+  step "blender parts (library and assembly compile; built and read where Blender is installed)" node tests/blender-parts.mjs
 fi
 
 echo "Gate summary ($([ $fast -eq 1 ] && echo fast || echo merge))"

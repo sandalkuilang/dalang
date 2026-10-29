@@ -56,6 +56,15 @@ that reads as:
   tyres with tread, rim and spokes, springs, cooling fins, bottles, drums, pans, cans, crates, cartons, windows, doors,
   tables, chairs, shelves, plants, lamps, tools), written in a spec as `{ form: "kit", kit, …sizes }`. Each expands into
   ordinary parts, so pins, the cutaway, focus and Anatomy's audit see them; each stands proven on a slab in the test.
+- `engine/blender/`: hero machine assets modelled once by script and reused, instead of rebuilt from boxes in every
+  film. `parts.py` is a generic library in real units (finned coil with real fins, hairpins and return bends; twisted
+  axial fan; motor and bracket; rotary compressor with stator, windings, rotor, crankshaft, rolling piston and vane,
+  and a section quarter per part; accumulator; pipes with filleted bends; insulation; flare nuts; service and
+  expansion valves; sheet casing with grille and louvres; wall bracket; fasteners). `assemblies/condensing_unit.py`
+  builds a refrigeration condensing unit from it in 2 s (63 named nodes, about 127k triangles) and
+  `condensing_unit.shot.html` renders its cutaway in the iso look (x-ray casing, opened unit, sectioned compressor,
+  refrigerant as colour code, the fan turned from its motor speed, numbered pins). Blender (GPL) runs on the machine
+  only; `tests/blender-parts.mjs` builds and reads the asset where it is installed.
 
 ### Changed
 
