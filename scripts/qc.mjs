@@ -49,8 +49,7 @@ if (holes.length) problems.push(`black frames at ${holes.map(([s, e]) => `${s.to
 if (Number.isFinite(peak) && peak >= -0.1) problems.push(`audio clips (sample peak ${peak.toFixed(2)} dBFS)`);
 if (silences.length) problems.push(`silence ≥ 2 s at ${silences.map(([s, e]) => `${s.toFixed(1)}–${e.toFixed(1)} s`).join(', ')}`);
 
-console.log(`QC: ${file}`);
-console.log(`  Format   : ${size} @ ${fps} fps, ${dur.toFixed(2)} s${narration ? ` (narration ${narration} s)` : ''}, audio ${hasAudio ? 'yes' : 'no'}${Number.isFinite(peak) ? `, sample peak ${peak.toFixed(1)} dBFS` : ''}`);
+console.log(`QC: ${size} @ ${fps} fps, ${dur.toFixed(2)} s${narration ? ` (narration ${narration} s)` : ''}, audio ${hasAudio ? 'yes' : 'no'}${Number.isFinite(peak) ? `, sample peak ${peak.toFixed(1)} dBFS` : ''}`);
 for (const p of problems) console.log(`  PROBLEM  : ${p}`);
 console.log(`  Result   : ${problems.length ? `${problems.length} problem(s) — fix before the gate.` : 'OK'}`);
 process.exit(problems.length ? 3 : 0);

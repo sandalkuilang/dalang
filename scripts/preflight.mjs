@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Step 0 in one call: every tool, voice engine and media source dalang needs, checked in parallel.
-// Prints one compact line per item (OK / MISSING / WARN / INFO / PAID / SKIP, and for VoiceStudio also
-// STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix), so the agent reads ~15 lines instead of running a
-// dozen commands. Never prints secrets.
+// Prints one line per item, "STATUS item: note" (OK / MISSING / WARN / INFO / PAID / SKIP, and for VoiceStudio also
+// STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix; VoiceStudio's own rows indented), then one "Voice:" line,
+// so the agent reads ~15 lines instead of running a dozen commands. Never prints secrets.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
 //                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
@@ -194,10 +194,10 @@ async function elevenlabs() {
 // Kokoro lives in a separate Python (DALANG_PYTHON), never in VoiceStudio's venv: with DALANG_PYTHON unset nothing runs
 // and nothing is installed there, and a DALANG_PYTHON that is that venv is told to use another.
 async function kokoro() {
-  const item = 'Kokoro (voice)', py = process.env.DALANG_PYTHON, size = '~330 MB', pkgSize = 'about 0.3 GB to download on macOS arm64, about 3 GB on Linux with the default CUDA wheels', ref = 'references/voice.md "Setup — Kokoro"';
-  const what = 'optional commercial-OK (Apache-2.0) local voice, only en and en-gb (other languages: VoiceStudio)';
+  const item = 'Kokoro (voice)', py = process.env.DALANG_PYTHON, size = '~330 MB', pkgSize = '~0.3 GB on macOS arm64, ~3 GB on Linux CUDA', ref = 'references/voice.md "Setup — Kokoro"';
+  const what = 'optional Apache-2.0 local voice, only en and en-gb (else VoiceStudio)';
   const helper = fileURLToPath(new URL('kokoro_tts.py', import.meta.url));
-  const apart = `set DALANG_PYTHON to a separate Python that has kokoro, never VoiceStudio's venv; its packages (torch, transformers, spaCy and the rest) are ${pkgSize}, plus ${size} of weights: install only with consent (${ref})`;
+  const apart = `needs DALANG_PYTHON, a separate Python (never VoiceStudio's venv): torch and the rest ${pkgSize} + ${size} weights; install only with consent (${ref})`;
   try {
     if (!py) return [[item, 'MISSING', `${what}: no Python chosen for it — ${apart}`]];
     if (!existsSync(py)) return [[item, 'MISSING', `${what}: no Python at ${py} — ${apart}`]];
@@ -205,14 +205,14 @@ async function kokoro() {
     if (r.killed) return [[item, 'WARN', 'could not check Kokoro (timeout) — rerun preflight; install nothing']];
     if (r.code === 5 || r.code === 4) {
       if (samePython(py, vsPython)) return [[item, 'MISSING', `${what}: DALANG_PYTHON is VoiceStudio's venv, where Kokoro does not go — ${apart}`]];
-      if (r.code === 5) return [[item, 'MISSING', `kokoro not installed in ${py} — ${what}; the install is pip kokoro soundfile torchaudio into that Python, which pulls torch, transformers, spaCy and the rest (${pkgSize}), then ${size} of weights; install only with consent (${ref})`]];
-      return [[item, 'MISSING', `kokoro installed, weights not downloaded — once, with consent: ${py} ${helper} --download --lang a (${size}, Apache-2.0; it also fetches the spaCy en_core_web_sm text model, about 13 MB, a pip install from GitHub; ${what})`]];
+      if (r.code === 5) return [[item, 'MISSING', `kokoro not installed in ${py} — ${what}; pip kokoro soundfile torchaudio pulls torch and the rest (${pkgSize}), then ${size} weights; install only with consent (${ref})`]];
+      return [[item, 'MISSING', `weights not downloaded — ${what}; once, with consent: ${py} ${helper} --download --lang a (${size} + spaCy en_core_web_sm ~13 MB from GitHub)`]];
     }
     let d = null;
     if (r.ok) try { d = JSON.parse(r.out); } catch { /* odd reply */ }
     if (d?.ok === true) {
-      const en = d.english_model === false ? `; for en and en-gb the spaCy text model en_core_web_sm is not installed: once, with consent, ${py} ${helper} --download --lang a (about 13 MB, a pip install from GitHub), the take stops without it` : '';
-      return [[item, 'OK', `Kokoro-82M ${clean(d.version ?? '?')} — Apache-2.0, commercial OK, only en and en-gb (other languages: VoiceStudio); timing needs the Word aligner model for the language${en}`]];
+      const en = d.english_model === false ? `; spaCy en_core_web_sm missing (a take stops without it): once, with consent, ${py} ${helper} --download --lang a (~13 MB from GitHub)` : '';
+      return [[item, 'OK', `Kokoro-82M ${clean(d.version ?? '?')}, Apache-2.0 commercial OK, only en and en-gb (else VoiceStudio); timing needs the Word aligner model${en}`]];
     }
     if (r.code === 6) return [[item, 'WARN', `could not check Kokoro (the check reached for the network and was refused: ${clean(String(r.err).trim().split('\n').pop().split(': without --download')[0]).slice(0, 160)}) — rerun preflight; this is not "missing", install nothing`]];
     const reason = r.ok ? 'unexpected reply' : clean(String(r.err).trim().split('\n').pop()) || `exit ${r.code}`;
@@ -266,7 +266,7 @@ async function media() {
   // Photo tracer (trace.mjs): vtracer in dalang's own venv, for the user's photos of their own thing. Optional; installed
   // only with the user's yes. A probe that fails for another reason than "not there" is a WARN to rerun.
   const vtPy = process.env.DALANG_VTRACER_PY || path.join(homedir(), '.cache', 'dalang', 'vtracer', 'bin', 'python');
-  if (!existsSync(vtPy)) out.push(['Photo tracer', 'INFO', 'vtracer not installed — optional, only when the user brings photos of their own thing; ask first (vtracer, MIT, ~2 MB): python3 -m venv ~/.cache/dalang/vtracer && ~/.cache/dalang/vtracer/bin/pip install vtracer']);
+  if (!existsSync(vtPy)) out.push(['Photo tracer', 'INFO', 'vtracer not installed — only for the user\'s own photos; ask first (MIT, ~2 MB): python3 -m venv ~/.cache/dalang/vtracer && ~/.cache/dalang/vtracer/bin/pip install vtracer']);
   else { const v = await run(vtPy, ['-c', 'import vtracer'], 20000); out.push(v.ok ? ['Photo tracer', 'OK', 'vtracer ready (scripts/trace.mjs)'] : ['Photo tracer', 'WARN', `vtracer did not load (${clean(v.err || 'no reply')}) — rerun preflight`]); }
   if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — asked in Brief Call 0: npx hyperframes skills update`]);
   if (process.env.GEMINI_API_KEY) out.push(['Snapshots', 'WARN', 'GEMINI_API_KEY is set — `hyperframes snapshot` uploads frames to Gemini unless you pass --describe false']);
@@ -357,15 +357,16 @@ async function workspace() {
   if (!r.ok || !j || typeof j.lean !== 'boolean' || !Array.isArray(j.items))
     return [[item, 'WARN', `could not read the settings (${clean(j?.error || (r.killed ? 'timeout' : r.err.split('\n')[0]) || 'odd reply')}) — rerun preflight; this is not "nothing enabled"`]];
   const on = j.items.filter(i => i.on && !i.video).length;
-  const agents = Array.isArray(j.agentsMissing) && j.agentsMissing.length ? ` DALANG's lean subagent types are not installed (${j.agentsMissing.length}): each turn of a builder or checker starts at ~50K tokens instead of ~15K — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}` : '';
-  if (j.lean) return [[item, agents ? 'INFO' : 'OK', `lean: nothing a video never uses is on in ${clean(wsDir)}.${agents}`]];
-  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on here (each costs tokens on every model call) — asked in Brief Call 0: node ${q(ws)} init ${q(wsDir)}${agents ? '; it also installs the lean subagent types' : ''}`]];
+  const init = `node ${q(ws)} init${path.resolve(wsDir) === process.cwd() ? '' : ` ${q(wsDir)}`}`;
+  const agents = Array.isArray(j.agentsMissing) && j.agentsMissing.length ? `DALANG's ${j.agentsMissing.length} lean subagent types missing (a builder turn starts at ~50K tokens, not ~15K)` : '';
+  if (j.lean) return [[item, agents ? 'INFO' : 'OK', agents ? `lean, but ${agents} — asked in Brief Call 0: ${init}` : 'lean']];
+  return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on (tokens on every call)${agents ? `; ${agents}` : ''} — asked in Brief Call 0: ${init}`]];
 }
 
 const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : checkBlender ? [blender()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), blender(), elevenlabs(), media()]);
 const rows = groups.flat();
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
-else for (const [item, status, note] of rows) console.log(`${status.padEnd(11)} ${item.padEnd(22)} ${note}`);
+else for (const [item, status, note] of rows) console.log(`${status} ${item}${note ? `: ${note}` : ''}`);
 if (checkSkill || checkWorkspace || checkKokoro || checkBlender) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));
@@ -376,7 +377,7 @@ const unreadable = ttsRow?.[1] === 'WARN';
 const sealMissing = rows.some(([i, s]) => i === '  AudioSeal watermark' && s === 'MISSING');
 const missing = rows.filter(([i, s]) => ['  TTS model', '  ASR (word timing)', '  AudioSeal watermark'].includes(i) && s === 'MISSING').map(([i]) => i.trim());
 const caveat = nc ? '; OmniVoice weights CC-BY-NC — tell the user before a monetised video' : '';
-if (!asJson) console.log('\nVoice: ' + (voiceOk ? `ready (free, VoiceStudio${caveat})${sealMissing ? ' — but pre-download the AudioSeal watermark before the first generation (references/voice.md)' : ''}.`
+if (!asJson) console.log('Voice: ' + (voiceOk ? `ready (free, VoiceStudio${caveat})${sealMissing ? ' — but pre-download the AudioSeal watermark before the first generation (references/voice.md)' : ''}.`
   : vsStatus !== 'OK' ? `VoiceStudio ${vsStatus} — ${vsNote}. A paid engine only if the user asks.`
   : unreadable ? `VoiceStudio state unreadable — ${ttsRow[2]}.`
   : `VoiceStudio not ready — fix ${missing.join(' and ')} (free, references/voice.md "Setup")${caveat}; a paid engine only if the user asks.`));

@@ -2,9 +2,10 @@
 // The film's frame, written by code instead of a model: the engine into assets/, the host (src/index.tpl.html) with one
 // line per group, each group's template (src/compositions/<group>.tpl.html) from the look's group template, its beat
 // names filled in, the isometric look's one shared world (assets/world.js, filled once by the first group's builder) and
-// each builder's whole brief (review/builder-<group>.md: what to read, the exact checks). Builders then only fill data
-// with Edit: no builder writes boilerplate or a copy of the world, none guesses a command, and every group meets its
-// neighbours on the host's times.
+// each builder's brief (review/builder-<group>.md: what to read, what to make, how to report) and its check round as one
+// script (review/check-<group>.sh). Builders then only fill data with Edit: no builder writes boilerplate or a copy of
+// the world, none guesses a command, and every group meets its neighbours on the host's times. The brief holds only what
+// agents/dalang-builder.md does not (read only what is named, Edit not rewrite, batch calls, the budget).
 // Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
 //
 // Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
@@ -47,10 +48,11 @@ if (order.some((x, i) => i && x <= order[i - 1])) die('groups must follow narrat
 
 const iso = ISO.includes(look);
 const tplDir = path.join(SKILL, 'engine', iso ? 'iso' : 'three', 'templates');
-const put = (rel, text) => {
+const wrote = [], kept = [];
+const put = (rel, text, mode) => {
   const p = path.join(dir, rel);
-  if (existsSync(p)) return console.log(`kept    ${rel} (exists)`);
-  mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, text); console.log(`wrote   ${rel}`);
+  if (existsSync(p)) return kept.push(rel);
+  mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, text, mode ? { mode } : undefined); wrote.push(rel);
 };
 
 // the engine, once
@@ -60,7 +62,7 @@ if (iso) {
   const src = [...readdirSync(path.join(SKILL, 'engine', 'iso')).filter(f => f.endsWith('.js')).map(f => path.join(SKILL, 'engine', 'iso', f)), path.join(SKILL, 'engine', 'three', 'editorial.js')];
   const fresh = src.filter(f => !existsSync(path.join(assets, path.basename(f))));
   fresh.forEach(f => cpSync(f, path.join(assets, path.basename(f))));
-  console.log(`engine  ${fresh.length} file(s) copied to assets/ (${src.length - fresh.length} kept)`);
+  if (fresh.length) wrote.push(`engine (${fresh.length} files)`);
   // their origin and licence for check_assets.mjs, as engine/three/build.mjs writes for its own files
   const man = path.join(assets, '.engine.json');
   let eng = []; try { eng = JSON.parse(readFileSync(man, 'utf8')); } catch { /* none yet */ }
@@ -78,8 +80,8 @@ if (iso) {
 } else if (!existsSync(path.join(assets, 'objectStudio.js'))) {
   const r = spawnSync(process.execPath, [path.join(SKILL, 'engine', 'three', 'build.mjs'), assets], { encoding: 'utf8' });
   if (r.status !== 0) die(`engine/three/build.mjs: ${(r.stderr || r.stdout).trim().split('\n').pop()}`);
-  console.log('engine  engine/three installed in assets/');
-} else console.log('engine  assets/objectStudio.js exists: kept');
+  wrote.push('engine');
+}
 
 // the host: one line per group on the narration's times
 const span = (g, i) => {
@@ -107,7 +109,7 @@ if (music !== 'none' && !existsSync(path.join(assets, 'music.mp3'))) {
   rows = rows.filter(r => r.file !== 'assets/music.mp3');
   rows.push({ file: 'assets/music.mp3', source: credits[6], licence: credits[5], author: credits[4], title: MUSIC[music] });
   writeFileSync(mf, JSON.stringify(rows, null, 2) + '\n');
-  console.log(`music   assets/music.mp3: ${MUSIC[music]} (${credits[5]}), at 0.14 under the voice`);
+  wrote.push(`assets/music.mp3 (${music}, ${credits[5]})`);
 }
 
 // each group from the look's template; the first opens at 0, the last closes at the narration's end
@@ -125,31 +127,50 @@ mkdirSync(path.join(dir, 'compositions'), { recursive: true });
 // the isometric look's one world, imported by every group: written once, never one copy per group
 if (iso) put('assets/world.js', readFileSync(path.join(tplDir, 'iso-world.tpl.js'), 'utf8'));
 
-// each builder's whole brief, so the main agent sends one line and no builder guesses a command or reads a source
+// each builder's brief and its check script: one line per prompt from the main agent, no command guessed
 const q = x => `'${String(x).replace(/'/g, `'\\''`)}'`, sk = q(SKILL), card = `${sk}/engine/${iso ? 'iso' : 'three'}/templates/${iso ? 'iso' : 'object-studio'}-API.md`;
+const STUB = "grep -q '^export const STUB' assets/world.js";
 groups.forEach((g, i) => {
   const next = groups[i + 1]?.from, own = beats.slice(beats.indexOf(g.from), next ? beats.indexOf(next) : beats.length);
   const others = groups.filter(o => o !== g).map(o => o.name).join(', ') || 'none';
-  const world = !iso ? `The set is the engine's object-studio kit, imported unchanged (API card).`
-    : i === 0 ? `**First, before anything else:** fill \`assets/world.js\` once from SPEC.md OBJECTS: every object any group shows, as build() specs (the card's forms, real sizes, true parts), COLORS from the SPEC palette, VALUES at rest. Data only, no drawing code. The other groups (${others}) import it and wait for it, so write it in your first Write; that Write replaces the stub whole, its \`STUB\` line included.\n**Dense and true, the film's quality lives here:** each place is furnished, never a bare slab: 6 or more set props around the subject (furniture, fixtures, plants, tools, signs, cables), ground and walls in distinct materials; each made object is built from the parts that make it known at a glance (a pump: body, impeller housing, flanges, bolts; a laptop: lid, hinge, keys, ports; a boat: hull, deck, mast, rigging), never one plain box; every person the narration names or implies is a \`figure\` at real height, in clothes that stand off its ground.\nMark the hero spec \`hero: true\` (15+ parts, grouped base, structure, mechanism, controls, the subject) and list in \`PINS\` every part an overlay labels, each name unique.\n**Then prove it, before any snapshot:** \`node ${sk}/scripts/iso_audit.mjs . --ground <your slab or plot part>\` (and \`--cut 1\` when a beat cuts the hero open). Exit 3 names each part that floats, sinks into another object, or a pipe that passes through a solid or ends in mid-air: fix the geometry (a foot, a bracket, a run that lands on a port), never by hiding or nudging the part, and rerun until it exits 0. Exit 2 is a WARN: rerun, never read it as clean.`
-    : `\`assets/world.js\` (COLORS, WORLD, VALUES, PINS) is written by the \`${groups[0].name}\` builder: import it, never copy, redraw or edit it; an object it lacks goes in your report. Your work is CAMERA (SPEC poses), values(t) for the keys you animate, the layers and the overlays. It is a stub until that builder's first Write: write your template first, then wait for it before your snapshot, never snapshot a stub: \`for i in $(seq 27); do grep -q '^export const STUB' assets/world.js || break; sleep 20; done; grep -q '^export const STUB' assets/world.js && echo STILL A STUB || echo world ready\` (Bash timeout 600000; still a stub after two waits: report it and stop).`;
+  const waits = iso && i > 0;
+  // the check round: exit 0 only when every check passed; each check prints its result, cut to the errors
+  put(`review/check-${g.name}.sh`, [
+    '#!/bin/sh',
+    `# group ${g.name}'s check round (scaffold.mjs): sh review/check-${g.name}.sh`,
+    'cd "$(dirname "$0")/.." || exit 2',
+    `S=${sk}; f=0`,
+    ...(waits ? [`# the world is the ${groups[0].name} builder's: wait for it (up to 9 min), never check a stub`,
+      `for i in $(seq 27); do ${STUB} || break; sleep 20; done`,
+      `if ${STUB}; then echo "FAILED world.js is still a stub: report it and stop"; exit 1; fi`] : []),
+    `node "$S/scripts/fill_times.mjs" src/compositions/${g.name}.tpl.html compositions/${g.name}.html >/dev/null || f=1`,
+    'node "$S/scripts/fill_times.mjs" src/index.tpl.html index.html >/dev/null || f=1',
+    'o=$(node "$S/scripts/lint_scene.mjs" . 2>&1) || f=1; printf \'%s\\n\' "$o" | tail -8',
+    ...(iso ? [`o=$(node "$S/scripts/film_gate.mjs" . --group ${g.name} 2>&1) || f=1; printf '%s\\n' "$o" | tail -12`] : []),
+    'if [ $f = 0 ]; then echo "check: PASS"; else echo "check: FAILED"; fi',
+    'exit $f',
+    '',
+  ].join('\n'), 0o755);
+  const world = !iso ? 'The set is the engine\'s object-studio kit, imported unchanged (API card).'
+    : i === 0 ? [`**World first:** fill \`assets/world.js\` once from SPEC.md OBJECTS, in your first Write (it replaces the stub whole, its \`STUB\` line included; the other groups wait for it): every object any group shows as build() specs (the card's forms, real sizes, true parts), COLORS from the SPEC palette, VALUES at rest. Data only.`,
+      '**Dense and true:** each place furnished, 6 or more set props around the subject, ground and walls in distinct materials; each made object built from the parts that make it known (a pump: body, impeller housing, flanges, bolts), never one plain box; every person the narration names or implies a `figure` at real height. The hero spec `hero: true` (15+ parts); every part an overlay labels in `PINS`, each name unique.',
+      `**Prove it before any snapshot:** \`node ${sk}/scripts/iso_audit.mjs . --ground <your slab part>\` (\`--cut 1\` when a beat cuts the hero open). Exit 3 names a part that floats, sinks or a pipe through a solid: fix the geometry, never hide or nudge it; rerun until exit 0. Exit 2 is WARN: rerun.`].join('\n')
+    : `\`assets/world.js\` is the \`${groups[0].name}\` builder's: import it, never copy or edit it; an object it lacks goes in your report. Yours: CAMERA (SPEC poses), values(t) for the keys you animate, layers, overlays. Write your template first; your check script waits for the world (Bash timeout 600000).`;
   put(`review/builder-${g.name}.md`, [
-    `# Builder brief: group \`${g.name}\` (beats ${own.join(', ')})`,
+    `# Builder: group \`${g.name}\` (beats ${own.join(', ')})`,
     '',
-    `Film: ${dir}. Skill: ${SKILL}. Other groups at the same time: ${others}.`,
-    `Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js` (one Write: it is a stub)' : ''}, with Edit (never a whole-file rewrite, never \`sed -i\` or a script).`,
-    '',
-    `**Read, once each, nothing else:** \`SPEC.md\`; your rows of \`storyboard.md\` (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; \`assets/examples.js\` (finished specs: copy their density, part count and detail per object). No other engine source in \`assets/\` (every signature is on the card), no README, no \`references/\`, no \`/hyperframes\` skill (the template meets the render contract), no \`words.json\`, no other group's file, no other film.`,
-    `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`: each word as its \`w("word", n)\` call. Every time is a cue; never a number of seconds.`,
+    `Film: ${dir}. Parallel: ${others}. Edit only \`src/compositions/${g.name}.tpl.html\`${iso && i === 0 ? ' and `assets/world.js`' : ''}.`,
+    `**Read once:** \`SPEC.md\`; your storyboard rows (\`grep -n -E '${own.join('|')}' storyboard.md\`); ${card}; your template; \`assets/examples.js\` (finished specs: copy their density and part count). No other engine source in \`assets/\`, no \`references/\`, no \`/hyperframes\` skill.`,
+    `**Cues** (once \`audio/beats.json\` exists): \`node ${sk}/scripts/cues.mjs . --beats ${own.join(',')}\`; every time is a cue, never seconds.`,
     '',
     world,
     '',
-    `**Check, one Bash per round:** \`node ${sk}/scripts/fill_times.mjs src/compositions/${g.name}.tpl.html compositions/${g.name}.html && node ${sk}/scripts/fill_times.mjs src/index.tpl.html index.html >/dev/null && node ${sk}/scripts/lint_scene.mjs . 2>&1 | tail -8\`${iso ? ` && node ${sk}/scripts/film_gate.mjs . --group ${g.name} 2>&1 | tail -12` : ''}\` (film_gate: your seams, the world in motion, reading time; every FAILED fixed before you report). Your first CAMERA key is \`{ t: 0, ...OPEN }\` and your last \`...CLOSE\` with nothing overridden: the SPEC poses are the seams. All the edits one round of checks asks for go in one message (several Edit calls side by side), never one edit a turn.`,
-    `**Look, at most 2 rounds:** \`npx hyperframes snapshot --at <every storyboard row of yours: its start + 0.5, comma-separated> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\` (seconds from the cue table), then open its contact sheet (\`style-frames/${g.name}/contact-sheet*.jpg\`) once: recompose on text on a plain ground, low contrast, text outside the safe zone, a shape untrue to its reference, the beat's subject under a third of the frame height, bare ground over half the frame, a person the narration names missing, a moving thing (dots, flow, parts) that does not stand off its ground, a shot not the size and move its storyboard row names, overlay text under its SPEC size (labels 40 px, headlines 64 px on the 1080 px canvas) or faint, a frame greyed whole (focus greys the context, never the subject). All of a round's fixes in one message.`,
+    `**Check:** \`sh review/check-${g.name}.sh\` (exit 0 = PASS); fix every FAILED. First CAMERA key \`{ t: 0, ...OPEN }\`, last \`...CLOSE\`, nothing overridden.`,
+    `**Look, at most 2 rounds:** \`npx hyperframes snapshot --at <every storyboard row of yours: start + 0.5, comma-separated> --no-end --describe false -o style-frames/${g.name}/ 2>&1 | tail -3\`, then open \`style-frames/${g.name}/contact-sheet*.jpg\` once. Recompose on: text on a plain ground, low contrast or outside the safe zone; a shape untrue to its reference; the subject under a third of the frame height; bare ground over half the frame; a named person missing; a moving thing that does not stand off its ground; a shot not its row's size and move; overlay text under SPEC size (labels 40 px, headlines 64 px at 1080) or faint; a frame greyed whole.`,
     '',
-    'Budget: about 25 turns, 30 at most, your context under 150K (everything you read is paid again on every later turn). Report in at most 12 lines: files; each check as PASS (its command and the result line it printed), FAIL (what failed) or UNVERIFIED (not run, or its output unreadable), never "done", and a PASS from before your last edit of that file does not count; open issues (a SPEC number you needed changed: report it, never edit SPEC.md). The same defect twice means a different route (another form, a simpler part, a changed shot), never a third try of the same fix. Stop once every check passes.',
+    `**Report:** files; each check PASS (its command and the result line it printed), FAIL (what) or UNVERIFIED; a PASS from before your last edit does not count. A SPEC number you need changed: report it, never edit SPEC.md. The same defect twice means a different route (another form, a simpler part, a changed shot), never a third try. Budget: about 25 turns, 30 at most.`,
     '',
   ].join('\n'));
 });
-console.log(`groups  ${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(' · ')}`);
-console.log(`next    one dalang-builder per group, all in one message, each prompt only: Read review/builder-<group>.md in ${dir} and follow it.`);
+console.log(`scaffold: wrote ${wrote.join(', ') || 'nothing'}${kept.length ? `; kept ${kept.join(', ')}` : ''}`);
+console.log(`next: one dalang-builder per group (${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(', ')}), all in one message, each prompt: Read ${dir}/review/builder-<group>.md and follow it.`);

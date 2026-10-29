@@ -48,17 +48,14 @@ function report(label, j, a, fixed = false) {
   const diff = I - a.target;
   const okI = Math.abs(diff) <= a.tol;
   const okTP = TP <= a.tp + 0.1;
-  console.log(`${label}`);
-  console.log(`  Loudness (integrated): ${I.toFixed(1)} LUFS  (target ${a.target}, off by ${diff >= 0 ? '+' : ''}${diff.toFixed(1)} dB)`);
-  console.log(`  True peak            : ${TP.toFixed(1)} dBTP (limit ${a.tp})`);
-  console.log(`  Range (LRA)          : ${LRA.toFixed(1)} LU`);
   let verdict;
   if (okI && okTP) verdict = 'OK — loudness is on target.';
   else if (fixed) verdict = `STILL OFF after normalising (${!okI ? `${diff >= 0 ? '+' : ''}${diff.toFixed(1)} dB` : 'peak'}): tame the loudest peaks in the mix (lower SFX, or a limiter) and measure again — rerunning --fix won't help.`;
   else if (!okI && diff < 0) verdict = `TOO QUIET by ${Math.abs(diff).toFixed(1)} dB. Raise the narration in the mix, or use --fix.`;
   else if (!okI) verdict = `TOO LOUD by ${diff.toFixed(1)} dB. Lower the mix, or use --fix.`;
   else verdict = 'Peak too high (may clip). Use --fix.';
-  console.log(`  Result               : ${verdict}`);
+  // one line (score_run.mjs reads "integrated): " and "True peak : ")
+  console.log(`${label}Loudness (integrated): ${I.toFixed(1)} LUFS (target ${a.target}, ${diff >= 0 ? '+' : ''}${diff.toFixed(1)} dB) · True peak : ${TP.toFixed(1)} dBTP (limit ${a.tp}) · LRA ${LRA.toFixed(1)} LU · Result: ${verdict}`);
   return okI && okTP;
 }
 
@@ -68,7 +65,7 @@ if (!existsSync(a.file)) { console.error(`FAILED: file not found: ${a.file}`); p
 if (!hasAudio(a.file)) { console.log('This file has no audio track. Nothing to measure.'); process.exit(2); }
 
 const j = measure(a.file, a);
-const ok = report(`Loudness: ${a.file}`, j, a);
+const ok = report('', j, a);
 
 if (a.fix && path.resolve(a.fix) === path.resolve(a.file)) { console.error('FAILED: --fix needs a new output file; ffmpeg cannot overwrite the file it reads.'); process.exit(1); }
 if (a.fix) {
@@ -77,7 +74,7 @@ if (a.fix) {
   const r = ffmpeg(['-y', '-i', a.file, '-map', '0:v?', '-map', '0:a:0', '-c:v', 'copy', '-af', filter, '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', a.fix]);
   if (r.status !== 0) { console.error('FAILED to normalise:\n' + r.stderr.slice(-800)); process.exit(1); }
   const j2 = measure(a.fix, a);
-  const ok2 = report(`\nAfter fixing: ${a.fix}`, j2, a, true);
+  const ok2 = report('After --fix: ', j2, a, true);
   process.exit(ok2 ? 0 : 3);
 }
 process.exit(ok ? 0 : 3);

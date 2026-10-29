@@ -32,6 +32,14 @@ that reads as:
 
 ### Changed
 
+- Token-lean skill text: SKILL.md 17.4 → 9.0 KB (re-sent on every turn), the Express path's reading 51 → 31 KB, the
+  Studio path's 51 → 40 KB, Step 7's subagent reading 23 → 17 KB; references, engine READMEs and API cards
+  (engine/three/README 37 → 12 KB) cut to the instructions, one home per rule. `state.mjs reading` enforces SKILL.md ≤
+  10 KB, Express ≤ 45 KB, Studio ≤ 60 KB.
+- Lean script output: `state.mjs next` about half the size (one header for the look-up lines), one line per result in
+  preflight, the take summary, captions, stillness, loudness and scopes; builder briefs 5.4 → 3.2 KB with each group's
+  checks in one `review/check-<group>.sh`. The Express hand-off pastes the metrics `express.mjs final` printed instead
+  of running them again.
 - `camera-motion.md` and `craft-rules.md` are numbered without gaps (camera-motion §6–10, craft-rules §1–6), every pointer
   rewritten to match.
 - With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`: the Express

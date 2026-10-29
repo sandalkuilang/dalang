@@ -51,7 +51,7 @@ const sha = f => createHash('sha256').update(readFileSync(path.join(dir, f))).di
 const locked = () => ['assets/world.js', ...(existsSync(path.join(dir, 'compositions')) ? readdirSync(path.join(dir, 'compositions')).filter(f => f.endsWith('.html')).map(f => `compositions/${f}`) : [])].filter(f => existsSync(path.join(dir, f)));
 const gate = n => {
   if (spawnSync(process.execPath, [path.join(HERE, 'state.mjs'), 'check', String(n), dir]).status === 0) return console.log(`OK     gate ${n} (approved, fresh)`);
-  step(`gate ${n} by agent`, ...node('state.mjs', 'approve', String(n), dir, '--by', 'agent'), { keep: 2 });
+  step(`gate ${n} by agent`, ...node('state.mjs', 'approve', String(n), dir, '--by', 'agent'), { quiet: true, keep: 2 });
 };
 
 if (cmd === 'after-voice') {

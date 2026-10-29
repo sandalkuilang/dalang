@@ -7,9 +7,7 @@
 <script src="audio/beats.js"></script>
 <script src="audio/captions.js"></script>
 <style>
-  /* The host, both looks: the groups (sub-compositions), karaoke captions on top, the narration. Copy to src/index.tpl.html,
-     replace __TITLE__, one group line per SPEC group (data-start / data-duration from beats), then fill_times.
-     isometric-world: pass the language's fonts and colours to captions() and set the background to its ground. */
+  /* The host for both looks, filled by scaffold.mjs. isometric-world: set the backgrounds to the language's ground. */
   html, body { margin: 0; background: #ECECEA; }
   #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #ECECEA; font-family: "Inter", sans-serif; }
   #captions { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 40; pointer-events: none; }

@@ -81,7 +81,7 @@ if (A && B) {
   if (at !== -1) problems.push(`${fileB}:${b[at].line} beat ${b[at].name} comes where ${fileA}:${a[at].line} has ${a[at].name} — keep the first narration's order`);
 }
 
-console.log(`Beats lint: ${fileA}${A ? ` ${A.length} beats` : ''}, ${fileB}${B ? ` ${B.length} beats` : ''}`);
+console.log(`Beats lint: ${A ? A.length : '?'} vs ${B ? B.length : '?'} beats`);
 for (const p of problems) console.log(`  PROBLEM  : ${p}`);
 for (const w of warns) console.log(`  WARN     : ${w}`);
 console.log(problems.length ? `  Result   : ${problems.length} problem(s)` : warns.length ? `  Result   : ${warns.length} warning(s) — rerun, then lint again` : '  Result   : OK');

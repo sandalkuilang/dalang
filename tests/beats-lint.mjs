@@ -41,7 +41,7 @@ try {
     ]);
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /Result\s*: OK/);
-    assert.match(r.out, /narration\.txt 4 beats, second\.txt 4 beats/, r.out);
+    assert.match(r.out, /^Beats lint: 4 vs 4 beats$/m, r.out);
     console.log("ok  a matching pair (other words, sections and line breaks) passes");
   }
   { // 2. a beat missing from the second

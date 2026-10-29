@@ -1,7 +1,4 @@
-<!-- isometric-world group __GROUP__: copy to src/compositions/__GROUP__.tpl.html, replace __GROUP__, __FROM__ and __TO__
-     (beat names) and __ILLUSTRATION__, then fill values, CAMERA, the layers and the overlays from SPEC.md. The world
-     (COLORS, WORLD, VALUES) is assets/world.js, shared by every group: imported, never copied or redrawn here.
-     Every time is a cue (w, we, b); every value is a pure function of t, so a seek renders the same frame. -->
+<!-- isometric-world group __GROUP__ (scaffold.mjs replaces this line) -->
 <template id="__GROUP__-template">
   <style>
     #root { position: absolute; inset: 0; overflow: hidden; background: #E8EDEF; }
@@ -19,7 +16,7 @@
     import { camAt, orbit25, filmOrbit, motionBlur, makeFinish } from "./assets/cinema.js";
     import { makeOverlay, w, we, b } from "./assets/editorial.js";
     import { COLORS, WORLD, VALUES } from "./assets/world.js";
-    const plates = await loadPlates(WORLD);   // the user's traced photos (assets/plates/<plate>/), before the timeline
+    const plates = await loadPlates(WORLD);   // traced photos, before the timeline
 
     const G0 = b("__FROM__"), G1 = b("__TO__"), DUR = G1 - G0;   // absolute seconds; t below is local (0 at G0)
     const L = (abs) => abs - G0;
@@ -27,24 +24,18 @@
     const g = cv.getContext("2d"), gb = bf.getContext("2d");
     const iso = new Iso(g, 1080, 1920), isoB = new Iso(gb, 1080, 1920), fin = makeFinish(1080, 1920);
 
-    // what acts in this group, from local t and the cues; only the WORLD keys it animates (the rest stay at VALUES):
-    // e.g. level: 0.2 + 1.6 * eo(seg(t, L(w("fills")), L(we("fills"))))
+    // only the keys this group animates, e.g. level: 0.2 + 1.6 * eo(seg(t, L(w("fills")), L(we("fills"))))
     const values = (t) => ({ ...VALUES });
 
-    // the camera: keyed poses { t, x, y, z, k (px per metre), ease }, eased, zoom in log, each move one way.
-    // OPEN is the previous group's CLOSE and CLOSE the next group's OPEN, as SPEC CAMERA writes them: seams match by
-    // construction. Moves in between: { t: L(w("word")), x, y, z, k, ease }.
+    // SPEC CAMERA's poses (OPEN = previous group's CLOSE); moves between: { t: L(w("word")), x, y, z, k, ease }
     const OPEN = { x: 0, y: 0, z: 0, k: 90 }, CLOSE = { ...OPEN }, REST = OPEN;
     const CAMERA = [{ t: 0, ...OPEN }, { t: DUR, ...CLOSE, ease: "inOut" }];
     const camera = (t) => camAt(t, CAMERA);
-    // its life is a slow orbit, never a handheld shake: one direction for the whole film (SPEC CAMERA: 1 right, -1 left,
-    // the same in every group), on film time, so the world keeps sliding the same way across every seam
-    const ORBIT = filmOrbit(1);   // every orbit25 in this film then goes this way, a shot's arrive-and-orbit included
+    const ORBIT = filmOrbit(1);   // SPEC CAMERA: 1 right, -1 left, the same in every group
     const orbit = (t) => orbit25(t + G0, { rest: REST, sweep: 0.08, width: 1080, from: 0, to: ORBIT, start: 0, dur: window.NARRATION_DURATION, ease: "linear" }).rest;
 
-    // every named part's pin point this frame (build()'s at): overlays anchor to these, never to typed numbers
-    const PIN = {};
-    // layers far to near (parallax.js): depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; one draw per layer
+    const PIN = {};   // each part's pin point this frame; overlays anchor here
+    // layers far to near: depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near
     function draw(c, i, t, cam) {
       const v = values(t);
       c.clearRect(0, 0, 1080, 1920);
@@ -61,7 +52,7 @@
       iso.cam = { ...cam };   // overlays project with the subject's camera
     }
 
-    // overlays in the narration language (SPEC OVERLAYS), in the language's type; the illustration label is required
+    // overlays (SPEC OVERLAYS) in the narration language
     const ov = makeOverlay(cv.parentElement, { prefix: "__GROUP__", G0, accent: COLORS.subject, ink: COLORS.ink,
       fonts: { display: "'Fredoka', sans-serif", body: "'Nunito Sans', sans-serif", mono: "'Nunito Sans', sans-serif" }, illustration: "__ILLUSTRATION__" });
     // ov.headline({ kicker: "KICKER", text: "Sentence [accent]", from: b("__FROM__"), to: G1 });

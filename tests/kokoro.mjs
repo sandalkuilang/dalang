@@ -146,8 +146,8 @@ await test("K1. a take is spoken one sentence per call and timed by forced align
   assert.deepEqual(r.calls.map((c) => c.text), ["The river starts in the hills.", S2, S3, "The town grows near the bank."]);
   assert.ok(r.calls.every((c) => c.lang === "a" && c.voice === "af_heart" && c.speed === 1), JSON.stringify(r.calls[0]));
   assert.match(r.out, /Model\s+: Kokoro-82M — Apache-2\.0/);
-  assert.match(r.out, /Billed\s+: 0 \(local\)/);
-  assert.match(r.out, /Timing\s+: forced alignment/);
+  assert.match(r.out, /billed 0 \(local\)/);
+  assert.match(r.out, /timing: forced alignment/);
   assert.equal(respOf(r)._meta.engine, "kokoro");
   assert.equal(respOf(r)._meta.model, "Kokoro-82M");
   assert.equal(respOf(r)._meta.voice_id, "af_heart");

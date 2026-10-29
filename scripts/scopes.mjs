@@ -105,17 +105,19 @@ cuts.forEach((c, i) => {
 });
 
 const f = (n, d = 0) => n.toFixed(d);
-console.log(`Scopes: ${a.file}  (${cuts.length} cuts, ${limits} range)`);
+const flagged = cuts.map((c, i) => ({ c, n: i + 1 })).filter(x => x.c.flags.length);
+if (!flagged.length) {
+  console.log(`Scopes: ${cuts.length} cuts, ${limits} range — Result: OK, every cut inside its bands (no PNG needed)`);
+  process.exit(0);
+}
+// only the flagged cuts' rows: an in-band cut has nothing to read
+console.log(`Scopes: ${cuts.length} cuts, ${limits} range`);
 console.log('  cut | start-end s     | YMIN | YMAX | YLOW | YHIGH | SATAVG | HUEAVG | flags');
-cuts.forEach((c, i) => {
+flagged.forEach(({ c, n }) => {
+  const i = n - 1;
   console.log(`  ${String(i + 1).padStart(3)} | ${`${f(c.start, 1)}-${f(c.end, 1)}`.padEnd(15)} | ${f(c.YMIN).padStart(4)} | ${f(c.YMAX).padStart(4)} | ${f(c.YLOW).padStart(4)} | ${f(c.YHIGH).padStart(5)} | ${f(c.SATAVG, 1).padStart(6)} | ${f(c.HUEAVG).padStart(6)} | ${c.flags.join(', ')}`);
 });
 
-const flagged = cuts.map((c, i) => ({ c, n: i + 1 })).filter(x => x.c.flags.length);
-if (!flagged.length) {
-  console.log('  Result : OK - every cut inside its bands. Skip the waveform and vectorscope PNGs.');
-  process.exit(0);
-}
 console.log(`  Result : OPEN THE SCOPES for cut(s) ${flagged.map(x => x.n).join(', ')} (crushed blacks / clipped whites / hue jump); a flag is a finding to look at, the look may want it.`);
 if (a.png) {
   mkdirSync(a.png, { recursive: true });

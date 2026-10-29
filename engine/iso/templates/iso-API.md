@@ -1,105 +1,81 @@
 # isometric-world kit: the whole API a builder needs
 
-Read this, `SPEC.md` and the templates. Never print the engine's sources: every signature is here. Times are absolute
-narration seconds from cues; lengths in metres, z up; the frame is 1080 × 1920 (16:9: 1920 × 1080, pass W, H). Every
-value is a pure function of t on the template's GSAP timeline: never CSS keyframes, `requestAnimationFrame` or a timer.
-
-**Already written by `scaffold.mjs`:** the engine in `assets/`, the host `src/index.tpl.html` (fonts and captions
-included), each group's `src/compositions/<group>.tpl.html` and the shared `assets/world.js`. Never copy, rewrite or
-search the disk for them.
+Every signature is here: never print the engine's sources. Times are absolute narration seconds from cues; lengths in
+metres, z up; the frame is 1080 × 1920 (16:9: 1920 × 1080, pass W, H). Every value is a pure function of t on the
+template's GSAP timeline: never CSS keyframes, `requestAnimationFrame` or a timer. `scaffold.mjs` already wrote the
+engine in `assets/`, the host, each group's template and `assets/world.js`: never copy, rewrite or search for them.
 
 ## The world (`assets/world.js`, `build.js`)
-One world for the whole film: `assets/world.js` exports `COLORS` (the SPEC palette, one base per material), `WORLD` (the
-`build()` specs of every object any group shows) and `VALUES` (the resting value of every key a spec names). The first
-group's builder fills it once from `SPEC.md` OBJECTS, first of all its work (one Write over the stub, its `STUB` line
-gone: the other groups wait on that line before a snapshot), furnished and true: 6+ set props per place, each object
-by the parts that make it known, each person a `figure`; every group imports it and never copies,
-redraws or edits it (a missing object goes in the report). A group's `values(t)` returns `{ ...VALUES, key: … }` for
-the keys it animates.
-**Prove the world** once it is written: `node <skill>/scripts/iso_audit.mjs . --ground <slab>` (0 clean; 3 names a part
-that floats, two objects drawing through each other, a pipe through a solid or ending in mid-air; 2 WARN, rerun). Every
-part rests on another part down to the ground (feet, brackets, a base, never a gap); objects touch, never sink into each
-other; a pipe or cable ends on a port and runs beside structure, held by brackets; fix the geometry, never nudge it by eye.
-`PINS` (world.js) lists the part names overlays label: each unique, each seen by the camera (`--cut 1` for a cutaway
-beat). Overlays anchor to `PIN.<part>` (the template fills `PIN` from `build()` every frame), never to typed numbers
-(`lint_scene.mjs` flags them). The hero spec carries `hero: true` and needs 15+ parts. `triad(hex)` (`palette.js`) gives a
-part three readable faces at any base: `color: triad(COLORS.subject)`.
-`build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
-- `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, shadow, parts: [part, …] }`: the template
-  builds the whole `WORLD` in one call, so objects are painted in true order; each gets a soft contact shadow
-  (`shadow: false` for a floor or a wall)
-- `part = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides off with
-  cut), group (focus key), array: { count, step: [dx, dy, dz] }, …the form's fields }`
-- forms: `box { w, d, h, bevel }` (top edges chamfered, 8 % of its least side by default) · `cyl { r, h, axis }` · `cone { r, h }` · `sphere { r }` · `roof { w, d, h, ridge }` ·
-  `lathe { profile: [[r, z], …] }` (anything turned) · `extrude { outline: [[u, v], …], h, plane }` · `sweep { path, r }`
-  (pipes, roads) · `gear { teeth, module, width, mesh: { with, phase } }` · `wheel { r, width, axis }` ·
-  `board { w, d, layers: [{ h, color }] }` · `figure { h, pose: stand|walk|point|carry|reach|sit|crouch|kneel|wave, phase, reach: [x, y, z] (the right hand
-  there; reachL the left), seat (sit: the seat height), lean, look, joints, color (shirt), legs, skinTone, hair, hairStyle
-  short|long|bald|cap, hat: "cap", sleeves: "long", coat }` (a jointed 3D person facing +x, feet always on the ground; `turn` faces it) ·
-  `model { model, size, max }` · `flat { outline }` · `line { path, width, dash }` · `group { parts }` ·
-  `kit { kit, …its fields }` (below)
-- **Kits first** (`kit.js`): a made thing is assembled from components, never drawn from bare boxes. Each expands into
-  real parts named under the kit part (`front.rim`); face components stand in xz facing +y (`face: "x"` faces +x).
-  fasteners `bolt { r }` `rivets { count, step }` · faces `panel { w, h, seams, screws }` `vent { w, h, slots }`
-  `grille { w, h }` `screen { w, h, glow }` `button { r }` `knob { r }` `led` `handle { w }` `label { w, h }` `hinge { h }` ·
-  flow `pipe { path, r, flanges }` `hose { path, r }` `cable { path }` · motion `tyre { r, width, axis, spokes, tread,
-  spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · containers `bottle` `drum` `pan { fill, level }`
-  `can` `crate` `carton` · places `window` `door` `table` `chair` `shelf` `plant` `lamp` · tools `wrench`
-  `screwdriver` `funnel` `cone`. Sizes and colours are fields (`{ kit: "bottle", h: 0.3, color: "#…" }`).
-- **Templates** (`templates.js`, the same `form: "kit"`): `motorbike { style: scooter|underbone, color, spin, lit }`
-  · `car { style: sedan|hatch|van, color, spin, lit }` · `engine { crank (rad), oil, level, bore, stroke }` (piston and
-  rod ride the crank; crankcase and barrel are skins the cutaway slides off) · `room { w, d, h, window, door }` (its spec
-  `shadow: false`; it is ground) · `appliance { kind: fridge|washer|ac|server }` · `tree { h, kind: round|pine }`.
-  Facing +x; `turn` faces them. A template is one rigid assembly to the world audit; place it, never rebuild it.
-- **The user's own thing** (`plate.js`): `plate { plate: "<name>", w (its real length, m), d, spin: { <part>: "<value>" },
-  spread: { <part>: "<value>" } (rad swept per frame: a fast fan or wheel as a blurred disc), tint: { <select>: { color,
-  amount: "<value>" } }, flows: [{ path: [[fx, fy], …], color, width, at: "<value>" (travel), on }], marks: { <name>:
-  [fx, fy] } }` draws `assets/plates/<name>/` (traced from their photo by `trace.mjs`) upright at its point, lowest edge
-  on the ground. Paths and marks are fractions of the photo, read off it; pins `<part>.<layer>` and `<part>.<mark>`. The
-  template loads it before the timeline: `const plates = await loadPlates(WORLD)` (base `./assets/plates`), then
-  `build(iso, WORLD, { values, plates })`.
-- Any number may name a key of `values` (`h: "level"`): `values(t)` returns them, pure in t. `focus` greys all but that
-  group; `cut` 0–1 slides every `skin` off (cutaway).
-- A ready CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(iso, spec, { models: { name: m } })`
-  and a part `{ form: "model", model: "name", size }`.
+- `world.js` exports `COLORS` (SPEC palette, one base per material), `WORLD` (every object's `build()` spec), `VALUES`
+  (resting value of every key a spec names) and `PINS` (part names overlays label, each unique and seen by the camera).
+- The first group's builder fills it once from SPEC OBJECTS, first of all (one Write over the stub; the `STUB` line
+  gone releases the other groups): 6+ props per place, each object by its telling parts, people as `figure`, the hero
+  `hero: true` with 15+ parts. Other groups import it and never copy or edit it (a missing object goes in the report).
+- Prove it: `node <skill>/scripts/iso_audit.mjs . --ground <slab>` (0 clean; 3 names a floating part, objects
+  through each other, a pipe through a solid or ending in air; 2 WARN, rerun; `--cut 1` for a cutaway beat). Fix the
+  geometry, never nudge by eye.
+- Overlays anchor to `PIN.<part>` (the template fills `PIN` from `build()` every frame), never typed numbers.
+- `build(iso, spec, { values, cut, focus, models, plates })` → `{ at: { part: [x, y, z] } }`. The template builds the whole
+  `WORLD` in one call (true paint order).
+- `spec = { at, rot (quarter turns), scale, color, focus, cut, shadow (false for floor/wall), hero, parts }`
+- `part = { name, form, at (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true, group (focus key),
+  array: { count, step }, …form fields }`. `color: triad(COLORS.x)` (`palette.js`) keeps three faces at any base.
+- forms: `box { w, d, h, bevel }` · `cyl { r, h, axis }` · `cone { r, h }` · `sphere { r }` · `roof { w, d, h, ridge }` ·
+  `lathe { profile: [[r, z], …] }` · `extrude { outline: [[u, v], …], h, plane }` · `sweep { path, r }` ·
+  `gear { teeth, module, width, mesh: { with, phase } }` · `wheel { r, width, axis }` · `board { w, d, layers: [{ h, color }] }` ·
+  `model { model, size, max }` · `flat { outline }` · `line { path, width, dash }` · `group { parts }` · `kit { kit, … }`
+- `figure { h, pose: stand|walk|point|carry|reach|sit|crouch|kneel|wave, phase, reach: [x, y, z], reachL, seat, lean,
+  look, joints, color, legs, skinTone, hair, hairStyle: short|long|bald|cap, hat: "cap", sleeves: "long", coat }`: faces +x, feet on the ground.
+- **Kits first** (`kit.js`): made things from components, never bare boxes; parts named under the kit part (`front.rim`);
+  face components stand in xz facing +y (`face: "x"` faces +x). `bolt { r }` `rivets { count, step }` · `panel { w, h,
+  seams, screws }` `vent { w, h, slots }` `grille { w, h }` `screen { w, h, glow }` `button { r }` `knob { r }` `led`
+  `handle { w }` `label { w, h }` `hinge { h }` · `pipe { path, r, flanges }` `hose { path, r }` `cable { path }` ·
+  `tyre { r, width, axis, spokes, tread, spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · `bottle`
+  `drum` `pan { fill, level }` `can` `crate` `carton` · `window` `door` `table` `chair` `shelf` `plant` `lamp` ·
+  `wrench` `screwdriver` `funnel` `cone`. Sizes and colours are fields.
+- **Templates** (`form: "kit"`, facing +x, one rigid assembly: place, never rebuild): `motorbike { style: scooter|underbone,
+  color, spin, lit }` · `car { style: sedan|hatch|van, color, spin, lit }` · `engine { crank, oil, level, bore, stroke }`
+  (crankcase and barrel are skins) · `room { w, d, h, window, door }` (`shadow: false`) · `appliance { kind:
+  fridge|washer|ac|server }` · `tree { h, kind: round|pine }`.
+- **The user's own thing** (`plate.js`, loaded by the template's `loadPlates(WORLD)`): `plate { plate: "<name>", w, d,
+  spin: { part: "<value>" }, spread: { part: "<value>" } (blurred disc), tint: { select: { color, amount } }, flows:
+  [{ path: [[fx, fy], …], color, width, at, on }], marks: { name: [fx, fy] } }`; paths are photo fractions; pins
+  `<part>.<layer>`, `<part>.<mark>`.
+- Any number may name a `values` key (`h: "level"`); `values(t)` returns `{ ...VALUES, key: … }`. `focus` greys all but
+  that group; `cut` 0–1 slides every `skin` off.
+- CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(…, { models: { name: m } })`,
+  part `{ form: "model", model: "name", size }`.
 
 ## Camera and depth
-- The template's `OPEN` and `CLOSE` poses are `SPEC.md` CAMERA's numbers for this group (OPEN = the previous group's
-  CLOSE), so seams match. `camAt(t, [{ t, x, y, z, k, ease }])` keyed poses (k = px per metre; ease `inOut | out | in | linear | expo`);
-  **a move goes one way**: keys that travel right then left (or back) with no hold ≥ 0.5 s between throw, so turn back
-  only after a held key or a cut. **No handheld, ever:** the camera's life is the template's slow orbit, one direction
-  for the whole film (`ORBIT = filmOrbit(1)` right or `filmOrbit(-1)` left, from SPEC CAMERA, the same in every group).
-  `filmOrbit` locks it: an `orbit25` against it (a shot's arrive-and-orbit included) throws, so `to: -1` is only for a
-  film that orbits left.
-- 2.5D moves (`cinema.js`, `{ rest, start, dur, ease }`; on 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest,
-  sweep })` → hand `o.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
-  dolly }`; `drone25(t, { rest, from })`. A zoom that lands on a subject hands over to a slow orbit: `orbit25(t, { rest: landing,
-  start: landingTime, dur, from: 0, to: 1 })` (`to: ORBIT`, the film's direction; `crane25` for up or down). An orbit is one
-  direction for its whole run, `from` → `to`: never two orbits back and forth, never a sine on the rest pose.
-  `whip(t, t0, dur, a, b)` → `{ cam, blur }` with `motionBlur(cv, bf, draw, t, { samples: 16 })`.
+- `OPEN`/`CLOSE` are SPEC CAMERA's poses for this group (OPEN = previous group's CLOSE). `camAt(t, [{ t, x, y, z, k,
+  ease }])`, k px per metre, ease `inOut | out | in | linear | expo`. A move goes one way: travel back with no ≥ 0.5 s
+  hold between throws.
+- No handheld: the template's slow orbit, one direction for the film (`ORBIT = filmOrbit(1)` or `filmOrbit(-1)`, from
+  SPEC CAMERA); an `orbit25` against it throws.
+- `cinema.js` moves (`{ rest, start, dur, ease }`; 9:16 pass `width: 1080, height: 1920`): `orbit25(t, { rest, sweep,
+  from, to })` → `.rest` to drawLayers; `crane25(t, { rest, rise })`; `dollyZoom25(t, { rest, strength })` → `{ cam,
+  dolly }`; `drone25(t, { rest, from })`. A zoom landing hands over to `orbit25(t, { rest: landing, start, dur, from: 0,
+  to: ORBIT })`. Never orbits back and forth, never a sine on the rest pose.
+- `whip(t, t0, dur, a, b)` → `{ cam, blur }` with `motionBlur(cv, bf, draw, t, { samples: 16 })`.
 - `drawLayers(iso, cam, rest, [{ depth, draw(iso), blur? }], { focus, aperture, dolly, haze: { color, amount } })`:
-  depth 1 the subject, 0.2–0.5 far, 1.3–1.6 near; `aperture` × |depth − focus| px of blur (rack focus: animate focus);
-  `...bokeh(fstop, { focus, mm })` gives `{ focus, aperture }`: a wide f5.6, a zoom-in f1.2–2.8.
-  `focusRing(cv, bf, { cx, cy, fstop, clear, amount })` on the finished frame (before `fin.apply`) blurs everything around a spot and keeps the
-  centre clear: the edges of an arriving zoom, or the one part the narration names. `amount: hold(t, t0, t1, t2, t3)` fades it in and out.
-- Finish (`fin = makeFinish(W, H)`, in the template): `fin.apply(canvas, tAbs, { grade: { contrast, saturate, warmth }, bloom, sweep, vignette, grain, bars, fps })`.
+  depth 1 subject, 0.2–0.5 far, 1.3–1.6 near; blur = `aperture` × |depth − focus|; `...bokeh(fstop, { focus, mm })`
+  (wide f5.6, zoom-in f1.2–2.8). `focusRing(cv, bf, { cx, cy, fstop, clear, amount: hold(t, t0, t1, t2, t3) })` before
+  `fin.apply`.
+- `fin = makeFinish(W, H)`; `fin.apply(canvas, tAbs, { grade: { contrast, saturate, warmth }, bloom, sweep, vignette, grain, bars, fps })`.
 
 ## Drawing beside build()
-The template makes `iso = new Iso(ctx, W, H)` (`iso.cam = { x, y, z, k }`). `iso.P(x, y, z)` → `[px, py]`; `tri(hex)` → three tones; `iso.box/cyl/cone/sphere/roof(x, y, z, …, tri(c))`,
-`iso.flat(pts, z, c)`, `iso.line3(pts, c, lw)`, `iso.text3(str, x, y, z)`, then `iso.flush()` (drawLayers flushes each layer). Eases: `ss`, `eo`, `eio`, `back`;
-`seg(t, a, b)` 0–1 between two times; `clamp`, `lerp`.
+`iso = new Iso(ctx, W, H)`, `iso.P(x, y, z)` → `[px, py]`; `tri(hex)` three tones; `iso.box/cyl/cone/sphere/roof(x, y,
+z, …, tri(c))`, `iso.flat(pts, z, c)`, `iso.line3(pts, c, lw)`, `iso.text3(str, x, y, z)`, `iso.flush()` (drawLayers
+flushes each layer). Eases `ss`, `eo`, `eio`, `back`; `seg(t, a, b)` 0–1 between two times; `clamp`, `lerp`. Every
+solid is inked for you: detail comes from parts, never extra outlines.
 
 ## Overlays (`editorial.js`)
-`makeOverlay(root, { prefix, G0, accent, ink, fonts: { display, body, mono }, illustration })`, then per frame
-`ov.update(tLocal, project)`; anchors are world points (`at: () => [x, y, z]`, the template's `project`).
-`ov.headline({ kicker, text: "Sentence [accent]", from, to })` · `ov.card({ label, rows: [{ k, v, hi }], source, from, to,
-top, left, width })` · `ov.tags([{ title, value, sub, x }], { from, to })` · `ov.pill({ text, at, offset: [dx, dy], from,
-to })` · `ov.big({ text, at, offset, from, to })` · `ov.chip({ from, to })`. Cues: `b("beat")`, `w("word", n)` (0-based
-occurrence), `we(...)` its end. A chart the overlay set lacks: inline SVG in the group, driven in the same `onUpdate`.
+`makeOverlay(root, { prefix, G0, accent, ink, fonts: { display, body, mono }, illustration })`, per frame
+`ov.update(tLocal, project)`. `ov.headline({ kicker, text: "Sentence [accent]", from, to })` · `ov.card({ label,
+rows: [{ k, v, hi }], source, from, to, top, left, width })` · `ov.tags([{ title, value, sub, x }], { from, to })` ·
+`ov.pill({ text, at, offset: [dx, dy], from, to })` · `ov.big({ text, at, offset, from, to })` · `ov.chip({ from, to })`.
+Cues: `b("beat")`, `w("word", n)` (0-based occurrence), `we(...)` its end. A chart the overlays lack: inline SVG in the
+group, driven in the same `onUpdate`.
 
 ## The frame (9:16)
-The subject and its action between y 345 and 1150 at its key moments, ≥ 1/3 of the height; headline from y ~110; captions
-below 1180.
-
-The look is drawn for you: every solid gets ink on its silhouette and creases and a lit rim on its top edges, so detail
-comes from parts, never from extra lines or outlines of your own.
+Subject and action between y 345 and 1150, ≥ 1/3 of the height at key moments; headline from y ~110; captions below 1180.

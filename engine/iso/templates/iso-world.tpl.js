@@ -1,13 +1,10 @@
-// assets/world.js — the film's one world, shared by every group (written by scaffold.mjs; filled ONCE, by the first
-// group's builder, from SPEC.md OBJECTS). Every group imports it and never redraws or edits it, so the same object is
-// the same in every shot and seams match by construction. Data only: build() specs from each object's reference, real
-// sizes in metres, z up (iso-API.md "The world"); no drawing code. A number may name a key of VALUES ("h": "level"):
-// VALUES holds its resting value, and a group's values(t) overrides only the keys it animates.
+// assets/world.js — the film's one world (iso-API.md "The world"): data only, filled once from SPEC.md OBJECTS by the
+// first group's builder, imported unchanged by every group.
 
-// the other groups wait while this line is here: the first builder's one Write replaces the whole file, this line too
+// the other groups wait while this line is here: the first builder's one Write removes it
 export const STUB = true;
 
-// SPEC palette: one base colour per material; a part takes color: triad(COLORS.x) for three faces that read at any base
+// SPEC palette: one base per material; a part takes color: triad(COLORS.x)
 import { triad } from "./palette.js";
 export const COLORS = { ground: "#B8C2C6", subject: "#009B7D", accent: "#B57300", ink: "#22333B" };
 
@@ -19,5 +16,5 @@ export const WORLD = [
 // resting values of every key WORLD names, e.g. { level: 0.2 }
 export const VALUES = {};
 
-// the part names the overlays label (each unique in WORLD); iso_audit.mjs checks each is one part the camera sees
+// the part names the overlays label (each unique in WORLD)
 export const PINS = [];
