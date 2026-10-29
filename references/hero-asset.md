@@ -1,9 +1,11 @@
 # Hero asset: from 2D pictures to a 3D model, once
 
 The user brings pictures (photos, a cutaway diagram, a manual page, a sketch), never a 3D model. The hero (the thing the
-film is about, seen close and opened up: a pump, a hub, a lock, a valve) is modelled once as a Blender Python script in
-`engine/blender/`, rendered stylized, and kept in the library for later films. Supporting objects take the cheaper
-routes (`visual-direction.md` §1.1).
+film is about, seen close and opened up: a pump, a hub, a lock, a valve) is modelled once as a Blender Python script
+built from `engine/blender/parts.py`, rendered stylized, and kept in the owner's library, `<videos folder>/library/hero/
+<name>/`, outside the skill. Look there first: an asset that exists is reused (its `.py`, its clip page), never
+modelled again; a missing part of it (a second unit, an inside) is added to it from new pictures. Supporting objects
+take the cheaper routes (`visual-direction.md` §1.1).
 
 Blender (GPL) is a tool on the machine, never shipped. Missing (preflight's Blender row): `brief.md` Call 0 asks (size,
 licence), never installed on its own; declined, the hero falls back to a CC0 model or a three.js build, logged.
@@ -21,10 +23,11 @@ licence), never installed on its own; declined, the hero falls back to a CC0 mod
 
 - Library first: `engine/blender/parts.py` (pipes with bends, fans, motors, coils, compressors, valves, sheet casings,
   fasteners, wires, in real units). A missing part is added there, generic, named by what it is.
-- The assembly is `engine/blender/assemblies/<name>.py`: dotted node names (`pump.impeller`, `hub.pawl`), a moving
+- The assembly is `<videos folder>/library/hero/<name>/<name>.py` (the owner's library, outside the skill; it imports `parts.py`
+  from `<skill-dir>/engine/blender`, `DALANG_BLENDER` overrides): dotted node names (`pump.impeller`, `hub.pawl`), a moving
   part's origin on its axis, a `.quarter` of each part the section cuts. Real counts (fins, teeth, blades, screws),
   rounded sheet edges, true wall thickness on the cut.
-- Build: `Blender -b -P engine/blender/assemblies/<name>.py -- <out dir>` writes `<name>.glb`; `node
+- Build: `Blender -b -P <videos folder>/library/hero/<name>/<name>.py -- <out dir>` writes `<name>.glb`; `node
   tests/blender-parts.mjs` checks the scripts (and builds them where Blender is installed).
 
 ## 3. Check the still against the pictures
@@ -35,7 +38,7 @@ anything moves.
 
 ## 4. The motion recipe
 
-The clip page (`<name>.clip.html`, e.g. `engine/blender/assemblies/condensing_unit.clip.html`) is a HyperFrames
+The clip page (`<name>.clip.html` beside the assembly, copied from `engine/blender/templates/hero.clip.tpl.html` and filled in its data block) is a HyperFrames
 composition on a paused timeline, every value a pure function of t:
 
 - **Look:** the iso look (`isoLook`, `inkLines`) with a graded 3-tone matcap and thin ambient occlusion. Colour only as

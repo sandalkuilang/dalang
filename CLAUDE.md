@@ -14,8 +14,8 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
   `selfcheck.mjs`. `engine/three/examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
   as data, parallax, cinema). `engine/anatomy/`: Anatomy's geometry audit (MIT, vendored unchanged) and `world.mjs`,
   which proves an Express world (`scripts/iso_audit.mjs`). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
-- `engine/blender/`: the precision lane's hero assets, modelled once by script (`parts.py` library,
-  `assemblies/<name>.py`, checked by `tests/blender-parts.mjs`). `engine/music/`: the bundled CC0 / public-domain beds.
+- `engine/blender/`: the precision lane's generic tooling (`parts.py` library, `templates/hero.clip.tpl.html`, checked by
+  `tests/blender-parts.mjs`); each hero asset lives in the owner's `<videos>/library/hero/<name>/`, never in this repo. `engine/music/`: the bundled CC0 / public-domain beds.
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
 - `docs/`: workflow and architecture, with diagrams (`docs/assets/build.py` derives the light SVGs from the dark ones).
 

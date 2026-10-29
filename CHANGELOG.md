@@ -42,6 +42,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Changed
 
+- Express reuses a hero already in the owner's library (object-studio places its GLB; the isometric look draws to its
+  proportions); only Studio models a new one.
 - Version rule: MAJOR only when a project from the previous version cannot continue or the way to ask for a video
   changes; internal removals are MINOR; at most one release a week.
 - Fast path: `state.mjs approve <n>` runs its gate's checks itself (Gate 1 the lints, Gate 2 the padding), refuses with
@@ -72,6 +74,9 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Removed
 
+- The one subject-specific hero asset and its clip page from `engine/blender/assemblies/`: hero assets live in the
+  owner's `<videos>/library/hero/<name>/`, outside the skill; the repo keeps the generic `parts.py` and a clip template
+  (`engine/blender/templates/hero.clip.tpl.html`) whose data block a film fills.
 - The 18 lessons kept only "for grep" (each is now a failing script), dead pointers to deleted epic files, history
   notes in READMEs, and the `isoMaterial` export.
 - The golden eval: `examples/golden/`, `evals/golden/3.0.0/`, `scripts/golden.mjs` and its two tests (unused since
