@@ -87,7 +87,7 @@ function one(iso, p, c, k, off, many) {
   try {
     const [h, b] = draw(iso, p, c, R, p.color ? R(p.color) : c.base);
     if (p.name) out.at[name] = iso.w(0, 0, h);
-    if (p.form !== "group" && iso.items.length > start) {
+    if (p.form !== "group" && p.form !== "kit" && iso.items.length > start) { // a group or kit is ordered by its own parts
       const W = [0, 1].flatMap((i) => [0, 1].flatMap((j) => [0, 1].map((q) => iso.w(b[i ? 3 : 0], b[j ? 4 : 1], b[q ? 5 : 2]))));
       c.list.push({ start, end: iso.items.length, min: [0, 1, 2].map((a) => Math.min(...W.map((v) => v[a]))), max: [0, 1, 2].map((a) => Math.max(...W.map((v) => v[a]))) });
     }
