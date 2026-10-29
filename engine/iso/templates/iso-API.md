@@ -34,7 +34,16 @@ part three readable faces at any base: `color: triad(COLORS.subject)`.
   `lathe { profile: [[r, z], …] }` (anything turned) · `extrude { outline: [[u, v], …], h, plane }` · `sweep { path, r }`
   (pipes, roads) · `gear { teeth, module, width, mesh: { with, phase } }` · `wheel { r, width, axis }` ·
   `board { w, d, layers: [{ h, color }] }` · `figure { h, pose: stand|walk|point|carry, phase, face }` ·
-  `model { model, size, max }` · `flat { outline }` · `line { path, width, dash }` · `group { parts }`
+  `model { model, size, max }` · `flat { outline }` · `line { path, width, dash }` · `group { parts }` ·
+  `kit { kit, …its fields }` (below)
+- **Kits first** (`kit.js`): a made thing is assembled from components, never drawn from bare boxes. Each expands into
+  real parts named under the kit part (`front.rim`); face components stand in xz facing +y (`face: "x"` faces +x).
+  fasteners `bolt { r }` `rivets { count, step }` · faces `panel { w, h, seams, screws }` `vent { w, h, slots }`
+  `grille { w, h }` `screen { w, h, glow }` `button { r }` `knob { r }` `led` `handle { w }` `label { w, h }` `hinge { h }` ·
+  flow `pipe { path, r, flanges }` `hose { path, r }` `cable { path }` · motion `tyre { r, width, axis, spokes, tread,
+  spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · containers `bottle` `drum` `pan { fill, level }`
+  `can` `crate` `carton` · places `window` `door` `table` `chair` `shelf` `plant` `lamp` · tools `wrench`
+  `screwdriver` `funnel` `cone`. Sizes and colours are fields (`{ kit: "bottle", h: 0.3, color: "#…" }`).
 - Any number may name a key of `values` (`h: "level"`): `values(t)` returns them, pure in t. `focus` greys all but that
   group; `cut` 0–1 slides every `skin` off (cutaway).
 - A ready CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(iso, spec, { models: { name: m } })`
