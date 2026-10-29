@@ -49,6 +49,10 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   assert.ok(f.findIndex(red) > f.findLastIndex(blue), "the crate paints after the whole floor when the WORLD is built as one");
   const sh = draw(W, {}).calls.filter((q) => q[0] === "fillStyle" && /rgba\(30,26,36/.test(q[1])).length;
   assert.equal(sh, 6, "each object gets a three-ring contact shadow");
+  // a cycle elsewhere in the world (two parts each inside the other's box) never undoes the floor-first order
+  const cyc = [...W, { name: "pair", at: [3, 3, 0], parts: [{ name: "a", form: "box", w: 1, d: 1, h: 1, color: "#5E8C4A" }, { name: "b", form: "box", w: 1, d: 1, h: 1, color: "#5E8C4A" }] }];
+  const fc = draw(cyc, {}).fills().filter((x) => x.startsWith("rgb") && (red(x) || blue(x)));
+  assert.ok(fc.findIndex(red) > fc.findLastIndex(blue), "a cycle elsewhere keeps the crate after the floor");
   assert.equal(draw([{ ...W[1], shadow: false }], {}).calls.filter((q) => q[0] === "fillStyle" && /rgba\(30,26,36/.test(q[1])).length, 0, "shadow: false");
 }
 const S = sweep([[0, 0, 0], [0, 0, 1], [1, 0, 1]], { r: 0.1, n: 6 });
