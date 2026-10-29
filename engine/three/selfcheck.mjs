@@ -10,7 +10,6 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 const dir = pathToFileURL(resolve(process.argv[2] || ".") + "/").href, use = (f) => import(dir + f);
 const { THREE } = await use("three-vendor.js");
 const K = await use("kit.js"); // a namespace: M and G are live bindings, set by makeKit
-const { get } = await use("surfaces.js");
 const { jet } = await use("air.js");
 const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
@@ -22,12 +21,9 @@ const { oner } = await use("examples/oner.js");
 const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
-const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
+const { wire, flow, glow, lamp, arc, blackbody, DRAPER, LAMPS } = await use("circuit.js");
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
 const { shots, cueTime } = await use("shots.js");
-const parts = await use("parts.js");
-const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
-const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR, polarityClashes } = await use("electronics.js");
 const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
@@ -38,9 +34,6 @@ const kit = K.makeKit(scene, { mpu: 2 });
 const M = K.M;
 assert.equal(M, 2, "makeKit sets the scale every module reads");
 const finite = (a) => Array.from(a).every(Number.isFinite);
-
-// Surfaces: tileable maps with no NaN.
-for (const k of ["fabric", "pile", "wood", "bamboo", "micro", "grains"]) { const s = get(k); assert.ok(finite(s.a.image.data) && finite(s.b.image.data), k + " map has NaN"); }
 
 // Air from an outlet: a round jet whose core speed falls as 1/x past ~2 diameters, and only ~15 % gets behind a thing.
 const J = jet({ D: 0.4, u0: 2.5, frame: (t, o, ax) => { o.set(0, 1 / M, 0); ax.set(1, 0, 0); } }), jv = new THREE.Vector3();
@@ -230,8 +223,7 @@ assert.deepEqual(Array.from(gr1.mesh.instanceMatrix.array), Array.from(gr0.mesh.
 assert.ok(gr0.body.userData.cut === false && gr0.mesh.userData.cut === false, "a fill built already cut is not clipped again");
 assert.ok(grains(kit, { preset: "coffee", at: new THREE.Vector3(), width: 0.1, depth: 0.08, height: 0.05 }).counts.face === 0, "no cut, no cut face");
 const sugar = grains(kit, { preset: "sugar", at: new THREE.Vector3(), radius: 0.05, height: 0.05, instances: false });
-assert.ok(!sugar.mesh && sugar.body && sugar.counts.top === 0, "grains too small to see are the body's texture alone");
-assert.ok(finite(get("grains", { size: 0.005, long: 1.4 }).a.image.data), "grains map has NaN");
+assert.ok(!sugar.mesh && sugar.body && sugar.counts.top === 0, "grains too small to see are the body alone");
 // A fixture container: an open lathed wall (a thin shell) and a base in metres, a grains() fill nested in it, and one
 // cutaway() driving wall and fill (the pattern grains.js documents for nesting a fill in a group modelled in metres).
 const makeCanister = (k, { at, height = 0.16, radius = 0.055, fill = "coffee", level = 0.75, cut } = {}) => {
@@ -307,87 +299,6 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
   assert.ok(!sc.mesh && sc.counts.top === 0 && sc.counts.face === 0 && verts(sc).every((p) => p.z * M <= 1e-6), "a cut fill without instances is a cut body");
   const sm = grains(kit, { preset: "sugar", radius: 0.005, height: 0.01 });
   assert.ok(sm.mesh && sm.counts.top > 50 && !sm.capped, "a small sugar patch builds its grains");
-}
-// Transmissions: the geometry of what the couplings tie together. Involute spur gears at a real module and tooth count mesh at the
-// centre distance without touching over a whole turn (and the test can see a clash: half a tooth off, teeth go into teeth);
-// an interfering pair is refused; a belt or chain loop has the length of the closed form, links sit along it at the pitch, and
-// a replayed frame knows where they are from the driver's pose alone, moving at ω·r.
-{
-  const TAU = Math.PI * 2, Z = { x: 0, y: 0, z: 1 };
-  const T = await use("transmission.js"), m = 0.002;
-  const place = (g, cx, rot) => { const c = Math.cos(rot), s = Math.sin(rot); return g.outline.map(([x, y]) => [cx + x * c - y * s, y * c + x * s]); };
-  const within = (P, [px, py]) => { let k = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) k = !k; } return k; };
-  const apart = (P, [px, py]) => { let best = Infinity; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, ay] = P[j], [bx, by] = P[i], dx = bx - ax, dy = by - ay, u = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); best = Math.min(best, Math.hypot(ax + u * dx - px, ay + u * dy - py)); } return best; };
-  // Over one turn of the first gear in 720 steps: vertices of either gear strictly inside the other, and the least gap between a vertex and the other outline.
-  const turnOf = (g1, g2, ms, off = 0, stopAt = Infinity) => {
-    let hits = 0, gap = Infinity; const lo = ms.centre - g2.ra - m, hi = g1.ra + m, win = (P) => P.filter((p) => p[0] >= lo && p[0] <= hi);
-    for (let k = 0; k < 720 && hits < stopAt; k++) {
-      const phi = (k / 720) * TAU, A = place(g1, 0, phi), B = place(g2, ms.centre, ms.phase2 + off - (phi * g1.z) / g2.z);
-      for (const p of win(B)) within(A, p) ? hits++ : (gap = Math.min(gap, apart(A, p)));
-      for (const p of win(A)) within(B, p) ? hits++ : (gap = Math.min(gap, apart(B, p)));
-    }
-    return { hits, gap };
-  };
-  const g1 = T.involute({ module: m, teeth: 12, pressure: 25 }), g2 = T.involute({ module: m, teeth: 36, pressure: 25 }), ms = T.meshing(g1, g2);
-  const near = (a, b) => Math.abs(a - b) < 1e-12;
-  assert.ok(near(g1.rp, 0.012) && near(g1.ra, 0.014) && near(g1.rf, 0.012 - 1.25 * m) && near(g1.rb, 0.012 * Math.cos((25 * Math.PI) / 180)), "radii: pitch m·z/2, tip +m, root −1.25m, base rp·cos α");
-  assert.ok(near(ms.centre, 0.048) && near(ms.ratio, 1 / 3) && near(ms.phase2, Math.PI - Math.PI / 36) && ms.contact > 1.3 && ms.contact < 1.5, "the centre distance is m(z1+z2)/2, the contact ratio about 1.4: " + JSON.stringify(ms));
-  assert.ok(g1.outline.some(([x, y]) => Math.abs(x - g1.ra) < 1e-12 && Math.abs(y) < 1e-12) && g1.outline.every(([x, y]) => Math.hypot(x, y) <= g1.ra + 1e-12 && Math.hypot(x, y) >= g1.rf - 1e-12), "tooth 0 is centred on +x, every point is between the root and the tip circle");
-  const ok = turnOf(g1, g2, ms), bad = turnOf(g1, g2, ms, Math.PI / g2.z, 1);
-  assert.equal(ok.hits, 0, "two meshing involute gears never interpenetrate over a turn");
-  assert.ok(ok.gap > 0 && ok.gap < 0.1 * m, "they really mesh: the least gap is " + (ok.gap / m).toFixed(3) + " m");
-  assert.ok(bad.hits > 0, "half a tooth off, teeth are inside teeth (the check can see a clash)");
-  const h1 = T.involute({ module: m, teeth: 20 }), h2 = T.involute({ module: m, teeth: 40 }), hs = T.meshing(h1, h2);
-  assert.equal(turnOf(h1, h2, hs).hits, 0, "a 20:40 pair at 20 degrees meshes too");
-  // Refusals: a fixable pair is told how.
-  assert.throws(() => T.meshing(T.involute({ module: m, teeth: 12 }), T.involute({ module: m, teeth: 36 })), /interference.*25/, "12:36 at 20 degrees interferes");
-  assert.throws(() => T.meshing(g1, T.involute({ module: 0.003, teeth: 36, pressure: 25 })), /module/, "gears of another module do not mesh");
-  assert.throws(() => T.meshing(g1, T.involute({ module: m, teeth: 36, pressure: 20 })), /pressure/, "gears of another pressure angle do not mesh");
-  assert.throws(() => T.involute({ module: m, teeth: 5 }), /teeth/, "fewer than 6 teeth");
-  assert.throws(() => T.involute({ module: m, teeth: 12.5 }), /teeth/, "a fractional tooth count");
-  assert.throws(() => T.involute({ module: 0, teeth: 12 }), /module/, "no module");
-  assert.throws(() => T.involute({ module: m, teeth: 6, pressure: 40 }), /pointed/, "a pointed tooth");
-  // The solid: an extrusion in metres, centred on the axle's plane, with a bore when asked.
-  const geo = T.gearGeometry(g1, { width: 0.01 }), bored = T.gearGeometry(g1, { width: 0.01, bore: 0.003 });
-  geo.computeBoundingBox(); bored.computeBoundingBox();
-  assert.ok(Math.abs(geo.boundingBox.max.z - 0.005) < 1e-9 && Math.abs(geo.boundingBox.min.z + 0.005) < 1e-9 && Math.abs(geo.boundingBox.max.x - g1.ra) < 1e-9, "a gear solid is width deep, centred, tip radius wide");
-  const rMin = (G) => { const p = G.attributes.position; let r = Infinity; for (let i = 0; i < p.count; i++) r = Math.min(r, Math.hypot(p.getX(i), p.getY(i))); return r; };
-  assert.ok(rMin(geo) > g1.rf - 1e-9 && Math.abs(rMin(bored) - 0.003) < 1e-9, "the bore leaves a hole of its radius");
-  // A belt or chain loop: its length is the closed form, it is continuous, an idler on the back adds its detour.
-  const R1 = 0.0849, R2 = 0.0283, CD = 0.42, L = 2 * Math.sqrt(CD * CD - (R1 - R2) ** 2) + Math.PI * (R1 + R2) + 2 * (R1 - R2) * Math.asin((R1 - R2) / CD);
-  assert.ok(Math.abs(T.openLength(R1, R2, CD) - L) < 1e-12, "openLength is the closed form");
-  const lp = T.loopPath([{ x: 0, y: 0, r: R1 }, { x: CD, y: 0, r: R2 }]);
-  assert.ok(Math.abs(lp.length - L) < 1e-9, "two wheels: the loop is as long as the closed form: " + (lp.length - L));
-  const EPS = 1e-7, wrapA = (a) => a - TAU * Math.round(a / TAU), joints = (P) => { for (const sg of P.segments) for (const s0 of [sg.s0, 0, P.length]) {
-    const a = P.at(s0 - EPS), b = P.at(s0 + EPS);
-    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 3 * EPS && Math.abs(wrapA(a.angle - b.angle)) < 1e-5, "the path is continuous at s = " + s0);
-  } };
-  joints(lp);
-  assert.ok(Math.abs(lp.segments.reduce((n, sg) => n + sg.length, 0) - lp.length) < 1e-12, "the segments add up to the length");
-  const lo = lp.at(0.1), lw = lp.at(0.1 + lp.length);
-  assert.ok(Math.abs(lo.x - lw.x) < 1e-9 && Math.abs(lo.y - lw.y) < 1e-9, "s wraps round the loop");
-  assert.ok(Math.abs(lo.angle) < 0.2 && lo.y < 0, "the loop runs counter-clockwise: the lower run goes +x");
-  const idler = T.loopPath([{ x: 0, y: 0, r: R2 }, { x: CD / 2, y: -0.07, r: 0.02, inside: true }, { x: CD, y: 0, r: R1 }]);
-  assert.ok(idler.length > T.loopPath([{ x: 0, y: 0, r: R2 }, { x: CD, y: 0, r: R1 }]).length, "an idler on the back of the belt adds a detour");
-  joints(idler);
-  assert.throws(() => T.loopPath([{ x: 0, y: 0, r: 0.05 }, { x: 0.06, y: 0, r: 0.02, inside: true }]), /tangent/, "wheels that overlap have no belt between them");
-  assert.throws(() => T.loopPath([{ x: 0, y: 0, r: 0.05 }]), /wheels/, "one wheel");
-  // The centre for a whole number of links.
-  for (const links of [110, 120]) { const c = T.centreFor({ links, pitch: 0.0127, r1: R1, r2: R2 }); assert.ok(Math.abs(T.openLength(R1, R2, c) - links * 0.0127) < 1e-9, links + " links round-trip through centreFor"); }
-  assert.throws(() => T.centreFor({ links: 8, pitch: 0.0127, r1: R1, r2: R2 }), /centre|links/, "a chain too short to go round");
-  const cc = T.centreFor({ links: 110, pitch: 0.0127, r1: R1, r2: R2 }), cl = T.loopPath([{ x: 0, y: 0, r: R1 }, { x: cc, y: 0, r: R2 }]), lk = T.linkPoses(cl, { pitch: 0.0127, phase: 0 });
-  assert.equal(lk.length, 110, "110 links on a loop of 110 pitches");
-  assert.ok(Math.abs(lk[0].x - cl.at(0).x) < 1e-12 && lk[0].y < 0, "the first link is where the loop starts");
-  const first = T.linkPoses(cl, { pitch: 0.0127, phase: 0.003 });
-  assert.ok(Math.hypot(first[0].x - lk[0].x, first[0].y - lk[0].y) > 0.0029, "the phase slides the links along the loop");
-  assert.throws(() => T.linkPoses({ length: 110.4 * 0.005, at: () => ({ x: 0, y: 0, angle: 0 }) }, { pitch: 0.005, phase: 0 }), /whole number of links/, "a loop of 110.4 pitches");
-  // Phase from the pose: any rotation of any size gives the same phase mod the pitch, in any frame order.
-  const qz = (a) => ({ x: 0, y: 0, z: Math.sin(a / 2), w: Math.cos(a / 2) }), q0 = qz(0.7), PR = T.pitchRadius(20, 0.005);
-  assert.ok(Math.abs(PR - (20 * 0.005) / TAU) < 1e-15, "pitch radius = teeth·pitch/2π");
-  assert.ok(Math.abs(T.angleOf(qz(0.7 + 2), q0, Z) - 2) < 1e-12 && Math.abs(T.angleOf(qz(0.7 + 7), q0, Z) - (7 - TAU)) < 1e-12, "angleOf is the turn about the axis, wrapped");
-  assert.ok(Math.abs(T.angleOf(qz(0.7 + 2), q0, { x: 0, y: 0, z: -1 }) + 2) < 1e-12, "and its sign follows the axis");
-  const PR1 = PR - 0.005 * Math.floor(PR / 0.005); // one radian of the 20-tooth wheel moves the chain PR, folded into one pitch
-  assert.ok(Math.abs(T.phaseOf(qz(0.7 + 1), q0, Z, 20, 0.005) - PR1) < 1e-12 && Math.abs(T.phaseOf(qz(0.7 + 1 + TAU * 3), q0, Z, 20, 0.005) - PR1) < 1e-9,"the phase is a distance along the chain and repeats every tooth");
 }
 // Type: shared captions and pinned labels. phrases() splits like craft-rules §6 in several languages (CJK by
 // characters) and holds each through the pause that follows; drawCaption picks its ink from the ground under its own
@@ -1333,52 +1244,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   // A lamp's colour temperature is checked when the lamp is made, not when a voltage first lights it.
   for (const bad of [NaN, 0, -2700, "2700", null]) assert.throws(() => lamp(new THREE.PointLight(), { rated: { V: 230, lm: 800 }, voltage: () => 0, cct: bad }), /cct/, "lamp refuses cct " + bad);
 }
-{ // Failure states and instrument widgets (circuit.js, instruments.js): a part fails at the model's event time and only
-  // then (the original is hidden, never rewritten); a widget draws the number its model signal gives, with units and a
-  // label, and prints "--" for a value it cannot read, never 0.
-  const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, box = (o) => new THREE.Box3().setFromObject(o);
-  const part = (geo, color = 0x8899aa) => { const g = new THREE.Group(), m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8 })); g.add(m); return { g, m }; };
-  const geos = {
-    bulge: () => new THREE.CylinderGeometry(0.01, 0.01, 0.03, 24, 4), blown: () => new THREE.BoxGeometry(0.03, 0.001, 0.001, 8, 1, 1),
-    char: () => new THREE.BoxGeometry(0.01, 0.003, 0.003), melt: () => new THREE.BoxGeometry(0.02, 0.01, 0.02, 4, 6, 4),
-  };
-  for (const kind of Object.keys(geos)) {
-    const { g, m } = part(geos[kind]()), hex = m.material.color.getHex(), f = failure(m, { kind, at: 5 });
-    f.at(4.9);
-    assert.ok(m.visible && !f.failed.visible, kind + ": the part shows before the event");
-    f.at(5);
-    assert.ok(!m.visible && f.failed.visible, kind + ": the failed variant shows from the event");
-    f.at(4.9);
-    assert.ok(m.visible && !f.failed.visible, kind + ": pure of t, a seek back shows the part again");
-    assert.ok(f.failed.parent === g && f.normal === m, kind + ": the variant sits beside the part");
-    assert.ok(m.material.color.getHex() === hex && m.material.roughness === 0.3 && m.material.metalness === 0.8, kind + ": the part's own material is never written");
-    assert.ok(f.failed !== m && (f.failed.material ? f.failed.material !== m.material : true), kind + ": the variant has its own material");
-    assert.throws(() => failure(m, { kind, at: NaN }), /failure/, "the event time must be a number");
-    assert.throws(() => failure(m, { kind }), /failure/);
-  }
-  assert.throws(() => failure(part(geos.char()).m, { kind: "rust", at: 1 }), /failure/, "an unknown kind is refused");
-  assert.throws(() => failure(new THREE.Group(), { kind: "char", at: 1 }), /failure/, "a part is a Mesh");
-  { const { m } = part(geos.char()), c = failure(m, { kind: "char", at: 1 }).failed.material;
-    assert.ok(lum(c.color) < lum(m.material.color) * 0.5 && c.roughness === 1 && c.metalness === 0, "a charred part is darker, dull and not metallic"); }
-  { const { m } = part(geos.bulge()), f = failure(m, { kind: "bulge", at: 1 });
-    assert.ok(box(f.failed).max.y > box(m).max.y + 0.0005 && box(f.failed).min.y === box(m).min.y, "a bulged capacitor domes at the top only");
-    const v = failure(part(geos.bulge()).m, { kind: "bulge", at: 1, vent: true }).failed;
-    assert.ok(v.children.length === 2 && f.failed.children.length === 0, "a vented top has a dark cross"); }
-  { const { m } = part(geos.blown()), f = failure(m, { kind: "blown", at: 1, amount: 1 }), p = f.failed.userData.pieces;
-    const a = box(p[0]), b = box(p[1]), L = 0.03;
-    assert.ok(p.length === 2 && a.max.x < b.min.x - 1e-9, "a blown fuse wire is two pieces with a gap");
-    assert.ok(Math.abs(b.min.x - a.max.x - 0.3 * L) < 1e-9 && Math.abs(a.min.x + L / 2) < 1e-9 && Math.abs(b.max.x - L / 2) < 1e-9, "the gap is 30 % of the length and the ends stay: " + (b.min.x - a.max.x));
-    const s = f.failed.userData.soot;
-    assert.ok(s && s.material.opacity === 0.6 && s.material.color.getHex() === 0x1b1a18 && Math.abs(s.position.x) < 1e-9, "a soot mark at the gap");
-    const half = failure(part(geos.blown()).m, { kind: "blown", at: 1, amount: 0.5 }).failed.userData.pieces.map(box);
-    assert.ok(Math.abs(half[1].min.x - half[0].max.x - 0.15 * L) < 1e-9, "a smaller amount is a smaller gap"); }
-  { const { m } = part(geos.melt()), f = failure(m, { kind: "melt", at: 1 });
-    assert.ok(box(f.failed).max.y < box(m).max.y - 0.001 && box(f.failed).min.y > box(m).min.y - 1e-9, "a melted connector sags at the top");
-    assert.ok(lum(f.failed.material.color) < lum(m.material.color), "and darkens");
-    assert.ok(Array.from(f.failed.geometry.attributes.position.array).every(Number.isFinite) && Array.from(f.failed.geometry.attributes.normal.array).every(Number.isFinite), "no NaN in the melted shape"); }
-  { const m = new THREE.Mesh(geos.char(), new THREE.MeshStandardMaterial()), f = failure(m, { kind: "char", at: 1 });
-    assert.ok(f.failed.parent === null, "a part with no parent: the caller adds the variant"); }
-
+{ // Instrument widgets (instruments.js): a widget draws the number its model signal gives, with units and a label, and
+  // prints "--" for a value it cannot read, never 0.
   // Instruments: drawn on a 2D canvas, they return the numbers they drew.
   const rec = () => {
     const calls = [], st = {};
@@ -1888,305 +1755,6 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const row = JSON.parse(readFileSync(join(built, ".engine.json"), "utf8")).find((r) => r.file === "draco/draco_decoder.wasm");
   assert.ok(row && row.licence === "Apache-2.0" && /draco/i.test(row.source), "the decoder is listed with its origin and licence");
 }
-{ // markings and electronics (K.M is 0.01 here: 1 unit = 1 cm, so every size below is metres / K.M)
-  const Mk = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z), UP = V(0, 1, 0);
-  const grey = new THREE.MeshStandardMaterial({ color: 0x334455 });
-  const flat = () => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), grey); m.scale.set(0.02 / Mk, 0.004 / Mk, 0.06 / Mk); return m; }; // 20 x 4 x 60 mm under a non-uniform scale
-  const topAt = V(0, 0.002 / Mk, 0);
-  const worldBox = (o) => { o.updateWorldMatrix(true, false); return new THREE.Box3().setFromObject(o, true); };
-  // A fixture board, 72 x 48 mm, placed by reference designator as a film would build its own: parts with their prints,
-  // a warning sticker, traces from pin to pin (an electrolytic's pin 1 is plus), and cables out of the terminals in
-  // their conductor colours. The parts, places and values are test values, not a catalogue.
-  const testBoard = (k, { at = new THREE.Vector3(), prints = {} } = {}) => {
-    const b = board({ at, w: 0.072, d: 0.048, name: "test board" }), P = (ref, type, o) => b.place(ref, type, { ...o, print: prints[ref] ?? o.print });
-    P("J1", "terminal.5.08", { at: [-29, -16], poles: 2 }); P("F1", "fuse.5x20", { at: [-18, -4], print: ["T1A", "250V"] });
-    P("RV1", "varistor", { size: "07D", at: [-31, 3], print: ["07D471K"] }); P("C1", "cap.film", { size: "P15", at: [0, -17.5], print: ["0.1µF X2", "275VAC"] });
-    P("U1", "ic.dip8", { at: [20, -16], print: ["PWM", "CTRL"] }); P("C2", "cap.electrolytic", { size: "10x16", at: [28, -3], print: ["22µF", "400V"] });
-    P("Q1", "ic.to220", { at: [5, 21.5], heatsink: true, print: ["SW", "FET"] }); P("K1", "relay", { at: [-16, 15], print: ["12VDC", "10A 250VAC"] });
-    P("C3", "cap.electrolytic", { size: "8x11.5", at: [28, 14], print: ["1000µF", "16V"] }); P("R1", "resistor", { size: "0.25W", at: [14, 3], value: 4700 });
-    P("R2", "resistor", { size: "0.25W", at: [0, 3], value: 220 }); P("R3", "resistor", { size: "0.5W", at: [24, 22.5], value: 1e6 });
-    P("J2", "terminal.5.08", { at: [30.5, -16], poles: 2 });
-    b.print({ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, style: "sticker", at: [2.5, -6.5] });
-    const traces = [b.trace(["J1:1", [-31.5, -8], "F1:1"]), b.trace(["F1:2", "RV1:1"]), b.trace(["C2:1", [20, -3], "R1:2"]), b.trace(["C3:1", "J2:1"])];
-    const u = 1 / Mk, v = (x, y, z) => new THREE.Vector3(x * 0.001 * u, y * 0.001 * u, z * 0.001 * u);
-    const lead = (ref, n, conductor, run) => {
-      const local = b.group.worldToLocal(b.pin(ref, n).clone()), x = local.x * Mk * 1000, z = b.parts[ref].footprint.z0 * 1000;
-      const c = cable(new THREE.CatmullRomCurve3([v(x, 5, z), v(x, 6, z - 6), v(x + run * 0.4, 9, z - 15), v(x + run, 12, z - 26)]), { conductor });
-      b.group.add(c.group); c.pin = `${ref}:${n}`; return c;
-    };
-    return { group: b.group, board: b, parts: b.parts, marks: b.marks, traces, cables: [lead("J1", 1, "L", -16), lead("J1", 2, "N", -6), lead("J2", 1, "+", 6), lead("J2", 2, "-", 16)] };
-  };
-
-  // 1. real size under a non-uniform parent scale: the print is never flattened with the mesh scale
-  { const box = flat(), r = markings(box, [{ text: "16V", h: 0.002, at: topAt, normal: UP, style: "pad" }]), it = r.items[0];
-    const size = worldBox(it.mesh).getSize(V(0, 0, 0)).multiplyScalar(Mk);
-    assert.ok(Math.abs(size.x / it.w - 1) < 0.01 && Math.abs(size.z / it.hh - 1) < 0.01, "marking measures " + size.x.toFixed(5) + " x " + size.z.toFixed(5) + " m, declared " + it.w.toFixed(5) + " x " + it.hh.toFixed(5));
-    assert.ok(it.w > 0.003 && it.w < 0.009 && it.hh > 0.003 && it.hh < 0.006, "3 characters 2 mm high are a few mm wide");
-    assert.equal(it.mesh.parent, box, "the print is a child of the target: it moves with the part");
-    // 2. lifted on its normal by the style's lift, the sticker's corner curled but never above 1.5 mm
-    const pos = it.mesh.geometry.attributes.position, wv = V(0, 0, 0); let worst = 0;
-    for (let i = 0; i < pos.count; i++) { wv.fromBufferAttribute(pos, i).applyMatrix4(it.mesh.matrixWorld); worst = Math.max(worst, Math.abs(wv.y * Mk - 0.002 - STYLES.pad.lift)); }
-    assert.ok(worst < STYLES.pad.lift * 0.2, "every vertex sits one pad-print lift above the face (off by " + worst + " m)");
-    const st = markings(box, [{ text: "HI", h: 0.002, at: topAt, normal: UP, style: "sticker" }]).items[0], sp = st.mesh.geometry.attributes.position;
-    let hi = 0, lo = 1; for (let i = 0; i < sp.count; i++) { wv.fromBufferAttribute(sp, i).applyMatrix4(st.mesh.matrixWorld); const l = wv.y * Mk - 0.002; hi = Math.max(hi, l); lo = Math.min(lo, l); }
-    assert.ok(Math.abs(lo - STYLES.sticker.lift) < 1e-5 && hi > STYLES.sticker.lift + 0.0003 && hi <= 0.0016, "a sticker is paper thick with one corner curled up to " + hi + " m, never above 1.5 mm");
-    assert.deepEqual(Object.keys(STYLES).sort(), ["laser", "pad", "silkscreen", "sticker"], "four print styles");
-    assert.ok(box.children.filter((c) => c.userData.marking).length === 2 && it.mesh.userData.marking.h === 0.002 && it.mesh.userData.marking.style === "pad" && it.mesh.userData.marking.wear === 0, "each print declares its height, style and wear for the detail check");
-  }
-  // 3. a curved surface: the print follows a cylinder; too wide or off the surface is refused
-  { const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.005 / Mk, 0.005 / Mk, 0.02 / Mk, 48), grey);
-    const it = markings(cyl, [{ text: "A", h: 0.002, at: V(0, 0, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]).items[0], p = it.mesh.geometry.attributes.position, wv = V(0, 0, 0);
-    let worst = 0; for (let i = 0; i < p.count; i++) { wv.fromBufferAttribute(p, i).applyMatrix4(it.mesh.matrixWorld); worst = Math.max(worst, Math.abs(Math.hypot(wv.x, wv.z) * Mk / (0.005 + STYLES.pad.lift) - 1)); }
-    assert.ok(worst < 0.02, "the print wraps the cylinder within 2 % of its radius (off by " + worst + ")");
-    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, w: 0.02, at: V(0, 0, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /wrap|overhang/, "a print wider than the cylinder is refused");
-    assert.throws(() => markings(cyl, [{ text: "A", h: 0.002, at: V(0, 5, 0.005 / Mk), normal: V(0, 0, 1), style: "pad" }]), /overhang/, "a print off the surface is refused");
-    assert.throws(() => markings(flat(), [{ text: "A", h: 0.002, at: V(0.0095 / Mk, 0.002 / Mk, 0), normal: UP, style: "pad" }]), /wrap|overhang/, "a print over the edge of a face is refused");
-  }
-  // 4. refusals name the field
-  { const box = flat(), ok = { text: "A", h: 0.002, at: topAt, normal: UP, style: "pad" };
-    assert.throws(() => markings(box, [{ ...ok, h: 0 }]), /cap height/);
-    assert.throws(() => markings(box, [{ ...ok, style: "neon" }]), /style/);
-    assert.throws(() => markings(box, [ok], { wear: 1.5 }), /wear/);
-    assert.throws(() => markings(box, [{ ...ok, wear: -0.1 }]), /wear/);
-    assert.throws(() => markings(box, [{ ...ok, text: undefined }]), /text/);
-    assert.throws(() => markings(box, [{ ...ok, normal: undefined }]), /normal/);
-    assert.throws(() => markings(box, [{ ...ok, at: [0, 0, 0] }]), /at must be/);
-    assert.throws(() => markings(box, []), /items/);
-    assert.throws(() => markings({}, [ok]), /target/);
-    assert.throws(() => markings(box, [{ ...ok, icon: "skull" }]), /icon/);
-    const worn = markings(box, [{ ...ok, wear: 0.4 }]).items[0]; assert.equal(worn.mesh.userData.marking.wear, 0.4, "wear is kept on the print");
-  }
-  // 4b. every icon and wear draw through a canvas (a recording stand-in: the drawing code runs, nothing is shown)
-  { const calls = [], ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); return k === "measureText" ? { width: 6 * String(a[0]).length } : undefined; }), set: (t, k, v) => { t[k] = v; return true; } });
-    globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
-    try {
-      const box = flat(), at = (x) => V(x / Mk, 0.002 / Mk, 0);
-      markings(box, [{ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, at: at(0), normal: UP, style: "sticker", wear: 0.5 }, { icon: "earth", h: 0.002, at: at(-0.006), normal: UP, style: "pad" },
-        { icon: "class2", h: 0.002, at: at(0.006), normal: UP, style: "laser" }, { text: ["ab"], h: 0.001, at: V(0, 0.002 / Mk, 0.02 / Mk), normal: UP, style: "silkscreen", wear: 1 }]);
-      assert.ok(calls.includes("fillText") && calls.includes("fill") && calls.includes("stroke"), "text, shapes and strokes are drawn");
-      assert.ok(calls.includes("arc"), "the wear specks are cut out of the ink");
-    } finally { delete globalThis.document; }
-  }
-  // 5. legible at the macro station (the acceptance): a 2 mm print is at least READ_PX tall at 1080 px; far away it is not
-  { const p = testBoard(null), c2 = p.parts.C2, m = c2.marks.find((x) => x.h === 0.002), cam = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk);
-    assert.ok(m, "C2 carries a 2 mm rating print");
-    placeCamera(cam, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 0, elevation: 20 }));
-    const px = glyphPx(m, cam, 1080);
-    assert.ok(px >= READ_PX && legible(m, cam, 1080), "a 2 mm print is " + px.toFixed(1) + " px tall at the macro station (floor " + READ_PX + " px)");
-    const far = new THREE.PerspectiveCamera(30, 16 / 9, 1e-4 / Mk, 100 / Mk); far.position.copy(m.centre).add(V(0, 0, 2 / Mk)); far.lookAt(m.centre); far.updateProjectionMatrix(); far.updateMatrixWorld();
-    assert.ok(glyphPx(m, far, 1080) < READ_PX && !legible(m, far, 1080), "the same print 2 m away is " + glyphPx(m, far, 1080).toFixed(1) + " px: not legible");
-    const behind = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk); placeCamera(behind, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 180, elevation: 20 }));
-    assert.equal(glyphPx(m, behind, 1080), 0, "a print facing away from the camera cannot be read");
-  }
-  // 5b. legibility follows the print and the frame: a print is read where its mesh is now, and only when it is in the frame
-  { const mkCam = (fov = 15.19) => new THREE.PerspectiveCamera(fov, 16 / 9, 1e-4 / Mk, 100 / Mk), macro = (cam, part, az = 0) => placeCamera(cam, frame(part.body, { fov: 15.19, aspect: 16 / 9, azimuth: az, elevation: 20 })), mark2 = (p) => p.parts.C2.marks.find((x) => x.h === 0.002);
-    // a board flipped to show its solder side, and lifted: the rating print now faces down
-    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
-      assert.ok(glyphPx(m, cam, 1080) >= READ_PX, "before the flip the rating reads");
-      p.group.rotation.x = Math.PI; p.group.position.y += 0.1 / Mk; p.group.updateMatrixWorld(true);
-      assert.equal(glyphPx(m, cam, 1080), 0, "a print on a flipped board faces away: it is read where it is now, not where it was printed"); assert.ok(!legible(m, cam, 1080));
-    }
-    // the same board inside a housing that turns, the camera turning with it: the print reads as before
-    { const p = testBoard(null), housing = new THREE.Group(); housing.add(p.group);
-      const m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2); const px0 = glyphPx(m, cam, 1080);
-      housing.rotation.y = Math.PI / 2; housing.updateMatrixWorld(true);
-      const q = housing.quaternion; cam.position.applyQuaternion(q); cam.quaternion.premultiply(q); cam.updateMatrixWorld(true);
-      const px1 = glyphPx(m, cam, 1080);
-      assert.ok(px0 >= READ_PX && Math.abs(px1 / px0 - 1) < 0.01, "a turned housing and a camera turned with it: " + px0.toFixed(1) + " px before, " + px1.toFixed(1) + " px after");
-    }
-    // a print moved into view reads (it was out of the frame when it was printed)
-    { const q = testBoard(null), p = testBoard(null, { at: V(0.5 / Mk, 0, 0) }), m = mark2(p), cam = mkCam(); macro(cam, q.parts.C2);
-      assert.equal(glyphPx(m, cam, 1080), 0, "a board half a metre to the side is out of the frame");
-      p.group.position.x -= 0.5 / Mk; p.group.updateMatrixWorld(true);
-      assert.ok(glyphPx(m, cam, 1080) >= READ_PX && legible(m, cam, 1080), "moved into the frame, its print reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
-    }
-    // a print outside the frame is not read: the macro station on the film capacitor C1 does not show C2's rating, 28 mm to the side
-    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C1);
-      assert.equal(glyphPx(m, cam, 1080), 0, "C2's print is outside the frame framed on C1"); assert.ok(!legible(m, cam, 1080));
-      placeCamera(cam, frame(p.parts.C3.body, { fov: 15.19 })); assert.ok(!legible(m, cam, 1080), "nor does the default three-quarter station on C3");
-      macro(cam, p.parts.C2); assert.ok(legible(m, cam, 1080), "framed on C2 it reads");
-    }
-    // a print half out of the frame is not readable, the whole of it in the frame is
-    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
-      const dist = cam.position.distanceTo(m.centre) * Mk, aim = (at, halfW) => { cam.fov = (2 * Math.atan(halfW / (16 / 9) / dist) * 180) / Math.PI; cam.lookAt(at); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); };
-      aim(m.centre.clone().addScaledVector(m.right, m.w / 2 / Mk), m.w / 4);
-      assert.equal(glyphPx(m, cam, 1080), 0, "the edge of the print is in the frame, the rest of it is not");
-      aim(m.centre, m.w);
-      assert.ok(legible(m, cam, 1080), "the whole print inside the frame reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
-    }
-  }
-  // 6. the catalogue: every part body is within 1 % of its declared size, upright and turned a quarter
-  { let declared = 0;
-    for (const [type, spec] of Object.entries(PARTS)) {
-      assert.ok(spec.source && spec.sizes && Object.keys(spec.sizes).length, type + " names its source and sizes");
-      for (const size of Object.keys(spec.sizes)) for (const rot of [0, 90]) {
-        const b = board({ w: 0.12, d: 0.12 });
-        b.place("X1", type, { size, rot, value: type === "resistor" ? 4700 : "1", heatsink: type === "ic.to220", poles: 3 });
-        const a = scaleAudit(b.group, { tol: 0.01 });
-        assert.ok(a.ok && a.off.length === 0 && a.bad.length === 0, type + " " + size + " rot " + rot + ": " + a.problems.join("; "));
-        assert.ok(a.checked >= 3 * 2, type + " " + size + ": body and board both declare a size (" + a.checked + ")");
-        if (rot === 0) declared++;
-      }
-    }
-    assert.ok(declared >= 14, declared + " catalogue sizes were built and measured");
-    const p = testBoard(null), a = scaleAudit(p.group, { tol: 0.01 });
-    assert.ok(a.ok && a.checked >= 13 * 3, "the fixture board: " + a.checked + " sizes checked, " + a.problems.join("; "));
-  }
-  // 7. resistor colour code (IEC 60062)
-  { assert.deepEqual(bands(4700), ["yellow", "violet", "red", "gold"]);
-    assert.deepEqual(bands(220), ["red", "red", "brown", "gold"]);
-    assert.deepEqual(bands(1), ["brown", "black", "gold", "gold"]);
-    assert.deepEqual(bands(0.47), ["yellow", "violet", "silver", "gold"]);
-    assert.deepEqual(bands(1e6), ["brown", "black", "green", "gold"]);
-    assert.deepEqual(bands(4750, { count: 5, tol: 1 }), ["yellow", "violet", "green", "brown", "brown"]);
-    assert.throws(() => bands(4750), /significant/, "4750 ohm needs 3 digits: not on a 4-band");
-    assert.throws(() => bands(-1), /ohms/);
-    assert.throws(() => bands(100, { tol: 7 }), /tol/);
-    const r1 = testBoard(null).parts.R1, want = bands(4700).map((n) => new THREE.Color(BAND_HEX[n]).getHex());
-    assert.deepEqual(r1.rings.map((m) => m.material.color.getHex()), want, "R1's rings are its value's colours");
-    assert.ok(r1.rings.every((m, i) => i === 0 || m.position.x > r1.rings[i - 1].position.x), "in order along +x");
-  }
-  // 8. placement by reference designator, pins and traces
-  { const b = board({ w: 0.06, d: 0.04 });
-    b.place("C2", "cap.electrolytic", { size: "10x16", at: [-10, 0], print: ["22µF", "400V"] });
-    b.place("Q1", "ic.to220", { at: [15, 5] });
-    assert.throws(() => b.place("C2", "resistor", { size: "0.25W", value: 100, at: [0, 10] }), /ref/, "a reference designator is used once");
-    assert.throws(() => b.place("R9", "resistor", { size: "9W", value: 100 }), /catalogue/);
-    assert.throws(() => b.place("R9", "flux.capacitor"), /catalogue/);
-    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, at: [100, 0] }), /off the board/);
-    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, rot: 45 }), /rot/);
-    assert.throws(() => b.place("R9", "resistor", { size: "0.25W" }), /value/);
-    assert.throws(() => b.place("R9", "cap.electrolytic", { at: [0, 10] }), /size/, "a size is named when the type has several");
-    assert.throws(() => b.place("R9", "resistor", { size: "0.25W", value: 100, at: [-10, 0] }), /overlap/, "two parts cannot share a place");
-    const p1 = b.pin("C2", 1), p2 = b.pin("C2", 2);
-    assert.ok(Math.abs(p1.y * Mk - 0.0016) < 1e-9 && Math.abs(p2.y * Mk - 0.0016) < 1e-9, "pins lie on the board's top");
-    assert.ok(Math.abs(p1.distanceTo(p2) * Mk / PARTS["cap.electrolytic"].sizes["10x16"].pitch - 1) < 0.01, "the two pins are one lead pitch apart");
-    assert.throws(() => b.pin("C2", 3), /pin/); assert.throws(() => b.pin("Z9", 1), /pin/);
-    const t = b.trace(["C2:1", "Q1:2"]), q = b.pin("Q1", 2);
-    assert.ok(t.length > 0 && t.kind === "trace" && b.traces.includes(t), "a trace follows the layout");
-    for (const [e, pn] of [[t.pointAt(0), p1], [t.pointAt(t.length), q]]) assert.ok(Math.hypot(e.x - pn.x, e.z - pn.z) * Mk < 1e-6, "its ends are the pins");
-    assert.throws(() => b.trace(["C2:1", "Z9:1"]), /pin/);
-    assert.ok(b.trace(["C2:2", [0, -15], [10, -15]]).length > 0, "free points are in mm from the board centre");
-    assert.throws(() => board({ w: 0 }), /w|d/);
-    const core = cable([V(0, 0.01 / Mk, 0), V(0.02 / Mk, 0.02 / Mk, 0)], { conductor: "N" });
-    assert.equal(core.meshes[0].material.color.getHex(), new THREE.Color(CONDUCTOR.N).getHex(), "a neutral core is blue");
-    assert.throws(() => cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X" }), /conductor/);
-    assert.equal(cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X", color: 0x123456 }).meshes[0].material.color.getHex(), new THREE.Color(0x123456).getHex(), "a film in another region passes its own colour");
-  }
-  // 9. the fixture board
-  { const p = testBoard(null), refs = Object.keys(p.parts);
-    assert.ok(refs.length === 13 && ["J1", "F1", "RV1", "C1", "U1", "Q1", "C2", "K1", "C3", "R1", "R2", "R3", "J2"].every((r) => refs.includes(r)), "thirteen parts by reference: " + refs.join(" "));
-    const onBoard = p.board.mesh.children.filter((c) => c.userData.marking).map((c) => [].concat(c.userData.marking.text ?? []));
-    for (const r of refs) assert.ok(onBoard.some((t) => t.includes(r)), r + " has its silkscreen reference");
-    assert.ok(p.marks.some((m) => m.icon === "W012" && m.style === "sticker") && p.marks.every((m) => m.h > 0 && Number.isFinite(m.w) && m.mesh.userData.marking), "the warning sticker and every print are listed");
-    assert.deepEqual(p.cables.map((c) => c.conductor).sort(), ["+", "-", "L", "N"], "mains in and dc out");
-    assert.ok(p.cables.every((c) => c.meshes[0].material.color.getHex() === new THREE.Color(CONDUCTOR[c.conductor]).getHex()), "cores in their conductor colours");
-    let lowest = Infinity; for (const c of p.cables) for (let s = 0; s <= c.length; s += c.length / 40) lowest = Math.min(lowest, c.pointAt(s).y * Mk);
-    assert.ok(lowest > 0.0016, "a cable never goes through the board (lowest " + lowest + " m)");
-    assert.equal(testBoard(null, { prints: { C2: ["47µF", "450V"] } }).parts.C2.marks.some((m) => [].concat(m.text).includes("450V")), true, "a film can print its own values");
-    assert.ok(p.traces.length >= 3 && p.traces.every((t) => t.length > 0), "traces between pins");
-  }
-  // 10. polarity: the minus stripe of an electrolytic is on the side of its minus lead, and a trace never joins it to the other pole
-  { const p = testBoard(null);
-    for (const rot of [0, 90, 180]) {
-      const b = board({ w: 0.04, d: 0.04 }); b.place("C9", "cap.electrolytic", { size: "10x16", rot, print: ["1µF", "50V"] });
-      const stripe = b.parts.C9.marks.find((m) => [].concat(m.text).includes("−")), plus = b.pin("C9", 1), minus = b.pin("C9", 2);
-      assert.deepEqual([b.polarity("C9", 1), b.polarity("C9", 2)], ["+", "-"], "pin 1 is the plus lead, pin 2 the minus lead");
-      assert.ok(stripe.centre.distanceTo(minus) < stripe.centre.distanceTo(plus), "rot " + rot + ": the minus stripe is on the side of the minus lead");
-    }
-    assert.equal(p.board.polarity("R1", 1), null, "a resistor has no polarity");
-    assert.deepEqual(polarityClashes(p.board, p.cables), [], "the fixture board joins plus to plus and minus to minus: " + polarityClashes(p.board, p.cables).join("; "));
-    const dc = p.cables.filter((c) => c.conductor === "+" || c.conductor === "-"); assert.ok(dc.length === 2 && dc.every((c) => /^J2:\d$/.test(c.pin)), "the dc cables say which pin they leave from");
-    const c3 = p.traces.find((t) => t.pins.includes("C3:1")), j2 = c3.pins.find((x) => x.startsWith("J2:")), cab = dc.find((c) => c.pin === j2);
-    assert.equal(cab.conductor, "+", "the output capacitor's plus lead runs to the dc plus cable");
-    // the attack: the plus lead traced to the dc minus cable
-    const bad = board({ w: 0.04, d: 0.04 }); bad.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); bad.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 });
-    bad.trace(["C9:1", [-10.5, 8], [7.46, 8], "J9:1"]); // round the other pads: a trace over a pad joins it (nets())
-    assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "-" }]).length, 1, "plus traced to a minus cable is a clash");
-    assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }]), [], "plus traced to a plus cable is not");
-    assert.deepEqual(polarityClashes(bad, [{ pin: "J9:1", conductor: "L" }]), [], "a mains core has no polarity to clash with");
-    bad.trace(["C9:2", [-5.5, -8], [12.54, -8], "J9:2"]); assert.equal(polarityClashes(bad, [{ pin: "J9:1", conductor: "+" }, { pin: "J9:2", conductor: "+" }]).length, 1, "minus traced to a plus cable is a clash");
-    // a net is the copper that touches, across traces, and a pin no trace reaches is a net too: each attack, and its
-    // legitimate twin on the other side of the same rule
-    const mk = () => { const g = board({ w: 0.04, d: 0.04 }); g.place("C9", "cap.electrolytic", { size: "10x16", at: [-8, 0] }); g.place("R9", "resistor", { value: 1000, size: "0.25W", at: [0, 12] }); g.place("J9", "terminal.5.08", { at: [10, 0], poles: 2 }); return g; };
-    const minus = [{ pin: "J9:2", conductor: "-" }], plus = [{ pin: "J9:2", conductor: "+" }];
-    const both = (build, clash, why) => { const g = mk(); build(g); assert.equal(polarityClashes(g, minus).length, clash ? 1 : 0, why + (clash ? ": plus to the minus cable is a clash" : ": not joined, no clash")); assert.deepEqual(polarityClashes(g, plus), [], why + ": plus to the plus cable is not"); };
-    both((g) => { g.trace(["C9:1", "R9:1"]); g.trace(["R9:1", "J9:2"]); }, true, "two traces through a shared pin are one net");
-    both((g) => { g.trace(["C9:1", [0, -10]]); g.trace([[0, -10], "J9:2"]); }, true, "two traces meeting at a free point are one net");
-    both((g) => { g.trace(["C9:1", [0, -10]]); g.trace([[0, -14], "J9:2"]); }, false, "traces that never touch");
-    both((g) => { g.trace(["C9:1", [-10.5, -10], [5, -10]]); g.trace(["J9:2", [12.5, -6], [0, -6], [0, -14]]); }, true, "two traces that cross are one net");
-    both((g) => { g.trace(["C9:1", [-10.5, -10], [5, -10]]); g.trace(["J9:2", [12.5, -6], [0, -6], [0, -8]]); }, false, "a trace that stops short of another");
-    both((g) => { g.trace(["J9:2", [12.5, 8], [-10.5, 8], [-10.5, -8]]); }, true, "a trace run over a pad it does not name joins it");
-    both((g) => { g.trace(["J9:2", [12.5, 8], [-14.5, 8], [-14.5, -8]]); }, false, "a trace run clear of the pad");
-    { const g = mk();
-      assert.equal(polarityClashes(g, [{ pin: "C9:1", conductor: "-" }]).length, 1, "a minus cable soldered straight to the plus lead, no trace on it, is a clash");
-      assert.deepEqual(polarityClashes(g, [{ pin: "C9:1", conductor: "+" }]), [], "a plus cable soldered straight to the plus lead is not");
-      assert.equal(polarityClashes(p.board, [...p.cables, { pin: "C3:2", conductor: "+" }]).length, 1, "on the fixture board: a plus cable on C3's untraced minus lead"); }
-    // the class: connectivity has one source, board.nets(). Every pin is in exactly one net, a trace's named pins share a
-    // net, the nets do not depend on the order traces are drawn in, and a clash is reported for exactly the nets that see both signs.
-    { const route = [["C9:1", "R9:1"], ["R9:1", [0, 4]], [[0, 4], [3, -2]], ["C9:2", [-5.5, -12], [8, -12]], ["J9:1", [7.46, -8]], ["J9:2", [15, 8]]];
-      const fwd = mk(), rev = mk(); for (const r of route) fwd.trace(r); for (const r of [...route].reverse()) rev.trace(r);
-      const norm = (g) => g.nets().map((n) => [...n].sort().join(",")).sort();
-      const all = Object.values(fwd.parts).flatMap((pt) => pt.pins.map((_, i) => `${pt.ref}:${i + 1}`)).sort();
-      assert.deepEqual(fwd.nets().flat().sort(), all, "every pin is in exactly one net");
-      for (const t of fwd.traces) assert.ok(fwd.nets().some((n) => t.pins.every((x) => n.includes(x))), "a trace's pins share a net");
-      assert.deepEqual(norm(fwd), norm(rev), "the nets do not depend on the order of the traces");
-      for (const cabs of [[{ pin: "J9:1", conductor: "-" }], [{ pin: "J9:1", conductor: "+" }], [{ pin: "J9:2", conductor: "+" }], [{ pin: "J9:2", conductor: "-" }, { pin: "R9:2", conductor: "+" }]]) {
-        const sign = (x) => [fwd.polarity(...((s) => [s[0], Number(s[1])])(x.split(":"))), ...cabs.filter((c) => c.pin === x).map((c) => c.conductor)].filter(Boolean);
-        const want = fwd.nets().filter((n) => new Set(n.flatMap(sign)).size > 1).length;
-        assert.equal(polarityClashes(fwd, cabs).length, want, "one clash per net that sees both signs: " + JSON.stringify(cabs));
-      } }
-  }
-}
-
-{ // Parts (parts.js): standard parts at their table sizes in metres at any scale; a nut clears its bolt; a bearing's
-  // balls sit in both grooves with a real clearance and never overlap, and roll at the cage speed; a spring compresses
-  // evenly between solid and free (never past either) and keeps its coils; the x-ray shell never touches a shared
-  // material; unknown sizes are refused with the table, never guessed.
-  for (const mpu of [2, 0.01]) {
-    K.makeKit(new THREE.Scene(), { mpu });
-    const Mq = K.M, size = (o) => { o.updateMatrixWorld(true); return new THREE.Box3().setFromObject(o, true).getSize(new THREE.Vector3()).multiplyScalar(Mq); }, near = (a, b, t = 1e-6) => Math.abs(a - b) < t;
-    const b = parts.bolt({ size: "M6", length: 0.03 }), sb = size(b);
-    assert.ok(near(sb.y, 0.034) && near(sb.x, 0.01) && near(sb.z, 0.01 / Math.cos(Math.PI / 6)), "an M6 x 30 bolt: 30 mm shank + 4 mm head, 10 mm across flats (ISO 4017), at mpu " + mpu);
-    assert.ok(near(size(parts.nut({ size: "M6" })).y, 0.0052) && near(size(parts.washer({ size: "M6" })).x, 0.012), "ISO 4032 nut height, ISO 7089 washer diameter");
-    const nb = parts.nut({ size: "M8" }), p = nb.children[0].geometry.attributes.position;
-    let bore = Infinity; for (let i = 0; i < p.count; i++) bore = Math.min(bore, Math.hypot(p.getX(i), p.getZ(i)));
-    const bb = parts.bolt({ size: "M8", length: 0.02 }), q = bb.children[0].geometry.attributes.position;
-    let crest = 0; for (let i = 0; i < q.count; i++) crest = Math.max(crest, Math.hypot(q.getX(i), q.getZ(i)));
-    assert.ok(bore >= crest - 1e-9 && near(crest, 0.004), "the nut's bore clears the bolt's thread crest (no interference)");
-    assert.throws(() => parts.bolt({ size: "M7" }), /not in the table \(M3, M4/, "an unlisted size is refused, never guessed");
-    assert.throws(() => parts.bearing({ code: 6305 }), /not in the table/);
-    const br = parts.bearing({ code: 6202 }), info = br.userData.bearing, balls = br.children.find((c) => c.isGroup).children;
-    assert.ok(balls.length === 8 && near(size(br).x, 0.035) && near(size(br).y, 0.011), "6202: 15 x 35 x 11 mm, 8 balls");
-    const clear = info.groove - info.Dw / 2;
-    assert.ok(clear > 0 && clear < 0.05 * info.Dw, "each ball sits in both grooves with a small radial clearance");
-    const gap = 2 * (info.Dpw / 2) * Math.sin(Math.PI / info.Z);
-    assert.ok(gap >= info.Dw, "neighbouring balls do not overlap on the pitch circle");
-    br.spin(1);
-    assert.ok(near(balls[0].parent.rotation.y, (1 - info.Dw / info.Dpw) / 2), "the balls roll at the cage's speed, (1 - Dw/Dpw)/2 of the inner ring");
-    const sp = parts.spring({ wire: 0.001, mean: 0.008, coils: 8, free: 0.03 }), s0 = sp.userData.spring;
-    assert.ok(near(size(sp).y, 0.03, 5e-5) && near(s0.solid, 0.009) && near(s0.rate, (79.3e9 * 1e-12) / (8 * 0.008 ** 3 * 6), 1e-6), "a spring at its free length; solid (coils + 1) x wire; rate from G d^4 / (8 D^3 n)");
-    sp.setLength(0.02);
-    assert.ok(near(size(sp).y, 0.02, 5e-5) && near(sp.force(), s0.rate * 0.01), "compressed to 20 mm it measures 20 mm and pushes rate x travel");
-    sp.setLength(s0.solid);
-    assert.ok(near(size(sp).y, s0.solid, 5e-5), "at solid the coils touch, wire on wire");
-    assert.throws(() => sp.setLength(s0.solid * 0.9), /between solid/, "never compressed through itself");
-    assert.throws(() => sp.setLength(0.031), /between solid/, "a compression spring is never stretched past free");
-    const shared = new THREE.MeshStandardMaterial(), solid = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared), shell = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared);
-    parts.xray(shell);
-    assert.ok(solid.material === shared && !shared.transparent, "x-ray never changes a material another part shares");
-    assert.ok(shell.material.transparent && !shell.material.depthWrite && shell.renderOrder > solid.renderOrder && !shell.castShadow && shell.userData.attend === false && shell.children.some((c) => c.isLineSegments), "the shell: see-through, drawn after the parts, no shadow, its edges, left alone by attention");
-    assert.throws(() => parts.xray(shell, { opacity: 1 }), /opacity/);
-    const hs = parts.housing({ w: 0.1, h: 0.07, d: 0.06, r: 0.006 }).children[0].children.find((c) => c.isLineSegments);
-    assert.ok(hs.geometry.attributes.position.count >= 24 * 2, "a rounded housing keeps its outline in x-ray (its edge steps over the threshold)");
-    assert.throws(() => parts.xray(new THREE.Group()), /no mesh/);
-    const all = new THREE.Group();
-    all.add(b, nb, bb, br, sp, parts.washer(), parts.shaft({ d: 0.008, length: 0.1 }), parts.knob(), parts.housing({ w: 0.08, h: 0.05, d: 0.06 }));
-    const audit = scaleAudit(all);
-    assert.ok(audit.ok && audit.unchecked.length === 0, "every part declares its real size and matches it: " + JSON.stringify([audit.problems, audit.unchecked]));
-  }
-  K.makeKit(new THREE.Scene(), { mpu: 2 });
-}
 
 // The isometric-world look: true iso (looking along (1, 1, 1)), the camera only pans and zooms (zoom in log, the
 // direction never changes along a route), k is px per unit, three tones by face (top > left > right), isoLook keeps
@@ -2310,4 +1878,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
 }
 
-console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, a fixture board, polarity by net), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
+console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");

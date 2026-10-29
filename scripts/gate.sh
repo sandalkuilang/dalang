@@ -15,7 +15,7 @@ step() { # step <name> <command...>: runs it, prints its output only when it fai
   if [ $? -eq 0 ]; then summary+=("✓ $name"); else summary+=("✗ $name"); failed=1; printf '── %s failed ──\n%s\n' "$name" "$out"; fi
 }
 syntax() { # node --check every engine and script file (engine/anatomy: ours and the vendored ones), bash -n, Python ast.parse (writes no __pycache__)
-  local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js engine/iso/*.js engine/iso/templates/*.js engine/anatomy/*.mjs examples/golden/*.js tests/*.mjs; do node --check "$f" || return 1; done
+  local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js engine/iso/*.js engine/iso/templates/*.js engine/anatomy/*.mjs tests/*.mjs; do node --check "$f" || return 1; done
   bash -n scripts/measure_reference.sh scripts/gate.sh scripts/release.sh && python3 -c 'import ast, sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' scripts/*.py
 }
 frontmatter() { head -1 SKILL.md | grep -qx -- '---' && grep -q '^name: dalang$' SKILL.md && grep -q '^description: ' SKILL.md; }
@@ -61,8 +61,6 @@ if [ $fast -eq 0 ]; then
   step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs
   step "layout lint (canvas text: safe area, hero overlap, min size, caption over label)" node tests/layout-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
-  step "golden (metrics, diff, flags vs fixture frames; no Chrome)" node tests/golden.mjs
-  step "golden scene (stations, texel size, pure camera; no render)" node tests/golden-scene.mjs
   step "score_run (sound-off quiz result -> score, timing_problems inside groups)" node tests/score-run.mjs
   step "timing lint (cuts and flash clips inside shot groups, unreadable group = exit 1)" node tests/timing-lint.mjs
   step "audio QC (bed level, clicks, dropouts, voice drift)" node tests/audio-qc.mjs

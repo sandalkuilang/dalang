@@ -47,7 +47,7 @@
 // 429/503 are retried after Retry-After, else with exponential backoff (FIND_MEDIA_BACKOFF_MS, default 1000), never a fixed sleep.
 // Env (tests): OPENVERSE_API, COMMONS_API, MEDIA_USE_SFX, POLYHAVEN_API, POLYHAVEN_LICENSE_URL, SI_3D_API, SI_OA_API, NASA_RAW, NASA_TREE_API, KENNEY_SITE; SI_API_KEY.
 
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';

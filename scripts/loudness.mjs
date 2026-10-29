@@ -19,8 +19,6 @@ function parseArgs(argv) {
     if (k === '--fix') a.fix = argv[++i];
     else if (k === '--target') a.target = parseFloat(argv[++i]);
     else if (k === '--tp') a.tp = parseFloat(argv[++i]);
-    else if (k === '--lra') a.lra = parseFloat(argv[++i]);
-    else if (k === '--tolerance') a.tol = parseFloat(argv[++i]);
     else if (!a.file && !k.startsWith('--')) a.file = k;
     else { console.error(`Unknown option: ${k}`); process.exit(1); }
   }

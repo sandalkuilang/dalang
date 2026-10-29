@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measure a reference video mechanically: info, one frame per second, contact sheets,
-# estimated hard cuts, estimated "boil" rate, stillness, loudness, the palette (dominant colours), and a reference
+# estimated hard cuts, stillness, loudness, the palette (dominant colours), and a reference
 # board (8 stills on one sheet, the Gate 3 benchmark board).
 # The output is numbers to borrow the rhythm from — not material to copy.
 #
@@ -81,18 +81,7 @@ ffmpeg -hide_banner -nostats -i "$VIDEO" -map 0:v:0 -vf "select='gt(scene,$SCENE
   | awk '{ printf "%.2f\n", $1 }' > "$OUT/cuts.txt" || true
 NCUTS=$(wc -l < "$OUT/cuts.txt" | tr -d ' ')
 
-# 5) Estimated boil rate: unique frames per second at 3 points
-echo "Estimating boil rate..."
-: > "$OUT/boil.txt"
-for frac in 0.25 0.50 0.75; do
-  T=$(awk -v d="$DUR" -v f="$frac" 'BEGIN { printf "%.2f", d*f }')
-  U=$(ffmpeg -hide_banner -nostats -ss "$T" -t 2 -i "$VIDEO" -map 0:v:0 -vf "mpdecimate,showinfo" -f null - 2>&1 | grep -c 'pts_time:' || true)
-  awk -v t="$T" -v u="$U" 'BEGIN { printf "second %s: %.1f unique frames per second\n", t, u/2 }' >> "$OUT/boil.txt"
-done
-cat "$OUT/boil.txt"
-echo "(Note: most meaningful in shots with a still camera. About 5 = lines redrawn 5x per second.)" >> "$OUT/boil.txt"
-
-# 6) Stillness, loudness & palette (Node scripts, if Node is available)
+# 5) Stillness, loudness & palette (Node scripts, if Node is available)
 if command -v node >/dev/null; then
   node "$HERE/stillness.mjs" "$VIDEO" > "$OUT/stillness.txt" 2>&1 || true
   node "$HERE/loudness.mjs" "$VIDEO" > "$OUT/loudness.txt" 2>&1 || true

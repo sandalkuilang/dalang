@@ -32,8 +32,8 @@ question (size, licence), never installed on its own; declined, the hero falls b
 
 ## 3. Check the still against the pictures
 
-Render one still per planned shot size (a `<name>.shot.html` beside the assembly, like
-`condensing_unit.shot.html`) and put it next to the pictures on one contact sheet: parts and counts, proportions,
+Snapshot the clip page (§4) at each planned shot size (`npx hyperframes snapshot --at <t>`) and put the stills next
+to the pictures on one contact sheet: parts and counts, proportions,
 what sits where. A wrong or missing part is fixed in the script before anything moves.
 
 ## 4. The motion recipe

@@ -46,7 +46,7 @@ export function withMoves(base, moves = [], fps = FPS) {
   return { ...base, pose, at(t, cam) { const s = base.at(t, cam); if (moveAt(t) && cam) placeCamera(cam, pose(t)); return s; } };
 }
 // the sweep: floor curving up into the wall, the wall a touch lighter
-export const SWEEP = Object.freeze({ floor: "#D9D9D6", top: "#ECECEA" });
+const SWEEP = Object.freeze({ floor: "#D9D9D6", top: "#ECECEA" });
 // the light (studio() preset form [colour, intensity, azimuth, elevation]): a soft key upper left (front-left, high),
 // a cool fill right, a rim from behind that lights a translucent subject from the back
 export const LIGHT = Object.freeze({ key: [0xfffaf2, 2.2, -38, 52], fill: [0xe8eef8, 0.55, 65, 18], rim: [0xffffff, 1.6, 168, 30] });
@@ -118,7 +118,7 @@ export function halfLathe(profile, { seg = 48 } = {}) {
   return merged;
 }
 // mergeGeos(list): non-indexed geometries into one (position + uv)
-export function mergeGeos(list) {
+function mergeGeos(list) {
   const pos = [], uv = [];
   for (const g of list) {
     const p = g.attributes.position.array, u = g.attributes.uv?.array;

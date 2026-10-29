@@ -1,5 +1,4 @@
 import { THREE, GLTFLoader, DRACOLoader, OBJLoader, RoundedBoxGeometry, toCreasedNormals, LoopSubdivision } from "./three-vendor.js";
-import { surface } from "./surfaces.js";
 
 export const deg = Math.PI / 180;
 export const tone = (k, s) => { const x = Math.sin(k * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); }; // seeded
@@ -9,15 +8,13 @@ export const tone = (k, s) => { const x = Math.sin(k * 12.9898 + s * 78.233) * 4
 export let M = 1, G = 9.81;
 
 // A model's materials are dressed by name: `palette` maps a name to a colour ("*" for any name it lacks; without
-// one a material keeps its own colour), `kinds` maps names to surfaces (cloth weave with sheen, the kit's wood
-// grain, the wall's plaster, lit lamp shades, glass; soft: meshes subdivided). Nothing is assumed: a set passes its kit's
-// preset (examples/interior.js: the CC0 furniture kits) or its own maps.
+// one a material keeps its own colour), `kinds` maps names (RegExps) to materials: `cloth` (sheen), `wood`, `wall`,
+// `metal`, `glass`, `glow` (a lit lamp shade); `soft` meshes are subdivided. Nothing is assumed: a set passes its own maps.
 
 // The set's building blocks: models dressed by `palette` and `kinds`, rounded boxes, cylinders, canvas textures,
-// placement. mpu: metres per unit; wear: the brief's condition (0 lived-in or new, 1 worn: flaking paint, grime);
-// grain: the surface kind for `kinds.wood` ("wood" or "bamboo"); gravity: the place's, m/s² (9.81 on Earth, 1.62 on
-// the Moon, 0 in orbit; at molecular scale it is negligible and fields and diffusion drive the motion).
-export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kinds = {}, grain = "wood", gravity = 9.81 } = {}) { // floor: its height, in units
+// placement. mpu: metres per unit; gravity: the place's, m/s² (9.81 on Earth, 1.62 on the Moon, 0 in orbit; at
+// molecular scale it is negligible and fields and diffusion drive the motion).
+export function makeKit(scene, { mpu = 1, palette = {}, kinds = {}, gravity = 9.81 } = {}) {
   const is = (re, name) => !!re && re.test(name);
   M = mpu; G = gravity / mpu;
   const glow = new THREE.MeshStandardMaterial({ color: 0xfff4e4, emissive: 0xffdcae, emissiveIntensity: 1.9, roughness: 0.6 }); // a lit shade at 2700 K reads warm white; a saturated orange blooms toward pink
@@ -33,10 +30,8 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
     if (c === undefined && !["cloth", "wood", "wall"].some((n) => is(kinds[n], key))) return m; // a model's own material, as it came
     if (!shared[key]) {
       if (c === undefined) c = m.color ? m.color.getHex() : 0xffffff;
-      if (is(kinds.cloth, key)) shared[key] = cloth(c);
-      else if (is(kinds.wood, key)) shared[key] = surface(new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }), grain);
-      else if (is(kinds.wall, key)) shared[key] = surface(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }), "plaster", { world: true, wear, floor }); // the walls
-      else shared[key] = surface(new THREE.MeshStandardMaterial({ color: c, roughness: 0.62, metalness: is(kinds.metal, key) ? 0.3 : 0 }), "micro");
+      shared[key] = is(kinds.cloth, key) ? cloth(c)
+        : new THREE.MeshStandardMaterial({ color: c, roughness: is(kinds.wood, key) ? 0.5 : is(kinds.wall, key) ? 0.85 : 0.62, metalness: is(kinds.metal, key) ? 0.3 : 0 });
       shared[key].name = key;
     }
     return shared[key];
@@ -140,18 +135,17 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
         const c = m.clone();
         c.color.set(map[m.name]);
         if (c.sheenColor) c.sheenColor.copy(c.color).lerp(new THREE.Color(0xffffff), 0.35);
-        Object.assign(c, { onBeforeCompile: m.onBeforeCompile, customProgramCacheKey: m.customProgramCacheKey }); // clone() drops the surface
         return c;
       });
       if (o.material.length === 1) o.material = o.material[0];
     });
     return g;
   }
-  const mat = (hex, r) => surface(new THREE.MeshStandardMaterial({ color: hex, roughness: r || 0.65 }), "micro");
-  // Cloth: a woven surface with sheen, the soft bright rim real fabric has at grazing angles.
-  function cloth(hex, kind = "fabric", r = 0.9, map) { // map: a woven pattern (plaid, stripes) on the cloth's own uv
-    const c = new THREE.Color(hex), m = new THREE.MeshPhysicalMaterial({ map, color: c, roughness: r, sheen: 1, sheenRoughness: 0.55, sheenColor: c.clone().lerp(new THREE.Color(0xffffff), 0.35) });
-    return surface(m, kind);
+  const mat = (hex, r) => new THREE.MeshStandardMaterial({ color: hex, roughness: r || 0.65 });
+  // Cloth: sheen, the soft bright rim real fabric has at grazing angles.
+  function cloth(hex, r = 0.9, map) { // map: a woven pattern (plaid, stripes) on the cloth's own uv
+    const c = new THREE.Color(hex);
+    return new THREE.MeshPhysicalMaterial({ map, color: c, roughness: r, sheen: 1, sheenRoughness: 0.55, sheenColor: c.clone().lerp(new THREE.Color(0xffffff), 0.35) });
   }
   function put(o, x, y, z, parent) {
     o.position.set(x, y, z);
@@ -202,5 +196,5 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
     if (floor !== undefined) { for (let i = 0; i < p.count; i++) if (p.getY(i) < floor) p.setY(i, floor); g.computeVertexNormals(); }
     return put(new THREE.Mesh(g, m), 0, 0, 0);
   }
-  return { scene, glow, mat, cloth, surface, screenOn, box, cyl, put, tube, canvasTex, model, paint, rest, settle, group, V: (x, y, z) => new THREE.Vector3(x, y, z) };
+  return { scene, glow, mat, cloth, screenOn, box, cyl, put, tube, canvasTex, model, paint, rest, settle, group, V: (x, y, z) => new THREE.Vector3(x, y, z) };
 }

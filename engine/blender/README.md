@@ -16,14 +16,7 @@ script, exported as glTF and reused by every film that needs it. The scripts are
 - `assemblies/condensing_unit.py`: a refrigeration condensing unit on its wall bracket, built from those parts: 63
   named nodes, sheet edges rounded by a bevel the export applies, about 240k triangles, a few seconds to build. `Blender -b -P assemblies/condensing_unit.py -- <out dir>` writes
   `condensing_unit.glb` and `.blend` there.
-- `assemblies/condensing_unit.shot.html`: its cutaway still in the engine/three iso look (`isoLook`, `inkLines`) with a
-  softer, graded matcap and a thin ambient occlusion: the casing as blue x-ray glass with a thin blue wire (wide),
-  opened (medium), the compressor sectioned by hiding its quarters (close), the coil's end with its tube sheet off
-  (coil), context in calm greys (never transparency), refrigerant as colour code, the fan
-  turned from its motor speed, numbered pins on leader lines that alternate sides. The wide shot writes its measured fill (the
-  subject's projected box against the frame) beside the PNG.
-
-- `assemblies/condensing_unit.clip.html`: a 7 s HyperFrames clip of the same asset, the motion recipe in
+- `assemblies/condensing_unit.clip.html`: a 7 s HyperFrames clip of the same asset, its stills (`npx hyperframes snapshot --at <t>`) and the motion recipe in
   `references/hero-asset.md` §4 (iso pan and zoom, a slow one-way turn, a blur disc for the fan, the whole refrigerant
   loop coded and pulsing, a sweeping clip-plane section, labelled pins).
 

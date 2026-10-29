@@ -13,7 +13,6 @@ import { TEMPLATES } from "./templates.js";
 const TAU = Math.PI * 2;
 const part = (name, form, at, o = {}) => ({ name, form, at, ...o });
 const circle = (r, n = 28, cu = 0, cv = 0, a0 = 0) => Array.from({ length: n }, (_, i) => [cu + Math.cos(a0 + (i / n) * TAU) * r, cv + Math.sin(a0 + (i / n) * TAU) * r]);
-const rrect = (w, d, r, n = 4) => { const pts = [], c = [[w / 2 - r, d / 2 - r], [-w / 2 + r, d / 2 - r], [-w / 2 + r, -d / 2 + r], [w / 2 - r, -d / 2 + r]]; c.forEach(([x, y], q) => { for (let i = 0; i <= n; i++) { const a = (q + i / n) * (TAU / 4); pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); } }); return pts; };
 // a short round stud on a face: centred at `at`, its axis along y (the face's normal), standing proud by h
 const stud = (name, at, r, h, color, n = 12) => part(name, "cyl", [at[0], at[1] + h / 2, at[2] - r], { axis: "y", r, h, color, n });
 

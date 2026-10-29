@@ -30,6 +30,23 @@ that reads as:
 
 ## [Unreleased]
 
+### Changed
+
+- With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`: the Express
+  stills, `studio-*.jpg` for Studio), not a golden sheet. A hero's stills are snapshots of its clip page.
+
+### Removed
+
+- The golden eval: `examples/golden/`, `evals/golden/3.0.0/`, `scripts/golden.mjs` and its two tests (unused since
+  3.0.0, and it covered one Studio scene only).
+- `engine/blender/assemblies/condensing_unit.shot.html` (the clip page gives the same stills).
+- engine/three modules whose job is now the Blender lane's or a look that no longer exists: `parts.js`,
+  `electronics.js`, `markings.js`, `transmission.js`, `surfaces.js`, `examples/interior.js`, `circuit.js` `failure()`,
+  `kit.js` `floor`/`wear`/`grain`/`surface`; the self-check shrinks to match (2313 → 1881 lines). Kept: fields, optics,
+  circuit, instruments and air, which draw what neither the Blender hero nor engine/iso can.
+- Script flags nothing documented: `tts_timestamps.mjs` `--name`/`--format`, `loudness.mjs` `--lra`/`--tolerance`;
+  `measure_reference.sh`'s boil rate; unused imports and exports.
+
 ## [4.0.0] - 2026-10-29
 
 ### Added
