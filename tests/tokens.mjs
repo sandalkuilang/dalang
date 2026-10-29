@@ -131,5 +131,19 @@ assert.match(c.stdout, / · Tokens: not checked/);
   put(path.join(mp, "final.mp4"), "x"); assert.match(m(mp).stdout, /Output folder: .*\(final\.mp4\)/, "and its final files");
 }
 
+// The main session's carry: an Agent prompt with pasted content and a long subagent reply are counted and WARNed.
+{
+  const lp = path.join(tmp, "videos", "how-a-lock-turns");
+  fs.mkdirSync(lp, { recursive: true });
+  const call = { type: "assistant", message: { id: "lp1", model: "m", usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 9000, output_tokens: 10 }, content: [{ type: "tool_use", id: "t1", name: "Agent", input: { prompt: "x".repeat(4000) } }] } };
+  const back = { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "y".repeat(4000) }] } };
+  const short = { type: "assistant", message: { id: "lp2", model: "m", usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 9000, output_tokens: 10 }, content: [{ type: "tool_use", id: "t2", name: "Agent", input: { prompt: "do review/fixes-a.md" } }] } };
+  put(path.join(enc(lp), "s9.jsonl"), [call, back, short].map((o) => JSON.stringify(o)).join("\n") + "\n");
+  const x = run(lp);
+  assert.match(x.out, /WARN: the main session carries 1 Agent prompt\(s\) and 1 subagent reply\(ies\) over 2500/);
+  const t = JSON.parse(fs.readFileSync(path.join(lp, "review", "tokens.json"), "utf8")).main;
+  assert.equal(t.longPrompts, 1); assert.equal(t.longBacks, 1);
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("tokens: OK");

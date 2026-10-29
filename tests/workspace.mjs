@@ -318,6 +318,18 @@ try {
     ok("measure reports the first-call context, compares two, and never reads unknown as 0");
   }
 
+  // Auto-compact window: init sets it when no scope does, keeps the folder's "lean" check honest, never overrides an own value.
+  {
+    const f = fixture();
+    assert.equal(ws(f, "init", f.dir, "--yes").code, 0);
+    assert.equal(JSON.parse(fs.readFileSync(f.proj, "utf8")).env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, "200000", "init sets the window");
+    assert.match(ws(f, "init", f.dir).out, /already lean/, "a second init has nothing left to do");
+    const g = fixture({ userSettings: JSON.stringify({ enabledPlugins: { "hyperframes@hf": true, "deploy-tools@cloud": true }, env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: "300000" } }) });
+    assert.equal(ws(g, "init", g.dir, "--yes").code, 0);
+    assert.equal(JSON.parse(fs.readFileSync(g.proj, "utf8")).env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW, undefined, "an own value (user scope) is kept, not overridden");
+    ok("init sets the auto-compact window once and keeps an own value");
+  }
+
   console.log(`workspace ok: ${cases} cases`);
 } catch (e) {
   console.error(e.stack || e.message);

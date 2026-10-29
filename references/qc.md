@@ -5,11 +5,10 @@
 Review like someone else's code: find bugs.
 
 ```bash
-npx hyperframes check --snapshots
-npx hyperframes render --fps 10 --quality draft --quiet --output draft.mp4   # in the background
-node <skill-dir>/scripts/qc_all.mjs draft.mp4 [--allow a-b]   # the seven measured checks, one PASS / FAIL / WARN line each
-npx hyperframes snapshot --review --describe false   # --describe false unless the user agreed to upload frames
-node <skill-dir>/scripts/strips.mjs --crops   # 3 stills per shot on numbered sheets, a subject crop per shot, index.md
+node <skill-dir>/scripts/studio.mjs qc . [--allow a-b] [--targets <shots>]   # run_in_background, never polled: check,
+#   the 10 fps draft, qc_all (one PASS / FAIL / WARN line per check), strips --crops, review/cuts.png; from round 2 the
+#   last round's verdicts and strips go to review/round-<n>/ first
+node <skill-dir>/scripts/studio.mjs fixes .   # after the reviewer: one fixer prompt per review/fixes-<group>.md
 ```
 
 `qc_all.mjs` runs, side by side, and prints only a failing check's own lines: `stillness.mjs` (≤ 10 %, no still stretch
@@ -39,16 +38,15 @@ Then `npx hyperframes preview --background --no-open` and show the Studio URL **
 ## Step 8 — Final render
 
 ```bash
-node <skill-dir>/scripts/state.mjs approve 4 --by agent && node <skill-dir>/scripts/check_assets.mjs . [--commercial]   # both must pass
-npx hyperframes render --fps <fps from BRIEF.md> --quality high --quiet --output final.mp4
-node <skill-dir>/scripts/qc.mjs final.mp4 --size <WxH> --fps <fps> && node <skill-dir>/scripts/loudness.mjs final.mp4 && node <skill-dir>/scripts/stillness.mjs final.mp4 && node <skill-dir>/scripts/audio_qc.mjs . --mix final.mp4
+node <skill-dir>/scripts/studio.mjs final .   # run_in_background: check, check_assets, the high render, the poster,
+#   gate 4, the metrics table, then qc_all on final.mp4; POST.md while it runs
 ```
 
-`--commercial` when the video will be monetised. Loudness off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4`, deliver that. Stillness over target on the final → add motion, render again.
+Monetised: also `check_assets.mjs . --commercial`. Loudness off on the final → `loudness.mjs final.mp4 --fix final-14lufs.mp4`, deliver that. Stillness over target on the final → add motion, render again.
 
 ## Step 8 — Hand-off
 
-**Run metrics, last:** `node <skill-dir>/scripts/state.mjs metrics` writes `review/metrics.md`; paste it at the end of the report. Tokens that read "not checked" are reported so, never as 0.
+**Run metrics, last:** `node <skill-dir>/scripts/state.mjs metrics` writes `review/metrics.md`; paste the whole table (every agent with model, effort, tokens, and the Total tokens line) into the final message to the user, never only a path to the file. Tokens that read "not checked" are reported so, never as 0.
 
 Deliver `final.mp4` with `audio/narration.srt` (the caption track), `CREDITS.md` and `POST.md`. Report plainly, every number from `PRODUCTION.md`: final file, duration, platform and format; time per stage, render time, revision rounds; cost (0 unless paid); licences that limit use; **known bugs**; the top improvement. Never offer a second-language cut here.
 

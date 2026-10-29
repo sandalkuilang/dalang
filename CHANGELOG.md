@@ -32,6 +32,20 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Added
+- `scripts/studio.mjs`: Studio's mechanical steps as one call each (`after-voice`, `frames`, `qc`, `fixes`, `final`), run in the background, so the main session only decides, spawns and reads short verdicts instead of writing chains, polling and retyping verdicts.
+- `scripts/music.mjs`: the bundled public-domain / CC0 music bed for every film, offline; Studio runs it at Gate 2 and `studio.mjs qc` fails a film without a bed (unless the Brief says `music: none`). A searched track is only for when the user asks.
+- `workspace.mjs init` sets an auto-compact window of 200K (`CLAUDE_CODE_AUTO_COMPACT_WINDOW`) in the videos folder, so a long film session compacts itself instead of growing toward the model's whole window.
+- `tokens.mjs` WARNs when the main session carries Agent prompts or subagent replies over 2,500 characters.
+
+### Changed
+- The main agent orchestrates, never does the work (SKILL.md): Agent prompts are the job and file paths; checkers write their own verdict files (`QC-REVIEW.md` and one `review/fixes-<group>.md` per group, `review/benchmark.md`, `review/style-frame-check.md`), builders `review/reports/<job>.md`, and both reply in a few lines; `state.mjs log` rides on the step's command. Style frames are always written by a builder.
+- `express.mjs final --quality looks|high` (Studio passes high).
+
+### Fixed
+- Studio films shipped without music when a media site did not answer: the bundled bed is now the default.
+- The run metrics table ends with a **Total tokens** line (main + subagents, main model, what "inherited" effort means), and the hand-off must paste the whole table into the final message, not only name `review/metrics.md`.
+
 ## [4.3.0] - 2026-10-29
 
 ### Added

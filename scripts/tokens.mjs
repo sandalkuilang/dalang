@@ -30,6 +30,7 @@ const project = path.resolve(args[0] ?? '.');
 // screenshots pays for them on every later turn.
 let express = false; try { express = /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(project, 'BRIEF.md'), 'utf8')); } catch { /* Studio budget */ }
 const maxTurns = +(turnsArg ?? (express ? 30 : 120)), maxCtx = +(ctxArg ?? (express ? 150000 : 250000)), FILM_MAX = 10e6;
+const LONG = 2500;   // characters: about 15 lines of prompt or reply
 const notChecked = why => { console.error(`NOT CHECKED: ${why}. Rerun, or pass --claude-dir / --session. This is not "no tokens used".`); console.log('Result: not checked'); process.exit(2); };
 if (!(maxTurns > 0 && maxCtx > 0)) notChecked('--max-turns and --max-ctx must be > 0');
 
@@ -48,13 +49,19 @@ if (!existsSync(path.join(base, session))) notChecked(`session ${session} not fo
 // One agent's transcript: a message is split over several lines with the same id and usage, so count each id once.
 const read = file => {
   let text; try { text = readFileSync(file, 'utf8'); } catch (e) { return { error: e.code || e.message }; }
-  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {} };
+  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {}, longPrompts: 0, longBacks: 0 };
   for (const line of text.split('\n')) {
     if (!line) continue;
     let j; try { j = JSON.parse(line); r.parsed++; } catch { continue; }
     if (j.timestamp) { r.start ??= j.timestamp; r.end = j.timestamp; }
     // the model and effort each subagent was asked for, by the tool call that started it (its meta names the call)
-    for (const c of Array.isArray(j.message?.content) ? j.message.content : []) if (c?.type === 'tool_use' && c.name === 'Agent') r.asks[c.id] = { model: c.input?.model ?? null, effort: c.input?.effort ?? null };
+    // and what the main session pays for on every later turn: an Agent prompt with pasted content, a subagent's long reply
+    const content = j.message?.content;
+    for (const c of Array.isArray(content) ? content : []) {
+      if (c?.type === 'tool_use' && c.name === 'Agent') { r.asks[c.id] = { model: c.input?.model ?? null, effort: c.input?.effort ?? null }; if (String(c.input?.prompt ?? '').length > LONG) r.longPrompts++; }
+      if (c?.type === 'tool_result' && r.asks[c.tool_use_id] && JSON.stringify(c.content ?? '').length > LONG) r.longBacks++;
+    }
+    if (typeof content === 'string' && /<agent-message|<task-notification>/.test(content) && content.length > LONG) r.longBacks++;
     const u = j.message?.usage;
     if (j.type !== 'assistant' || !u || seen.has(j.message.id)) continue;
     seen.add(j.message.id);
@@ -86,7 +93,7 @@ const M = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`
 const sum = agents.reduce((s, a) => s + a.total, 0), over = agents.filter(a => a.over);
 const report = {
   at: new Date().toISOString(), session: session.replace(/\.jsonl$/, ''), sessionCwd, budget: { maxTurns, maxCtx },
-  main: { turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end },
+  main: { turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end, longPrompts: main.longPrompts, longBacks: main.longBacks },
   subagents: agents, subagentTotal: sum, skippedOtherProjects: skipped, unreadable,
 };
 try { mkdirSync(path.join(project, 'review'), { recursive: true }); writeFileSync(path.join(project, 'review', 'tokens.json'), JSON.stringify(report, null, 2)); }
@@ -103,7 +110,8 @@ else {
   if (express && !shared && main.turns > 30) console.log(`WARN: the main agent took ${main.turns} turns (Express: about 25, 30 at most): send calls that do not need each other in one message (express.md "The main agent's turns")`);
   const film = (shared ? 0 : main.total) + agents.reduce((x, a) => x + a.total, 0);
   if (express && film > FILM_MAX) console.log(`WARN: this film used ${M(film)} tokens (Express budget ${M(FILM_MAX)}): express.md "Token budget" names where each part goes`);
-  if (main.lastCtx > maxCtx) console.log(`WARN: the main context is ${M(main.lastCtx)}: tell the user /compact is safe at this gate (SKILL.md "Compact at Gates 2, 3 and 4")`);
+  if (main.longPrompts || main.longBacks) console.log(`WARN: the main session carries ${main.longPrompts} Agent prompt(s) and ${main.longBacks} subagent reply(ies) over ${LONG} characters: prompts are the job and file paths, verdicts and reports go in files (SKILL.md "The main agent orchestrates")`);
+  if (main.lastCtx > maxCtx) console.log(`WARN: the main context is ${M(main.lastCtx)}: without an auto-compact window run workspace.mjs init; tell the user /compact is safe at this gate (SKILL.md "Compact")`);
   if (over.length) console.log(`WARN: over budget (> ${maxTurns} turns or > ${M(maxCtx)} context): give the rest of that job to a new builder (look-build.md "Builder budget")`);
 }
 console.log(`Result: ${summary}`);

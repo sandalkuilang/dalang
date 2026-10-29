@@ -14,7 +14,7 @@
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
-//        node express.mjs final [dir]
+//        node express.mjs final [dir] [--quality looks|high]
 //          the files changed since assemble (review/assembled.json: the world and every group, by sha256), for the main
 //          agent to check against the fix round's assignments; hyperframes check and check_assets first (no render on a
 //          failure), render (BRIEF.md fps, --quality looks), the poster (the hook's last frame: poster.jpg and frame 0),
@@ -30,6 +30,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i < 0 ? d : args.splice(i, 2)[1]; };
 const logArg = opt('--log');
+const quality = opt('--quality', 'looks');   // final: Studio passes high (studio.mjs final)
 const takeClean = args.includes('--take-clean') && !!args.splice(args.indexOf('--take-clean'), 1);
 const [cmd, dirArg] = args;
 const dir = path.resolve(dirArg ?? '.');
@@ -131,7 +132,7 @@ if (cmd === 'after-voice') {
   // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress
   step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 12, filter: l => /✗|error:|Error/.test(l) && !/\b0 error/.test(l) });
   step('check_assets', ...node('check_assets.mjs', '.'), { quiet: true, keep: 6 });
-  if (!failed) step(`render (${fps} fps, looks)`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', 'looks', '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
+  if (!failed) step(`render (${fps} fps, ${quality})`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', quality, '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
   // the poster (after latent-spaces/brag): the hook beat's finished frame, also laid over frame 0, so every platform's
   // thumbnail is the hook, not a half-built first frame; the length and the audio are unchanged
   if (!failed) {

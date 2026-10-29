@@ -22,6 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNarration } from './tts_timestamps.mjs';
 import { FAMILY, FACES } from '../engine/three/font.js';
+import { musicBed, MOODS } from './music.mjs';
 
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -32,8 +33,7 @@ const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
 const ISO = ['isometric-world', 'cutaway', 'blueprint'];
 if (!ISO.includes(look) && look !== 'object-studio') die(`--look must be one of ${[...ISO, 'object-studio'].join(', ')}`);
 if (!groupArg) die('--groups a:firstBeat,b:firstBeat,… is required');
-const MUSIC = { calm: 'J. S. Bach, Goldberg Variations, Aria (Kimiko Ishizaka, Musopen)', bright: 'E. Grieg, Morning Mood (Musopen Symphony Orchestra)', tense: 'E. Grieg, In the Hall of the Mountain King (Musopen Symphony Orchestra)' };
-if (music !== 'none' && !MUSIC[music]) die(`--music must be one of ${Object.keys(MUSIC).join(', ')} or none`);
+if (music !== 'none' && !MOODS.includes(music)) die(`--music must be one of ${MOODS.join(', ')} or none`);
 
 const narr = path.join(dir, 'narration.txt');
 if (!existsSync(narr)) die(`${narr} not found: the beat names come from its {text|name} markers`);
@@ -100,17 +100,7 @@ if (music !== 'none') host = host.replace('  <!-- music -->', '  <audio id="musi
 put('src/index.tpl.html', host);
 
 // the music bed: a bundled public-domain / CC0 track and its licence row, so check_assets.mjs passes
-if (music !== 'none' && !existsSync(path.join(assets, 'music.mp3'))) {
-  cpSync(path.join(SKILL, 'engine', 'music', `${music}.mp3`), path.join(assets, 'music.mp3'));
-  const credits = readFileSync(path.join(SKILL, 'engine', 'music', 'CREDITS.md'), 'utf8').split('\n').find(l => l.startsWith(`| ${music}.mp3 `)).split('|').map(s => s.trim());
-  const mf = path.join(dir, 'ASSETS.json');
-  let rows = []; try { rows = JSON.parse(readFileSync(mf, 'utf8')); } catch { /* none yet */ }
-  if (!Array.isArray(rows)) die(`${mf} is not a JSON list`);
-  rows = rows.filter(r => r.file !== 'assets/music.mp3');
-  rows.push({ file: 'assets/music.mp3', source: credits[6], licence: credits[5], author: credits[4], title: MUSIC[music] });
-  writeFileSync(mf, JSON.stringify(rows, null, 2) + '\n');
-  wrote.push(`assets/music.mp3 (${music}, ${credits[5]})`);
-}
+if (music !== 'none') { try { wrote.push(musicBed(dir, music)); } catch (e) { die(e.message); } }
 
 // each group from the look's template; the first opens at 0, the last closes at the narration's end
 const gtpl = readFileSync(path.join(tplDir, iso ? 'iso-group.tpl.html' : 'object-studio-group.tpl.html'), 'utf8');
