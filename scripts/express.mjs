@@ -81,7 +81,7 @@ if (cmd === 'after-voice') {
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
   // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
   // the reading time of every overlay, dead stretches
-  if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 12, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
+  if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 24, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
   writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');
