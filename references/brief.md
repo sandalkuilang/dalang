@@ -66,7 +66,7 @@ Then AskUserQuestion: Call 0 only when setup left a choice, then Calls 1 and 2 (
    Studio only, for a 3D set: record from the topic (ask only when it is unclear): **`condition`** for any made thing in it (a room, a machine, a street, a battery) — `lived-in` by default, `new`, or `worn` (peeling paint, scuffs, grime, corrosion: only when the topic is about age, neglect, hardship or history); and, only when the set has rooms or furniture, **`interior`** — `american-japandi` by default (`looks.md` "Interior style"), another when the topic names a place or style.
 
 ### Call 2 (its options follow the platform)
-**fps** (no question; save it in `BRIEF.md`): 30 on every platform; 24 only through item 6's film-look option (`camera-motion.md` §10).
+**fps** (no question; save it in `BRIEF.md`): 30 on every platform; 24 only through item 6's film-look option (`camera-motion.md` §8).
 
 4. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Narrative pacing is strongest at 30–90 s; above 3 min, one composition per section.
 5. **Visual style** — answered by item 0b (`looks.md` picks the beats). A look outside the two: say so in one line; only its palette, type and overlays carry over (a measured `## Palette` steers the slots). The camera is never asked. A kit's older look letter reads as `isometric-world`.

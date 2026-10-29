@@ -1,15 +1,15 @@
 # Camera and motion: film grammar, physical timing, compositing
 
-Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`; there is no §6 or §9: the numbers keep their old names) and in Step 6's polish pass (§5–7). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
+Read in Step 5 (§1–4, §7–10 for the storyboard and `SPEC.md`) and in Step 6's polish pass (§5–6). It adds to `visual-direction.md` §4–9, never repeats it. Numbers are starting points: **[D]** derived from physics or maths, **[O]** practitioner defaults to tune by eye.
 
-**The camera is chosen by the agent, never asked.** Step 5 writes a camera plan on the SPEC CAMERA line: 6–10 techniques from §11 (Express: 4–6; this is the one home of both counts), each tied to a beat's job (table). The art keeps its projection; the moves are 2.5D, depth layers moved against each other (`engine/iso/cinema.js`: `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `bokeh`, `discs`, with `parallax.js`); Studio's iso camera (`isoCamera`, `isoFrame`, `route`) pans and zooms with the same layer effects. `blueprint` beats hold a locked frame or a slow pan. In `object-studio` the same table plays with a real perspective camera (`camera.js`: `fovFromMm`, `dofFor`, `orbit`, `crane`, `dollyZoom`, `drone`): the lens in mm and the f-stop in place of the layer effects. One move per beat, at most one dolly zoom and one drone per film. **Aperture follows the size:** a wide at f5.6 (the world sharp), a zoom-in or macro at f1.2–2.8, the background melting in the lens's blur (the dramatic beat). Two signature moves build on it (§11.2, §11.3): **arrive and orbit** (a zoom ends on its subject and a slow orbit starts at once, the edges blurred and the centre clear) and **aperture points at the part** (a close part named in the narration is the sharp spot, the rest melts).
+**The camera is chosen by the agent, never asked.** Step 5 writes a camera plan on the SPEC CAMERA line: 6–10 techniques from §9 (Express: 4–6; this is the one home of both counts), each tied to a beat's job (table). The art keeps its projection; the moves are 2.5D, depth layers moved against each other (`engine/iso/cinema.js`: `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `bokeh`, `discs`, with `parallax.js`); Studio's iso camera (`isoCamera`, `isoFrame`, `route`) pans and zooms with the same layer effects. `blueprint` beats hold a locked frame or a slow pan. In `object-studio` the same table plays with a real perspective camera (`camera.js`: `fovFromMm`, `dofFor`, `orbit`, `crane`, `dollyZoom`, `drone`): the lens in mm and the f-stop in place of the layer effects. One move per beat, at most one dolly zoom and one drone per film. **Aperture follows the size:** a wide at f5.6 (the world sharp), a zoom-in or macro at f1.2–2.8, the background melting in the lens's blur (the dramatic beat). Two signature moves build on it (§9.2, §9.3): **arrive and orbit** (a zoom ends on its subject and a slow orbit starts at once, the edges blurred and the centre clear) and **aperture points at the part** (a close part named in the narration is the sharp spot, the rest melts).
 
 | Beat job | Technique |
 |---|---|
 | Hook, establish | `drone25` (a wide descending onto the hero) + haze, deep focus `bokeh(5.6)` |
 | Context, path | `orbit25` (the world slides round the subject), or a pan along the path |
 | Mechanism | a push-in with a rack focus cause → effect, `bokeh(2.8)`; a `cutaway` beat opens the thing; a close part named in the narration: `focusRing` at f1.2–2.8 on it |
-| Arrival on a subject (a zoom in or out that lands) | arrive and orbit (§11.3): the zoom with `focusRing`, then a slow orbit from the landing pose |
+| Arrival on a subject (a zoom in or out that lands) | arrive and orbit (§9.3): the zoom with `focusRing`, then a slow orbit from the landing pose |
 | Crack | the one `dollyZoom25` |
 | Acceleration | shorter shots, `whip`, a faster orbit (one way) |
 | Impact | a close zoom, `bokeh(1.4)` + `discs` on the lights, a speed ramp; a `blueprint` inset when the claim is a measure |
@@ -17,7 +17,7 @@ Read in Step 5 (§1–4, §8, §10–12 for the storyboard and `SPEC.md`; there 
 
 ## 1. Angle is a sourcing decision, movement is a timeline decision
 
-Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from three.js 3D (§10). Angle and perspective are baked into the asset: a low-angle shot is a low-angle drawing or render, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** drawing or modelling. **Isometric looks:** the Angle table and the lens rows do not apply (the view never tilts; zoom stands in for lens, layer blur for aperture), and light becomes the grade and palette; they apply in full to `object-studio`'s perspective rig.
+Over a still, a HyperFrames camera can only change a layer's **size, position, focus and time** — never a cinematic move; real moves come from three.js 3D (§8). Angle and perspective are baked into the asset: a low-angle shot is a low-angle drawing or render, never a CSS `rotateX` on a flat plate (it reads as a tilted card). So the storyboard decides size, angle and lens **before** drawing or modelling. **Isometric looks:** the Angle table and the lens rows do not apply (the view never tilts; zoom stands in for lens, layer blur for aperture), and light becomes the grade and palette; they apply in full to `object-studio`'s perspective rig.
 
 | Size | Job | Sourcing rule |
 |---|---|---|
@@ -55,7 +55,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Rack focus with breathing:** while focus moves, scale the frame 1.00 → 1.01–1.02 (stills lenses breathe; skip it for a "cine lens" look). A focus puller eases `power2.inOut` and lands slightly early. Pre-render 3–4 blur levels with `media-treatment` and crossfade along the ease.
 - **No handheld, ever [2.5D][3D]:** a shake made of sines reads as a wobble, left and right, and worst on a close-up. A camera's life is a slow orbit in one direction (Express `orbit25`, the film's `ORBIT`; Studio iso: the subject turns slowly one way under a fixed view, never the camera; `object-studio`: `orbit`, `from` → `to`), and tension is a faster orbit, shorter shots and whips, never a shake.
 - **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam. A rolling-shutter skew (`skewX(atan(v·readout/H))`, readout 9–28 ms) sells "phone or mirrorless"; leave it off for "cinema camera".
-- Orbit, crane, aerial, tracking, fly-through: a real camera only (§10), never faked on a still.
+- Orbit, crane, aerial, tracking, fly-through: a real camera only (§8), never faked on a still.
 
 ## 3. Axis, eyelines, cuts, rhythm
 
@@ -113,7 +113,7 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Snap every cut and key** to `Math.round(t*fps)/fps`. A hold registers from ~4 frames; an accent pose holds 6–12.
 - **Never compare a raw cue with a snapped cut:** a cue up to half a frame before a cut lands in the shot before it. Look a cue's shot up with `shotAt` / `overlayWindow` (`camera.js`: they snap the cue as the cut is snapped) and run `windowProblems` over every overlay and label: a window that is empty, or shorter than its `readTime`, is an error that names the cue.
 
-## 7. Design in time
+## 6. Design in time
 
 - **Hierarchy over time:** arrival order = reading order. The most important element arrives alone, holds longest, keeps the strongest contrast; secondary information arrives as a group 150–300 ms later. One hierarchy level changes per beat.
 - **One grid for the whole film** (e.g. 12 columns, 8 px baseline at 1080 wide): motion endpoints snap to it, and elements that persist across a cut keep their grid position.
@@ -124,11 +124,11 @@ Choose stills that carry **implied motion** (a pose that resolves forward, blur 
 - **Kinetic type:** a line mask reveal (`SplitText` with `mask: "lines"`, `yPercent: 100 → 0`, 0.6–0.9 s, emphasized-decelerate, 0.08–0.12 s between lines) is the robust default; split after fonts load. Display tracking −1 to −3 %. A variable font animates one axis per beat (weight on the stressed word), never size and weight at once. ≤ 3–4 words/s on screen.
 - **Modern now:** a true-to-life stylized subject with restrained graphic overlays; motion from its real cause and cameras that move like real rigs; bold flat colour with physical timing; one ground (light or dark) kept for the whole film. **Dated:** see `visual-direction.md` §5 "Banned".
 
-## 8. The motion-language line in `SPEC.md`
+## 7. The motion-language line in `SPEC.md`
 
-Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = the rulebook (§12: frame ratio, lens set, movement rule, light rule, palette and its arc, texture, never-shown, rule breaks with their reason), frame rate and shutter, the rigs the film uses (§10), the A/B pattern, the one wow shot and the film's technique palette (§11's count); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
+Lock the vocabulary before animating, next to the LOOK line: **CAMERA** = the rulebook (§10: frame ratio, lens set, movement rule, light rule, palette and its arc, texture, never-shown, rule breaks with their reason), frame rate and shutter, the rigs the film uses (§8), the A/B pattern, the one wow shot and the film's technique palette (§9's count); **MOTION** = one arrival ease and one exit ease (a third needs a reason), a base unit (e.g. 0.4 s; every duration is a multiple: 0.2 / 0.4 / 0.8 / 1.2), one stagger offset for every group, an intensity budget (max travel, max scale, overshoot), holds ≥ 0.3 s after each beat. **ANCHORS** = the five anchors (§4). Review checks consistency against it (rubric "Consistency").
 
-## 10. A-roll, B-roll and real camera moves
+## 8. A-roll, B-roll and real camera moves
 
 The difference between a slideshow and a film is a real camera. A faceless explainer cuts two lines together:
 
@@ -150,26 +150,26 @@ The difference between a slideshow and a film is a real camera. A faceless expla
 
 **A and B must cut as one film:** the same palette, light and grain on every shot; matched motion direction across the cut (§3).
 
-## 11. The cinematographer's toolbox
+## 9. The cinematographer's toolbox
 
 A director of photography doesn't use everything: they pick a **palette** for the film, each technique tied to a story job, and write it on the CAMERA line of `SPEC.md` (§8). Take the count of the intro (Studio 6–10, Express 4–6) from below plus §1–3 and §10; a technique outside the palette needs a reason in the storyboard. Using all of them reads as a showreel, not a film. Source tags: **[3D]** three.js rig (§10), **[2.5D]** layered drawings with depth (Express), **[C]** compositing in HyperFrames.
 
-### 11.1 Light — mood and where to look
+### 9.1 Light — mood and where to look
 - **Contrast ratio** key:fill, `(key + fill) : fill`, each stop doubling it **[D]**: 2:1 bright and neutral (a friendly explainer), 4:1 dramatic, 8:1 and up low-key (mystery, danger, the problem). Set it per section in the colour script; a ratio change is a mood change.
 - **Colour-temperature contrast:** a warm key (~3200 K) against cool ambient (~5600–6500 K) separates the subject from its world; flip it on the beat where something goes wrong.
 - **Practicals:** a lamp, screen or window inside the frame motivates the key and makes the set read as real.
 - **Edge light and negative fill:** a rim separates a dark subject from a dark ground; one shadow side kept dark. Flat front light flattens the subject.
 - **Light as the event:** a shadow sweeps across, a door throws light in, a lamp switches on at the reveal, the sun moves (timelapse). It is real action without moving the camera **[3D]**.
-- **Story vs explanation grading** (option for a film that wraps an explanation in a small story, e.g. a failure explainer's cold open and bookend): grade the story sections as night, blue-grey, low-key (8:1 and up), dim practical light only; grade the explanation in bright neutral light, 2:1. The change of grade at the pivot is the film's one rule break (§12 *rule breaks*, logged under the CAMERA line); the bookend returns to the night grade, the same set and framing as the opening, now working. Write both moods per section in the storyboard's colour-script line.
+- **Story vs explanation grading** (option for a film that wraps an explanation in a small story, e.g. a failure explainer's cold open and bookend): grade the story sections as night, blue-grey, low-key (8:1 and up), dim practical light only; grade the explanation in bright neutral light, 2:1. The change of grade at the pivot is the film's one rule break (§10 *rule breaks*, logged under the CAMERA line); the bookend returns to the night grade, the same set and framing as the opening, now working. Write both moods per section in the storyboard's colour-script line.
 - **Silhouette / contre-jour** for awe, scale or anonymity (§4 "Faceless").
 
-### 11.2 Lens — how the world feels
+### 9.2 Lens — how the world feels
 - **Lens as layers:** `bokeh(fstop, { focus, mm })` blurs layers by their depth from the focus plane (f1.2–2 melts the background for the key beat, f5.6–8 keeps the world sharp for context), `discs` paints out-of-focus lights, `haze` pales far layers. Rack the focus from cause to effect on the word.
 - **Aperture points at the part.** Whenever the narration names a part of an object seen close (the valve, the hinge, the one blade, the clasp), open the lens to **f1.2–2.8** with the focus on that part: it stays sharp, everything else melts into bokeh, and the viewer knows without a label which part is being talked about. f1.2 on a macro or a single small part, f2.8 when the part is bigger or its neighbours must stay readable. The sharp spot lands on the part's first word (`focus` racked from the previous part over 0.3–0.5 s, `power2.inOut`, landing slightly early) and stays until its last; a second part named is a rack focus to it, never a cut. **Express:** `bokeh(fstop, { focus, mm })` blurs whole layers by depth, so give the part its own depth layer when it has one; `focusRing(target, buffer, { cx, cy, fstop, clear, feather, amount })` isolates a spot inside one layer (centre on the part, `clear` ≈ its size in frame heights) and `hold(t, t0, t1, t2, t3)` times it to the words. **Studio:** the real lens, `dofFor({ mm, fstop, focusM })` with `focusM` the distance to the part. Out-of-focus lights in the blur get `discs`. Skip it when the whole object is the subject (a wide stays f5.6).
 - **Scale by zoom:** a wide hold shows the whole world, a close zoom is the macro, the mechanism at its own scale; a circular inset shows a close-up while the wide stays.
 - **Into the thing:** a cutaway (a skin slid off, `cutaway.js` in Studio) and a zoom through it.
 
-### 11.3 Movement — beyond §2
+### 9.3 Movement — beyond §2
 - **Reveal:** move past a foreground occluder (a wall edge, a leaf, a machine part) to uncover the subject or its scale **[3D][2.5D]**.
 - **Push-through:** the camera passes through a surface (a window, a mesh, a keyhole, the shell of an object) into the next space — a scene change with no cut **[3D]**.
 - **Crane up / down [2.5D]:** `crane25`: the boom rises from the detail to the context (consequence, scale) or lowers into it; the aim holds.
@@ -184,15 +184,15 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Loop end (9:16 Shorts):** the last frame equals the first, so the Short replays seamlessly. `loopEnd(st, { end: (frames - 1) / fps })` brings the camera back to `home` exactly on the last frame; release the attention before it, and finish its fade before the last frame (`oner` refuses a `look.dur` longer than the time it has), and return the subject's own state too (a part that moved must be back where it started, or the loop jumps) **[3D]**.
 - **Motion-control repeat:** the identical move over two states (before / after, option A / option B, new / worn), then cut or wipe between them. It's the strongest comparison shot there is **[3D]**.
 - **Frozen moment:** time stops on the instant (an impact, a splash, a reaction) and the view zooms in on it, then lets time run again.
-- **Drone / FPV dive:** from the sky into the subject. It's the wow shot or nothing (§10).
+- **Drone / FPV dive:** from the sky into the subject. It's the wow shot or nothing (§8).
 
-### 11.4 Time
-- **Slow motion** for what the eye can't see — splashes, mechanisms, breaking (any speed in 3D, §10).
+### 9.4 Time
+- **Slow motion** for what the eye can't see — splashes, mechanisms, breaking (any speed in 3D, §8).
 - **Timelapse** for slow processes (wear, growth, a day, a build); **hyperlapse** is a timelapse with a travelling camera **[3D]**.
 - **Freeze-frame and annotate:** stop at the key instant, draw labels and leader lines on it, then release — an explainer staple **[C]**.
-- **Reverse** to show the cause; **speed ramp** for emphasis (§10).
+- **Reverse** to show the cause; **speed ramp** for emphasis (§8).
 
-### 11.5 Editing — beyond §3
+### 9.5 Editing — beyond §3
 - **Cross-cutting:** alternate two lines (A vs B, two processes) in the same framing, so the comparison lives in the rhythm.
 - **Collision montage:** two shots that together mean a third thing (waste next to a bin of money) — for an argument, not a fact.
 - **Graphic or morph match:** a shape becomes a similar shape in the next shot (a circle → a wheel → a gauge) to jump scale or idea.
@@ -200,7 +200,7 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Insert as evidence:** a macro detail cut into a wide beat to prove the claim being spoken.
 - **Split screen** only on 16:9 for things happening at the same time; on 9:16, stacked top / bottom only if both read at 360 px (`visual-direction.md` §7).
 
-### 11.6 Educational signatures — the scale and the inside
+### 9.6 Educational signatures — the scale and the inside
 - **Scale journey ("powers of ten"):** one continuous zoom from human scale down to the microscopic (or out to the cosmic), with a scale bar counting **[3D]** (layered scale planes, real micrographs at the bottom).
 - **X-ray / ghost shell:** the outer surface fades to 20–35 % with a bright fresnel edge so the inner mechanism works visibly inside it **[3D]** (`attend(...)` with `edge` for the rim, on a lit material).
 - **Cutaway section:** a clean section plane through the object, the cut face solid or hatched, the mechanism running in the section **[3D]** (`engine/three/cutaway.js`: one plane on the whole assembly; the exterior shot and the section shot are the same set with `cut.off(t)` / `cut.on(t)`, and a slow `cut.set(offset, t)` slides the section through).
@@ -209,9 +209,9 @@ A director of photography doesn't use everything: they pick a **palette** for th
 - **Map / terrain zoom:** from the globe down to the street for place-based topics; bake the camera move (`/hyperframes` `film.md`) **[C]**.
 - **Hands-on macro B-roll:** hands doing the real thing, very close and shallow — the faceless presenter **[3D]**.
 
-## 12. Emotion drives every parameter: the rulebook
+## 10. Emotion drives every parameter: the rulebook
 
-A shot's lens, height, move, light, colour and frame ratio are chosen from the feeling it serves, never from a generic "cinematic" default. **Every storyboard row names one emotion and a motivation for each choice; a move, lens, light or colour without a motivation is removed.** Restraint is the default: static unless motivated, few lenses, few colours, few cuts. Restraint reads as authorship; a frame where every choice obeys one idea beats a run of impressive, unrelated shots. Isometric looks use Size, Focus, Movement, Colour, Shutter and Ratio; Angle and Lens do not apply (zoom stands in for lens, layer blur for aperture) and Light becomes the grade and palette. All columns, §12.1's Kelvin table and §12.2's camera height apply in full to `object-studio`.
+A shot's lens, height, move, light, colour and frame ratio are chosen from the feeling it serves, never from a generic "cinematic" default. **Every storyboard row names one emotion and a motivation for each choice; a move, lens, light or colour without a motivation is removed.** Restraint is the default: static unless motivated, few lenses, few colours, few cuts. Restraint reads as authorship; a frame where every choice obeys one idea beats a run of impressive, unrelated shots. Isometric looks use Size, Focus, Movement, Colour, Shutter and Ratio; Angle and Lens do not apply (zoom stands in for lens, layer blur for aperture) and Light becomes the grade and palette. All columns, §10.1's Kelvin table and §10.2's camera height apply in full to `object-studio`.
 
 | Emotion | Size | Angle | Lens (FF) | Focus | Movement | Light (ratio) | Colour | Shutter | Ratio |
 |---|---|---|---|---|---|---|---|---|---|
@@ -232,7 +232,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 
 **Structure:** establish wide, tighten as the feeling rises, keep the tightest size and the longest lens for the climax; rhyme the final image with the opening composition so the change in meaning is felt; one idea per shot (two ideas = two shots); hold a beat after the line — the reaction is often the story; keep key action off screen when sound can carry it.
 
-### 12.1 Light
+### 10.1 Light
 - **Motivated:** every light seems to come from a source in the world (window, lamp, screen, sky).
 - **Short-side key:** light the side of the subject away from camera. Camera-side (broad) light is flat and reads as TV.
 - **Subtract to shape:** dark negative fill on one side beats adding lamps. Design colour in the set, wardrobe and practicals first; the grade only enhances.
@@ -250,7 +250,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
   | Overcast | 6500 K | `#fffefa` |
   | Shade, blue hour | 8000 K | `#dde6ff` |
 
-### 12.2 Composition
+### 10.2 Composition
 - **Thirds:** eyes on the upper third, look room ahead of the gaze. Centre and symmetry mean order, control, unease or authority.
 - **Headroom:** tight is normal. A subject low under large headroom reads as small or oppressed.
 - **Negative space:** 60–80 % of the frame left empty reads as isolation.
@@ -259,7 +259,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 - **Dialogue:** in shot / reverse shot, eyelines match and lens and distance are the same on both sides.
 - **3D camera height:** eye ~1.5–1.7 m, child ~1.0 m, low 0.3–0.6 m, all scaled to the set.
 
-### 12.3 Frame ratio inside the canvas
+### 10.3 Frame ratio inside the canvas
 
 **Frame ratio inside the canvas** (16:9 films only; 9:16 and 4:5 stay full-bleed, since platform UI covers the bars' space). The ratio is a story decision, constant unless a logged break changes it. At 1920×1080:
 
@@ -274,7 +274,7 @@ A shot's lens, height, move, light, colour and frame ratio are chosen from the f
 
 Build the mask as the top layer of the root composition (two black `div`s), so bars stay pure black with no grain on them. Captions and safe areas sit inside the image area.
 
-### 12.4 Finishing order, identical on every shot
+### 10.4 Finishing order, identical on every shot
 1. Grade or LUT.
 2. Halation: a red-orange glow around highlights; subtle; film looks only.
 3. Grain.
@@ -283,7 +283,7 @@ Build the mask as the top layer of the root composition (two black `div`s), so b
 
 Apply them in the finisher pass.
 
-### 12.5 Approach presets
+### 10.5 Approach presets
 
 **Approach presets.** Borrow a film's approach, never its shots. Start the rulebook from the nearest preset and adapt it:
 
@@ -300,4 +300,4 @@ Apply them in the finisher pass.
 
 ## Sources
 
-Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots); §12's emotion table, rulebook, Kelvin, ratio and finishing practice follow award-winning indie cinematography (DP approaches of the films named, paraphrased).
+Sources (paraphrased, not copied): Serge Shima, [smixs/visual-skills](https://github.com/smixs/visual-skills) (CC BY 4.0) — shot functions, angle and move motivation, Murch's order, rhythm and density ladders, arcs, five anchors, faceless staging (parts of which credit [agentara/skills](https://github.com/agentara/skills), MIT); [iart-ai motion skills](https://github.com/iart-ai/motion-skills) (MIT, © 2026 iart.ai) — √distance timing, 1/3 rule, motion-language spec, one wow, infographic and chart pacing, OKLCH colour, J/L offsets; Material 3 motion tokens, Apple spring docs, RED shutter guide, Nuke LightWrap, Depth Anything V2, Niklaus et al. 2019 (3D Ken Burns); lighting ratio (ASA definition), split diopter, crane and bullet-time references (Wikipedia, MasterClass); public breakdowns of explainer-channel editing (map zooms, match cuts, speed ramps, A/B plots); §10's emotion table, rulebook, Kelvin, ratio and finishing practice follow award-winning indie cinematography (DP approaches of the films named, paraphrased).

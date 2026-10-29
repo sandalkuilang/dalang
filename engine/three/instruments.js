@@ -4,7 +4,7 @@
 // returns the numbers it drew (the self-check reads those, not pixels). A value it cannot read (NaN, a missing
 // sample) is shown as "--" or a gap and returned as null: never drawn as 0. Like type.js it imports nothing, so a
 // composition, a render worker and the self-check all run the same code. Draw it after the finisher, in the text band
-// (type.js `safeArea`); text is never under 36 px at 1080 px on the short side (craft-rules.md §6).
+// (type.js `safeArea`); text is never under 36 px at 1080 px on the short side (craft-rules.md §5).
 //
 //   import { scope, meter, gauge, bar } from "./assets/instruments.js";
 //   finisher.draw(t);                                                      // the GL frame on the 2D canvas first

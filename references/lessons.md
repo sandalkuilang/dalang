@@ -54,7 +54,7 @@ Each line is a failure that already happened, tagged with the steps it belongs t
 
 ## Working speed
 - [0,1] **A 242k-token session**: one long conversation carried a voice-clone detour, five script drafts, and two copies of the skill. State lives in files — start one session per video and resume from `BRIEF.md` + `PRODUCTION.md`.
-- [1] **24 fps looked choppy on a 30 fps platform:** frames repeat and rendered 3D has no blur, so moves strobe. Default fps is the platform's (30); 24 is a chosen look that blurs moves (`camera-motion.md` §10).
+- [1] **24 fps looked choppy on a 30 fps platform:** frames repeat and rendered 3D has no blur, so moves strobe. Default fps is the platform's (30); 24 is a chosen look that blurs moves (`camera-motion.md` §8).
 - [7] **A 30 fps draft render took 39 min** (the next took under 3): nobody stopped it. A render far slower than the last → stop and look for the cause.
 - [7] **A 10 fps draft rendered in half the time** and gave the same stillness and loudness verdicts. QC renders run at 10 fps; the user reviews in `preview`.
 - [7] **An unattended run delivered known "looks wrong" P1s** (Reality, Clarity); the user's first ask was to fix them: another polish pass and another final render. Those P1s (and Set ones) now block the final (`qc.md` Step 7 ship rules).
@@ -64,7 +64,7 @@ Each line is a failure that already happened, tagged with the steps it belongs t
 - [5,6] **Two queued jobs waited on `pgrep -f <job>` for 25 min with nothing running**: each waiting shell's own command line matched. Chain heavy jobs in one background command, or wait on a PID (SKILL.md).
 - [5] **The machine sat idle through a 58 min gate wait**, then assets and music ran serially after it. Free local jobs that a "no" only discards run during the wait.
 - [5] **The film read as a PowerPoint slideshow:** 14 drifting stills with text in 61 s (Punchy energy wants ≥ 34 shots), the key action a frozen photo, nothing shown of the mechanism the narration explained. `stillness.mjs` said 0.8 % still because the rule let a ≥ 30 px/s drift count as motion. Now the subject must act in every shot, camera-only plates are ≤ 15 %, every "why" gets a mechanism shot, and the reviewer runs an Action test (`visual-direction.md` §3, §8, §11).
-- [5] **Every "camera move" was CSS on a still** (pushes and drifts on 14 stills): no tracking, no orbit, no slow motion, no B-roll — the film had no cinematography to speak of. Real moves come from a rig camera (2.5D layers or three.js), cut as A-roll and B-roll with one wow shot (`camera-motion.md` §10).
+- [5] **Every "camera move" was CSS on a still** (pushes and drifts on 14 stills): no tracking, no orbit, no slow motion, no B-roll — the film had no cinematography to speak of. Real moves come from a rig camera (2.5D layers or three.js), cut as A-roll and B-roll with one wow shot (`camera-motion.md` §8).
 - [7] **Rework, not rendering, was the slow part** of a 3 h 43 min run: a 27 % stillness fail (static plates) cost a 7.5 min re-render; 5 of the reviewer's 7 P0s were asset defects found after the full build; `check` next to a model job took 9× longer. Now: scene-prefixed ids and overlapping whips from the first draft (`look-build.md` Step 6 item 4), an asset pass before building (`review.md`), browser steps never beside a model job.
 - [5,6] **A stylized room read as a toy** with its furniture in place; adding dense small props (things on every surface, cables, real-leaf plants, a pinboard) and a few small life motions lifted it more than any lighting or material pass. Set dressing is now a recipe and a review test (`looks.md`, `visual-direction.md` §11).
 - [6] **A desk chair swivelled around a corner of its base** on an endless sine: the kit model's origin was not its pivot, and nothing caused the motion. Motion now has a cause: pushes decelerate at μ·g, contacts posed from their cause, real pivots (`camera-motion.md` §5).
@@ -77,43 +77,3 @@ Each line is a failure that already happened, tagged with the steps it belongs t
 - [7] **Reading a stale preview iframe** gave identical numbers after a change: the Studio keeps an old player iframe beside the new one. Read the newest (`_t=` in its URL) and record build errors on the host object.
 - [6,7] **Context grew to ~590k tokens in one run, never compacted:** 21 full-size snapshots and every verification log stayed in it, and each of 257 calls re-read it all. Verification loops run in a subagent that returns a text verdict; the user is told at Gates 3 and 4 that `/compact` is safe.
 - [6] **Scene files were patched with inline scripts** (`python3 - <<EOF`, `sed -i`): about 50 patches, ~94 k characters of tool input, and two swallowed the code after an inline comment. Scene changes are `Edit` calls.
-
-## Enforced by scripts (grep only)
-
-Each failure below now makes a script fail loudly, so `state.mjs next` no longer prints it; kept for `grep`.
-
-[3,4] **Narration that did not say where it was going**, read with semicolons and colons as pauses of unknown length, in one long sentence after another: viewers could not tell the topic, the direction or what they learned. Every check was on the pictures (sound-off quiz); none on the words. Now `Promise:` / `Takeaway:`, `narration_lint.mjs` and a text-only read-through at Gate 1.
-
-[4] **A heavy chunk timed out and the abandoned job kept the device,** so an immediate retry failed again; the script printed `FAILED` and the agent restarted the app by itself. Chunks stay within the engine's limit (120 characters for VoxCPM2), and a `503` waits, retries once, then is a `WARN … rerun` with exit 3: BUSY means wait, never restart.
-
-[4] **A clone profile made in the app (60 s clip, no transcript) answered a raw 500** and cost ~6 calls to diagnose. `tts_timestamps.mjs` now names the fix (re-save 3–10 s with `--ref-text`) and `--save-profile` refuses clips over 20 s.
-
-[4] **A saved voice came out as the default voice, with no error:** the profile name went to VoiceStudio as-is, and it matches profiles by `voice_id` only, so an unknown name falls back to the default (same seed → identical audio). `tts_timestamps.mjs` now resolves a name to its id and stops on an unknown voice. When a user says "that is not my voice", compare against `--voice <id>` first.
-
-[6] **A template beside `index.html` failed `check`** (`multiple_root_compositions`), and `media-treatment` patched the file `fill_times` regenerates. Template lives at `src/index.tpl.html` (SKILL.md "Project files").
-
-[6] **Lint flagged 45 "duplicate audio tracks":** SFX `<audio>` without `data-duration` count as playing to the end of the film.
-
-[6] **`find_media.mjs --type music --licence cc0` was always empty.** Openverse's CC0 music (Freesound) carries no `category`, so a `category=music` filter dropped all of it, and "nothing matched" read as "there is no CC0 music". Music is now told from SFX by duration (`--min-duration`, default 20 s), and the order is CC0 first, then CC BY with a visible-credit note. A provider's `mp32` filetype is saved as `.mp3`. The drafted social caption never carries a credit line unless the user chose one.
-
-[5,6] **Throwaway search scripts, and a hand-built manifest.** Each film re-wrote an Openverse and a Commons search (fixed `sleep`s between queries, ~11 min for one music track), and listed the engine's ~25 copied files in `ASSETS.json` as "generated, MIT", which is false for vendored code. `scripts/find_media.mjs` searches and `--take`s with the row filled from the API (backing off on 429); `build.mjs` lists the engine's files itself in `assets/.engine.json`. Never write either by hand; a licence guessed from memory (a bundled SFX pack taken for CC0) is read from its own credits file instead.
-
-[8] **The final came out at 30 fps, not the brief's 24:** `hyperframes render` defaults to 30 fps and the Step 8 command passed no `--fps`; `qc.mjs --fps` caught it, after a full re-render. The brief's fps is always passed to every render (`qc.md` §8).
-
-[7] **Every QC round rebuilt its review sheets by hand:** still times computed from the shot list, ~70 frames snapshotted, then ~10 ad-hoc ffmpeg tile commands per run (snapshot names large sets `contact-sheet-1.jpg`, so the expected name missed). `strips.mjs` does it in one call (`qc.md` Step 7).
-
-[4] **Background TTS was polled** by reading its output file. Background jobs notify on exit; the scripts end with `DONE`.
-
-[5,6,7] **`PRODUCTION.md` logged every step as `HH:MM–HH:MM` with start = end** (both written at the end), so `logged_minutes` was 0 and no ETA could be given; the user asked "how long?" three times. `state.mjs log` takes the start from the previous line.
-
-[6] **`settle` refused props placed a few cm high** (a ball dropped in a bin, cushions held above a seat) and left them floating; it now drops a prop any distance onto what is under it, as gravity would, and only reports a prop placed inside something.
-
-[6] **10x typo unseen;** coplanar faces z-fought into radial stripes. Declare real sizes (`userData.real`) and run `scaleAudit`; run `zFight` for the stations; offset or lift the face it names.
-
-[6] **Per-film caption code lost contrast, clipped pinned labels into the platform rail, drew them under the size floor and repeated a label:** each film rewrote the phrase split and the drawing. The engine's `type.js` owns them (`phrases`, `drawCaption`, `pinLabel`, `repeats`): ink from the ground under the box, labels clamped inside the safe area above the caption, a warning on a repeat.
-
-[6] **A raw cue landed in the shot before a frame-rounded cut,** and an overlay window collapsed with no error. Shot starts are snapped to frames and the cue was not: up to half a frame (16.7 ms at 30 fps) puts a raw lookup in the previous shot. Use `shotAt` / `overlayWindow` and run `windowProblems` (an empty or under-read window is an error); never compare a raw cue with a snapped boundary.
-
-[6,7] **Code after a mid-line `//` comment never ran, and `node --check` passed:** one-line patches put a comment between two statements, so a scale (a hero rendered many times its size), a shadow setting or the `add` of a part was dropped without an error, and a comma inside the comment merged two shot-list entries into one. Each shipped into a render and cost a QC round. `scripts/lint_scene.mjs` flags it after every patch and before every snapshot and render.
-
-[0] **Three quarters of the skill's docs were read into the main context** (whole-file reads of references, the lessons and the engine README), and every later call re-read them. `state.mjs next` prints each step's sections; nothing is read whole.
