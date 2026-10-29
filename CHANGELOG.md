@@ -77,6 +77,8 @@ that reads as:
 
 ### Changed
 
+- README samples show the Studio precision lane: two stills of the Blender hero in the three.js iso look (x-ray with the
+  coded loop, the compressor's section).
 - The hero subject is modelled from pictures into `engine/blender/` instead of taken as a CC0 model; CC0 models stay
   the first route for supporting objects. The Brief asks for any 2D pictures of the subject, not only photos of the
   user's own machine.
