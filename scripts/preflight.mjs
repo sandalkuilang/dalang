@@ -241,6 +241,11 @@ async function media() {
   const py = process.env.DALANG_PYTHON || vsPython;
   if (langs.length && !existsSync(py)) langs = []; // a model without its Python can't run
   out.push(['Word aligner', langs.length ? 'OK' : 'INFO', langs.length ? `local models: ${langs.join(', ')} (sharper word timing)` : 'no local model — timing from transcript; optional download per language (references/voice.md "Forced alignment")']);
+  // Photo tracer (trace.mjs): vtracer in dalang's own venv, for the user's photos of their own thing. Optional; installed
+  // only with the user's yes. A probe that fails for another reason than "not there" is a WARN to rerun.
+  const vtPy = process.env.DALANG_VTRACER_PY || path.join(homedir(), '.cache', 'dalang', 'vtracer', 'bin', 'python');
+  if (!existsSync(vtPy)) out.push(['Photo tracer', 'INFO', 'vtracer not installed — optional, only when the user brings photos of their own thing; ask first (vtracer, MIT, ~2 MB): python3 -m venv ~/.cache/dalang/vtracer && ~/.cache/dalang/vtracer/bin/pip install vtracer']);
+  else { const v = await run(vtPy, ['-c', 'import vtracer'], 20000); out.push(v.ok ? ['Photo tracer', 'OK', 'vtracer ready (scripts/trace.mjs)'] : ['Photo tracer', 'WARN', `vtracer did not load (${clean(v.err || 'no reply')}) — rerun preflight`]); }
   if (stale) out.push(['HyperFrames skills', 'WARN', `${stale} — asked in Brief Call 0: npx hyperframes skills update`]);
   if (process.env.GEMINI_API_KEY) out.push(['Snapshots', 'WARN', 'GEMINI_API_KEY is set — `hyperframes snapshot` uploads frames to Gemini unless you pass --describe false']);
   return out;

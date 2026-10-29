@@ -51,9 +51,12 @@ part three readable faces at any base: `color: triad(COLORS.subject)`.
   rod ride the crank; crankcase and barrel are skins the cutaway slides off) · `room { w, d, h, window, door }` (its spec
   `shadow: false`; it is ground) · `appliance { kind: fridge|washer|ac|server }` · `tree { h, kind: round|pine }`.
   Facing +x; `turn` faces them. A template is one rigid assembly to the world audit; place it, never rebuild it.
-- **The user's own thing** (`plate.js`): `plate { plate: "<name>", w (its real length, m), d, spin: { <layer>: "<value>" } }`
-  draws `assets/plates/<name>/` (traced from their photo by `trace.mjs`) upright at its point, lowest edge on the ground,
-  each moving layer turned by its value about its ellipse; pins `<part>.<layer>`. The template loads it before the timeline.
+- **The user's own thing** (`plate.js`): `plate { plate: "<name>", w (its real length, m), d, spin: { <part>: "<value>" },
+  spread: { <part>: "<value>" } (rad swept per frame: a fast fan or wheel as a blurred disc), tint: { <select>: { color,
+  amount: "<value>" } }, flows: [{ path: [[fx, fy], …], color, width, at: "<value>" (travel), on }], marks: { <name>:
+  [fx, fy] } }` draws `assets/plates/<name>/` (traced from their photo by `trace.mjs`) upright at its point, lowest edge
+  on the ground. Paths and marks are fractions of the photo, read off it; pins `<part>.<layer>` and `<part>.<mark>`. The
+  template loads it before the timeline.
 - Any number may name a key of `values` (`h: "level"`): `values(t)` returns them, pure in t. `focus` greys all but that
   group; `cut` 0–1 slides every `skin` off (cutaway).
 - A ready CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(iso, spec, { models: { name: m } })`
