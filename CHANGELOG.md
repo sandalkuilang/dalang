@@ -78,8 +78,6 @@ that reads as:
   the first route for supporting objects. The Brief asks for any 2D pictures of the subject, not only photos of the
   user's own machine.
 
-### Changed
-
 - The Express look draws like an illustration, not a block game: every solid is one mesh whose silhouette and creases
   are inked and whose lit top edges carry a light rim; a box's top edges are chamfered (`bevel`, 8 % of its least side
   by default); spheres get an outline; each object stands on a soft contact shadow (`shadow: false` turns it off).

@@ -6,7 +6,7 @@ Left alone, code-made video lands on one look: flat shapes on a cream or dark gr
 
 Every film is **stylized**: a designed look, one style per film, never footage or a photoreal render. The subject is still true to reality: right anatomy, parts, proportions, scale and behaviour, in a world dressed with what is really there. DALANG installs no image or video model and films nothing; a generated still or clip is not part of the pipeline.
 
-The hero is made one of three ways: **drawn** as true shapes (Express); **built** in three.js from its own law and real measures (Studio, the same isometric world); or a **CC0 / public-domain 3D model** re-dressed into the film's style (below). Vector or CSS shapes stand in for what has no real appearance (diagrams, charts, maps, UI, icons, type, abstract ideas) and sit beside the subject, never instead of it.
+The hero is made one of three ways: **drawn** as true shapes (Express, the fast lane); **modelled once** from 2D pictures as a Blender script and rendered in three.js (Studio, the precision lane: `hero-asset.md`); or, for what neither covers, **built** in three.js from its own law and real measures. Supporting objects may be a **CC0 / public-domain 3D model** re-dressed into the film's style (below). Vector or CSS shapes stand in for what has no real appearance (diagrams, charts, maps, UI, icons, type, abstract ideas) and sit beside the subject, never instead of it.
 
 ### 1.1 Per subject: machines, models, people, checks
 
