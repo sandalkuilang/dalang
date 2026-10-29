@@ -32,6 +32,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-10-30
+
 ### Added
 - **Closer = orbit-in** (`camera-motion.md`, the Express planner card): a move that closes in on a subject (a push, zoom or dive of 1.2× or more, or one size step tighter) turns the view while the frame tightens, in the film's one orbit direction, never a straight push; accent pushes under 1.2×, the one dolly zoom and the one crash zoom are exempt. `storyboard_lint` fails a Camera cell that closes in with no orbit word. "Arrive and orbit" is no longer limited to three a film.
 
@@ -1854,7 +1856,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.4.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.0...HEAD
+[4.5.0]: https://github.com/sandalkuilang/dalang/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/sandalkuilang/dalang/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...v4.2.0
