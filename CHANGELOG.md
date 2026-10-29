@@ -32,6 +32,10 @@ that reads as:
 
 ### Added
 
+- A person is a jointed 3D body (`engine/iso/figure.js`), not a flat pictogram: real proportions, head with hair
+  and eyes, torso, elbows, hands, knees and shoes; poses stand, walk, point, carry, reach, sit, crouch, kneel and wave,
+  any joint by angle, a hand placed on a point by IK (`reach: [x, y, z]`), feet always on the ground and a seated
+  pelvis on its seat; clothes by colour (shirt, trousers, long sleeves, a coat, a cap, long hair).
 - `engine/iso/kit.js`: about forty components every made thing is assembled from (bolts, panels with screws and seams,
   vents, grilles, screens, buttons, knobs, handles, labels, hinges, pipes with flanges, hoses with fittings, cables,
   tyres with tread, rim and spokes, springs, cooling fins, bottles, drums, pans, cans, crates, cartons, windows, doors,

@@ -28,6 +28,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
   slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a
   key of `values` so the timeline drives it. It returns `{ at }`, each part's pin point. Parts paint in an order taken
   from their boxes (below, behind, inside go first), so a plate never covers what stands on it.
+- `figure.js`: a person as a jointed 3D body in real proportions (head, hair, eyes, neck, torso, elbows, hands, knees,
+  shoes), posed by preset or joint angles, a hand reaching a point by two-bone IK, feet always set on the ground or the
+  pelvis on a seat; build()'s `figure` form draws it. The vendor's flat `person()` billboard is no longer used.
 - `kit.js`: components every made thing is assembled from (fasteners, faces and controls, pipes, hoses, cables, tyres,
   springs, fins, containers, windows, doors, furniture, plants, lamps, tools), each a function of its sizes returning
   ordinary parts; `{ form: "kit", kit: "tyre", r, width }` in a spec. Anatomy's audit expands them the same way.
