@@ -138,7 +138,14 @@ for o in bpy.context.scene.objects:
         tri += len(o.data.loop_triangles)
 print(f'OBJECTS {len(objs)} TRIANGLES {tri} FINS {ci["fins"]} TUBES {ci["tubes"]}')
 
+# sheet metal is bent, not cut: its edges get a small round (a bevel the export applies), the casing and the divider
+for o in bpy.context.scene.objects:
+    if o.type == 'MESH' and (o.name.startswith('casing.') or o.name == 'divider') and o.name != 'casing.screws':
+        b = o.modifiers.new('bend', 'BEVEL'); b.width = 0.0025; b.segments = 3; b.limit_method = 'ANGLE'; b.angle_limit = math.radians(40); b.use_clamp_overlap = True; b.harden_normals = False
+
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'condensing_unit.blend'))
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, 'condensing_unit.glb'), export_format='GLB',
                           export_apply=True, export_yup=True, export_cameras=False, export_lights=False)
 print('EXPORTED')
+dg = bpy.context.evaluated_depsgraph_get()
+print('EXPORTED_TRIANGLES', sum(len(o.evaluated_get(dg).to_mesh().loop_triangles) if o.type == 'MESH' and not o.evaluated_get(dg).data.calc_loop_triangles() else 0 for o in bpy.context.scene.objects))

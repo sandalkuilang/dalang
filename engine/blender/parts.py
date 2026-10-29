@@ -416,25 +416,49 @@ def finned_coil(width, height, depth, rows=2, fin_pitch=0.0014, bend='L', side_l
         n = Vector((-t.y, t.x, 0))
         return p, t, n
 
-    # fins
-    mf = MB('aluminium_fin')
-    ep = 0.004
-    s = ep + 0.003
-    nfins = 0
-    while s < L - ep - 0.003:
-        p, t, n = frame(s)
-        M = basis(p, t, n, (0, 0, 1))
-        mf.box(fin_t, depth + 0.004, height, (0, 0, height / 2), M)
-        s += fin_pitch
-        nfins += 1
-    fins = mf.finish(f'{prefix}.fins', 20)
-
-    # tubes (sequence staggered across rows)
+    # tubes (sequence staggered across rows); the fins are punched for them
     step = tube_pitch / rows
     N = int((height - tube_pitch) / step) + 1
     if N % 2:
         N -= 1
     z_first = (height - (N - 1) * step) / 2
+    r = tube_d / 2
+
+    # fins: the outer `open_fins` at each end (the faces a camera sees) are punched plates with a drawn collar round
+    # every tube; the fins between them are plain plates (no face of them is ever seen, and 600 punched fins would
+    # cost ~1M triangles)
+    mf = MB('aluminium_fin')
+    ep = 0.004
+    starts = []
+    s = ep + 0.003
+    while s < L - ep - 0.003:
+        starts.append(s)
+        s += fin_pitch
+    nfins = len(starts)
+    open_fins = 3
+    cell_h = tube_pitch                                  # one column of a row: its tubes are tube_pitch apart
+    for i, s_ in enumerate(starts):
+        p, t, n = frame(s_)
+        if open_fins <= i < nfins - open_fins:
+            mf.box(fin_t, depth + 0.004, height, (0, 0, height / 2), basis(p, t, n, (0, 0, 1)))
+            continue
+        Mp = basis(p, n, Vector((0, 0, 1)), t)          # plate local x across the depth, y up, z through the fin
+        for k in range(N):
+            o = ((k % rows) - (rows - 1) / 2) * row_pitch
+            zc = z_first + k * step
+            x0, x1 = o - row_pitch / 2, o + row_pitch / 2
+            y0, y1 = max(0.0, zc - cell_h / 2), min(height, zc + cell_h / 2)
+            mf.plate_hole([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], (o, zc), hole_r=r * 1.04, t=fin_t, segs=20, M=Mp @ T(0, 0, -fin_t / 2))
+            mf.ring(r * 1.3, r * 1.04, -0.0007, 0.0007, 16, Mp @ T(o, zc, 0))   # the drawn collar
+        for c in range(rows):                                                  # top and bottom margins of each column
+            o = (c - (rows - 1) / 2) * row_pitch
+            ks = [k for k in range(N) if k % rows == c]
+            lo, hi = z_first + ks[0] * step - cell_h / 2, z_first + ks[-1] * step + cell_h / 2
+            if lo > 1e-5:
+                mf.box(row_pitch, lo, fin_t, (o, lo / 2, 0), Mp)
+            if hi < height - 1e-5:
+                mf.box(row_pitch, height - hi, fin_t, (o, (height + hi) / 2, 0), Mp)
+    fins = mf.finish(f'{prefix}.fins', 20)
     p0, t0, _ = frame(0.0)
     p1, t1, _ = frame(L)
     # offset polyline per row
@@ -457,7 +481,6 @@ def finned_coil(width, height, depth, rows=2, fin_pitch=0.0014, bend='L', side_l
         return [start] + pts + [end]
     lines = [tube_line(k) for k in range(N)]
     mt = MB('copper')
-    r = tube_d / 2
     for ln in lines:
         mt.sweep(ln, r, 10)
 
