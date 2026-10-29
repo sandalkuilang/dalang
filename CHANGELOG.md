@@ -32,6 +32,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-10-29
+
 ### Removed
 
 - Every sample and topic-locked piece: the README's Samples section and `docs/assets/samples/`; `engine/iso/examples.js`
@@ -1799,7 +1801,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...v4.0.0
 [3.10.0]: https://github.com/sandalkuilang/dalang/compare/v3.9.1...v3.10.0
