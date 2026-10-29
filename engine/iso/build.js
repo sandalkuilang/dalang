@@ -12,15 +12,17 @@
 // forms = box { w, d, h } · cyl { r, h, axis 'z'|'x'|'y' } · cone { r, h } · sphere { r } · roof { w, d, h, ridge }
 //         lathe { profile: [[r, z], …] } · extrude { outline: [[u, v], …], h, plane } · sweep { path, r }
 //         gear { teeth, module, width, mesh: { with, phase } } · wheel { r, width, axis } · board { w, d, layers: [{ h, color }] }
-//         figure { h, pose 'stand'|'walk'|'point'|'carry', phase, face } · model { model: key in state.models, size, max, texels }
+//         figure { h, pose stand|walk|point|carry|reach|sit|crouch|kneel|wave, phase, reach [x,y,z], seat, lean, look, joints,
+//                  color (shirt), legs, skinTone, hair, hairStyle, hat 'cap', sleeves, coat, shoes } (figure.js) · model { model: key in state.models, size, max, texels }
 //         flat { outline } · line { path, width, dash } · group { parts } · kit { kit, …its fields } (kit.js: components)
 // Any number field may name a key of state.values instead ("h": "level"), so the timeline drives the spec.
 // Parts are painted in an order taken from their boxes (one wholly below, behind or left of another goes first), so a
 // thin wide plate never covers what stands on it; parts whose boxes interlock fall back to the engine's depth.
-import { person, TAU } from "./iso.js";
+import { TAU } from "./iso.js";
 import { solid, lathe, extrude, sweep, gearOutline } from "./forms.js";
 import { drawModel } from "./model.js";
 import { expandKit } from "./kit.js";
+import { figureSolids } from "./figure.js";
 
 const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group", "kit"]);
 const NEAR = [0.7071, 0.7071, 0]; // a skin with skin: true slides toward the viewer (depth is x + y + z)
@@ -139,11 +141,12 @@ function draw(iso, p, c, R, col) {
       return [0, [-w / 2, -d / 2, z, w / 2, d / 2, 0]];
     }
     case "figure": {
-      const h = num("h", 1.7), ph = R(p.phase) || 0, pose = p.pose || "stand", sw = Math.sin(ph * TAU);
-      const o = { h, body: col, face: R(p.face) || 1, hair: p.hair, hat: p.hat, legs: p.legs, skin: p.skinTone,
-        arm: pose === "point" ? 1.9 : pose === "carry" ? 1.2 : pose === "walk" ? 0.2 + 0.5 * sw : 0.2, bob: pose === "walk" ? 0.02 * h * Math.abs(sw) : 0, basket: pose === "carry" };
-      iso.bill(0, 0, 0, (g) => person(g, o), { r: h, cull: false });
-      return [h, [-0.2 * h, -0.2 * h, 0, 0.2 * h, 0.2 * h, h]];
+      // a jointed 3D person (figure.js); color is the shirt, legs the trousers, skinTone the skin
+      const pt = (v) => (Array.isArray(v) ? v.map(R) : undefined), f = figureSolids({ h: num("h", 1.7), pose: p.pose || "stand", phase: R(p.phase) || 0, reach: pt(p.reach), reachL: pt(p.reachL),
+        seat: R(p.seat), lean: R(p.lean), look: R(p.look), joints: p.joints && Object.fromEntries(Object.entries(p.joints).map(([k, v]) => [k, R(v)])),
+        skin: p.skinTone, hair: p.hair, hairStyle: p.hairStyle || (p.hat === "cap" ? "cap" : undefined), cap: p.hatColor, shirt: col, sleeves: p.sleeves, pants: p.legs, shoes: p.shoes, coat: p.coat, belt: p.belt });
+      for (const q of f.solids) solid(iso, q.faces, q.color, { smooth: q.smooth });
+      const hh = num("h", 1.7); return [f.top, [-0.2 * hh, -0.2 * hh, 0, 0.2 * hh, 0.2 * hh, f.top]];
     }
     case "model": {
       const m = c.s.models[p.model];
