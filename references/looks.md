@@ -7,7 +7,7 @@ Two looks, either mode, picked in the Brief (`brief.md` Call 1 item 0b): the iso
 | Drawn by | `engine/iso` (Canvas 2D) for `isometric-world` and `cutaway`; inline SVG for `blueprint` | `engine/three`: `isoCamera`, `isoStudio`; `isoLook` (world), `isoLook` + `inkLines` (cutaway), `blueprintLook` + `inkLines` (blueprint) |
 | Projection | true isometric; the view pans and zooms (zoom in log), never tilts or turns (a turn is the subject's); depth from layers moved against each other | the same: an `OrthographicCamera` along (−1, −1, −1), a pose `{ target, k }` |
 | Faces | `isometric-world`: three tones from one colour, each solid inked (silhouette + crease, `iso.ink`); `cutaway`: paper tints, ink lines; `blueprint`: lines only | tones from the face's normal (one shared matcap) or flat ground-coloured faces, no lights |
-| Palette, type, furniture | the language file: ground, slots, ink, fonts; pins or numbered callouts, route lines, dashed cut lines, hatched sections, Isotype rows, insets, dimension lines; a title block on 16:9 only | the same, on the 2D canvas over the set |
+| Palette, type, furniture | the language file: ground, slots, ink, type scale; pins or numbered callouts, route lines, dashed cut lines, hatched sections, Isotype rows, insets, dimension lines; a title block on 16:9 only | the same, on the 2D canvas over the set |
 | Depth and finish | `engine/iso/parallax.js` layers, `cinema.js` finish | the same modules, the three.js canvas as the subject layer |
 | Studio only | — | the Blender hero (`hero-asset.md`), section views (`cutaway.js`), grains, fields, current, posed motion, reference boards, benchmark, reviewer |
 
@@ -27,7 +27,7 @@ Two looks, either mode, picked in the Brief (`brief.md` Call 1 item 0b): the iso
 - **`cutaway`:** `isoLook` with the language's slots as top tones (compartments at 30–55 % over paper `#FAF6EC`), `isoStudio({ ground: "#FAF6EC" })`, `cutaway(root, { flat: true, hatch })` (unlit hatched caps, the cut face a step warmer), then `inkLines(root, { color: "#2B2A26" })` after the cut. Numbered callouts, a detail lens, tiny figures for scale.
 - **`blueprint`:** `blueprintLook(root, { bg: "#123A66" })` (faces flat in the ground colour, so nearer parts hide lines behind), then `inkLines(root, { color: "#D8E8F8" })`; a mesh flagged `userData.data` keeps its chart-slot colour. `isoStudio({ ground: "#123A66" })`; the 40 px grid, `dimension` lines with real values and the title block on the 2D canvas.
 - **The slab (`isometric-world`):** the set on a floating slab (`--ground` top, `--ground-2` sides), a visible cut edge, nothing under it; the empty sky is the breathing zone.
-- **Furniture:** `pinLabel`, `dimension`, `drawCaption`, `textBand` on the 2D canvas in the language's ink and fonts; pins never cover the subject; numbers as Isotype rows where they can be.
+- **Furniture:** `pinLabel`, `dimension`, `drawCaption`, `textBand` on the 2D canvas in the language's ink and the one typeface; pins never cover the subject; numbers as Isotype rows where they can be.
 
 ### Set dressing, real scale, interior style, condition
 

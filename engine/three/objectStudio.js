@@ -26,6 +26,7 @@ import { studio } from "./studio.js";
 import { shots as runShots } from "./shots.js";
 import { fovFromMm, dofFor, place as placeCamera } from "./camera.js";
 import { makeFinisher } from "./finish.js";
+import { font } from "./font.js";
 import { scaleAudit } from "./audit.js";
 export { THREE };
 export { w, we, wc, b, wordIndex, cues } from "./editorial.js";
@@ -261,7 +262,7 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
   }
 
   // loop({ overlay, post, key, fonts }): hf-seek drives the frame (local t = global - G0 inside [G0, G1)); buildReady
-  function loop({ overlay, post, key, fonts = ['900 68px "Inter"', '700 46px "Inter"', '600 24px "IBM Plex Mono"'] } = {}) {
+  function loop({ overlay, post, key, fonts = [font("title", 68), font("heading", 46), font("sub", 24)] } = {}) {
     const draw = (tg) => {
       if (tg < G0 - 1e-6 || tg >= G1 + 1e-6) return; // not this group's window: its host is hidden
       const t = Math.max(G0, Math.min(tg, G1 - 1 / fps));

@@ -21,6 +21,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNarration } from './tts_timestamps.mjs';
+import { FAMILY, FACES } from '../engine/three/font.js';
 
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -59,7 +60,7 @@ const put = (rel, text, mode) => {
 const assets = path.join(dir, 'assets');
 mkdirSync(assets, { recursive: true });
 if (iso) {
-  const src = [...readdirSync(path.join(SKILL, 'engine', 'iso')).filter(f => f.endsWith('.js')).map(f => path.join(SKILL, 'engine', 'iso', f)), path.join(SKILL, 'engine', 'three', 'editorial.js')];
+  const src = [...readdirSync(path.join(SKILL, 'engine', 'iso')).filter(f => f.endsWith('.js')).map(f => path.join(SKILL, 'engine', 'iso', f)), path.join(SKILL, 'engine', 'three', 'editorial.js'), path.join(SKILL, 'engine', 'three', 'font.js')];
   const fresh = src.filter(f => !existsSync(path.join(assets, path.basename(f))));
   fresh.forEach(f => cpSync(f, path.join(assets, path.basename(f))));
   if (fresh.length) wrote.push(`engine (${fresh.length} files)`);
@@ -93,9 +94,8 @@ host = host.replace(/^ *<!-- one line per group:.*-->$/m, groups.map((g, i) => {
   const s = span(g, i);
   return `  <div id="${g.name}" data-composition-id="${g.name}" data-composition-src="compositions/${g.name}.html" data-start="${s.start}" data-duration="${s.dur}" data-track-index="1"></div>`;
 }).join('\n'));
-if (iso) host = host
-  .replace('<style>', '<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet">\n<style>')
-  .replace('{ prefix: "cap" }', '{ prefix: "cap", fonts: { body: "\'Nunito Sans\', sans-serif" } }');
+// one typeface for every film (engine/three/font.js): Kohinoor Bangla if installed, else Helvetica; the @font-face rules make it pass HyperFrames' lint
+host = host.replace('__FAMILY__', FAMILY).replace('/* __FONT_FACES__ */', FACES);
 if (music !== 'none') host = host.replace('  <!-- music -->', '  <audio id="music" class="clip" src="assets/music.mp3" data-start="0" data-duration="{{END}}" data-volume="0.14" data-fade-in="1.2" data-fade-out="2" data-track-index="3"></audio>');
 put('src/index.tpl.html', host);
 

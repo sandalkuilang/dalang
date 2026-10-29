@@ -1,6 +1,6 @@
 // Shared type for a film drawn on one canvas as a function of t: caption phrases, the caption, labels pinned to a part
-// of the set, and the check that a caption never repeats a label. It imports nothing, so a composition, a render worker
-// and the self-check all run the same code (phrases() also runs in Node, see scripts/captions.mjs). Sizes are at
+// of the set, and the check that a caption never repeats a label. It imports only font.js (the one typeface), so a
+// composition, a render worker and the self-check all run the same code (phrases() also runs in Node, see scripts/captions.mjs). Sizes are at
 // 1080 px on the short side (craft-rules.md §5, visual-direction.md §9); zones are the platform's safe zones.
 //
 //   import { drawCaption, pinLabel, repeats, layoutFrame } from "./assets/type.js";
@@ -15,6 +15,8 @@
 // frames alone gets the same result as a preview; a ground that crosses the threshold inside one phrase switches the
 // ink at that frame, and the halo in the other ink keeps both legible. `pill: true` fixes the ink on a dark backing.
 // Not covered: scripts without spaces that are not Han/Kana (Thai, Lao, Khmer): a long run is one word.
+
+import { FAMILY, WEIGHT } from "./font.js";
 
 const S = (W, H) => Math.min(W, H) / 1080;
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -131,21 +133,21 @@ export function phrases(narrationTxt, words, { max = 7, cjkMax = 16, minSoft = 3
 
 // Draws the phrase of `caps` that is on at t (none: returns null) at the bottom of the format's caption zone, one or two
 // lines (nothing outside the zone, see below), in the ink the ground under its box asks for, with a halo in the other ink. Call it after the frame is on the
-// 2D canvas (getImageData reads the ground). opts: format "shorts", font "Montserrat", weight 800, size (default 60,
+// 2D canvas (getImageData reads the ground). opts: format "shorts", weight 600 (heading), size (default 60,
 // kept in 54..64 at 1080), light "#ffffff", dark "#111111", accent (a colour: the word being spoken gets a box of it
 // with dark ink, switching on that word's start), pill (a dark backing per line, light ink, no switching).
 // Nothing is drawn outside the zone: a phrase that does not fit in two lines at 54 px is shrunk below 54 px until it
 // does (`shrunk: true`; split the narration into shorter phrases to keep the size). `box` is the drawn text's box.
 // -> { text, lines, box: { x0, y0, x1, y1 }, lum, ink, active, size, shrunk }
 export function drawCaption(ctx, t, caps, opts = {}) {
-  const { format = "shorts", font = "Montserrat", weight = 800, light = "#ffffff", dark = "#111111", accent = null, pill = false } = opts;
+  const { format = "shorts", weight = WEIGHT.heading, light = "#ffffff", dark = "#111111", accent = null, pill = false } = opts;
   const cap = caps.find((p) => p.start <= t && t < p.end);
   if (!cap) return null;
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).caption, cx = (area.x0 + area.x1) / 2;
   const us = cap.words && cap.words.length ? cap.words : [{ text: cap.text, start: cap.start, gap: true }];
   let px = clamp(opts.size ?? 60 * s, 54 * s, 64 * s), lines, wid, sp, avail = area.x1 - area.x0 - 0.5 * px;
   const layout = () => { // true when the lines fit the zone in width and in height
-    ctx.font = `${weight} ${px}px "${font}"`;
+    ctx.font = `${weight} ${px}px ${FAMILY}`;
     wid = us.map((u) => ctx.measureText(u.text).width); sp = ctx.measureText(" ").width; avail = area.x1 - area.x0 - 0.5 * px;
     const span = (a, b) => { let w = 0; for (let i = a; i < b; i++) w += wid[i] + (i > a && us[i].gap !== false ? sp : 0); return w; };
     let best = [[0, us.length]];
@@ -167,7 +169,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
   const L = groundAt(ctx, box), ink = pill ? "light" : inkFor(L), inkC = ink === "light" ? light : dark, haloC = ink === "light" ? dark : light;
   let active = -1; us.forEach((u, i) => { if (u.start <= t) active = i; });
   ctx.save();
-  ctx.font = `${weight} ${px}px "${font}"`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
+  ctx.font = `${weight} ${px}px ${FAMILY}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
   for (const l of lines) {
     if (pill) rrect(ctx, l.x - pad, l.base - 0.95 * px, l.w + 2 * pad, lh, 0.35 * px, "rgba(17,17,17,0.78)");
     let x = l.x;
@@ -188,7 +190,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
 // Pins a label to a world point: `at` is an Object3D or a Vector3 (world), `camera` a camera with its matrices current.
 // Draws the label box inside the format's label zone (flipping side, then clamping, when it would leave it), at least
 // 36 px, in the ink the ground asks for with a halo, and a leader line with a dot to the point. A point behind the camera
-// or outside the frame draws nothing and returns null. opts: format, font, weight 700, size (default 40, at least 36),
+// or outside the frame draws nothing and returns null. opts: format, weight 600 (heading), size (default 40, at least 36),
 // side "right" | "left" (preferred), offset (leader length, default 0.05 of the width), light, dark, top (a y in px: the
 // label stays below it, e.g. the text band's box.y1), pill (a colour: the label is dark text on a pill of it, with a dark
 // leader ending in a ringed dot on the part, no halo; the look-J label, visual-direction.md §9).
@@ -196,7 +198,7 @@ export function drawCaption(ctx, t, caps, opts = {}) {
 // the zone shrinks, below 36 px (`shrunk: true`: shorten the word).
 // -> { x, y, w, h, side, size, anchor: { x, y }, ink, lines, shrunk, pill? }
 export function pinLabel(ctx, { at, camera, text }, opts = {}) {
-  const { format = "shorts", font = "Montserrat", weight = 700, side = "right", light = "#ffffff", dark = "#111111", pill = null } = opts;
+  const { format = "shorts", weight = WEIGHT.heading, side = "right", light = "#ffffff", dark = "#111111", pill = null } = opts;
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), full = safeArea(format, W, H).labels;
   const area = Number.isFinite(opts.top) ? { ...full, y0: Math.min(full.y1, Math.max(full.y0, opts.top)) } : full;
   camera.updateMatrixWorld();
@@ -208,7 +210,7 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
   ctx.save();
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round"; ctx.lineCap = "round";
   const fit = () => { // true when the label (wrapped at its spaces, CJK between characters) fits the zone in width and height
-    ctx.font = `${weight} ${px}px "${font}"`; pad = (pill ? 0.5 : 0.3) * px; // a pill's rounded ends need more room
+    ctx.font = `${weight} ${px}px ${FAMILY}`; pad = (pill ? 0.5 : 0.3) * px; // a pill's rounded ends need more room
     lines = wrapText(ctx, text, area.x1 - area.x0 - 2 * pad);
     w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 2 * pad; h = 1.4 * px + (lines.length - 1) * 1.2 * px;
     return w <= area.x1 - area.x0 + 1e-6 && h <= area.y1 - area.y0 + 1e-6;
@@ -244,17 +246,17 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
 // more, the headline 64..96 px at 1080 (a headline that does not fit in two lines at 64 px shrinks, `shrunk: true`).
 // Pass the result's `box.y1` as `top` to pinLabel and dimension so that they stay clear of it.
 // text: { kicker?, headline (required: the claim or the number, from the numbers model), tag? }.
-// opts: format "shorts", font "Montserrat" (headline), mono (an unquoted font stack), size (headline, default 76 at 1080),
+// opts: format "shorts", headline Bold and kicker Medium of the one family, size (headline, default 76 at 1080),
 // kickerSize (never under 36), scrim ("rgba(255,255,255,0.72)", null: none), ink, tagFill, tagInk, track (the kicker's
 // letter spacing in em, 0.1).
 // -> { box (the scrim's), kicker: box | null, headline: { box, lines, size, shrunk }, tag: box | null }
 export function textBand(ctx, { kicker, headline, tag } = {}, opts = {}) {
-  const { format = "shorts", font = "Montserrat", mono = 'ui-monospace, Menlo, "DejaVu Sans Mono", monospace', scrim = "rgba(255,255,255,0.72)", ink = "#111111", tagFill = "#111111", tagInk = "#ffffff", track = 0.1 } = opts;
+  const { format = "shorts", scrim = "rgba(255,255,255,0.72)", ink = "#111111", tagFill = "#111111", tagInk = "#ffffff", track = 0.1 } = opts;
   if (typeof headline !== "string" || !headline.trim()) throw new Error("textBand: headline is the claim or the number, a non-empty string (the kicker names the topic, the tag the status)");
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).labels;
   const kpx = Math.max(36 * s, opts.kickerSize ?? 36 * s), pad = 0.5 * kpx, cx = area.x0 + pad, availW = area.x1 - area.x0 - 2 * pad;
   const kText = kicker ? String(kicker).toLocaleUpperCase() : "", tText = tag ? String(tag).toLocaleUpperCase() : "";
-  const kFont = `700 ${kpx}px ${mono}`, spaced = "letterSpacing" in ctx;
+  const kFont = `${WEIGHT.sub} ${kpx}px ${FAMILY}`, spaced = "letterSpacing" in ctx;
   ctx.save();
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
   let kw = 0, tw = 0;
@@ -267,7 +269,7 @@ export function textBand(ctx, { kicker, headline, tag } = {}, opts = {}) {
   const kh = kText ? 1.4 * kpx : 0, gapK = kText ? 0.25 * kpx : 0, gapT = tText ? 0.3 * kpx : 0, th = tText ? 1.4 * kpx : 0;
   let px = clamp(opts.size ?? 76 * s, 64 * s, 96 * s), lines, hw;
   const fit = () => { // true when the headline fits in two lines, in width, and the whole stack fits the zone in height
-    ctx.font = `800 ${px}px "${font}"`;
+    ctx.font = `${WEIGHT.title} ${px}px ${FAMILY}`;
     lines = wrapText(ctx, headline.trim(), availW); hw = Math.max(...lines.map((l) => ctx.measureText(l).width));
     return lines.length <= 2 && hw <= availW + 1e-6 && 2 * pad + kh + gapK + lines.length * 1.15 * px + gapT + th <= area.y1 - area.y0 + 1e-6;
   };
@@ -284,7 +286,7 @@ export function textBand(ctx, { kicker, headline, tag } = {}, opts = {}) {
     if (spaced) ctx.letterSpacing = "0px";
     kBox = { x0: cx, y0: top, x1: cx + kw, y1: top + kh };
   }
-  ctx.font = `800 ${px}px "${font}"`; ctx.fillStyle = ink;
+  ctx.font = `${WEIGHT.title} ${px}px ${FAMILY}`; ctx.fillStyle = ink;
   lines.forEach((l, i) => ctx.fillText(l, cx, hTop + i * 1.15 * px + 0.9 * px));
   const hBox = { x0: cx, y0: hTop, x1: cx + hw, y1: hTop + lines.length * 1.15 * px };
   if (tText) {
@@ -303,7 +305,7 @@ export function textBand(ctx, { kicker, headline, tag } = {}, opts = {}) {
 // option's capacity with its label under it, and the option that fits (the first tick at or above the value, or
 // `highlight`) in `accent`. Inside the label zone at ≥ 36 px; the ink reads the ground under its own box, as a label's.
 export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {}) {
-  const { format = "shorts", font = "Montserrat", weight = 700, accent = "#ffd400", light = "#ffffff", dark = "#111111" } = opts;
+  const { format = "shorts", weight = WEIGHT.heading, accent = "#ffd400", light = "#ffffff", dark = "#111111" } = opts;
   if (!(typeof max === "number" && Number.isFinite(max) && max > 0)) throw new Error(`rangeBar: max must be a finite number > 0, got ${max}`);
   if (!(typeof value === "number" && Number.isFinite(value))) throw new Error(`rangeBar: value must be a finite number, got ${value}`);
   const W = ctx.canvas.width, H = ctx.canvas.height, s = S(W, H), area = safeArea(format, W, H).labels;
@@ -313,7 +315,7 @@ export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {})
   const f = clamp(value / max, 0, 1), fits = opts.highlight ?? ticks.findIndex((t) => t.at >= value);
   const ink = inkFor(groundAt(ctx, { x0: x, y0: y, x1: x + w, y1: y + h })), inkC = ink === "light" ? light : dark, haloC = ink === "light" ? dark : light;
   ctx.save();
-  ctx.font = `${weight} ${px}px "${font}"`; ctx.textBaseline = "alphabetic";
+  ctx.font = `${weight} ${px}px ${FAMILY}`; ctx.textBaseline = "alphabetic";
   let by = y + 0.2 * px;
   if (label) { ctx.textAlign = "left"; ctx.fillStyle = inkC; ctx.fillText(label, x, y + 1.05 * px); by += 1.4 * px; }
   rrect(ctx, x, by, w, bh, bh / 2, haloC); // the track, in the other ink

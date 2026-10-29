@@ -25,6 +25,7 @@
 import { THREE, GLTFLoader, EffectComposer, RenderPass, N8AOPostPass } from "./assets/three-vendor.js";
 import { isoLook, inkLines } from "./assets/studio.js";
 import { isoCamera, isoFrame, place } from "./assets/camera.js";
+import { font } from "./assets/font.js";
 
 // ---- HERO: the only block a film fills. Node patterns match the GLB's node names (the Blender object names).
 const HERO = {
@@ -163,8 +164,8 @@ function frame(t) {
     g.globalAlpha = clamp(a * 2); g.strokeStyle = "#1E1E20"; g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (px - x) * clamp(a * 1.6), y + (py - y) * clamp(a * 1.6)); g.stroke();
     g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill();
     g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(px, py, 33 * s, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(px, py, 28 * s, 0, 7); g.fill();
-    g.fillStyle = "#fff"; g.font = "700 30px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(n), px, py + 1);
-    g.font = "600 30px Helvetica Neue, Arial"; const tw = g.measureText(label).width, side = px + 44 + tw > W - 48 ? -1 : px - 44 - tw < 48 ? 1 : dx, lx = px + side * 44;   // the label stays inside the frame
+    g.fillStyle = "#fff"; g.font = font("title", 30); g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(n), px, py + 1);
+    g.font = font("heading", 30); const tw = g.measureText(label).width, side = px + 44 + tw > W - 48 ? -1 : px - 44 - tw < 48 ? 1 : dx, lx = px + side * 44;   // the label stays inside the frame
     g.textAlign = side > 0 ? "left" : "right"; g.fillStyle = "rgba(243,242,238,0.92)"; g.fillRect(side > 0 ? lx - 8 : lx - tw - 8, py - 22, tw + 16, 44); g.fillStyle = "#1E1E20"; g.fillText(label, lx, py + 1); g.globalAlpha = 1;
   }
   g.strokeStyle = "#8C8B85"; g.lineWidth = 3; for (const [x, y, dx, dy] of [[30, 30, 1, 1], [W - 30, 30, -1, 1], [30, H - 30, 1, -1], [W - 30, H - 30, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 36 * dy); g.lineTo(x, y); g.lineTo(x + 36 * dx, y); g.stroke(); }

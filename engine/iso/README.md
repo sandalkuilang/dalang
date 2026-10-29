@@ -7,7 +7,7 @@ Canvas 2D, no dependency. Builders read `templates/iso-API.md`, not this file. E
   `new Iso(ctx, W, H)`, `iso.cam = { x, y, z, k }` (k px per unit); queue `box`, `prism`, `cyl`, `cone`, `roof`,
   `sphere`, `flat`, `line3`, `bill`, `text3`, `push`/`pop`, then `iso.flush()` (back to front); `iso.desat` +
   `iso.keep`. `tri(c)` three tones; `pin`, `inset`, `ring`, `cutLine`, `hatch`, `ICON` + `iconGrid` (Isotype),
-  `person`, `shape()`; eases `ss`, `eo`, `eio`, `back`; `seg`, `clamp`, `lerp`; `FONT` for canvas text. (`iso.mjs`)
+  `person`, `shape()`; eases `ss`, `eo`, `eio`, `back`; `seg`, `clamp`, `lerp`; `FONT` (the one typeface) for canvas text. (`iso.mjs`)
 - `forms.js`: shape families in metres, z up: `lathe(profile)`, `extrude(outline, { h, plane })`,
   `sweep(path, { r | section })`, `gearOutline(teeth, module)`; `solid(iso, faces, colour)`.
 - `build.js`: `build(iso, spec | WORLD, { values, cut, focus, models, plates })` → `{ at }` (pin points): objects as
