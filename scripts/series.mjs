@@ -76,10 +76,10 @@ const checkRel = rel => {
   if (PER_VIDEO.has(l) || /^(audio|style-frames|renders|review|\.git|node_modules|assets\/engine)\//.test(l)) return 'a per-video file or the engine copy';
   return null;
 };
-// Scene modules of engine/three (three-vendor ... examples/) and of engine/iso, Express's isometric engine (iso, build,
+// Scene modules of engine/three (three-vendor ... kit) and of engine/iso, Express's isometric engine (iso, build,
 // plate, parallax, cinema, forms, figure, model, templates) and its per-video world.js. Overlay and token modules
 // (editorial.js, type.js, palette.js) are channel-level and may be saved.
-const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|camera|air|grains|cutaway|finish|kit|examples\/[^'"]+|iso|build|plate|parallax|cinema|forms|figure|model|templates|world)(?:\.m?js)?['"]/;
+const ENGINE_3D = /(?:from|import)\s*\(?\s*['"][^'"]*\/(?:three-vendor|camera|air|grains|cutaway|finish|kit|iso|build|plate|parallax|cinema|forms|figure|model|templates|world)(?:\.m?js)?['"]/;
 const SCENE_CODE = /\bnew\s+(?:THREE\.)?(?:Scene|WebGLRenderer|PerspectiveCamera)\b/;
 const isScene = (rel, text) => /\.(m?js|html)$/i.test(rel) && (ENGINE_3D.test(text) || SCENE_CODE.test(text))
   ? 'a scene module (builds a scene or imports an engine scene module): scene code stays per video' : null;

@@ -15,7 +15,7 @@ step() { # step <name> <command...>: runs it, prints its output only when it fai
   if [ $? -eq 0 ]; then summary+=("✓ $name"); else summary+=("✗ $name"); failed=1; printf '── %s failed ──\n%s\n' "$name" "$out"; fi
 }
 syntax() { # node --check every engine and script file (engine/anatomy: ours and the vendored ones), bash -n, Python ast.parse (writes no __pycache__)
-  local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/three/examples/*.js engine/iso/*.js engine/iso/templates/*.js engine/anatomy/*.mjs tests/*.mjs; do node --check "$f" || return 1; done
+  local f; for f in scripts/*.mjs engine/three/*.js engine/three/*.mjs engine/iso/*.js engine/iso/templates/*.js engine/anatomy/*.mjs tests/*.mjs; do node --check "$f" || return 1; done
   bash -n scripts/measure_reference.sh scripts/gate.sh scripts/release.sh && python3 -c 'import ast, sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' scripts/*.py
 }
 frontmatter() { head -1 SKILL.md | grep -qx -- '---' && grep -q '^name: dalang$' SKILL.md && grep -q '^description: ' SKILL.md; }
@@ -23,6 +23,7 @@ engine() { local d; d=$(mktemp -d) && node engine/three/build.mjs "$d" >/dev/nul
 
 step "syntax (scripts, engines, templates, tests, shell, Python)" syntax
 step "SKILL.md front-matter" frontmatter
+step "generic purpose (no samples, examples or subject assets; no test-film words)" node tests/generic.mjs
 step "README diagrams (light derived from dark)" python3 docs/assets/build.py --check
 step "reading list (headings exist, sections <= 8 KB, Steps 0–8 <= 60 KB)" node scripts/state.mjs reading
 step "state.mjs next vs fixture projects and fixture skills" node tests/reading.mjs

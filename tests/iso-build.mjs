@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // node tests/iso-build.mjs — engine/iso forms, build() and the glTF model loader: forms give closed, finite faces;
-// every example spec draws with no NaN and returns its pins; a meshed gear turns at the tooth ratio; the cutaway removes
+// every fixture spec draws with no NaN and returns its pins; a meshed gear turns at the tooth ratio; the cutaway removes
 // a skin; a value drives a size; focus greys the rest; errors name the part; a GLB is read in metres, z up, coloured by
 // its material or texture, with back faces culled, and a compressed or too-heavy model is refused.
 import assert from "node:assert/strict";
@@ -8,11 +8,50 @@ import { Iso } from "../engine/iso/iso.js";
 import { lathe, extrude, sweep, gearOutline } from "../engine/iso/forms.js";
 import { build } from "../engine/iso/build.js";
 import { parseModel, drawModel } from "../engine/iso/model.js";
-import * as EX from "../engine/iso/examples.js";
 import { KIT, expandKit } from "../engine/iso/kit.js";
 import { TEMPLATES } from "../engine/iso/templates.js";
 import { figureSolids } from "../engine/iso/figure.js";
 import { auditWorld } from "../engine/anatomy/world.mjs";
+
+// Neutral fixtures, in metres: nested arrays on a layered board; a value-driven size under a skin; a meshed gear pair
+// under a skin; boxes, wheels and a figure for focus.
+const EX = {
+  arrays: { color: "#CFCABF", parts: [
+    { name: "ground", form: "board", w: 30, d: 30, top: "#7BA75F", layers: [{ h: 0.6, color: "#5E8C4A" }, { h: 2, color: "#A77850" }] },
+    { name: "base", form: "box", w: 14, d: 14, h: 5, color: "#D9C8A9" },
+    { name: "block", form: "extrude", at: [0, 0, 5], outline: [[-6, -6], [6, -6], [6, 2], [2, 2], [2, 6], [-6, 6]], h: 36 },
+    { name: "rows", form: "group", at: [6, 0.5, 0], array: { count: 3, step: [0, -3, 0] }, parts: [
+      { name: "cell", form: "box", at: [0, 0, 6.5], w: 0.12, d: 1.6, h: 1.8, color: "#5A9BCB", array: { count: 11, step: [0, 0, 3.2] } },
+    ] },
+    { name: "top", form: "box", at: [-2, -2, 41], w: 6, d: 6, h: 2, color: "#948E83" },
+    { name: "rod", form: "cyl", at: [-2, -2, 43], r: 0.2, h: 6, color: "#8C2620" },
+  ] },
+  level: { color: "#B8B2A6", parts: [
+    { name: "pad", form: "box", w: 9, d: 9, h: 0.3, color: "#CFCABF" },
+    { name: "legA", form: "cyl", at: [-2.4, -2.4, 0.3], r: 0.18, h: 11.7, array: { count: 2, step: [4.8, 0, 0] } },
+    { name: "legB", form: "cyl", at: [-2.4, 2.4, 0.3], r: 0.18, h: 11.7, array: { count: 2, step: [4.8, 0, 0] } },
+    { name: "fill", form: "cyl", at: [0, 0, 12.2], r: 3.05, h: "level", color: "#5A9BCB" },
+    { name: "shell", form: "lathe", at: [0, 0, 0], skin: true, color: "#D9C8A9", profile: [[0, 12], [3.2, 12], [3.2, 17.2], [2.4, 18.2], [0.4, 18.8], [0, 18.8]] },
+    { name: "pipe", form: "sweep", r: 0.15, color: "#948E83", path: [[0, 0, 12], [0, 0, 1.2], [0, 3.5, 1.2], [0, 3.5, 0.3]] },
+  ] },
+  gears: { color: "#B8B2A6", parts: [
+    { name: "base", form: "box", at: [0.12, 0, 0], w: 0.7, d: 0.45, h: 0.04, color: "#948E83" },
+    { name: "a", form: "gear", at: [0, 0, 0.12], teeth: 12, module: 0.01, width: 0.03, turn: "drive", color: "#CF5140" },
+    { name: "b", form: "gear", at: [0.24, 0, 0.12], teeth: 36, module: 0.01, width: 0.03, mesh: { with: "a" }, color: "#E9BE5C" },
+    { name: "shaftA", form: "cyl", at: [0, 0, 0.04], r: 0.012, h: 0.3 },
+    { name: "shaftB", form: "cyl", at: [0.24, 0, 0.04], r: 0.016, h: 0.2 },
+    { name: "part", form: "cyl", at: [0, 0, 0.34], r: 0.06, h: 0.12, color: "#3C7FB1" },
+    { name: "cover", form: "box", at: [0.12, 0, 0.04], w: 0.62, d: 0.4, h: 0.3, skin: true, color: "#D9C8A9" },
+  ] },
+  focus: { color: "#CFCABF", parts: [
+    { name: "base", form: "box", at: [0.4, 0, 0.55], w: 7, d: 2, h: 0.3, color: "#4A3A36" },
+    { name: "b", form: "box", at: [-1, 0, 0.85], w: 5, d: 2.4, h: 2.6, color: "#FBF4E6" },
+    { name: "a", form: "box", at: [2.6, 0, 0.85], w: 1.8, d: 2.3, h: 2.1, color: "#CF5140" },
+    { name: "wheelL", form: "wheel", at: [2.4, 1.05, 0], r: 0.5, width: 0.35, array: { count: 2, step: [-3.6, 0, 0] } },
+    { name: "wheelR", form: "wheel", at: [2.4, -1.05, 0], r: 0.5, width: 0.35, array: { count: 2, step: [-3.6, 0, 0] } },
+    { name: "person", form: "figure", at: [4.6, 2.2, 0], h: 1.75, pose: "point", color: "#3C7FB1" },
+  ] },
+};
 
 const canvas = () => {
   const calls = [];
@@ -83,17 +122,13 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   assert.ok("v.face" in turned, "face: x turns a face component as one group");
 }
 // Templates: each style draws finite and, as one assembly, stands on a slab in the world audit
-for (const [k, o] of [["motorbike", {}], ["motorbike", { style: "underbone" }], ["car", {}], ["car", { style: "hatch" }], ["car", { style: "van" }], ["engine", { crank: 1 }], ["room", {}], ["appliance", {}], ["appliance", { kind: "washer" }], ["appliance", { kind: "ac" }], ["appliance", { kind: "server" }], ["tree", {}], ["tree", { kind: "pine" }]]) {
+for (const [k, o] of [["car", {}], ["car", { style: "hatch" }], ["car", { style: "van" }], ["room", {}], ["appliance", {}], ["appliance", { kind: "washer" }], ["appliance", { kind: "server" }], ["tree", {}], ["tree", { kind: "pine" }]]) {
   const p = { name: "it", form: "kit", kit: k, ...o }, r = draw([{ name: "x", parts: [p] }], {}, { x: 0, y: 0, z: 0, k: 100 });
   assert.ok(r.fills().length > 10 && !JSON.stringify(r.calls).includes("NaN"), `template ${k} ${o.style || o.kind || ""} draws, finite`);
   const W = [{ name: "set", parts: [{ name: "slab", form: "box", at: [0, 0, -0.05], w: 9, d: 9, h: 0.05 }] }, { name: "o", parts: [p] }];
   assert.deepEqual(auditWorld(W, { ground: ["set"] }).problems.map((q) => q.text), [], `template ${k} stands as one assembly`);
 }
 assert.ok(Object.keys(TEMPLATES).every((k) => !(k in KIT)), "a template never shadows a kit");
-{
-  const piston = (crank) => draw([{ parts: [{ name: "e", form: "kit", kit: "engine", crank }] }], {}).out.at["e.piston"][2];
-  assert.ok(piston(0) - piston(Math.PI) > 0.05, "the engine's piston rides the crank: top dead centre above bottom");
-}
 // Figure: a jointed person; feet on the ground in every pose, a seat under the thighs, a hand on its reach target
 {
   const zs = (f) => f.solids.flatMap((q) => q.faces.flat().map((p) => p[2]));
@@ -120,7 +155,7 @@ assert.ok(Math.abs(Math.max(...radii) - 0.07) < 1e-9 && Math.abs(Math.min(...rad
 assert.throws(() => gearOutline(5, 0.01), /teeth/); assert.throws(() => gearOutline(12, 0), /module/);
 assert.throws(() => lathe([[1, 0]]), /two points/); assert.throws(() => extrude([[0, 0], [1, 0]]), /three points/);
 
-// Every example draws, with no NaN in any call, and pins every named part
+// Every fixture draws, with no NaN in any call, and pins every named part
 for (const [name, spec] of Object.entries(EX)) {
   const r = draw(spec, { values: { level: 3, drive: 0.4 } });
   assert.ok(r.fills().length > 10, `${name} paints faces`);
@@ -129,25 +164,25 @@ for (const [name, spec] of Object.entries(EX)) {
   const again = draw(spec, { values: { level: 3, drive: 0.4 } });
   assert.deepEqual(again.calls, r.calls, `${name} draws the same frame twice`);
 }
-assert.ok("windows.2" in draw(EX.tower).out.at && "pane.10" in draw(EX.tower).out.at, "arrays pin each copy as name.k");
+assert.ok("rows.2" in draw(EX.arrays).out.at && "cell.10" in draw(EX.arrays).out.at, "arrays pin each copy as name.k");
 
 // Gears turn at the tooth ratio
-const g = draw(EX.gearbox, { values: { drive: 0.9 } }).out;
-assert.ok(Math.abs(g.angle.gear - (-0.9 * 12) / 36) < 1e-12, "the 36-tooth gear turns at −12/36 of the pinion: " + g.angle.gear);
+const g = draw(EX.gears, { values: { drive: 0.9 } }).out;
+assert.ok(Math.abs(g.angle.b - (-0.9 * 12) / 36) < 1e-12, "the 36-tooth gear turns at −12/36 of the 12-tooth one: " + g.angle.b);
 assert.throws(() => build(new Iso(canvas().ctx), { parts: [{ name: "b", form: "gear", teeth: 20, module: 0.01, mesh: { with: "a" } }] }), /meshes with a/);
 
 // The cutaway: the skin slides out, then is gone
-const shut = draw(EX.gearbox, { values: { drive: 0 }, cut: 0 }), open = draw(EX.gearbox, { values: { drive: 0 }, cut: 1 }), half = draw(EX.gearbox, { values: { drive: 0 }, cut: 0.5 });
-assert.ok("housing" in shut.out.at && !("housing" in open.out.at), "cut 1 removes the skin");
-assert.ok(half.out.at.housing[0] > shut.out.at.housing[0] && half.out.at.housing[1] > shut.out.at.housing[1], "a skin slides toward the viewer as it opens");
-assert.ok(open.fills().length < shut.fills().length, "the open gearbox paints fewer faces");
+const shut = draw(EX.gears, { values: { drive: 0 }, cut: 0 }), open = draw(EX.gears, { values: { drive: 0 }, cut: 1 }), half = draw(EX.gears, { values: { drive: 0 }, cut: 0.5 });
+assert.ok("cover" in shut.out.at && !("cover" in open.out.at), "cut 1 removes the skin");
+assert.ok(half.out.at.cover[0] > shut.out.at.cover[0] && half.out.at.cover[1] > shut.out.at.cover[1], "a skin slides toward the viewer as it opens");
+assert.ok(open.fills().length < shut.fills().length, "the open gear pair paints fewer faces");
 
 // A value drives a size
-const low = draw(EX.waterTower, { values: { level: 1 } }).out.at.water, high = draw(EX.waterTower, { values: { level: 4 } }).out.at.water;
-assert.ok(Math.abs(high[2] - low[2] - 3) < 1e-9, "values.level raises the water by 3 m");
+const low = draw(EX.level, { values: { level: 1 } }).out.at.fill, high = draw(EX.level, { values: { level: 4 } }).out.at.fill;
+assert.ok(Math.abs(high[2] - low[2] - 3) < 1e-9, "values.level raises the fill by 3 m");
 
 // Focus greys the rest and restores the engine's state
-const plain = draw(EX.truck), focused = draw(EX.truck, { focus: "cab" });
+const plain = draw(EX.focus), focused = draw(EX.focus, { focus: "a" });
 assert.notDeepEqual(focused.fills(), plain.fills(), "focus changes the colours of the rest");
 assert.ok(focused.fills().some((f) => plain.fills().includes(f)), "the focused part keeps its own colour");
 assert.deepEqual([focused.iso.desat, focused.iso.keep, focused.iso.alpha], [1, false, 1], "focus sets the frame's desat; keep and alpha are restored");

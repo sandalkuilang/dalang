@@ -31,7 +31,7 @@ const HERO = {
   glb: "./hero.glb",
   duration: 7,                                   // seconds
   turn: [-4, 6],                                 // degrees about the vertical, start → end: slow and one way
-  shell: [/^casing\./, /^grille\./],             // x-ray glass on the wide, fades out on the way to medium
+  shell: [],                                     // x-ray glass on the wide (an outer cover, e.g. [/^cover\./]), fades out on the way to medium
   front: [/^fan\./, /^pipe\.out$/],              // cut away with the quarters by the sweeping plane
   quarters: [/\.quarter$/],                      // the `.quarter` pieces parts.py exports with cut=True
   context: [],                                   // greys to calm for the close
@@ -41,17 +41,16 @@ const HERO = {
   flow: { rate: 1.4, pulses: 9 },                // rate: pulses per second past a point = the driving part's rate
   stations: [                                    // nodes: null frames the whole asset; move: [t0, t1] of the pan/zoom into it
     { nodes: null, margin: 1.05 },
-    { nodes: [/^fan\.blade$/, /^pump\.shell$/], margin: 1.08, move: [1.5, 2.6] },
-    { nodes: [/^pump\.(shell|stator|windings|rotor|shaft|piston)$/], margin: 2.5, move: [3.8, 5.0] },
+    { nodes: [/^fan\.blade$/, /^housing$/], margin: 1.08, move: [1.5, 2.6] },
+    { nodes: [/^housing$/, /^fan\.motor$/], margin: 2.5, move: [3.8, 5.0] },
   ],
   beats: { shellOut: [2.0, 2.8], cut: [4.2, 5.0], calm: [4.0, 4.8] },
   // where: "top" | "bottom" | null (centre); until: the pin leaves then; labels short, in the film's language
   pins: [
     { node: "fan.blade", label: "Fan", at: 0.6, until: 4.4 },
-    { node: "pump.shell", label: "Shell", at: 3.3, until: 4.4 },
-    { node: "pump.windings", label: "Stator", at: 5.3, where: "top" },
-    { node: "pump.rotor", label: "Rotor", at: 5.7 },
-    { node: "pump.piston", label: "Piston", at: 6.1, where: "bottom" },
+    { node: "housing", label: "Housing", at: 3.3, until: 4.4 },
+    { node: "fan.motor", label: "Motor", at: 5.3, where: "top" },
+    { node: "bolts", label: "Bolts", at: 5.9, where: "bottom" },
   ],
 };
 // ---- end of HERO
@@ -65,8 +64,8 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil
 renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.localClippingEnabled = true;
 const scene = new THREE.Scene(), camera = isoCamera(W, H);
 // parts.py material roles → plain colours
-const ROLE = { sheet_metal: "#E4E6E8", aluminium_fin: "#B7BEC4", copper: "#C98A5C", black_steel: "#4A4E55", plastic_fan: "#E9E4D8", rubber: "#2E2F33", foam: "#55595F",
-  pcb_green: "#4E9A68", casing_paint: "#EEEFEC", steel: "#9EA4AA", aluminium: "#C5CBD0", zinc: "#B8BEC4", brass: "#D4A84B" };
+const ROLE = { sheet_metal: "#E4E6E8", copper: "#C98A5C", black_steel: "#4A4E55", plastic_fan: "#E9E4D8", plastic_black: "#2E2F33",
+  steel: "#9EA4AA", aluminium: "#C5CBD0", zinc: "#B8BEC4", brass: "#D4A84B" };
 const HOT = "#E2553B", COLD = "#3E86C6", CALM = "#D8D6D0", XRAY = "#BCD6EC", XRAY_LINE = "#6F9CC6";
 
 const asset = (await new GLTFLoader().loadAsync(HERO.glb)).scene;

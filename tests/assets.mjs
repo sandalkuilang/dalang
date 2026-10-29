@@ -219,7 +219,7 @@ await test("E. a real build lists its own files: a fresh project passes with ASS
     assert.ok(vendor, "three-vendor.js row");
     assert.ok(vendor.components.some((c) => c.name === "three"), JSON.stringify(vendor.components));
     assert.match(vendor.licence, /Zlib/);
-    assert.ok(rows.some((r) => r.file === "examples/flask.js" && r.licence === "MIT"), "example row");
+    assert.ok(rows.some((r) => r.file === "kit.js" && r.licence === "MIT") && rows.every((r) => !r.file.startsWith("examples/")), "engine module row, no examples");
     for (const f of ["cinema.js", "parallax.js"]) assert.ok(rows.some((r) => r.file === f && r.licence === "MIT" && r.source.includes("engine/iso/" + f)) && fs.existsSync(path.join(dir, sub, f)), f + " ships for the Studio iso rig");
     assert.ok(rows.every((r) => !("author" in r)), "no author: the engine stays out of CREDITS.md");
     const r = await run(check, [dir]);

@@ -25,7 +25,7 @@ of the same part. Nothing pure white.
 
 `https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap`.
 Bitter 700/800 for titles (56–76 px) and hero numbers (96–150 px); Source Sans 3 for callouts: a bold lead-in
-("**Gearbox** — steps 15 rpm up to 1,500") 15 px, text 14 px, captions ≥ 12.5 px. Callout numbers: a 22–26 px circle
+("**Lead-in** — the one fact, with its number") 15 px, text 14 px, captions ≥ 12.5 px. Callout numbers: a 22–26 px circle
 in a full slot colour, figure in paper white, 700. All text horizontal.
 
 ## Geometry

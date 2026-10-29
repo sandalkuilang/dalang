@@ -21,8 +21,9 @@ licence), never installed on its own; declined, the hero falls back to a CC0 mod
 
 ## 2. Model it by script
 
-- Library first: `engine/blender/parts.py` (pipes with bends, fans, motors, coils, compressors, valves, sheet casings,
-  fasteners, wires, in real units). A missing part is added there, generic, named by what it is.
+- Library first: `engine/blender/parts.py` (the `MB` mesh builder and path helpers; axial fans, motors, a cuttable
+  `housing` whose `cut=True` exports a `.quarter`, pipes with bends, wires and fasteners, in real units). A part the
+  film needs and the library lacks is added there, generic, named by what it is.
 - The assembly is `<videos folder>/library/hero/<name>/<name>.py` (the owner's library, outside the skill; it imports `parts.py`
   from `<skill-dir>/engine/blender`, `DALANG_BLENDER` overrides): dotted node names (`pump.impeller`, `hub.pawl`), a moving
   part's origin on its axis, a `.quarter` of each part the section cuts. Real counts (fins, teeth, blades, screws),

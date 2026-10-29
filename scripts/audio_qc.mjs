@@ -34,8 +34,8 @@
 // is NOT CHECKED, never a pass ("page runs a script that is not the engine library; check the bed by ear on the draft"), whether a bed is measured or "no bed in the film" is being proved (a script can make an <audio> at run time or change an SFX's src or duration). A
 // script is a <script> of any type a browser runs (the JavaScript MIME essences and the language attribute included), inline
 // or by src / SVG href, and script text in an attribute (an on* handler on any element, a javascript: URL). The engine
-// library is a local file the .engine.json beside it lists (a copy under examples/ is not listed: NOT CHECKED, a spurious
-// but safe answer), loaded by a <script src>; nothing else is allowed, and no script
+// library is a local file the .engine.json beside it lists (a copy it does not list: NOT CHECKED, a spurious but safe
+// answer), loaded by a <script src>; nothing else is allowed, and no script
 // text is read: no word list, no JavaScript parsed, so no way of writing the same thing differently gets past it. A page with
 // a <base href> or a <script type="importmap"> changes what a name loads: NOT CHECKED too ("page loads scripts the check does
 // not resolve; ..."). A NESTED DOCUMENT: an iframe srcdoc is read as a document like index.html (its scripts are judged by the

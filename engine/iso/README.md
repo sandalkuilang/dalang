@@ -14,7 +14,7 @@ Canvas 2D, no dependency. Builders read `templates/iso-API.md`, not this file. E
   data (forms, kits, templates, `figure`, `model`, `plate`), `array`, `skin`, `focus`, gears by tooth ratio, numbers
   named as `values` keys; paint order from part boxes, contact shadow unless `shadow: false`. (`iso-build.mjs`)
 - `kit.js`: `KIT`, `expandKit`: components (fasteners, faces, pipes, tyres, containers, furniture, tools) as plain parts.
-- `templates.js`: `TEMPLATES` (`motorbike`, `car`, `engine`, `room`, `appliance`, `tree`), used as `form: "kit"`.
+- `templates.js`: `TEMPLATES` (`car`, `room`, `appliance`, `tree`), used as `form: "kit"`.
 - `figure.js`: `figureSolids`: a jointed person, presets or joint angles, two-bone IK reach, feet on the ground.
 - `plate.js`: `loadPlates(WORLD)`, `drawPlate`, `plateMarks`: the user's photo traced by `scripts/trace.mjs`, stood upright at real size.
 - `model.js`: `loadModel(url)` (`.glb`/`.gltf`; Draco and meshopt refused), `parseModel`, `drawModel(iso, m, { size,
@@ -27,4 +27,3 @@ Canvas 2D, no dependency. Builders read `templates/iso-API.md`, not this file. E
 - `cinema.js`: `camAt(t, keys)` (one-way moves), `filmOrbit(dir)`, `orbit25`, `crane25`, `dollyZoom25`, `drone25`,
   `ramp`, `whip`, `motionBlur`, `bokeh`, `discs`, `focusRing`, `hold`, `EASE`, `makeFinish(W, H).apply(canvas, t,
   { grade, bloom, sweep, vignette, grain, bars })`; all pure in t or seeded. (`iso-cinema.mjs`)
-- `examples.js`: `tower`, `waterTower`, `gearbox`, `truck`: specs proving the forms, the tests' fixtures.

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // node tests/iso-audit.mjs — engine/anatomy/world.mjs proves an Express world on its true shapes: a resting set
 // passes; a floating part, two objects sunk into each other, a pipe through a post and a pipe end in mid-air are each
-// caught by name; parts of one object may nest; the engine's own example specs are checked too.
+// caught by name; parts of one object may nest.
 import assert from "node:assert/strict";
 import { auditWorld } from "../engine/anatomy/world.mjs";
-import * as EX from "../engine/iso/examples.js";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -58,8 +57,6 @@ const boxed = { name: "case", at: [0, -2, 0], parts: [{ name: "core", form: "cyl
 assert.ok(auditWorld([slab, boxed], { pins: ["core"] }).problems.some((p) => p.kind === "pin" && p.part === "core"), "a part inside its skin is hidden");
 assert.ok(!auditWorld([slab, boxed], { pins: ["core"], cut: 1 }).problems.length, "with the skin cut away (a cutaway beat) it is seen");
 
-// the engine's own examples, each on a floor at z = 0: printed, never assumed clean
-for (const [k, spec] of Object.entries(EX)) if (spec?.parts) console.log(k + ": " + auditWorld([spec], { floor: 0, values: { level: 3, drive: 0 } }).text.split("\n").slice(1).join(" | "));
 // the builder's command: exit 0 clean, 3 with problems named, 2 (WARN, never clean) when the world cannot be read
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "scripts", "iso_audit.mjs"), proj = mkdtempSync(path.join(tmpdir(), "iso-audit-"));
 const run = (world) => { mkdirSync(path.join(proj, "assets"), { recursive: true }); writeFileSync(path.join(proj, "assets", "world.js"), world); return spawnSync("node", [cli, proj, "--ground", "slab"], { encoding: "utf8" }); };
