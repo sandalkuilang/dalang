@@ -36,7 +36,10 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   stand off the ground, and what they hold. **The hero object** (the one the film explains) is marked `hero: true`
   and lists its parts by group, base, structure, mechanism, controls, the subject: 15 or more, each resting on a named
   part. Its inside comes from the same object, under its skin; an inner part no source shows is named "generic" and
-  drawn plain, never invented. **PINS:** every part an overlay labels, by its unique part name.
+  drawn plain, never invented. **PINS:** every part an overlay labels, by its unique part name. Each object names the
+  template or kits it is built from (`iso-API.md`: a two-wheeler is `motorbike`, a sump is `pan`, a wheel is `tyre`, a
+  person is `figure` with a pose); bare boxes only for what truly is a block. A shot's zoom stops where its subject
+  is still many parts: one part over half the frame fails `film_gate` (detail).
 - **OVERLAYS:** sizes in px on the 1080 px canvas (headline 64 or more, big word 160 or more, label 40 or more, never
   smaller), colours with contrast 4.5:1 or more on what they sit on. **One headline system for the whole film:** a
   card in one fixed place (inside the safe zone), on every claim beat, a small kicker over the claim, and the claim's
