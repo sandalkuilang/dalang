@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="1200" height="500" role="img" aria-labelledby="ttl desc">
+<title id="ttl">Express and Studio</title>
+<desc id="desc">Two lanes from a topic to a film. Express: Brief, Script, Voice (VoiceStudio or Kokoro), Plan, Build in Canvas 2D, Render with HyperFrames, about twenty minutes. Studio: Brief, Script and voice, the subject modelled in Blender from your pictures, Look and Build in three.js, QC and a high render with HyperFrames. A dot runs each lane and lights every step as it passes.</desc>
+<style>
+/*PALETTE*/
+:root{--card:#161b22;--card2:#0d1117;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--dim:#6e7681;--ac:#d97757;--acbd:#a8512e;--acsoft:#2a1a14;--bl:#58a6ff;--blsoft:#0f2238;--tr:#3d444d}
+/*ENDPALETTE*/
+text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
+.lane{font-size:15px;font-weight:700;letter-spacing:1.4px;fill:var(--ac)}
+.lane2{font-size:15px;font-weight:700;letter-spacing:1.4px;fill:var(--bl)}
+.note{font-size:14px;fill:var(--mu)}
+.card{fill:var(--card);stroke:var(--bd);stroke-width:1.2}
+.num{font-size:13px;font-weight:700;letter-spacing:.6px;fill:var(--dim)}
+.ttl{font-size:20px;font-weight:650;fill:var(--tx)}
+.sub{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-size:13px;fill:var(--dim)}
+.eng{font-size:12px;font-weight:600;fill:var(--ac)}
+.eng2{font-size:12px;font-weight:600;fill:var(--bl)}
+.gate{font-size:12px;font-weight:700;fill:var(--ac)}
+.track{stroke:var(--tr);stroke-width:2;stroke-linecap:round}
+.end{fill:var(--acsoft);stroke:var(--acbd);stroke-width:1.2}
+.end2{fill:var(--blsoft);stroke:var(--bl);stroke-width:1.2}
+.dot{fill:var(--ac)}
+.dot2{fill:var(--bl)}
+/* each card lights as its lane's dot reaches it: the dot runs the track in 5/6 of the period, rests on the film for 1/6 */
+.e{animation:e 7s linear infinite}
+.s{animation:s 11s linear infinite}
+@keyframes e{0%,13%{stroke:var(--ac);stroke-width:2}19%,100%{stroke:var(--bd);stroke-width:1.2}}
+@keyframes s{0%,13%{stroke:var(--bl);stroke-width:2}19%,100%{stroke:var(--bd);stroke-width:1.2}}
+.d1{animation-delay:0s}.d2{animation-delay:1.1667s}.d3{animation-delay:2.3333s}.d4{animation-delay:3.5s}.d5{animation-delay:4.6667s}.d6{animation-delay:5.8333s}
+.t1{animation-delay:0s}.t2{animation-delay:1.8333s}.t3{animation-delay:3.6667s}.t4{animation-delay:5.5s}.t5{animation-delay:7.3333s}.t6{animation-delay:9.1667s}
+@media (prefers-reduced-motion:reduce){.e,.s{animation:none}}
+</style>
+
+<!-- EXPRESS -->
+<text class="lane" x="40" y="34">EXPRESS</text>
+<text class="note" x="128" y="34">fast lane · Canvas 2D isometric · about 20 minutes</text>
+<line class="track" x1="125" y1="198" x2="1085" y2="198"/>
+<g>
+  <rect class="card e d1" x="40" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="56" y="78">01</text><text class="ttl" x="56" y="106">Brief</text><text class="sub" x="56" y="130">all questions</text><text class="eng" x="56" y="162">Claude Code</text>
+  <rect class="card e d2" x="232" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="248" y="78">02</text><text class="gate" x="386" y="78" text-anchor="end">GATE 1</text><text class="ttl" x="248" y="106">Script</text><text class="sub" x="248" y="130">lints run itself</text><text class="eng" x="248" y="162">Claude · lints</text>
+  <rect class="card e d3" x="424" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="440" y="78">03</text><text class="gate" x="578" y="78" text-anchor="end">GATE 2</text><text class="ttl" x="440" y="106">Voice</text><text class="sub" x="440" y="130">timed per word</text><text class="eng" x="440" y="162">VoiceStudio / Kokoro</text>
+  <rect class="card e d4" x="616" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="632" y="78">04</text><text class="ttl" x="632" y="106">Plan</text><text class="sub" x="632" y="130">SPEC + storyboard</text><text class="eng" x="632" y="162">planner subagent</text>
+  <rect class="card e d5" x="808" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="824" y="78">05</text><text class="gate" x="962" y="78" text-anchor="end">GATE 3</text><text class="ttl" x="824" y="106">Build</text><text class="sub" x="824" y="130">groups in parallel</text><text class="eng" x="824" y="162">Canvas 2D (engine/iso)</text>
+  <rect class="end e d6" x="1000" y="54" width="170" height="124" rx="10"/>
+  <text class="num" x="1016" y="78">06</text><text class="gate" x="1154" y="78" text-anchor="end">GATE 4</text><text class="ttl" x="1016" y="106">Render</text><text class="sub" x="1016" y="130">film.mp4</text><text class="eng" x="1016" y="162">HyperFrames · ffmpeg</text>
+</g>
+<circle class="dot" r="7" cx="0" cy="0">
+  <animateMotion dur="7s" repeatCount="indefinite" path="M125,198 L1085,198" keyPoints="0;1;1" keyTimes="0;0.8333;1" calcMode="linear"/>
+</circle>
+
+<!-- STUDIO -->
+<text class="lane2" x="40" y="262">STUDIO</text>
+<text class="note" x="118" y="262">precision lane · Blender + three.js · the subject modelled once from your pictures</text>
+<line class="track" x1="125" y1="426" x2="1085" y2="426"/>
+<g>
+  <rect class="card s t1" x="40" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="56" y="306">01</text><text class="ttl" x="56" y="334">Brief</text><text class="sub" x="56" y="358">+ 3–5 pictures</text><text class="eng2" x="56" y="390">Claude Code</text>
+  <rect class="card s t2" x="232" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="248" y="306">02</text><text class="gate" x="386" y="306" text-anchor="end">GATE 1·2</text><text class="ttl" x="248" y="334">Script, voice</text><text class="sub" x="248" y="358">facts, take</text><text class="eng2" x="248" y="390">VoiceStudio / Kokoro</text>
+  <rect class="end2 s t3" x="424" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="440" y="306">03</text><text class="ttl" x="440" y="334">Model</text><text class="sub" x="440" y="358">once, from pictures</text><text class="eng2" x="440" y="390">Blender (engine/blender)</text>
+  <rect class="card s t4" x="616" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="632" y="306">04</text><text class="gate" x="770" y="306" text-anchor="end">GATE 3</text><text class="ttl" x="632" y="334">Look</text><text class="sub" x="632" y="358">frames + reviewer</text><text class="eng2" x="632" y="390">three.js (engine/three)</text>
+  <rect class="card s t5" x="808" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="824" y="306">05</text><text class="ttl" x="824" y="334">Build</text><text class="sub" x="824" y="358">x-ray · section</text><text class="eng2" x="824" y="390">three.js · HyperFrames</text>
+  <rect class="end s t6" x="1000" y="282" width="170" height="124" rx="10"/>
+  <text class="num" x="1016" y="306">06</text><text class="gate" x="1154" y="306" text-anchor="end">GATE 4</text><text class="ttl" x="1016" y="334">QC, render</text><text class="sub" x="1016" y="358">film.mp4 (high)</text><text class="eng2" x="1016" y="390">HyperFrames · ffmpeg</text>
+</g>
+<circle class="dot2" r="7" cx="0" cy="0">
+  <animateMotion dur="11s" repeatCount="indefinite" path="M125,426 L1085,426" keyPoints="0;1;1" keyTimes="0;0.8333;1" calcMode="linear"/>
+</circle>
+
+<text class="note" x="600" y="476" text-anchor="middle">Both run hands-off after the Brief. HyperFrames renders every film; a modelled subject stays in your library for the next one.</text>
+</svg>
