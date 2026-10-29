@@ -61,9 +61,10 @@ that reads as:
   axial fan; motor and bracket; rotary compressor with stator, windings, rotor, crankshaft, rolling piston and vane,
   and a section quarter per part; accumulator; pipes with filleted bends; insulation; flare nuts; service and
   expansion valves; sheet casing with grille and louvres; wall bracket; fasteners). `assemblies/condensing_unit.py`
-  builds a refrigeration condensing unit from it in 2 s (63 named nodes, about 127k triangles) and
-  `condensing_unit.shot.html` renders its cutaway in the iso look (x-ray casing, opened unit, sectioned compressor,
-  refrigerant as colour code, the fan turned from its motor speed, numbered pins). Blender (GPL) runs on the machine
+  builds a refrigeration condensing unit from it in a few seconds (63 named nodes, about 240k triangles; the seen
+  end fins punched with tube collars, sheet edges rounded) and `condensing_unit.shot.html` renders its cutaway in the
+  iso look with a softer matcap (blue x-ray casing with a thin wire, opened unit, sectioned compressor, context in calm
+  greys, refrigerant as colour code, the fan turned from its motor speed, numbered pins on leader lines). Blender (GPL) runs on the machine
   only; `tests/blender-parts.mjs` builds and reads the asset where it is installed.
 
 ### Changed

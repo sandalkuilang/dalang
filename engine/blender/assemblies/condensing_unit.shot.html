@@ -53,20 +53,38 @@ for (const m of meshesOf(named(/^pipe\.discharge|^flare\.gas/))) { m.material = 
 for (const m of meshesOf(named(/^pipe\.(suction|liquid)|^flare\.liquid/))) { m.material = m.material.clone(); m.material.color = new THREE.Color(COLD); }
 isoLook(scene);
 scene.add(wall);   // the wall stays flat paper, outside the three tones
+// softer light than the engine's iso tones: the same three directions, closer together and with a slight roll-off,
+// the reference's even studio light
+const soft = (() => { const n = 64, d = new Uint8Array(n * n * 4), back = new THREE.Vector3(1, 1, 1).normalize(), right = new THREE.Vector3(1, 0, -1).normalize(), up = back.clone().cross(right), v = new THREE.Vector3();
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = ((i + 0.5) / n - 0.5) / 0.495, y = ((j + 0.5) / n - 0.5) / 0.495, z = Math.sqrt(Math.max(0, 1 - x * x - y * y));
+    v.set(0, 0, 0).addScaledVector(right, x).addScaledVector(up, y).addScaledVector(back, z).normalize();
+    const wt = Math.max(v.y, 0), wl = Math.max(v.z, 0), wr = Math.max(v.x, 0), sum = wt + wl + wr || 1, f = (wt * 1 + wl * 0.88 + wr * 0.76) / sum * (0.94 + 0.06 * z), o = (j * n + i) * 4;
+    d[o] = d[o + 1] = d[o + 2] = Math.round(255 * Math.min(1, f)); d[o + 3] = 255; }
+  const t = new THREE.DataTexture(d, n, n); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t; })();
+scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.isMeshMatcapMaterial) m.matcap = soft; });
+const recolor = (objs, hex) => { for (const m of meshesOf(objs)) { m.material = m.material.clone(); m.material.color = new THREE.Color(hex); } };
 
-// the casing as x-ray glass (the reference's ghosted housing), opened per shot
+// the casing as x-ray glass: a cool blue tint, mostly clear, its edges drawn as a thin blue wire (the reference's housing)
 const casing = meshesOf(named(/^casing\.|^grille\./));
-if (SHOT === "wide") for (const m of casing) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.22; m.material.depthWrite = false; }
-// the compressor sectioned on the close shot: its front half removed, stator, rotor and piston shown
+const XRAY = "#BCD6EC", XRAY_LINE = "#6F9CC6";
+if (SHOT === "wide") for (const m of casing) { m.material = m.material.clone(); m.material.color = new THREE.Color(XRAY); m.material.transparent = true; m.material.opacity = 0.3; m.material.depthWrite = false; m.renderOrder = 2; }
 const compBox = new THREE.Box3(); for (const o of named(/^compressor\.(shell|stator|windings|pump|rotor|shaft|piston|feet|terminal)/)) compBox.expandByObject(o);
-if (SHOT === "close") { for (const o of named(/\.quarter$/)) o.visible = false;   // the section: the front-right quarter off
-  for (const o of named(/^(casing\.|grille\.|fan\.|pcb|divider|insulation\.divider)/)) o.visible = false;
-  for (const m of meshesOf(named(/^pipe\.suction$/))) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.25; m.material.depthWrite = false; } }   // the pipe in front of the section as glass
-  for (const m of meshesOf(named(/^(coil\.|bracket\.|insulation\.field)/))) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.3; m.material.depthWrite = false; }   // context recedes: what the shot does not explain   // and what stands between it and the camera
-// the medium shot opens the unit as the reference does: top, front, right side and grille off
-if (SHOT === "medium") for (const o of named(/^(casing\.(top|front|side_right|valve_cover|screws)|grille\.front)$/)) o.visible = false;
+// context recedes in calm colour, never in transparency: what a shot does not explain goes to the paper greys
+const CALM = "#D8D6D0";
+if (SHOT === "close") {
+  for (const o of named(/\.quarter$/)) o.visible = false;                                                      // the section: the front-right quarter off
+  for (const o of named(/^(casing\.|grille\.|fan\.|pcb|divider|insulation\.divider)/)) o.visible = false;  // what stands between it and the camera
+  recolor(named(/^(coil\.|bracket\.|insulation\.field|pipe\.field|valve\.expansion|pipe\.strainer|pipe\.liquid_valve)/), CALM);
+  recolor(named(/^pipe\.suction$/), "#A9C9E6");                                                              // the pipe across the section: pale, still its colour code
+}
+if (SHOT === "medium") {
+  for (const o of named(/^(casing\.(top|front|side_right|valve_cover|screws)|grille\.front)$/)) o.visible = false;   // opened as the reference is
+  recolor(named(/^(bracket\.|casing\.|divider|insulation\.)/), CALM);
+}
+if (SHOT === "wide") recolor(named(/^bracket\./), "#8D9096");
 inkLines(scene, { color: "#2A2926", angle: 28 });
-if (SHOT === "wide") for (const m of casing) m.children.forEach((c) => { if (c.userData.inkLine) { c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.5; } });
+// the x-ray housing's linework: every edge, thin and blue, over the glass
+if (SHOT === "wide") for (const m of casing) m.children.filter((c) => c.userData.inkLine).forEach((c) => { c.geometry.dispose(); c.geometry = new THREE.EdgesGeometry(m.geometry, 1); c.material = new THREE.LineBasicMaterial({ color: XRAY_LINE, transparent: true, opacity: 0.75 }); c.renderOrder = 3; });
 
 // motion from its cause: the fan turns at its motor's speed; air leaves through the grille, pushed by the blades
 const fan = named(/^fan\.blade$/)[0];
@@ -84,7 +102,7 @@ for (let i = 0; i < 9; i++) {
 
 // the shot: wide (the unit on its wall, casing as glass), medium (open, coil-fan-compressor), close (the cut compressor)
 const target = SHOT === "close" ? compBox : unit;
-const pose = isoFrame(target, { W, H, margin: SHOT === "wide" ? 1.12 : SHOT === "medium" ? 1.04 : 1.3 });
+const pose = isoFrame(target, { W, H, margin: SHOT === "wide" ? 1.03 : SHOT === "medium" ? 1.0 : 1.12 });
 place(camera, pose);
 renderer.render(scene, camera);
 
@@ -99,10 +117,14 @@ if (fan && SHOT !== "close") { const [x, y, b] = P(fan), s3 = b.getSize(new THRE
   g.lineWidth = 6; g.strokeStyle = "#F2C230"; g.beginPath(); g.ellipse(x, y, r, r * 0.82, -0.5, 0, 7); g.stroke(); }
 // a pin sits on a point of its part the camera sees: [name, where] (where: centre, top, bottom of its box)
 const pins = { wide: [["fan.blade"], ["compressor.shell"], ["coil.bends"]], medium: [["fan.blade"], ["compressor.shell"], ["coil.bends"], ["valve.gas"]], close: [["compressor.windings", "top"], ["compressor.rotor"], ["compressor.piston", "bottom"]] }[SHOT];
+const LEAD = 92;   // px from the part to its pin, out along the side of the frame the part is on
 pins.forEach(([n, where], i) => { const o = named(new RegExp("^" + n.replace(".", "\\.") + "$"))[0]; if (!o) return; const b = new THREE.Box3().setFromObject(o);
   if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y); const [x, y] = P(b);
-  g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(x, y, 27, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 23, 0, 7); g.fill();
-  g.fillStyle = "#fff"; g.font = "700 24px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), x, y + 1); });
+  const dx = x < W / 2 ? -1 : 1, px = x + dx * LEAD * 0.8, py = y - LEAD * 0.6;
+  g.strokeStyle = "#1E1E20"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x, y); g.lineTo(px, py); g.stroke();
+  g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+  g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(px, py, 27, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(px, py, 23, 0, 7); g.fill();
+  g.fillStyle = "#fff"; g.font = "700 24px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), px, py + 1); });
 g.strokeStyle = "#8C8B85"; g.lineWidth = 2; for (const [x, y, dx, dy] of [[22, 22, 1, 1], [W - 22, 22, -1, 1], [22, H - 22, 1, -1], [W - 22, H - 22, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 26 * dy); g.lineTo(x, y); g.lineTo(x + 26 * dx, y); g.stroke(); }
 frame.innerHTML = ""; frame.append(out);
 if (q.get("save")) await fetch(`/save?name=${SHOT}.png`, { method: "POST", body: out.toDataURL("image/png") });
