@@ -250,7 +250,7 @@ try {
   // even when the rounded words stay the same; a project with no model keeps its old hash.
   const st = (cwd, ...args) => node(cwd, fileURLToPath(new URL("../scripts/state.mjs", import.meta.url)), ...args);
   const gp = path.join(tmp, "gate1");
-  put(gp, "script.md", SCRIPT);
+  put(gp, "script.md", ["Promise: what it costs.", "Takeaway: about sixteen dollars.", ...SCRIPT]); // approve 1 runs narration_lint too
   put(gp, "narration.txt", NARRATION("{about sixteen dollars|cost_small}"));
   put(gp, "model.mjs", MODEL);
   assert.equal(node(gp, "model.mjs").code, 0);
@@ -260,15 +260,20 @@ try {
   const stale1 = st(gp, "check", "1", ".");
   assert.equal(stale1.code, 3, stale1.out + stale1.err);
   assert.match(stale1.out, /STALE/);
-  assert.equal(st(gp, "approve", "1", ".").code, 0);
+  const behind = st(gp, "approve", "1", ".");
+  assert.equal(behind.code, 1, "approve 1 runs numbers_lint: a model newer than numbers.json is refused");
+  assert.match(behind.err, /numbers_lint: PROBLEM .*numbers\.json/);
   assert.equal(node(gp, "model.mjs").code, 0); // the rerun writes the new numbers.json
-  assert.equal(st(gp, "check", "1", ".").code, 3, "a rerun that writes a new numbers.json is stale");
   assert.equal(st(gp, "approve", "1", ".").code, 0);
+  const gnj = path.join(gp, "numbers.json"), approvedNumbers = fs.readFileSync(gnj, "utf8");
+  fs.writeFileSync(gnj, approvedNumbers.replace(/\d/, (d) => String((Number(d) + 1) % 10)));
+  assert.equal(st(gp, "check", "1", ".").code, 3, "a new numbers.json is stale");
+  fs.writeFileSync(gnj, approvedNumbers);
   assert.equal(st(gp, "check", "1", ".").code, 0);
   assert.equal(node(gp, "model.mjs").code, 0);
   assert.equal(st(gp, "check", "1", ".").code, 0, "a rerun with the same inputs keeps the approval");
   const nomodel = path.join(tmp, "nomodel");
-  put(nomodel, "script.md", ["Hello."]);
+  put(nomodel, "script.md", ["Promise: hello.", "Takeaway: hello."]);
   put(nomodel, "narration.txt", ["Hello."]);
   assert.equal(st(nomodel, "approve", "1", ".").code, 0);
   assert.equal(st(nomodel, "check", "1", ".").code, 0);

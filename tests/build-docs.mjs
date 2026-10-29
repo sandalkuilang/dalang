@@ -51,8 +51,11 @@ const qc7 = read("references/qc.md").split("## Step 8")[0];
 assert.match(qc7, /builder subagent[^.]*fixes every P0 and P1/, "qc.md Step 7 must send the fixes to a builder subagent");
 const skill = read("SKILL.md");
 assert.match(skill, /\*\*Scene code stays in builder subagents\.\*\*/, "SKILL.md Work fast must state the builder rule");
-assert.match(skill, /\| Studio builder: [^|]*QC fix round/, "SKILL.md model table must list the builder jobs");
-assert.match(skill, /\| Express builder[^|]*\| mid \| medium \|/, "SKILL.md model table must give the Express builder its model and effort");
+// The model table lives in state.mjs (`next` prints each step's jobs; `models` prints them all); SKILL.md points to it.
+const models = spawnSync(process.execPath, [fileURLToPath(new URL("../scripts/state.mjs", import.meta.url)), "models"], { encoding: "utf8" }).stdout;
+assert.match(skill, /state\.mjs models/, "SKILL.md must point to the model table (state.mjs models)");
+assert.match(models, /^studio +Step 7 .*builder: each QC fix round: top · medium$/m, "the model table must list the builder jobs");
+assert.match(models, /^express +Step 6 .*builder per group[^:]*: mid · medium$/m, "the model table must give the Express builder its model and effort");
 assert.match(read("references/evals.md"), /no `Write` or `Edit` to the film's `src\/` or `assets\/\*\.js`/, "evals.md must check the main transcript for scene-code writes");
 console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene code is only written by builder subagents");
 
@@ -291,7 +294,7 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   assert.match(assetPass, /refs-board-<frame>\.jpg/, "Asset pass item 3 must carry the board recipe");
   assert.match(assetPass, /tile=/, "Asset pass item 3 must carry the ffmpeg tile command");
   assert.match(assetPass, /full-size stills stay with the reviewer/, "Asset pass item 3: full-size stills stay with the reviewer");
-  assert.match(skill, /media screening[^|]*reference boards/i, "SKILL.md model table must list the Step 5 reference boards under media screening");
+  assert.match(models, /media screening[^:]*reference boards/i, "the model table must list the Step 5 reference boards under media screening");
   // The rule "images stay in subagents" and the Step 5 author who opens a board must not contradict: both rule lines
   // name the boards as the one exception, so an agent that follows SKILL.md (read first) still opens the board.
   const imgRule = skill.split("\n").find((l) => l.startsWith("- **Images stay in subagents.**")) ?? "";

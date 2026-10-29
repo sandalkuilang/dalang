@@ -309,6 +309,40 @@ for (const [name, bin, mode, status, note] of blenderCases) {
   fs.writeFileSync(path.join(home, ".claude", "settings.json"), "{");
   await check("workspace unreadable settings", "WARN", /could not read.*rerun/, /^lean|nothing a video never uses is on/);
 }
+// The full run prints only what needs action, the DALANG row and one "OK: <n> items (…)" line (--all and --json: every
+// row), and records for state.mjs whether setup left a Brief Call 0 choice: a voice list or the photo tracer offer is no
+// choice, a WARN (unknown) always is. DALANG_TEST_ROWS stands in for the checks.
+{
+  const row = (item, status, note) => [item, status, note];
+  const base = [row("DALANG skill", "OK", "up to date (v9.9.9)"), row("node", "OK", "v99"), row("ffmpeg/ffprobe", "OK", ""), row("VoiceStudio", "OK", "v1"), row("  TTS model", "OK", "m"), row("  ASR (word timing)", "OK", "a"), row("  Voices", "INFO", "saved profiles: x"), row("Photo tracer", "INFO", "vtracer not installed"), row("Kokoro (voice)", "SKIP", "")];
+  const full = async (rows, extra = []) => {
+    const rec = path.join(tmp, `rec-${Math.random().toString(36).slice(2)}.json`);
+    const { out } = await run(extra, seal, { DALANG_TEST_ROWS: JSON.stringify(rows), DALANG_PREFLIGHT_STATE: rec });
+    return { out, rec: fs.existsSync(rec) ? JSON.parse(fs.readFileSync(rec, "utf8")) : null };
+  };
+  const t = async (name, fn) => { try { await fn(); } catch (e) { failures.push(`✗ compact: ${name}: ${e.message}`); } };
+  await t("clean setup: action rows only, OK summary, no choice", async () => {
+    const { out, rec } = await full(base);
+    assert.match(out, /^OK DALANG skill: up to date \(v9\.9\.9\)$/m, "the DALANG row always prints (the skill version)");
+    assert.doesNotMatch(out, /^OK node/m);
+    assert.match(out, /^INFO {3}Voices: saved profiles: x$/m);
+    assert.match(out, /^OK: 5 items \(node, ffmpeg\/ffprobe, VoiceStudio, TTS model, ASR \(word timing\)\)$/m);
+    assert.match(out, /^SKIP: 1 items \(Kokoro \(voice\)\)$/m);
+    assert.match(out, /^Voice: ready/m);
+    assert.equal(rec?.choice, false, "a voice list and the tracer offer are no Call 0 choice");
+  });
+  await t("a WARN is a choice and prints", async () => {
+    const { out, rec } = await full([...base, row("HyperFrames skills", "WARN", "could not check — rerun")]);
+    assert.match(out, /^WARN HyperFrames skills: could not check — rerun$/m);
+    assert.equal(rec?.choice, true, "unknown is never read as no choice");
+  });
+  await t("--all and --json print every row", async () => {
+    const a = await full(base, ["--all"]);
+    assert.match(a.out, /^OK node: v99$/m); assert.doesNotMatch(a.out, /^OK: \d+ items/m);
+    const j = await full(base, ["--json"]);
+    assert.equal(JSON.parse(j.out.split("\n")[0]).length, base.length);
+  });
+}
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + blenderCases.length + skillCases.length + 3} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + blenderCases.length + skillCases.length + 3 + 3} cases`);

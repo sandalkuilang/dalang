@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Step 0 in one call: every tool, voice engine and media source dalang needs, checked in parallel.
-// Prints one line per item, "STATUS item: note" (OK / MISSING / WARN / INFO / PAID / SKIP, and for VoiceStudio also
+// Prints one line per item that needs action, "STATUS item: note" (MISSING / WARN / INFO / PAID, and for VoiceStudio also
 // STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix; VoiceStudio's own rows indented), then one "Voice:" line,
-// so the agent reads ~15 lines instead of running a dozen commands. Never prints secrets.
+// plus the DALANG row and one "OK: <n> items (…)" line, so the agent reads a few lines instead of running a dozen
+// commands. --all prints every row (OK and SKIP too). Never prints secrets.
 //
-// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--start] [--check-skill] [--skill-dir PATH]
+// Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--all] [--start] [--check-skill] [--skill-dir PATH]
 //                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
 //   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
 //                  --skill-dir points it at another folder.
@@ -18,7 +19,7 @@
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
 import { execFile } from 'node:child_process';
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -363,10 +364,29 @@ async function workspace() {
   return [[item, 'INFO', `${on} plugins / MCP servers a video never uses are on (tokens on every call)${agents ? `; ${agents}` : ''} — asked in Brief Call 0: ${init}`]];
 }
 
-const groups = await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : checkBlender ? [blender()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), blender(), elevenlabs(), media()]);
+// DALANG_TEST_ROWS: fixed rows in place of the checks (tests/preflight-mock.mjs: how the full run prints and records).
+const groups = process.env.DALANG_TEST_ROWS ? [JSON.parse(process.env.DALANG_TEST_ROWS)] : await Promise.all(checkWorkspace ? [workspace()] : checkSkill ? [skillClone()] : checkKokoro ? [kokoro()] : checkBlender ? [blender()] : start ? [voicestudio()] : [skillClone(), workspace(), tools(), voicestudio(), kokoro(), blender(), elevenlabs(), media()]);
 const rows = groups.flat();
+// The full run prints only the rows that need action (anything but OK and SKIP) and the DALANG row (the skill version
+// the hand-off names), then one "OK: <n> items (…)" line; --all, --json and the single checks print every row.
+const full = !(checkSkill || checkWorkspace || checkKokoro || checkBlender || start);
+const compact = full && !asJson && !args.includes('--all');
+const quiet = ([item, status]) => compact && ['OK', 'SKIP'].includes(status) && item !== 'DALANG skill';
 if (asJson) console.log(JSON.stringify(rows.map(([item, status, note]) => ({ item, status, note }))));
-else for (const [item, status, note] of rows) console.log(`${status} ${item}${note ? `: ${note}` : ''}`);
+else for (const r of rows.filter(r => !quiet(r))) { const [item, status, note] = r; console.log(`${status} ${item}${note ? `: ${note}` : ''}`); }
+if (compact) for (const st of ['OK', 'SKIP']) { const q = rows.filter(r => quiet(r) && r[1] === st).map(r => r[0].trim()); if (q.length) console.log(`${st}: ${q.length} items (${q.join(', ')})`); }
+// Whether setup left a Brief Call 0 choice, for `state.mjs next` (Step 1 skips the Call 0 look-ups only on a clean
+// record). A row it cannot read is a WARN, so "unknown" always counts as a choice. Best effort: a write that fails
+// changes nothing.
+if (full) {
+  const info = new Set(['  Voices', 'Photo tracer']); // a list and an on-demand offer, never a setup question
+  const choice = rows.some(([item, status]) => !['OK', 'SKIP'].includes(status) && !info.has(item));
+  try {
+    const f = process.env.DALANG_PREFLIGHT_STATE || path.join(homedir(), '.cache', 'dalang', 'preflight.json');
+    mkdirSync(path.dirname(f), { recursive: true });
+    writeFileSync(f, JSON.stringify({ at: new Date().toISOString(), choice }) + '\n');
+  } catch { /* not recorded: Step 1 prints every look-up */ }
+}
 if (checkSkill || checkWorkspace || checkKokoro || checkBlender) process.exit(0);
 const voiceOk = ['  ASR (word timing)', '  TTS model'].every(n => rows.some(([i, s]) => i === n && s === 'OK'));
 const nc = rows.some(([i, , n]) => i === '  TTS model' && /CC-BY-NC/.test(n));

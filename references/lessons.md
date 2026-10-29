@@ -1,6 +1,6 @@
 # Lessons from real runs
 
-Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `state.mjs next` prints a step's headlines; an untagged line fails the gate. Never read this file whole: `grep -n -i '<word>'` it. The fixes are already in the rules; a line says why.
+Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`) and, when it holds in one mode only, that mode (`[6|studio]`, `[3|express]`); `state.mjs next` prints a step's headlines for the film's mode; an untagged line fails the gate. Never read this file whole: `grep -n -i '<word>'` it. The fixes are already in the rules; a line says why.
 
 ## Script and facts
 - [1,6] **A 3D-looking look moved the film to Studio on its own** (the pilot kept two builders waiting ~20 min). Mode and look are both asked in the Brief and locked; Express starts every group at once.
@@ -25,7 +25,7 @@ Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `s
 - [4] **A clone spoke slower than its sample,** held ~1 s room-tone pauses and dropped a word. Measure pace on the clone, rephrase a dropped line, cut pauses on `words.json` gaps, retime with `--from-audio` (without `--own-recording`).
 
 ## Visuals
-- [5] **The film looked generated:** skipped SPEC/LOOK, a hero from SVG primitives, banned defaults, nine scenes before one finished frame. `SPEC.md`, true shapes, style frames, blocking and polish passes.
+- [5|studio] **The film looked generated:** skipped SPEC/LOOK, a hero from SVG primitives, banned defaults, nine scenes before one finished frame. `SPEC.md`, true shapes, style frames, blocking and polish passes.
 - [5,6] **Half the film was still** because only mouths moved (a good reference is ~5 % still).
 - [5] **A generic vector animal passed every check.** Set and Reality tests apply to every look.
 - [1,5] **Candy pastels on a coloured backdrop read cheap.** Stylized means designed, not loud (calm palette, few accents).
@@ -38,9 +38,9 @@ Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `s
 - [6] **`mix-blend-mode` on an SVG `<rect>` rendered opaque.** Use a CSS `filter` on the wrapper.
 - [6] **Text rendered in a fallback font** (the `font:` shorthand is skipped by the subsetter). Set `font-family` alone.
 - [6] **An animation moved an object in another scene** (a shared `id`). Prefix every `id` with its scene.
-- [5] **A licensed "documentary" clip was a cartoon** (37 MB wasted). Contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
+- [5|studio] **A licensed "documentary" clip was a cartoon** (37 MB wasted). Contact sheet before downloading (`visual-direction.md` §1 "Sourcing").
 - [6] **Missing GSAP and a timed `<video>` in a timed wrapper** each cost a round (`look-build.md` Step 6 item 4).
-- [5] **Non-English catalog queries** return nothing.
+- [5|studio] **Non-English catalog queries** return nothing.
 - [5] **A machine had a part outside its body,** checked from memory. Compare against downloaded photos (`visual-direction.md` §1 "Machines", "Reality check").
 
 ## Audio and reference
@@ -55,9 +55,9 @@ Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `s
 ## Working speed
 - [0,1] **A 242k-token session** carried detours and five drafts. One session per video; resume from `BRIEF.md` + `PRODUCTION.md`.
 - [1] **24 fps looked choppy on a 30 fps platform.** Default 30; 24 is a chosen look that blurs moves (`camera-motion.md` §8).
-- [7] **A draft render took 39 min** (the next under 3). Far slower than the last → stop and find the cause.
-- [7] **A 10 fps draft gave the same verdicts in half the time.** QC renders at 10 fps.
-- [7] **An unattended run shipped known P1s.** Set, Reality and Clarity P1s block the final (`qc.md` Step 7).
+- [7|studio] **A draft render took 39 min** (the next under 3). Far slower than the last → stop and find the cause.
+- [7|studio] **A 10 fps draft gave the same verdicts in half the time.** QC renders at 10 fps.
+- [7|studio] **An unattended run shipped known P1s.** Set, Reality and Clarity P1s block the final (`qc.md` Step 7).
 - [8] **Build traps went into the user's private memory.** The hand-off's `## Skill feedback` carries them upstream (`qc.md` Step 8).
 - [4] **Whisper timed sentence starts early** (up to 0.7 s). Forced alignment against the script.
 - [4] **VoxCPM2 timed out** beside other model jobs. Heavy model jobs one at a time; VoxCPM2 in ~120-character chunks.
@@ -65,15 +65,15 @@ Each line is a failure that happened, tagged with its steps (`[5]`, `[5,6]`); `s
 - [5] **The machine sat idle through a 58 min gate wait.** Free local jobs a "no" only discards run during the wait.
 - [5] **The film read as a slideshow** (drifting stills, no mechanism). The subject acts in every shot, camera-only ≤ 15 %, a mechanism shot per "why", the Action test (`visual-direction.md` §3, §8, §11).
 - [5] **Every "camera move" was CSS on a still.** Real rig moves, A/B roll, one wow shot (`camera-motion.md` §8).
-- [7] **Rework, not rendering, was the slow part** (5 of 7 P0s were asset defects). Scene-prefixed ids and overscanned whips from the first draft, the asset pass before building (`review.md`), browser steps never beside a model job.
+- [7|studio] **Rework, not rendering, was the slow part** (5 of 7 P0s were asset defects). Scene-prefixed ids and overscanned whips from the first draft, the asset pass before building (`review.md`), browser steps never beside a model job.
 - [5,6] **A stylized room read as a toy.** Dense small props and small life motions lift it most (`looks.md` set dressing).
 - [6] **A chair swivelled round a corner on an endless sine.** Motion has a cause; find the real pivot (`camera-motion.md` §5).
-- [5,6] **A cozy room read as boxy CG.** Subdivide soft goods only, drawn surfaces, lamps that light, a screen fitted to its model (`looks.md` true shapes).
-- [6] **Two black frames** from a swept tube's zero normals. Set them to the tube's axis.
-- [6] **A fan's wind passed through a monitor.** The jet is blocked by objects (`air.js`).
+- [5,6|studio] **A cozy room read as boxy CG.** Subdivide soft goods only, drawn surfaces, lamps that light, a screen fitted to its model (`looks.md` true shapes).
+- [6|studio] **Two black frames** from a swept tube's zero normals. Set them to the tube's axis.
+- [6|studio] **A fan's wind passed through a monitor.** The jet is blocked by objects (`air.js`).
 - [6] **A whole set ran at the wrong scale** (kit unit 1.95 m: falls 1.4× too fast). Measure metres per unit first.
-- [6] **Placement looked fine and was wrong in four ways** (centre-ray drop, edge hang, overlap, sinking). Lowest-points settling and its report.
-- [6] **A decal scaled flat sank under its surface.** Flatten in geometry or offset along the normal.
+- [6|studio] **Placement looked fine and was wrong in four ways** (centre-ray drop, edge hang, overlap, sinking). Lowest-points settling and its report.
+- [6|studio] **A decal scaled flat sank under its surface.** Flatten in geometry or offset along the normal.
 - [7] **A stale preview iframe gave identical numbers.** Read the newest (`_t=` in its URL).
 - [6,7] **Context grew to ~590k tokens:** full-size snapshots and logs stayed in it. Verification runs in a subagent returning text; `/compact` is safe at Gates 3 and 4.
 - [6] **Scene files were patched with inline scripts** (~50 patches, two swallowed code). Scene changes are `Edit` calls.

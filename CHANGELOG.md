@@ -30,8 +30,23 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `express.mjs scaffold`: the planner lints the storyboard and scaffolds the groups itself and returns the builders'
+  `next:` line. `qc_all.mjs <draft.mp4>`: Studio's seven Step 7 checks in one call, one line each, details only on a
+  failure. `state.mjs models`: the model and effort table.
+
 ### Changed
 
+- Fast path: `state.mjs approve <n>` runs its gate's checks itself (Gate 1 the lints, Gate 2 the padding), refuses with
+  every problem, and on success prints the next step's reading, so the agent spends no turn on `next` (Express Steps 3–4
+  and 5–6 read as one); a clean Express take runs `after-voice` by itself. Measured on a fixture: Express 15 → 6 calls,
+  Studio 16 → 8.
+- Less standing text: lesson headlines are tagged by mode and print only on their path; the model table lives in
+  `state.mjs` (`next` prints it beside each subagent); Step 1's look-ups skip Call 0 when preflight left no choice and
+  series rows when there are no kits; preflight prints only the rows that need action plus one OK line (`--all` prints
+  every row). The Express planner reads one 3 KB camera and storyboard card instead of 20 KB of look-build and
+  camera-motion (30 → 10 KB). SKILL.md's budget is 9.5 KB.
 - Token-lean skill text: SKILL.md 17.4 → 9.0 KB (re-sent on every turn), the Express path's reading 51 → 31 KB, the
   Studio path's 51 → 40 KB, Step 7's subagent reading 23 → 17 KB; references, engine READMEs and API cards
   (engine/three/README 37 → 12 KB) cut to the instructions, one home per rule. `state.mjs reading` enforces SKILL.md ≤
@@ -44,6 +59,10 @@ that reads as:
   rewritten to match.
 - With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`: the Express
   stills, `studio-*.jpg` for Studio), not a golden sheet. A hero's stills are snapshots of its clip page.
+
+### Fixed
+
+- Object-studio builders were sent to `assets/examples.js`, which only the isometric look installs.
 
 ### Removed
 

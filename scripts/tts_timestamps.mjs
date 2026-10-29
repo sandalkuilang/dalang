@@ -50,6 +50,10 @@
 //                              -> after editing narration.txt: only the sentences that differ from the text of the take on
 //                                 disk are re-spoken (an added one gets the take's median pauses, a removed one is cut out);
 //                                 the same splice, retiming and two-try limit as --retake auto. No change = no request.
+// Express films (BRIEF.md beside --input says mode: express): a full take, retake or re-time that prints no WARNING
+// (and no Retake line) ends by running `express.mjs after-voice <film> --take-clean` (pad, captions, Gates 1–2) in the
+// same process output, its exit the take's; a take with a WARNING stops after DONE, as before (respell, --retake changed).
+//
 //   node tts_timestamps.mjs --input narration.txt --out audio --from-response audio/narration.response.json --tempo 0.9
 //                              -> a slower (0.8-1.2; <1 slower, >1 faster) delivery of the take on disk, pitch kept: ffmpeg
 //                                 atempo on the audio, word times scaled, no new speech. The take keeps its model and voice
@@ -89,7 +93,7 @@
 // The ElevenLabs key is read from env ELEVENLABS_API_KEY and is never printed.
 
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, readdirSync, copyFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1328,7 +1332,10 @@ function keepTake(a) {
   console.log(`Kept       : the previous take in ${dir}/`);
 }
 
+// every WARNING line, and the open-sentence Retake line, the take prints: a clean Express take goes on to after-voice
+let flagged = 0;
 async function main() {
+  for (const k of ['log', 'warn']) { const f = console[k]; console[k] = (...m) => { if (/^WARNING\b|^Retake\s+: sentences? [\d, ]+ may not say/.test(String(m[0] ?? ''))) flagged++; f(...m); }; }
   const a = parseArgs(process.argv.slice(2));
   if (a.help) {
     const src = (await readFile(new URL(import.meta.url), 'utf8')).split('\n');
@@ -1566,6 +1573,19 @@ async function main() {
   // beat names and starts on one line; their words are in narration.txt, their timing per word in cues.mjs
   if (!a.sample && beatList.some(b => b.start !== null)) console.log(`Beats: ${beatList.filter(b => b.start !== null).map(b => `${b.name} ${b.start.toFixed(2)}`).join(' · ')}`);
   console.log(`DONE ${audioPath}`);
+  if (!a.sample) afterVoice(a);
+}
+
+// Express: the clean take's mechanical steps in the same call (one main-agent turn less); never on a flagged take
+function afterVoice(a) {
+  const film = path.dirname(path.resolve(a.input));
+  let brief = '';
+  try { brief = readFileSync(path.join(film, 'BRIEF.md'), 'utf8'); } catch { return; } // no brief: not an Express film
+  if (!/^\W*mode\W*:\W*express\b/im.test(brief)) return;
+  if (flagged) { console.log(`Express    : ${flagged} WARNING/Retake line(s) above: after-voice not run; respell once, --retake changed, then express.mjs after-voice .`); return; }
+  console.log('Express    : clean take: express.mjs after-voice');
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL('express.mjs', import.meta.url)), 'after-voice', film, '--take-clean'], { stdio: 'inherit' });
+  if (r.status !== 0) process.exitCode = r.status ?? 1;
 }
 
 // Run as a CLI only: audio_qc.mjs and scaffold.mjs import parseNarration, splitSentences and stripTags from here.

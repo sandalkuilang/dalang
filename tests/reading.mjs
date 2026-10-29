@@ -5,7 +5,7 @@
 // step's commands only (the same strings as `reading --json`); every printed command runs from any folder; the gate
 // approvals are unchanged (a gate cannot be approved out of order, a stale approval is not approved); and the check
 // fails on a section over budget, a heading that is gone, a bad lesson tag, a Studio path over 60 KB, an Express path
-// over 45 KB and a SKILL.md over 10 KB (or missing).
+// over 45 KB and a SKILL.md over 9.5 KB (or missing).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -15,9 +15,13 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const state = path.join(root, "scripts", "state.mjs");
-const SECTION_MAX = 8192, TOTAL_MAX = 61440, EXPRESS_MAX = 46080, SKILL_MAX = 10240;
+const SECTION_MAX = 8192, TOTAL_MAX = 61440, EXPRESS_MAX = 46080, SKILL_MAX = 9728;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-reading-"));
-const run = (...args) => { const r = spawnSync(process.execPath, [state, ...args], { encoding: "utf8" }); return { code: r.status, out: r.stdout, err: r.stderr }; };
+// Step 1's sometimes-rows print unless `next` knows they do not apply: no preflight record (a choice is assumed) and a
+// series root holding one kit, so every row shows by default; section 5 covers the filters.
+const kits = path.join(tmp, "kits"); fs.mkdirSync(path.join(kits, "chan"), { recursive: true }); fs.writeFileSync(path.join(kits, "chan", "SERIES.md"), "# kit\n");
+const ENV = { ...process.env, DALANG_PREFLIGHT_STATE: path.join(tmp, "no-preflight.json"), DALANG_SERIES_DIR: kits };
+const run = (...args) => { const env = typeof args.at(-1) === "object" ? { ...ENV, ...args.pop() } : ENV; const r = spawnSync(process.execPath, [state, ...args], { encoding: "utf8", env }); return { code: r.status, out: r.stdout, err: r.stderr }; };
 const mk = (name) => { const p = path.join(tmp, name); fs.mkdirSync(p, { recursive: true }); return p; };
 const put = (proj, rel, text = "x\n") => { const p = path.join(proj, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); };
 // a fixture skill: the repo's references and a small SKILL.md, so a fixture fails only on what it changes
@@ -26,6 +30,10 @@ const edit = (skill, file, fn) => { const p = path.join(skill, "references", fil
 // A Gate 3 benchmark verdict (every row within 1 point of the board): approve 3 needs one.
 const BENCH = ["Detail density", "Material truth", "Light and shadow", "Text system", "Overlays caused by motion", "Framing", "Macro quality"]
   .map((r) => `| ${r} | 4 | 4 | |`).join("\n") + "\n";
+// Files the gates' own checks pass on: Gate 1's lints (Promise, Takeaway, a clean sentence), Gate 2's pad (already padded).
+const SCRIPT = "Promise: you learn one thing.\nTakeaway: the thing.\n", NARR = "{Hello there|hook}. This is a short film.\n";
+const BEATS = JSON.stringify({ duration: 2, beats: [], pad: { lead: 1.45, tail: 1.35, take: "narration.wav" } }) + "\n";
+const gate12 = (proj) => { put(proj, "script.md", SCRIPT); put(proj, "narration.txt", NARR); put(proj, "audio/beats.json", BEATS); put(proj, "audio/words.json", "[]\n"); };
 const filler = (bytes) => Array.from({ length: Math.ceil(bytes / 50) }, (_, i) => `Filler line ${String(i).padStart(4, "0")} for the section budget check...`).join("\n") + "\n";
 const after = (heading, text) => (src) => { const i = src.indexOf(heading + "\n"); assert.ok(i >= 0, `fixture heading ${heading} not in the source`); const j = i + heading.length + 1; return src.slice(0, j) + text + src.slice(j); };
 
@@ -48,23 +56,27 @@ try {
   }
   const plain = run("reading");
   assert.equal(plain.code, 0);
-  assert.match(plain.out, /^SKILL\.md: [\d.]+ KB of 10 KB$/m);
+  assert.match(plain.out, /^SKILL\.md: [\d.]+ KB of 9\.5 KB$/m);
   assert.match(plain.out, /^Studio path \(Steps 0–8, Step 2 not counted\): [\d.]+ KB of 60 KB$/m);
   assert.match(plain.out, /^Express path \(express\.md for Steps 5–7\): [\d.]+ KB of 45 KB$/m);
   assert.match(plain.out, /^Optional Step 2 \(a reference video\), not counted: [\d.]+ KB$/m);
-  const counted = Object.entries(json.steps).filter(([n]) => n !== "2").reduce((a, [, s]) => a + s.read.reduce((b, e) => b + e.bytes, 0) + s.lessonsBytes, 0);
+  const counted = Object.entries(json.steps).filter(([n]) => n !== "2").reduce((a, [, s]) => a + s.read.reduce((b, e) => b + e.bytes, 0) + s.lessonsBytes + s.jobsBytes, 0);
   assert.equal(json.total, counted, "the total counts every step but the optional Step 2");
-  // the Express path: Steps 5–7 swapped for express.md (what `next` prints there), Step 2 not counted
+  // the Express path: Steps 3 and 4 one reading (Step 4 counted once), Steps 5–7 swapped for express.md (what `next`
+  // prints there), Step 2 not counted; each step's lesson and subagent lines counted with its sections
   {
     const p = mk("ex-path"); fs.writeFileSync(path.join(p, "BRIEF.md"), "mode: express\n");
     const kbOf = (out) => Number(out.match(/^Read now \(([\d.]+) KB\)/m)[1]);
+    const block = (out, head) => { const ls = out.split("\n"); const i = ls.findIndex((l) => l.startsWith(head)); if (i < 0) return 0; let b = head.startsWith("Subagents") ? Buffer.byteLength(ls[i] + "\n") : 0; for (const l of ls.slice(i + 1)) { if (!l.startsWith("  ")) break; b += Buffer.byteLength(l + "\n"); } return b; };
     let sumKb = 0;
-    for (const st of ["0", "1", "3", "4", "5", "6", "7", "8"]) {
+    for (const st of ["0", "1", "3", "5", "6", "7", "8"]) {
       const out = run("next", p, "--step", st).out;
-      const less = out.match(/^Lessons \(/m) ? out.split(/^Lessons \(.*$/m)[1].split(/^(Look up|For the subagent)/m)[0].split("\n").filter((l) => l.startsWith("  ")).reduce((a, l) => a + Buffer.byteLength(l + "\n"), 0) : 0;
-      sumKb += kbOf(out) * 1024 + less;
+      sumKb += kbOf(out) * 1024 + block(out, "Lessons (") + block(out, "Subagents (");
     }
     assert.ok(Math.abs(sumKb - json.express) < 600, `the Express path (${json.express} B) is what express \`next\` prints at Steps 0–8 (${Math.round(sumKb)} B)`);
+    const s3 = run("next", p, "--step", "3").out, s4 = run("next", p, "--step", "4").out;
+    assert.equal(s4.split("\n").slice(1).join("\n"), s3.split("\n").slice(1).join("\n").replace(/^Optional Step 2.*\n/m, ""), "Express Step 4 (a resume) prints Step 3's reading: one reading for both");
+    for (const h of ["## Step 3 — Script → GATE 1", "## Express Steps 3–4 — Script and voice", "## Step 4 — Voice + per-word timing → GATE 2", "## Use (Step 4)"]) assert.ok(run("next", p, "--step", "3", "--print").out.includes(`\n${h}\n`), `Express Step 3 prints ${h}`);
   }
   assert.equal(run("reading", "--json", "--skill", mk("no-skill")).code, 1, "a skill copy without references fails, never passes");
 
@@ -89,11 +101,11 @@ try {
   at(proj, 1);
   put(proj, "BRIEF.md");
   assert.match(at(proj, 3), /Optional Step 2/, "no script yet: the optional reference step is named");
-  put(proj, "script.md"); put(proj, "narration.txt");
+  put(proj, "script.md", SCRIPT); put(proj, "narration.txt", NARR);
   assert.doesNotMatch(at(proj, 3), /Optional Step 2/);
   ok(proj, "approve", "1");
   at(proj, 4);
-  put(proj, "audio/beats.json", "[]\n");
+  put(proj, "audio/beats.json", BEATS); put(proj, "audio/words.json", "[]\n");
   ok(proj, "approve", "2");
   at(proj, 5);
   put(proj, "SPEC.md"); put(proj, "storyboard.md"); put(proj, "style-frames/a.png");
@@ -120,7 +132,7 @@ try {
   assert.equal(bad.code, 1, "--step 9 is refused");
   assert.match(bad.err, /--step must be 0–8/);
   assert.equal(run("next", proj, "--step", "x").code, 1);
-  put(proj, "script.md", "edited after the approval\n"); // gate 1 goes STALE: the script is back in work
+  put(proj, "script.md", SCRIPT + "edited after the approval\n"); // gate 1 goes STALE: the script is back in work
   assert.match(run(proj).out, /Gate 1 .*STALE/);
   at(proj, 3);
   // the plain status points to the reading list
@@ -128,7 +140,7 @@ try {
 
   // Gate approvals are unchanged: out of order refused, a gate is "approved" only while fresh.
   const g = mk("gates");
-  put(g, "script.md"); put(g, "narration.txt"); put(g, "audio/beats.json", "[]\n");
+  gate12(g);
   const early = run("approve", "2", g);
   assert.equal(early.code, 1);
   assert.match(early.err, /approve it first/);
@@ -136,7 +148,7 @@ try {
   ok(g, "approve", "1");
   assert.equal(run("check", "1", g).code, 0, "check 1 after approval");
   ok(g, "approve", "2");
-  put(g, "narration.txt", "changed\n");
+  put(g, "narration.txt", "Changed.\n");
   assert.equal(run("check", "1", g).code, 3, "check 1 after a change");
   assert.equal(run("approve", "3", g).code, 1, "gate 3 with missing files");
 
@@ -144,7 +156,7 @@ try {
   const bl = mk("buildlog");
   const prod = () => (fs.existsSync(path.join(bl, "PRODUCTION.md")) ? fs.readFileSync(path.join(bl, "PRODUCTION.md"), "utf8") : "");
   const refused = (line, re, why) => { const before = prod(); const r = run("log", line, bl); assert.equal(r.code, 1, `${why}: ${r.out}`); assert.match(r.err, re, why); assert.equal(prod(), before, `${why}: PRODUCTION.md unchanged`); };
-  put(bl, "script.md"); put(bl, "narration.txt"); put(bl, "audio/beats.json", "[]\n");
+  gate12(bl);
   ok(bl, "approve", "1"); ok(bl, "approve", "2");
   refused("6 Build | index.html | -", /storyboard\.md is missing/, "no storyboard");
   ok(bl, "log", "5 Look | x | -"); // other steps are never refused
@@ -270,12 +282,12 @@ try {
   assert.match(rdd.err, /Studio path.*60 KB/);
   assert.doesNotMatch(rdd.err, /section budget/, "no single section is over its own budget");
 
-  // SKILL.md is loaded every session: over 10 KB fails, missing fails (never read as small).
+  // SKILL.md is loaded every session: over 9.5 KB fails, missing fails (never read as small).
   const sk1 = skillCopy("s-skill-over");
   fs.writeFileSync(path.join(sk1, "SKILL.md"), filler(11000));
   const rs1 = rd(sk1);
-  assert.equal(rs1.code, 1, "a SKILL.md over 10 KB fails");
-  assert.match(rs1.err, /SKILL\.md is [\d.]+ KB, over the 10 KB budget/);
+  assert.equal(rs1.code, 1, "a SKILL.md over 9.5 KB fails");
+  assert.match(rs1.err, /SKILL\.md is [\d.]+ KB, over the 9\.5 KB budget/);
   const sk2 = skillCopy("s-skill-gone");
   fs.rmSync(path.join(sk2, "SKILL.md"));
   const rs2 = rd(sk2);
@@ -367,7 +379,7 @@ try {
     const bad = [];
     for (const [n, s] of Object.entries(steps)) {
       const have = [...s.read, ...s.refs, ...s.sub];
-      const coversNum = (file, num) => have.some((e) => e.file === file && (e.heading === null || numOf(e.heading) === num));
+      const coversNum = (file, num) => have.some((e) => e.file === file && (e.heading === null || numOf(e.heading) === num || (e.sub && num.startsWith(`${numOf(e.heading)}.`)))); // a subtree entry covers its subsections
       const exists = (file, num) => sections(file).some((x) => numOf(x.heading) === num);
       for (const [where, line] of readLinesOf(s)) for (const p of pointersOf(line)) {
         if (p.any) { // a bare § after several files: covered when some file in the line has it
@@ -442,15 +454,92 @@ try {
       assert.doesNotMatch(r.out, /look-build\.md|qc\.md|Look up when needed/, `express Step ${st} lists no Studio section`);
     }
     assert.match(run("next", p, "--step", "3").out, /script-voice\.md[\s\S]*express\.md/, "express Step 3 keeps its own sections and adds express.md");
-    for (const f of ["script.md", "narration.txt", "SPEC.md", "storyboard.md"]) fs.writeFileSync(path.join(p, f), "x\n");
-    fs.mkdirSync(path.join(p, "audio"), { recursive: true }); fs.writeFileSync(path.join(p, "audio", "beats.json"), "{}");
+    for (const f of ["SPEC.md", "storyboard.md"]) fs.writeFileSync(path.join(p, f), "x\n");
+    gate12(p);
     fs.mkdirSync(path.join(p, "style-frames"), { recursive: true }); fs.writeFileSync(path.join(p, "style-frames", "a.png"), "x");
-    for (const g of ["1", "2"]) assert.equal(run("approve", g, p, "--by", "agent").code, 0);
+    // a first approval prints the next reading: nothing new after Gate 1 (Step 4 was read with Step 3), Steps 5 and 6
+    // after Gate 2, Step 7 after Gate 3; the express sections as text, no Studio section
+    const e1 = run("approve", "1", p, "--by", "agent");
+    assert.equal(e1.code, 0, e1.err);
+    assert.match(e1.out, /^Next: Step 4 Voice \(express\) — read with Step 3, nothing new\.$/m);
+    assert.doesNotMatch(e1.out, /Read now/);
+    const e2 = run("approve", "2", p, "--by", "agent");
+    assert.equal(e2.code, 0, e2.err);
+    assert.deepEqual([...e2.out.matchAll(/^Step (\d) \S+ \(express\) — next after gate 2$/gm)].map((m) => m[1]), ["5", "6"], "Gate 2 prints Express Steps 5 and 6");
+    assert.ok(e2.out.includes("\n## Express Step 5 — Look in one frame\n") && e2.out.includes("\n## Express Step 6 — Build\n"), "as text");
+    assert.match(e2.out, /^  builder per group, and its one fix round: mid · medium$/m, "each subagent job with its model and effort");
     const g3 = run("approve", "3", p, "--by", "agent");
     assert.equal(g3.code, 0, g3.err);
     assert.match(g3.out, /Benchmark: none \(express\)/);
+    assert.match(g3.out, /^Step 7 QC \(express\) — next after gate 3$/m);
+    assert.doesNotMatch(g3.out, /look-build\.md|qc\.md:/);
     fs.writeFileSync(path.join(p, "BRIEF.md"), "topic: any\n");
     assert.match(run("next", p, "--step", "5").out, /look-build\.md/, "without mode: express, Step 5 is Studio");
+  }
+
+  // 5. The fast path: gates run their own checks; a first approval prints the next step; Step 0 brings Step 1; lessons
+  // follow the mode; Step 1 drops look-ups that cannot apply.
+  {
+    const f = mk("fast");
+    put(f, "script.md", "Title only\n"); put(f, "narration.txt", "{One; two|hook}.\n"); put(f, "narration.de.txt", "Eins.\n");
+    const r1 = run("approve", "1", f);
+    assert.equal(r1.code, 1, "lint problems refuse gate 1");
+    assert.match(r1.err, /refused by numbers_lint \(exit \d\)|refused by narration_lint/, r1.err);
+    assert.match(r1.err, /^  narration_lint: PROBLEM narration\.txt:1 ";"/m, "one line per problem, named by its lint");
+    assert.match(r1.err, /^  narration_lint: PROBLEM script\.md has no "Promise:" line/m);
+    assert.match(r1.err, /^  beats_lint narration\.de\.txt: PROBLEM narration\.txt:1 beat hook is missing/m, "a second narration is beat-linted");
+    assert.ok(!fs.existsSync(path.join(f, "state.json")), "a refused gate records nothing");
+    put(f, "script.md", SCRIPT); put(f, "narration.txt", NARR); put(f, "narration.de.txt", "{Hallo|hook}. Das ist ein kurzer Film.\n");
+    const r1b = run("approve", "1", f, "--by", "agent");
+    assert.equal(r1b.code, 0, r1b.err);
+    assert.match(r1b.out, /^Step 4 Voice — next after gate 1$/m, "a first approval prints the next step");
+    assert.ok(r1b.out.includes("\n## Step 4 — Voice + per-word timing → GATE 2\n"), "as text, as next --print");
+    const again = run("approve", "1", f, "--by", "agent");
+    assert.equal(again.code, 0); assert.doesNotMatch(again.out, /Read now/, "a re-approval prints no reading: it was read");
+    put(f, "audio/beats.json", JSON.stringify({ duration: 2, beats: [] }));
+    const r2 = run("approve", "2", f);
+    assert.equal(r2.code, 1, "an unpaddable take refuses gate 2");
+    assert.match(r2.err, /refused by pad_voice \(exit 1\)[\s\S]*pad_voice: .*words\.json/, r2.err);
+    put(f, "audio/beats.json", BEATS); put(f, "audio/words.json", "[]\n");
+    const r2b = run("approve", "2", f);
+    assert.equal(r2b.code, 0, r2b.err);
+    assert.match(r2b.out, /^Step 5 Look — next after gate 2$/m);
+    assert.match(r2b.out, /^Subagents \(model · effort; top = omit `model`, mid = "sonnet", light = "haiku"[^\n]*\n  planner: SPEC\.md \+ storyboard\.md: top · high$/m, "Studio Step 5 names its subagents' model and effort");
+    // Step 0 prints Step 1 with it (the Brief follows preflight); --step 0 alone does not
+    const z = run("next", mk("fresh"));
+    assert.deepEqual([...z.out.matchAll(/^Step (\d) /gm)].map((m) => m[1]), ["0", "1"]);
+    assert.deepEqual([...run("next", mk("fresh2"), "--step", "0").out.matchAll(/^Step (\d) /gm)].map((m) => m[1]), ["0"]);
+    // lessons by mode: a "|studio" line prints on Studio only, a "|express" line on Express only
+    const ls = skillCopy("s-modes");
+    edit(ls, "lessons.md", (t) => t.trimEnd() + "\n- [3|studio] **Studio-only fixture lesson** x.\n- [3|express] **Express-only fixture lesson** x.\n");
+    assert.equal(run("reading", "--skill", ls).code, 0, "mode tags are valid");
+    edit(ls, "lessons.md", (t) => t.trimEnd() + "\n- [3|both] **Bad mode** x.\n");
+    assert.match(run("reading", "--skill", ls).err, /lessons\.md:\d+ is not a readable lesson/, "an unknown mode fails");
+    edit(ls, "lessons.md", (t) => t.replace(/\n- \[3\|both\].*\n/, "\n"));
+    const modeOut = (mode) => { const p = mk(`lm-${mode}`); put(p, "BRIEF.md", `mode: ${mode}\n`); return run("next", p, "--step", "3", "--skill", ls).out; };
+    assert.match(modeOut("studio"), /Studio-only fixture lesson/); assert.doesNotMatch(modeOut("studio"), /Express-only fixture lesson/);
+    assert.match(modeOut("express"), /Express-only fixture lesson/); assert.doesNotMatch(modeOut("express"), /Studio-only fixture lesson/);
+    // Step 1: Call 0 look-ups only when preflight left a choice (a clean record under 12 h), the series row only with kits
+    const callHead = "### Call 0 (only when preflight left a choice; skip it otherwise)";
+    const clean = path.join(tmp, "clean.json"); fs.writeFileSync(clean, JSON.stringify({ at: new Date().toISOString(), choice: false }));
+    const stale = path.join(tmp, "stale.json"); fs.writeFileSync(stale, JSON.stringify({ at: new Date(Date.now() - 13 * 3600e3).toISOString(), choice: false }));
+    const one = mk("s1"); put(one, "PRODUCTION.md", "# P\n");
+    const s1 = (env) => run("next", one, "--print", env).out;
+    assert.ok(s1({}).includes(`\n${callHead}\n`) && /^brief\.md \d+,\d+ Lean workspace/m.test(s1({})) && /^brief\.md \d+,\d+ Series kit/m.test(s1({})), "unknown preflight and a kit: every row");
+    const c = s1({ DALANG_PREFLIGHT_STATE: clean });
+    assert.ok(!c.includes(callHead) && !/^(voice\.md \d+,\d+ Setup — VoiceStudio|brief\.md \d+,\d+ Lean workspace)/m.test(c), "a clean preflight: no Call 0 rows");
+    assert.ok(s1({ DALANG_PREFLIGHT_STATE: stale }).includes(callHead), "a record over 12 h old is unknown: Call 0 printed");
+    assert.doesNotMatch(s1({ DALANG_SERIES_DIR: mk("no-kits") }), /^brief\.md \d+,\d+ Series kit/m, "no kit: no series row");
+    assert.match(s1({ DALANG_SERIES_DIR: path.join(tmp, "absent") }), /^Step 1 /m);
+    // a subtree entry (tree()) is one index line holding its subsections: ends at the next heading of its level or higher
+    const cm = fs.readFileSync(path.join(root, "references", "camera-motion.md"), "utf8").split("\n");
+    const t5 = json.steps[6].refs.find((e) => e.heading === "## 5. Physical timing");
+    assert.ok(t5?.sub, "Step 6 lists camera-motion §5 as one subtree line");
+    assert.ok(cm.slice(t5.from - 1, t5.to).some((l) => l.startsWith("### 5.4 ")) && !cm.slice(t5.from - 1, t5.to).some((l) => l.startsWith("## 6. ")), "§5 holds 5.1–5.4, never §6");
+    assert.ok(!json.steps[6].refs.some((e) => /^### 5\.\d/.test(e.heading ?? "")), "no subsection listed beside its subtree");
+    // models: the whole table
+    const m = run("models");
+    assert.equal(m.code, 0); assert.match(m.out, /^express Step 6 Build  builder per group, and its one fix round: mid · medium$/m);
   }
 
   console.log("reading: ok");

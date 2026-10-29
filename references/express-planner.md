@@ -1,14 +1,15 @@
 # Express planner: `SPEC.md` and `storyboard.md`
 
-You are the Express planner, a new subagent (`SKILL.md` table: top, high). The film is in the folder your prompt names;
+You are the Express planner, a new subagent (top, high). The film is in the folder your prompt names;
 its take is final (`audio/beats.json`, `audio/words.json`). You design every shot; the builders only build. Write `SPEC.md` and `storyboard.md` in the film folder,
-then return at most 15 lines: the files, the `scaffold.mjs` line (below), the orbit direction, open questions.
+run `express.mjs scaffold .` (below), then return at most 15 lines: the files, its `next:` line, the orbit direction, open questions.
 
 **Read, once each, nothing else:** `BRIEF.md`; `script.md`; `audio/beats.json`; the word cues
 (`node <skill-dir>/scripts/cues.mjs .`); `references/express.md` from "Express Step 5" to the end; each design language
-the film uses (`engine/epic/languages/<name>.md`); `references/look-build.md` Step 5 (the SPEC parts and the shot
-table with its Check list; not the assets, style frames or benchmark); `references/camera-motion.md` §3, §7, §8–10 (§10: the Size, Focus, Movement, Colour and Ratio columns); `references/visual-direction.md` §3 (the
-chosen energy's row), §7 and §12. Never an engine source, the engine README or another film's folder.
+the film uses (`engine/epic/languages/<name>.md`); `references/camera-motion.md` §3 (cuts and seams);
+`references/visual-direction.md` §3 (the chosen energy's row), §7 and §12. The camera and the shot table are the card
+below, this file's own: never `look-build.md` or the rest of `camera-motion.md`. Never an engine source, the engine
+README or another film's folder.
 
 ## `SPEC.md` (the builders' law, 20 KB at most)
 
@@ -20,7 +21,7 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   asphalt), dark objects on light ones; write each ground's and wall's L* beside its hex.
 - **Fonts only from the language's `## Typography`** (the template loads them; any other face fails
   `hyperframes lint`); the sizes in OVERLAYS win over its print scale.
-- **CAMERA:** the Express count of techniques (`camera-motion.md` §9), each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
+- **CAMERA:** the card's rulebook and 4–6 techniques, each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
   `-1` left, the same in every group); each group's OPEN and CLOSE pose `{ x, y, z, k }`, a group's OPEN the previous
   group's CLOSE.
 - **MOTION:** what moves, its cause and its timing rule; the claim's mechanism shown as the thing itself (what flows,
@@ -49,10 +50,51 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   (`film_gate.mjs` fails a shorter one); text in hex or rgb, never `oklch()` (the contrast check cannot read it).
 - **BANNED:** what this film must never show (from the look, the script and the facts).
 
+## Camera and storyboard card (Express)
+
+**Camera, isometric:** the drawing keeps its projection; every move is 2.5D, depth layers moved against each other
+(`cinema.js`: `camAt` keys eased, zoom in log; `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `focusRing`, `ramp`,
+`whip`). Life is one slow `orbit25` in **one direction for the film** (`filmOrbit`), never handheld or back-and-forth;
+otherwise a subject turns itself (on a visible turntable, in a hand). Every zoom that lands **arrives and orbits**: no
+stop, sweep 0.08–0.14, toward the open side or what the narration names next, edges blurred while it travels (at most
+one a beat, three a film, never under text being read). One move per beat; one `dollyZoom25` (the Crack) and one
+`drone25` at most. Zoom levels 2–3, the closest kept for the climax; aperture follows size (a wide f5.6, a close
+f1.2–2.8 with `focusRing` on the named part, racked on its first word). **One wow shot** on the impact.
+`look: object-studio` plays the same table with `camera.js` (`orbit` 6–12° from the arrival angle, `crane`,
+`dollyZoom`, `drone`): lens in mm and f-stop in place of layer effects, light from `looks.md` "object-studio".
+
+| Story job | Size (zoom) | Technique |
+|---|---|---|
+| Hook | close or medium, mid-action | push or `drone25` onto the hero |
+| Section open, establish | wide: the world on its slab, edges in | `orbit25` or a pan along the path |
+| Mechanism (every "why") | close or insert on one part | push + rack cause → effect; a `cutaway` beat |
+| Crack | medium → close | the one `dollyZoom25` |
+| Acceleration | shorter, tighter | `whip` + `motionBlur` between places; faster one-way orbit |
+| Impact (wow) | closest | close zoom, `bokeh(1.4)` + `discs`, `ramp`; a `blueprint` inset for a measure |
+| Bookend | wide | `crane25` up, ending on the opening framing |
+
+**Rulebook** (SPEC CAMERA, 5–8 rules): ratio (16:9 only; else full-bleed), zoom levels, the movement rule ("static
+unless the state changes, then a slow push"), palette 2–3 hues + 1 accent and its arc per section (grade, not light),
+grain, what is never shown; at most one logged rule break per turning point. **MOTION line:** one arrival ease, one
+exit ease, a base unit (0.4 s; durations its multiples), one stagger, an intensity budget (travel, scale, overshoot),
+holds ≥ 0.3 s after each beat. Each row's emotion sets Size, Focus, Movement, Colour (Intimacy MCU/CU shallow, very
+slow push; Awe EWS/WS deep, slow crane; Panic CU, fast orbit and whips; Revelation MS → CU, rack to the discovery).
+
+**A and B roll:** A carries the claim (the subject acting while it is said); B is 0.8–2 s of the topic's world on a
+real move, never a claim alone: one B in three shots at Punchy, one in four at Calm, one before each new section and
+right after the impact, never two of the same set in a row.
+
 ## `storyboard.md` (one row per shot, never one per beat)
 
-The arc and a colour-script line, then `look-build.md`'s shot table, times in seconds from `beats.json`. Its rules
-on top of that table's Check:
+The arc (Crack and Impact named), a colour-script line and the axis per section, then the shot table, times in seconds
+from `beats.json`:
+
+| # | Time | Beat | Job · emotion | Size (zoom k) | What we see (focal; fg / mid / bg) | Camera (technique + what changed) | Subject action (iso: `build()` values, a pose) | Transition out (+ what fires it) | SFX (J/L) | Overlay (headline · cards · labels) |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+Every row names its emotion and A or B, a technique from SPEC CAMERA (another needs a reason), a real action; camera-
+only rows ≤ 15 % of the runtime; one hero move a shot; sizes tighten toward the key beat, a pause before the biggest
+cut, the last image the payoff frame rhyming with the first. On top of that:
 
 - **Shot 1 hooks:** a close or medium shot of the subject mid-action, the hook's words on screen within its first
   second; never a wide establishing shot first.
@@ -68,10 +110,11 @@ on top of that table's Check:
 
 Then `node <skill-dir>/scripts/storyboard_lint.mjs .` until it is clean.
 
-## Groups
+## Groups and scaffold
 
-Groups as in `express.md` "Parallel build": neighbouring beats with about equal runtime. End your report with the line the
-main agent runs: `node <skill-dir>/scripts/scaffold.mjs . --look <look> --groups <name>:<first beat>,… --illustration
-"<label>" --music <calm|bright|tense>`.
+Groups as in `express.md` "Parallel build": neighbouring beats with about equal runtime. Write them as one line in
+`SPEC.md`: `SCAFFOLD: --look <look> --groups <name>:<first beat>,… --illustration "<label>" --music <calm|bright|tense>`.
+Then run `node <skill-dir>/scripts/express.mjs scaffold .` (storyboard lint, then `scaffold.mjs` with that line) until it
+prints `Result: OK`, and end your report with its `next:` line: the main agent starts the builders from it.
 
 Budget: about 20 turns, your context under 150K; write each file once, then Edit.

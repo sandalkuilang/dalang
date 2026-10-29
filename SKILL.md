@@ -29,28 +29,15 @@ description: Dalang — turn any topic into a finished animated video (narration
 - **One video = one session**; state lives in the files. Resume: `node <skill-dir>/scripts/state.mjs next`, `BRIEF.md`, the end of `PRODUCTION.md`.
 - **Subagent types**, when listed: builders and fix rounds `dalang-builder`, every verdict `dalang-checker`, fact strands `dalang-research`; else general-purpose.
 - **Skill version**: preflight's DALANG row, never your own `git`.
-- **Read lazily**: each step, `state.mjs next --print` and only what it prints; "Look up when needed" only when sent there. Never read a reference, engine README or `lessons.md` whole, or a section twice; of `/hyperframes`, only the guides needed.
+- **Read lazily**: each step, only what `state.mjs next --print` prints (Step 0 prints Step 1 too; a first `approve <n>` prints the next step itself, so no `next` turn); "Look up when needed" only when sent there. Never read a reference, engine README or `lessons.md` whole, or a section twice; of `/hyperframes`, only the guides needed.
 - **Small output**: filter `--json`; never print `words.json`, `*.response.json` or full logs; background output by bytes (`tail -c 1500`). Scene changes are `Edit` calls, never `sed -i` or a whole-file Write.
 - **Scene code stays in builder subagents.** The main agent never writes or reads `src/` or `assets/*.js` (generated data and its own Step 5 frames in `style-frames/src/` aside). Pilot, each group, assembly and each QC fix round go to a **new** builder (last report + paths, its budget in `look-build.md` / `express.md`), logged with `state.mjs log`. The reviewer is never a builder.
 - **Images stay in subagents.** The main agent never `Read`s a still, strip, sheet, scope or style frame: a subagent gets the paths and the `state.mjs next` "For the subagent" commands, returns a text verdict. One exception: the author of `style-frames/src/` opens each `review/refs-board-<frame>.jpg` once before its first write.
-- **Model per job, never asked** (top = omit `model`, mid = `"sonnet"`, light = `"haiku"`):
-
-| Subagent job | Model | Effort |
-|---|---|---|
-| Fresh-eyes review, Set / Reality check, style-frame check, benchmark, sound-off quiz | top | high (quiz: medium) |
-| Scopes verdict | top | medium |
-| Planner: `SPEC.md` + `storyboard.md` | top | high |
-| Studio builder: the pilot | top | high |
-| Studio builder: other groups, assembly, each QC fix round | top | medium |
-| Express builder and its fix rounds | mid | medium |
-| Gate 1 read-through; fact research (≤ 8 searches, 15 fetches) | mid | medium |
-| Fix check, asset pair check, contact-sheet triage | mid | low |
-| Media screening of `find_media` candidates and the Step 5 reference boards | light | low |
-
+- **Model per job, never asked**: `state.mjs next` prints each step's subagent jobs with model and effort (`state.mjs models`: all of them; top = omit `model`, mid = `"sonnet"`, light = `"haiku"`).
   **Escalate, never repeat.** A job that fails its check (still red, nothing usable, a P0 survives) goes to a new agent one notch up: effort (low → medium → high), then model (light → mid → top). Never down or the same twice; a clean job is never rerun. A fix round of ≤ 3 copy or timing findings drops one effort notch. Log each setting with `state.mjs log`.
 
 - **Compact at Gates 2, 3 and 4**: tell the user once that `/compact` or a new session is safe (you cannot run it).
-- **Parallel by default.** Independent jobs start in one message; long ones in the background, never polled; each agent owns its files. Heavy jobs (VoxCPM, render, check, snapshot) one at a time, never beside a model job; queue with `while kill -0 <pid>`. Together: preflight ‖ the topic question; reference ‖ fact strands (≤ 3, Express ≤ 2); after Gate 1 the voice take ‖ facts, assets, never scenes; at Gate 2 planner and music; Step 6 Studio: pilot, then all groups; Express: every group at once, no pilot; Step 7 the draft checks, then reviewer ‖ quiz ‖ Set / Reality check; Step 8 `POST.md` during the render.
+- **Parallel by default.** Independent jobs start in one message; long ones in the background, never polled; each agent owns its files. Heavy jobs (VoxCPM, render, check, snapshot) one at a time, never beside a model job; queue with `while kill -0 <pid>`. Together: preflight ‖ the topic question; reference ‖ fact strands (≤ 3, Express ≤ 2); after Gate 1 the voice take ‖ facts, assets, never scenes; at Gate 2 planner and music; Step 6 Studio: pilot, then all groups; Express: every group at once, no pilot (a clean take passes Gates 1–2 itself via `express.mjs after-voice`; the planner runs `express.mjs scaffold .`); Step 7 the draft checks, then reviewer ‖ quiz ‖ Set / Reality check; Step 8 `POST.md` during the render.
 - **Cheap before expensive**: `--sample` before a take; `--from-response` when only `{}` moves; snapshots while iterating; fixes batched per round; QC at `--fps 10 --quality draft`; one high-quality render.
 - **Short messages**: what changed, what to decide, links; at a wait, the next gate's clock time; a step over ~2 min gets an estimate.
 
@@ -65,14 +52,14 @@ Log with `state.mjs log "<step> | <output> | <problems or ->"`. The folder **is*
 | 0 Setup | `preflight.mjs`, fix what it reports, project folder | `PRODUCTION.md` | `brief.md` §0 |
 | 1 Brief | topic first, every question now | `BRIEF.md` | `brief.md` §1 |
 | 2 Reference (optional) | measure craft, never copy | `reference-measurements.md` | `measure-reference.md` |
-| 3 Script | script, narration, tags, lints, read-through, quiz | **Gate 1** | `script-voice.md` §3 |
-| 4 Voice | sample, take, `--retake auto`, `pad_voice.mjs` | **Gate 2** | `script-voice.md` §4, `voice.md` "Use" |
+| 3 Script | script, narration, tags, read-through, quiz; `approve 1` runs the lints | **Gate 1** | `script-voice.md` §3 |
+| 4 Voice | sample, take, `--retake auto`; `approve 2` pads the take | **Gate 2** | `script-voice.md` §4, `voice.md` "Use" |
 | 5 Look | `SPEC.md`, hero, storyboard, assets, style frames, benchmark | **Gate 3** | `look-build.md` §5 |
 | 6 Build | builders, times from `BEATS`/`WORDS`, audio mix | `index.html`, lints clean | `look-build.md` §6 |
 | 7 QC | draft, checks, strips, reviewer, quiz, fix rounds | **Gate 4** | `qc.md` §7 |
 | 8 Final | assets check, high render, re-check | `final.mp4`, `POST.md`, report | `qc.md` §8 |
 
-At every step: gates go through `state.mjs approve <n> --by agent` (in order, after the checks; a gated file edited later is STALE until re-approved); `BRIEF.md` rules format and language; a recorded or cloned voice only with the speaker's permission; pages only in Claude's built-in browser, never the user's Chrome; log every step and problem in `PRODUCTION.md`; series feedback via `series.mjs note`, never memory.
+At every step: gates go through `state.mjs approve <n> --by agent` (in order; it runs the gate's scripted checks itself and refuses with their errors; a gated file edited later is STALE until re-approved); `BRIEF.md` rules format and language; a recorded or cloned voice only with the speaker's permission; pages only in Claude's built-in browser, never the user's Chrome; log every step and problem in `PRODUCTION.md`; series feedback via `series.mjs note`, never memory.
 
 ## Autonomous mode
 

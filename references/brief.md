@@ -6,7 +6,7 @@
 node <skill-dir>/scripts/preflight.mjs
 ```
 
-Checks Node, ffmpeg, HyperFrames, this skill's clone, VoiceStudio, ElevenLabs (paid, optional) and the folder's workspace (seconds; ≤ ~80 s with `--start`). Read the whole output, never grep it. Fix only what it reports:
+Checks Node, ffmpeg, HyperFrames, this skill's clone, VoiceStudio, ElevenLabs (paid, optional) and the folder's workspace (seconds; ≤ ~80 s with `--start`). It prints only what needs action (WARN, MISSING, INFO, PAID, a VoiceStudio state), the DALANG row and one `OK: <n> items (…)` line (`--all`: every row). Read the whole output, never grep it. Fix only what it reports:
 
 - **Voice MISSING** → `voice.md` "Setup". Every install is a Call 0 question, with size and licence.
 - **VoiceStudio states** — act on preflight's note; never write your own polling loop, rerun preflight.
