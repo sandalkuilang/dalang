@@ -13,15 +13,16 @@
 //         lathe { profile: [[r, z], …] } · extrude { outline: [[u, v], …], h, plane } · sweep { path, r }
 //         gear { teeth, module, width, mesh: { with, phase } } · wheel { r, width, axis } · board { w, d, layers: [{ h, color }] }
 //         figure { h, pose 'stand'|'walk'|'point'|'carry', phase, face } · model { model: key in state.models, size, max, texels }
-//         flat { outline } · line { path, width, dash } · group { parts }
+//         flat { outline } · line { path, width, dash } · group { parts } · kit { kit, …its fields } (kit.js: components)
 // Any number field may name a key of state.values instead ("h": "level"), so the timeline drives the spec.
 // Parts are painted in an order taken from their boxes (one wholly below, behind or left of another goes first), so a
 // thin wide plate never covers what stands on it; parts whose boxes interlock fall back to the engine's depth.
 import { person, TAU } from "./iso.js";
 import { solid, lathe, extrude, sweep, gearOutline } from "./forms.js";
 import { drawModel } from "./model.js";
+import { expandKit } from "./kit.js";
 
-const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group"]);
+const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group", "kit"]);
 const NEAR = [0.7071, 0.7071, 0]; // a skin with skin: true slides toward the viewer (depth is x + y + z)
 
 // spec may be an array (a whole WORLD): its objects are then ordered together, so a small thing beside a wide floor is
@@ -101,8 +102,8 @@ function draw(iso, p, c, R, col) {
     case "box": { const w = num("w"), d = num("d"), h = num("h"); if (h > 0) iso.box(-w / 2, -d / 2, 0, w, d, h, col, { cull: false, bevel: R(p.bevel) ?? Math.min(w, d, h * 0.5, 0.5) * 0.08 }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
     case "cyl": {
       const r = num("r"), h = num("h"), axis = p.axis || "z"; if (h <= 0) return [0, [0, 0, 0, 0, 0, 0]];
-      if (axis === "z") { iso.cyl(0, 0, 0, r, h, col, { cull: false }); return [h, [-r, -r, 0, r, r, h]]; }
-      iso.cyl(axis === "x" ? -h / 2 : 0, axis === "y" ? -h / 2 : 0, r, r, h, col, { axis, cull: false });
+      if (axis === "z") { iso.cyl(0, 0, 0, r, h, col, { cull: false, n: p.n }); return [h, [-r, -r, 0, r, r, h]]; }
+      iso.cyl(axis === "x" ? -h / 2 : 0, axis === "y" ? -h / 2 : 0, r, r, h, col, { axis, cull: false, n: p.n });
       return [2 * r, axis === "x" ? [-h / 2, -r, 0, h / 2, r, 2 * r] : [-r, -h / 2, 0, r, h / 2, 2 * r]];
     }
     case "cone": { const r = num("r"), h = num("h"); iso.cone(0, 0, 0, r, h, col, { cull: false }); return [h, [-r, -r, 0, r, r, h]]; }
@@ -159,6 +160,7 @@ function draw(iso, p, c, R, col) {
       const [x0, x1] = span(path, 0), [y0, y1] = span(path, 1), [z0, z1] = span(path, 2); return [path[path.length >> 1][2], [x0, y0, z0, x1, y1, z1]];
     }
     case "group": { parts(iso, p.parts || [], { ...c, base: col }); return [R(p.h) || 0, [0, 0, 0, 0, 0, 0]]; }
+    case "kit": { parts(iso, expandKit(p, R, p.name ? `${p.name}.` : ""), { ...c, base: col }); return [R(p.h) || 0, [0, 0, 0, 0, 0, 0]]; }
   }
 }
 

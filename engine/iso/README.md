@@ -28,6 +28,9 @@ No catalogue of objects: any object is a few shape families, written as data, or
   slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a
   key of `values` so the timeline drives it. It returns `{ at }`, each part's pin point. Parts paint in an order taken
   from their boxes (below, behind, inside go first), so a plate never covers what stands on it.
+- `kit.js`: components every made thing is assembled from (fasteners, faces and controls, pipes, hoses, cables, tyres,
+  springs, fins, containers, windows, doors, furniture, plants, lamps, tools), each a function of its sizes returning
+  ordinary parts; `{ form: "kit", kit: "tyre", r, width }` in a spec. Anatomy's audit expands them the same way.
 - `model.js`: `await loadModel(url)` reads a `.glb` or `.gltf` (with its `.bin` and textures; Draco and meshopt are
   refused) from `find_media.mjs --type model` (Poly Haven, Kenney, Smithsonian, NASA); `drawModel(iso, m, { size,
   palette, color, texels, max })` paints every triangle flat in three tones of its material's colour (a texture's mean

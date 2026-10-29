@@ -9,6 +9,8 @@ import { lathe, extrude, sweep, gearOutline } from "../engine/iso/forms.js";
 import { build } from "../engine/iso/build.js";
 import { parseModel, drawModel } from "../engine/iso/model.js";
 import * as EX from "../engine/iso/examples.js";
+import { KIT } from "../engine/iso/kit.js";
+import { auditWorld } from "../engine/anatomy/world.mjs";
 
 const canvas = () => {
   const calls = [];
@@ -54,6 +56,24 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   const fc = draw(cyc, {}).fills().filter((x) => x.startsWith("rgb") && (red(x) || blue(x)));
   assert.ok(fc.findIndex(red) > fc.findLastIndex(blue), "a cycle elsewhere keeps the crate after the floor");
   assert.equal(draw([{ ...W[1], shadow: false }], {}).calls.filter((q) => q[0] === "fillStyle" && /rgba\(30,26,36/.test(q[1])).length, 0, "shadow: false");
+}
+// Kits: every component draws finite, names its parts under the kit part (pins read front.rim), and stands proven on a
+// slab (Anatomy: nothing floats, sinks or is passed through); a path component (pipe, hose, cable) and a handle land on
+// what the film mounts them on, so they are left out of the standing proof
+{
+  const path = [[-0.3, 0, 0.2], [0, 0, 0.2], [0, 0.2, 0.3]];
+  for (const k of Object.keys(KIT)) {
+    const p = { name: "it", form: "kit", kit: k, ...(["pipe", "hose", "cable"].includes(k) ? { path } : {}) };
+    const r = draw([{ name: "x", parts: [p] }], {}, { x: 0, y: 0, z: 0, k: 400 });
+    assert.ok(r.fills().length > 0 && !JSON.stringify(r.calls).includes("NaN"), `kit ${k} draws, finite`);
+    assert.ok(Object.keys(r.out.at).some((n) => n.startsWith("it.")), `kit ${k}: parts named under the kit part`);
+    if (["pipe", "hose", "cable", "handle"].includes(k)) continue;
+    const W = [{ name: "set", parts: [{ name: "slab", form: "box", at: [0, 0, -0.05], w: 4, d: 4, h: 0.05 }] }, { name: "o", parts: [p] }];
+    assert.deepEqual(auditWorld(W, { ground: ["set"] }).problems.map((q) => q.text), [], `kit ${k} stands proven`);
+  }
+  assert.throws(() => draw([{ parts: [{ form: "kit", kit: "nope" }] }], {}), /kits: bolt/, "an unknown kit names the kits");
+  const turned = draw([{ parts: [{ name: "v", form: "kit", kit: "vent", face: "x" }] }], {}).out.at;
+  assert.ok("v.face" in turned, "face: x turns a face component as one group");
 }
 const S = sweep([[0, 0, 0], [0, 0, 1], [1, 0, 1]], { r: 0.1, n: 6 });
 assert.equal(S.length, 2 * 6 + 2, "sweep: a band per segment and two caps");
