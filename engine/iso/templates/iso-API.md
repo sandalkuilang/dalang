@@ -46,6 +46,11 @@ part three readable faces at any base: `color: triad(COLORS.subject)`.
   spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · containers `bottle` `drum` `pan { fill, level }`
   `can` `crate` `carton` · places `window` `door` `table` `chair` `shelf` `plant` `lamp` · tools `wrench`
   `screwdriver` `funnel` `cone`. Sizes and colours are fields (`{ kit: "bottle", h: 0.3, color: "#…" }`).
+- **Templates** (`templates.js`, the same `form: "kit"`): `motorbike { style: scooter|underbone, color, spin, lit }`
+  · `car { style: sedan|hatch|van, color, spin, lit }` · `engine { crank (rad), oil, level, bore, stroke }` (piston and
+  rod ride the crank; crankcase and barrel are skins the cutaway slides off) · `room { w, d, h, window, door }` (its spec
+  `shadow: false`; it is ground) · `appliance { kind: fridge|washer|ac|server }` · `tree { h, kind: round|pine }`.
+  Facing +x; `turn` faces them. A template is one rigid assembly to the world audit; place it, never rebuild it.
 - Any number may name a key of `values` (`h: "level"`): `values(t)` returns them, pure in t. `focus` greys all but that
   group; `cut` 0–1 slides every `skin` off (cutaway).
 - A ready CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(iso, spec, { models: { name: m } })`

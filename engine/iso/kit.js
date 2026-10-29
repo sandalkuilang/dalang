@@ -8,6 +8,8 @@
 //   { name: "front", form: "kit", kit: "tyre", at: [0.62, 0, 0], r: 0.27, width: 0.09, spokes: 0, spin: "roll" }
 
 export const STEEL = "#A7AEB4", DARK = "#2C2D31", RUBBER = "#2A2B2F", CHROME = "#D9DEE2", GLASS = "#A9CFE0", WOOD = "#B98B5A";
+import { TEMPLATES } from "./templates.js";
+
 const TAU = Math.PI * 2;
 const part = (name, form, at, o = {}) => ({ name, form, at, ...o });
 const circle = (r, n = 28, cu = 0, cv = 0, a0 = 0) => Array.from({ length: n }, (_, i) => [cu + Math.cos(a0 + (i / n) * TAU) * r, cv + Math.sin(a0 + (i / n) * TAU) * r]);
@@ -130,8 +132,8 @@ export const KIT = {
 // one kit part → its parts, each name under prefix (build() passes "front." so pins read front.rim); face: "x" turns a
 // face component to face +x
 export function expandKit(p, R = (v) => v, prefix = "") {
-  const make = KIT[p.kit];
-  if (!make) throw new Error(`kit: "${p.kit}" is not a kit; kits: ${Object.keys(KIT).join(", ")}`);
+  const make = KIT[p.kit] || TEMPLATES[p.kit];
+  if (!make) throw new Error(`kit: "${p.kit}" is not a kit; kits: ${Object.keys(KIT).join(", ")}; templates: ${Object.keys(TEMPLATES).join(", ")}`);
   const o = {};
   for (const [k, v] of Object.entries(p)) if (!["name", "form", "kit", "at", "turn", "face", "array", "skin", "group", "scale"].includes(k)) o[k] = Array.isArray(v) ? v.map((q) => (Array.isArray(q) ? q.map(R) : R(q))) : R(v);
   const parts = make(o).map((q) => ({ ...q, name: prefix + q.name }));

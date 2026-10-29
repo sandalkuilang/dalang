@@ -81,7 +81,17 @@ export function shapesOf(world, { values = {}, ground = [], floor, cut = 0 } = {
       case "figure": { const h = num(p, "h", 1.7); return put(A.orientedBox(F.at([0, 0, h / 2]), axes, [0.2 * h * k, 0.2 * h * k, h / 2 * k]), p, spec, owner, name); }
       case "sweep": { const t = A.tube(p.path.map((q) => F.at(q.map(R))), num(p, "r", 0.05) * k, { name, owner: name, object: owner }); /* owner: the pipe's own fittings, so it may land on its own object */ t.tips = [t.points[0], t.points.at(-1)]; t.tipAxes = [unitV(sub(t.points[1], t.points[0])), unitV(sub(t.points.at(-2), t.points.at(-1)))]; t.tipRims = [t.radii[0], t.radii.at(-1)]; t.free = [false, false]; tubes.push(t); return; }
       case "group": return parts(p.parts || [], F, spec, owner, name + ".");
-      case "kit": return parts(expandKit(p, R), F, spec, owner, name + ".");
+      case "kit": {
+        // a kit or template is one rigid assembly (its insides are proven by tests/iso-build.mjs): the world sees its
+        // bounds; a path kit (pipe, hose, cable) stays a pipe whose ends must land
+        if (["pipe", "hose", "cable"].includes(p.kit)) return parts(expandKit(p, R), F, spec, owner, name + ".");
+        const s0 = solids.length, t0 = tubes.length;
+        parts(expandKit(p, R), F, spec, owner, name + ".");
+        const mine = [...solids.splice(s0), ...tubes.splice(t0)];
+        if (!mine.length) return;
+        const b = boundsAll(mine);
+        return put(A.box(b.min, b.max, {}), p.kit === "room" ? { ...p, ground: true } : p, spec, owner, name); // a room is ground
+      }
       default: skipped.push(name); // flat, line, model: no solid to prove
     }
   }
