@@ -9,14 +9,14 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
-// Queue faces as one item: sorted far → near inside it, each oriented away from the solid's centre, so its normal
-// picks the tone (top lightest, left mid, right darkest) and back faces drop out.
+// Queue faces as one item (iso.meshNow): sorted far → near inside it, each oriented away from the solid's centre, so its
+// normal picks the tone (top lightest, left mid, right darkest), back faces drop out and the feature edges are inked;
+// o.smooth (a lathe, a sweep) inks only its silhouette and its sharp turns, never the facets.
 export function solid(iso, faces, color, o = {}) {
   if (!faces.length) return;
   const t3 = typeof color === "string" ? tri(color) : color, c = cen(faces.flat()), W = iso.w(c[0], c[1], c[2]);
   iso.add(W[0] + W[1] + W[2] + (o.bias || 0), () => {
-    const fs = faces.map((f) => { const m = cen(f), w = iso.w(m[0], m[1], m[2]); return [w[0] + w[1] + w[2], f, sub(m, c)]; }).sort((a, b) => a[0] - b[0]);
-    for (const [, f, out] of fs) iso.face3(f, t3, { out, color: o.faceColor });
+    iso.meshNow(faces.map((f) => ({ pts: f, out: sub(cen(f), c), color: o.faceColor, smooth: o.smooth })), t3);
   }, o.layer ?? 1);
 }
 

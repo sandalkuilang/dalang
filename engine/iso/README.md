@@ -1,7 +1,9 @@
 # engine/iso — the Express look
 
 `iso.js` is lemo-opuscar's isometric infographic engine (`styles/iso-infographic/demo/engine.js`, MIT, LICENSE beside it),
-vendored unchanged; its first line names the source commit. Canvas 2D, no dependency, no three.js.
+vendored with one change of DALANG's, named in its header: every solid is one mesh (`meshNow`) whose feature edges are
+inked (silhouette and creases dark, a lit top rim light; `iso.ink = null` is the vendor's flat look), boxes take a
+`bevel`, spheres an outline. Canvas 2D, no dependency, no three.js.
 
 - `new Iso(ctx, W, H)`; `iso.cam = { x, y, z, k }` (k = px per unit); queue primitives, then `iso.flush()` paints them back
   to front (depth x + y + z): `box`, `prism`, `cyl`, `cone`, `roof`, `sphere`, `flat`, `line3`, `bill`, `text3`, `push`/`pop`
@@ -19,7 +21,8 @@ No catalogue of objects: any object is a few shape families, written as data, or
   pillar), `extrude(outline, { h, plane })` (a footprint, a bracket, a letter), `sweep(path, { r | section })` (a pipe,
   a cable, a road), `gearOutline(teeth, module)` (spur teeth at a real module); `solid(iso, faces, colour)` queues any
   of them in three tones.
-- `build.js`: `build(iso, spec, { values, cut, focus, models })` draws an object written as data from its real
+- `build.js`: `build(iso, spec | WORLD, { values, cut, focus, models })` draws (a `WORLD` array is ordered as one, each
+  object with a soft contact shadow unless `shadow: false`) an object written as data from its real
   reference: parts of forms `box`, `cyl`, `cone`, `sphere`, `roof`, `lathe`, `extrude`, `sweep`, `gear`, `wheel`,
   `board`, `figure`, `model`, `flat`, `line`, `group`, each at its real size, with `array` copies, a `skin` the cutaway
   slides off, `focus` greying the rest, gears turned by their tooth ratio (`mesh: { with }`), and any number named as a

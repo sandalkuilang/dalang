@@ -25,10 +25,12 @@ beat). Overlays anchor to `PIN.<part>` (the template fills `PIN` from `build()` 
 (`lint_scene.mjs` flags them). The hero spec carries `hero: true` and needs 15+ parts. `triad(hex)` (`palette.js`) gives a
 part three readable faces at any base: `color: triad(COLORS.subject)`.
 `build(iso, spec, { values, cut, focus, models })` → `{ at: { part: [x, y, z] } }` (pin points).
-- `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, parts: [part, …] }`
+- `spec = { at: [x, y, z], rot (quarter turns), scale, color, focus, cut, shadow, parts: [part, …] }`: the template
+  builds the whole `WORLD` in one call, so objects are painted in true order; each gets a soft contact shadow
+  (`shadow: false` for a floor or a wall)
 - `part = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides off with
   cut), group (focus key), array: { count, step: [dx, dy, dz] }, …the form's fields }`
-- forms: `box { w, d, h }` · `cyl { r, h, axis }` · `cone { r, h }` · `sphere { r }` · `roof { w, d, h, ridge }` ·
+- forms: `box { w, d, h, bevel }` (top edges chamfered, 8 % of its least side by default) · `cyl { r, h, axis }` · `cone { r, h }` · `sphere { r }` · `roof { w, d, h, ridge }` ·
   `lathe { profile: [[r, z], …] }` (anything turned) · `extrude { outline: [[u, v], …], h, plane }` · `sweep { path, r }`
   (pipes, roads) · `gear { teeth, module, width, mesh: { with, phase } }` · `wheel { r, width, axis }` ·
   `board { w, d, layers: [{ h, color }] }` · `figure { h, pose: stand|walk|point|carry, phase, face }` ·
@@ -75,3 +77,6 @@ occurrence), `we(...)` its end. A chart the overlay set lacks: inline SVG in the
 ## The frame (9:16)
 The subject and its action between y 345 and 1150 at its key moments, ≥ 1/3 of the height; headline from y ~110; captions
 below 1180.
+
+The look is drawn for you: every solid gets ink on its silhouette and creases and a lit rim on its top edges, so detail
+comes from parts, never from extra lines or outlines of your own.

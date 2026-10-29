@@ -30,6 +30,18 @@ that reads as:
 
 ## [Unreleased]
 
+### Changed
+
+- The Express look draws like an illustration, not a block game: every solid is one mesh whose silhouette and creases
+  are inked and whose lit top edges carry a light rim; a box's top edges are chamfered (`bevel`, 8 % of its least side
+  by default); spheres get an outline; each object stands on a soft contact shadow (`shadow: false` turns it off).
+  `iso.ink = null` gives the old flat look.
+
+### Fixed
+
+- Objects of one `WORLD` were painted object by object, so a wide floor or wall could cover small objects beside it.
+  `build()` now takes the whole `WORLD` and orders all its parts together; the group template calls it that way.
+
 ## [3.10.0] - 2026-10-29
 
 ### Added

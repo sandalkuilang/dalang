@@ -27,6 +27,30 @@ assert.equal(L.length, 3 * 12 + 1, "lathe: a band per profile step, a cap where 
 assert.ok(finite(L), "lathe faces are finite");
 assert.equal(extrude([[0, 0], [1, 0], [1, 1], [0, 1]], { h: 2 }).length, 6, "extrude: two caps and a side per edge");
 for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { h: 1, plane }).flat().some((p) => p[2] === 1), `extrude on ${plane} stands up`);
+// Ink (iso.meshNow): a box inks its silhouette dark and its lit top rim light, a smooth lathe never its facets;
+// iso.ink = null draws the vendor's flat faces; a bevel adds chamfer faces
+{
+  const strokes = (f) => { const c = canvas(), iso = new Iso(c.ctx, 1080, 1920); iso.cam = { x: 0, y: 0, z: 0, k: 200 }; f(iso); iso.flush(); return c.calls.filter((q) => q[0] === "stroke").length; };
+  const box = strokes((iso) => iso.box(-0.5, -0.5, 0, 1, 1, 1, "#3C7FB1"));
+  assert.ok(box >= 9 && box <= 14, `a box inks its outline and three top-front edges, got ${box}`);
+  assert.equal(strokes((iso) => { iso.ink = null; iso.box(-0.5, -0.5, 0, 1, 1, 1, "#3C7FB1"); }), 0, "ink off: the vendor's flat look");
+  const oct = Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * 0.5, Math.sin(i * Math.PI / 4) * 0.5]);
+  const pot = strokes((iso) => iso.cyl(0, 0, 0, 0.5, 1, "#3C7FB1", { n: 8 })), post = strokes((iso) => iso.prism(oct, 0, 1, "#3C7FB1"));
+  assert.ok(pot < post, `a smooth cylinder inks no seam between its facets, an octagonal post does (${pot} < ${post})`);
+  const fillsOf = (o) => { const c = canvas(), iso = new Iso(c.ctx, 1080, 1920); iso.cam = { x: 0, y: 0, z: 0, k: 200 }; iso.box(-0.5, -0.5, 0, 1, 1, 1, "#3C7FB1", o); iso.flush(); return c.fills().length; };
+  assert.equal(fillsOf({ bevel: 0.05 }) - fillsOf({}), 2, "a bevel shows its two front chamfers (the back two face away)");
+}
+// A WORLD array is ordered as one: a small crate at the far corner of a wide floor paints after the floor
+{
+  const W = [{ name: "floor", parts: [{ name: "slab", form: "box", at: [0, 0, -0.2], w: 10, d: 10, h: 0.2, color: "#3C7FB1" }] },
+    { name: "crate", at: [-4, -4, 0], parts: [{ name: "crate", form: "box", w: 0.5, d: 0.5, h: 0.5, color: "#CF5140" }] }];
+  const rgbOf = (f) => f.match(/[\d.]+/g).map(Number), red = (f) => { const [r, , b] = rgbOf(f); return r > b + 40; }, blue = (f) => { const [r, , b] = rgbOf(f); return b > r + 40; };
+  const f = draw(W, {}).fills().filter((x) => x.startsWith("rgb") && (red(x) || blue(x)));
+  assert.ok(f.findIndex(red) > f.findLastIndex(blue), "the crate paints after the whole floor when the WORLD is built as one");
+  const sh = draw(W, {}).calls.filter((q) => q[0] === "fillStyle" && /rgba\(30,26,36/.test(q[1])).length;
+  assert.equal(sh, 6, "each object gets a three-ring contact shadow");
+  assert.equal(draw([{ ...W[1], shadow: false }], {}).calls.filter((q) => q[0] === "fillStyle" && /rgba\(30,26,36/.test(q[1])).length, 0, "shadow: false");
+}
 const S = sweep([[0, 0, 0], [0, 0, 1], [1, 0, 1]], { r: 0.1, n: 6 });
 assert.equal(S.length, 2 * 6 + 2, "sweep: a band per segment and two caps");
 assert.ok(finite(S), "sweep faces are finite, a vertical leg included");

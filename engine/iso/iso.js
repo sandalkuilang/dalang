@@ -1,5 +1,7 @@
-// Vendored unchanged from lemomo-ai/lemo-opuscar@413a6bd styles/iso-infographic/demo/engine.js (MIT, (c) 2026 LemoLab, LICENSE beside this file).
-// Isometric Infographic engine — Canvas 2D, true isometric (axes at 30°), flat 3-tone faces, no outlines.
+// Vendored from lemomo-ai/lemo-opuscar@413a6bd styles/iso-infographic/demo/engine.js (MIT, (c) 2026 LemoLab, LICENSE beside this file).
+// Changed by DALANG (MIT): every solid is one mesh (meshNow) with ink on its feature edges and a lit top rim, box bevels,
+// a sphere outline. iso.ink = null gives the vendor's flat look back.
+// Isometric Infographic engine — Canvas 2D, true isometric (axes at 30°), flat 3-tone faces.
 // World: x → screen down-right, y → screen down-left, z → up.  Depth toward viewer = x + y + z.
 // Usage: const iso = new Iso(ctx); iso.cam = {x,y,z,k}; iso.box(...); iso.prism(...); ...; iso.flush();
 export const C30 = Math.cos(Math.PI / 6), S30 = 0.5, TAU = Math.PI * 2;
@@ -44,6 +46,9 @@ export class Iso {
     this.items = []; this.T = null; this.stack = [];
     this.desat = 0; this.keep = false; this.alpha = 1; this.seq = 0;
     this.light = [0, 0, 1];
+    // ink: w px at a 1080 px short side; an edge between faces turned more than 30° (57° on a smooth surface) is a
+    // crease; a face under min px across gets none (no ink mush on small parts)
+    this.ink = { w: 1.6, min: 7, color: '#1E1A24', dark: .5, light: .55 };
   }
   // local transform: translate + rotate about z (+ uniform scale). Applies to every primitive.
   push(ox = 0, oy = 0, oz = 0, rot = 0, s = 1) {
@@ -97,6 +102,43 @@ export class Iso {
     const c = opt.color ? opt.color : this.shadeN(t3, n[0] + n[1] + n[2] < 0 ? [-n[0], -n[1], -n[2]] : n);
     this.poly(W.map(p => this.P(p[0], p[1], p[2])), c, opt.a ?? 1); return true;
   }
+  // one solid: F = [{ pts (local 3D), out (a direction away from the solid), color, smooth, both }]. Faces fill far → near;
+  // then each face inks its feature edges: the silhouette (its neighbour faces away) dark, a crease dark, a crease
+  // between a lit top and a side light on the top (a worn bevel catching the light) and none on the side.
+  meshNow(F, t3, o = {}) {
+    if (typeof t3 === 'string') t3 = tri(t3);
+    const key = p => `${Math.round(p[0] * 1e4)},${Math.round(p[1] * 1e4)},${Math.round(p[2] * 1e4)}`;
+    const fs = F.map(f => {
+      const W = f.pts.map(p => this.w(p[0], p[1], p[2])); let n = normal(W);
+      if (f.out) { const q = this.wn(f.out[0], f.out[1], f.out[2]); if (n[0] * q[0] + n[1] * q[1] + n[2] * q[2] < 0) n = [-n[0], -n[1], -n[2]]; }
+      return { W, n, f, vis: f.both || n[0] + n[1] + n[2] > 1e-6, d: W.reduce((a, p) => a + p[0] + p[1] + p[2], 0) / W.length, K: W.map(key) };
+    });
+    const ink = this.ink, edges = new Map(), E = (s, j) => [s.K[j], s.K[(j + 1) % s.K.length]].sort().join('|');
+    if (ink) fs.forEach((s, i) => s.K.forEach((_, j) => { const e = E(s, j); if (!edges.has(e)) edges.set(e, []); edges.get(e).push(i); }));
+    const g = this.g, lw = ink ? ink.w * Math.min(this.W, this.H) / 1080 : 0;
+    for (const s of fs.filter(s => s.vis).sort((a, b) => a.d - b.d)) {
+      const n = s.n[0] + s.n[1] + s.n[2] < 0 ? s.n.map(v => -v) : s.n, c = s.f.color || this.shadeN(t3, n), S = s.W.map(p => this.P(p[0], p[1], p[2]));
+      this.poly(S, c, o.a ?? 1);
+      if (!ink) continue;
+      const xs = S.map(p => p[0]), ys = S.map(p => p[1]);
+      if (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys) < ink.min) continue;
+      const top = n[2] > .8, base = typeof c === 'string' && c.startsWith('rgb') ? c.match(/[\d.]+/g).slice(0, 3).map(Number) : c;
+      for (let j = 0; j < S.length; j++) {
+        const other = edges.get(E(s, j)).map(i => fs[i]).find(t => t !== s);
+        let light = false;
+        if (other && other.vis) {
+          const cos = s.n[0] * other.n[0] + s.n[1] * other.n[1] + s.n[2] * other.n[2];
+          if (cos > (s.f.smooth && other.f.smooth ? .55 : .866)) continue;
+          const otop = other.n[2] > .8;
+          if (!top && otop) continue;
+          light = top && !otop;
+        }
+        const a = S[j], b = S[(j + 1) % S.length];
+        g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineCap = 'round';
+        g.lineWidth = light ? lw * .8 : lw; g.strokeStyle = this.col(mix(base, light ? '#FFFDF5' : ink.color, light ? ink.light : ink.dark), o.a ?? 1); g.stroke();
+      }
+    }
+  }
   // ---- primitives (queued, auto depth) ----
   box(x, y, z, w, d, h, t3, o = {}) {
     const [cx, cy, cz] = this.w(x + w / 2, y + d / 2, z + h / 2);
@@ -105,17 +147,22 @@ export class Iso {
   }
   scale() { let k = 1, T = this.T; while (T) { k *= T.k; T = T.parent; } return k; }
   boxNow(x, y, z, w, d, h, t3, o = {}) {
-    if (typeof t3 === 'string') t3 = tri(t3);
-    const X = x + w, Y = y + d, Z = z + h, F = [];
-    F.push([[x, y, Z], [X, y, Z], [X, Y, Z], [x, Y, Z]]);          // top
-    F.push([[x, Y, z], [X, Y, z], [X, Y, Z], [x, Y, Z]]);          // +y (left)
-    F.push([[X, y, z], [X, Y, z], [X, Y, Z], [X, y, Z]]);          // +x (right)
-    F.push([[x, y, z], [x, y, Z], [X, y, Z], [X, y, z]]);          // -y
-    F.push([[x, y, z], [x, Y, z], [x, Y, Z], [x, y, Z]]);          // -x
-    // order faces far→near by their centre depth
-    const order = F.map((f, i) => { const c = f.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4, a[2] + p[2] / 4], [0, 0, 0]); const W = this.w(c[0], c[1], c[2]); return [W[0] + W[1] + W[2], i]; }).sort((a, b) => a[0] - b[0]);
-    const OUT = [[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, -1, 0], [-1, 0, 0]];
-    for (const [, i] of order) { if (o.skip && o.skip.includes(i)) continue; this.face3(F[i], t3, { color: o.faceColor?.[i], out: OUT[i] }); }
+    // top, +y, +x, -y, -x (o.skip and o.faceColor index these), then the bevel (o.bevel: the top edges chamfered) and the bottom
+    const X = x + w, Y = y + d, Z = z + h, b = Math.max(0, Math.min(o.bevel || 0, w / 3, d / 3, h / 2)), z1 = Z - b;
+    const F = [
+      { pts: [[x + b, y + b, Z], [X - b, y + b, Z], [X - b, Y - b, Z], [x + b, Y - b, Z]], out: [0, 0, 1] },
+      { pts: [[x, Y, z], [X, Y, z], [X, Y, z1], [x, Y, z1]], out: [0, 1, 0] },
+      { pts: [[X, y, z], [X, Y, z], [X, Y, z1], [X, y, z1]], out: [1, 0, 0] },
+      { pts: [[x, y, z], [x, y, z1], [X, y, z1], [X, y, z]], out: [0, -1, 0] },
+      { pts: [[x, y, z], [x, Y, z], [x, Y, z1], [x, y, z1]], out: [-1, 0, 0] },
+    ].map((f, i) => ({ ...f, color: o.faceColor?.[i], skip: o.skip?.includes(i) }));
+    if (b > 0) F.push(
+      { pts: [[x, Y, z1], [X, Y, z1], [X - b, Y - b, Z], [x + b, Y - b, Z]], out: [0, 1, 1] },
+      { pts: [[X, y, z1], [X, Y, z1], [X - b, Y - b, Z], [X - b, y + b, Z]], out: [1, 0, 1] },
+      { pts: [[x, y, z1], [X, y, z1], [X - b, y + b, Z], [x + b, y + b, Z]], out: [0, -1, 1] },
+      { pts: [[x, y, z1], [x, Y, z1], [x + b, Y - b, Z], [x + b, y + b, Z]], out: [-1, 0, 1] });
+    F.push({ pts: [[x, y, z], [X, y, z], [X, Y, z], [x, Y, z]], out: [0, 0, -1] });
+    this.meshNow(F.filter(f => !f.skip), t3);
     if (o.decal) o.decal(this, { x, y, z, w, d, h });
   }
   // extruded footprint polygon (local XY), from z to z+h
@@ -126,20 +173,19 @@ export class Iso {
     this.add(W[0] + W[1] + W[2] + (o.bias || 0), () => this.prismNow(pts, z, h, t3, o), o.layer ?? 1);
   }
   prismNow(pts, z, h, t3, o = {}) {
-    if (typeof t3 === 'string') t3 = tri(t3);
-    const n = pts.length, Z = z + h, sides = [];
+    const n = pts.length, Z = z + h, F = [];
     let area = 0; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
     const sg = area >= 0 ? 1 : -1;
-    for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; const f = [[a[0], a[1], z], [b[0], b[1], z], [b[0], b[1], Z], [a[0], a[1], Z]]; const m = this.w((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0); sides.push([m[0] + m[1], f, [(b[1] - a[1]) * sg, -(b[0] - a[0]) * sg, 0]]); }
-    sides.sort((A, B) => A[0] - B[0]);
-    if (h > 0) for (const [, f, out] of sides) this.face3(f, t3, { color: o.sideColor, out });
-    if (o.top !== false) this.face3(pts.map(p => [p[0], p[1], Z]), t3, { both: true, color: o.topColor });
+    if (h > 0) for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; F.push({ pts: [[a[0], a[1], z], [b[0], b[1], z], [b[0], b[1], Z], [a[0], a[1], Z]], out: [(b[1] - a[1]) * sg, -(b[0] - a[0]) * sg, 0], color: o.sideColor, smooth: o.smooth }); }
+    if (o.top !== false) F.push({ pts: pts.map(p => [p[0], p[1], Z]), out: [0, 0, 1], both: true, color: o.topColor });
+    if (h > 0) F.push({ pts: pts.map(p => [p[0], p[1], z]), out: [0, 0, -1] });
+    this.meshNow(F, t3);
     if (o.decal) o.decal(this);
   }
   // cylinder: vertical (axis 'z') or lying along 'x' / 'y'
   cyl(x, y, z, r, h, t3, o = {}) {
     const n = o.n || 24, axis = o.axis || 'z';
-    if (axis === 'z') { const pts = []; for (let i = 0; i < n; i++) { const a = i / n * TAU; pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); } return this.prism(pts, z, h, t3, o); }
+    if (axis === 'z') { const pts = []; for (let i = 0; i < n; i++) { const a = i / n * TAU; pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); } return this.prism(pts, z, h, t3, { smooth: true, ...o }); }
     const [cx, cy, cz] = axis === 'x' ? [x + h / 2, y, z] : [x, y + h / 2, z];
     const W = this.w(cx, cy, cz); if (o.cull !== false && !this.vis(W[0], W[1], W[2], Math.max(r, h) * this.scale())) return;
     this.add(W[0] + W[1] + W[2] + (o.bias || 0), () => this.cylNow(x, y, z, r, h, t3, o), o.layer ?? 1);
@@ -150,13 +196,9 @@ export class Iso {
     for (let i = 0; i < n; i++) { const a = i / n * TAU + (o.spin || 0), u = Math.cos(a) * r, v = Math.sin(a) * r; ring.push(axis === 'x' ? [0, u, v] : [u, 0, v]); }
     const off = axis === 'x' ? [h, 0, 0] : [0, h, 0], base = [x, y, z];
     const A = ring.map(p => [p[0] + base[0], p[1] + base[1], p[2] + base[2]]), B = A.map(p => [p[0] + off[0], p[1] + off[1], p[2] + off[2]]);
-    const sides = [];
-    for (let i = 0; i < n; i++) { const j = (i + 1) % n; const f = [A[i], A[j], B[j], B[i]]; const W = this.w((A[i][0] + B[j][0]) / 2, (A[i][1] + B[j][1]) / 2, (A[i][2] + B[j][2]) / 2); sides.push([W[0] + W[1] + W[2], f, i]); }
-    sides.sort((P, Q) => P[0] - Q[0]);
-    const ax = axis === 'x' ? [1, 0, 0] : [0, 1, 0];
-    this.face3(A, t3, { out: [-ax[0], -ax[1], 0] });
-    for (const [, f, i] of sides) this.face3(f, t3, { color: o.stripe && o.stripe(i), out: ring[i].map((v, q) => v + ring[(i + 1) % n][q]) });
-    this.face3(B, t3, { color: o.capColor, out: ax });
+    const ax = axis === 'x' ? [1, 0, 0] : [0, 1, 0], F = [{ pts: A, out: [-ax[0], -ax[1], 0] }, { pts: B, out: ax, color: o.capColor }];
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; F.push({ pts: [A[i], A[j], B[j], B[i]], out: ring[i].map((v, q) => v + ring[j][q]), color: o.stripe && o.stripe(i), smooth: true }); }
+    this.meshNow(F, t3);
     if (o.decal) o.decal(this);
   }
   cone(x, y, z, r, h, t3, o = {}) { // vertical cone / pyramid (n sides)
@@ -166,9 +208,9 @@ export class Iso {
   }
   coneNow(x, y, z, r, h, t3, o = {}) {
     const n = o.n || 20; {
-      const tt = typeof t3 === 'string' ? tri(t3) : t3, fs = [];
-      for (let i = 0; i < n; i++) { const a = i / n * TAU + (o.rot || 0), b = (i + 1) / n * TAU + (o.rot || 0); const f = [[x + Math.cos(a) * r, y + Math.sin(a) * r, z], [x + Math.cos(b) * r, y + Math.sin(b) * r, z], [x, y, z + h]]; const m = this.w(x + Math.cos((a + b) / 2) * r, y + Math.sin((a + b) / 2) * r, z); fs.push([m[0] + m[1], f, [Math.cos((a + b) / 2), Math.sin((a + b) / 2), r / h]]); }
-      fs.sort((A, B) => A[0] - B[0]); for (const [, f, out] of fs) this.face3(f, tt, { out });
+      const F = [], rim = [];
+      for (let i = 0; i < n; i++) { const a = i / n * TAU + (o.rot || 0), b = (i + 1) / n * TAU + (o.rot || 0); rim.push([x + Math.cos(a) * r, y + Math.sin(a) * r, z]); F.push({ pts: [[x + Math.cos(a) * r, y + Math.sin(a) * r, z], [x + Math.cos(b) * r, y + Math.sin(b) * r, z], [x, y, z + h]], out: [Math.cos((a + b) / 2), Math.sin((a + b) / 2), r / h], smooth: n > 8 }); }
+      F.push({ pts: rim, out: [0, 0, -1] }); this.meshNow(F, t3);
     }
   }
   // gable roof along x (ridge parallel to x) or y
@@ -201,6 +243,7 @@ export class Iso {
     g.beginPath(); g.ellipse(sx - R * .28, sy - R * .55, R * .9, R * .72, 0, 0, TAU); g.fillStyle = this.col(t3[0]); g.fill();
     if (o.hi !== false && R > 6) { g.beginPath(); g.ellipse(sx - R * .38, sy - R * .52, R * .2, R * .12, -.5, 0, TAU); g.fillStyle = this.col('#FFF8EC', .7); g.fill(); }
     g.restore();
+    if (this.ink && R * 2 >= this.ink.min) { g.beginPath(); g.ellipse(sx, sy, R, R * (o.squash || 1), o.rot || 0, 0, TAU); g.lineWidth = this.ink.w * Math.min(this.W, this.H) / 1080; g.strokeStyle = this.col(mix(t3[1], this.ink.color, this.ink.dark)); g.stroke(); }
   }
   // flat polygon on plane z (ground decal); layer default 0
   flat(pts, z, c, o = {}) {
