@@ -26,7 +26,7 @@ import { THREE, GLTFLoader, EffectComposer, RenderPass, N8AOPostPass } from "./a
 import { isoLook, inkLines } from "./assets/studio.js";
 import { isoCamera, isoFrame, place } from "./assets/camera.js";
 
-const W = 1080, H = 1920, DUR = 7, FPS = 30;
+const W = 1080, H = 1920, DUR = 7;
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), seg = (t, a, b) => clamp((t - a) / (b - a));
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2), back = (u) => { u = clamp(u) - 1; return 1 + u * u * (2.7 * u + 1.7); };
 
@@ -43,7 +43,8 @@ const named = (re) => { const out = []; unit.traverse((o) => { if (re.test(o.use
 const meshesOf = (objs) => { const m = []; for (const o of objs) o.traverse((x) => x.isMesh && m.push(x)); return m; };
 unit.traverse((o) => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { const r = Object.keys(ROLE).find((k) => (m.name || "").toLowerCase().includes(k)); if (r) m.color = new THREE.Color(ROLE[r]); } });
 const own = (m) => { m.material = m.material.clone(); return m; };
-const hotPipes = meshesOf(named(/^pipe\.discharge|^flare\.gas/)).map(own), coldPipes = meshesOf(named(/^pipe\.(suction|liquid)$|^pipe\.suction_accumulator|^flare\.liquid/)).map(own);
+// the whole loop is coded: hot gas from the compressor through the condenser coil (red), liquid back and cold suction gas (blue)
+const hotPipes = meshesOf(named(/^pipe\.discharge|^flare\.gas|^coil\.bends$/)).map(own), coldPipes = meshesOf(named(/^pipe\.(suction|liquid|field_gas|field_liquid|strainer|liquid_valve)$|^pipe\.suction_accumulator|^flare\.liquid/)).map(own);
 for (const m of hotPipes) m.material.color = new THREE.Color(HOT); for (const m of coldPipes) m.material.color = new THREE.Color(COLD);
 isoLook(scene);
 // the softer, graded matcap of the stills
@@ -68,33 +69,44 @@ for (const m of [...hotPipes, ...coldPipes]) {
 // the casing as x-ray glass (it fades out on the way to medium); the context (calm greys on the close)
 const casing = meshesOf(named(/^casing\.|^grille\./)).map(own);
 for (const m of casing) Object.assign(m.material, { color: new THREE.Color(XRAY), transparent: true, opacity: 0.3, depthWrite: false });
-const context = meshesOf(named(/^(coil\.|bracket\.|insulation\.field|pipe\.field|valve\.expansion|pipe\.strainer|pipe\.liquid_valve)/)).map(own);
+const context = meshesOf(named(/^(coil\.(fins|tubes|endplates)|bracket\.|insulation\.field|valve\.expansion)/)).map(own);
 const ctxFrom = context.map((m) => m.material.color.clone()), calm = new THREE.Color(CALM);
 const quarters = meshesOf(named(/\.quarter$/)).map(own), front = meshesOf(named(/^(pipe\.suction|fan\.|pcb|divider|insulation\.divider)/)).map(own);
-for (const m of [...quarters, ...front]) Object.assign(m.material, { transparent: true });
+// the section: one plane sweeps in from the camera side and cuts the front parts and the compressor's quarter away
+const cutPlane = new THREE.Plane(), cutDir = new THREE.Vector3();
+for (const m of [...quarters, ...front]) m.material.clippingPlanes = [cutPlane];
 inkLines(scene, { color: "#2A2926", angle: 28 });
 for (const m of casing) m.children.filter((c) => c.userData.inkLine).forEach((c) => { c.geometry = new THREE.EdgesGeometry(m.geometry, 1); c.material = new THREE.LineBasicMaterial({ color: XRAY_LINE, transparent: true, opacity: 0.75 }); });
 const lineOf = (m) => m.children.find((c) => c.userData.inkLine);
-for (const m of [...quarters, ...front]) { const l = lineOf(m); if (l) { l.material = l.material.clone(); l.material.transparent = true; } }
+for (const m of [...quarters, ...front]) { const l = lineOf(m); if (l) { l.material = l.material.clone(); l.material.clippingPlanes = [cutPlane]; } }
 
-// the fan, blurred over the frame's sweep: copies of the blade trailing it, each fainter
-const fan = named(/^fan\.blade$/)[0], RPM = 850, ghosts = [];
-if (fan) for (let i = 1; i <= 5; i++) { const g = fan.clone(true); g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); Object.assign(o.material, { transparent: true, opacity: 0.32 - i * 0.045, depthWrite: false }); } if (o.userData.inkLine) o.visible = false; }); fan.parent.add(g); ghosts.push([g, i]); }
+// the fan at speed: the blades read faint under one blur disc (a radial gradient: clear hub, the swept band, a soft rim)
+const fan = named(/^fan\.blade$/)[0], RPM = 850;
+const fanSize = new THREE.Box3().setFromObject(fan).getSize(new THREE.Vector3()), fanR = Math.max(fanSize.x, fanSize.y, fanSize.z) / 2;
+fan.traverse((o) => { if (o.isMesh) Object.assign(o.material, { transparent: true, opacity: 0.45 }); if (o.userData.inkLine) o.visible = false; });
+const discTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d"), gr = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, "rgba(233,228,216,0)"); gr.addColorStop(0.2, "rgba(233,228,216,0)"); gr.addColorStop(0.3, "rgba(233,228,216,0.75)"); gr.addColorStop(0.85, "rgba(222,217,205,0.6)"); gr.addColorStop(1, "rgba(222,217,205,0)");
+  x.fillStyle = gr; x.fillRect(0, 0, 256, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const disc = new THREE.Mesh(new THREE.CircleGeometry(fanR, 64), new THREE.MeshBasicMaterial({ map: discTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: [cutPlane] }));
+disc.position.copy(fan.position); disc.quaternion.copy(fan.quaternion); fan.parent.add(disc);
 // warm air: arrows leaving the grille, carried by the blades
 const fanLocal = unit.worldToLocal(fan.getWorldPosition(new THREE.Vector3())), arrows = [];   // read before any turn
-for (let i = 0; i < 12; i++) { const mat = new THREE.MeshBasicMaterial({ color: HOT, transparent: true }), gr = new THREE.Group();
-  const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.09, 8), mat), hd = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.04, 12), mat);
-  sh.rotation.x = hd.rotation.x = Math.PI / 2; hd.position.z = 0.065; gr.add(sh, hd); unit.add(gr); arrows.push([gr, mat, i]); }
+for (let i = 0; i < 6; i++) { const mat = new THREE.MeshBasicMaterial({ color: HOT, transparent: true }), gr = new THREE.Group();
+  const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.12, 12), mat), hd = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.055, 16), mat);
+  sh.rotation.x = hd.rotation.x = Math.PI / 2; hd.position.z = 0.087; gr.add(sh, hd); unit.add(gr); arrows.push([gr, mat, i]); }
 
 // camera stations: the iso camera pans and zooms (never tilts) between three frames of the unit
 const compBox = new THREE.Box3(); for (const o of named(/^compressor\.(shell|stator|windings|pump|rotor|shaft|piston|feet|terminal)/)) compBox.expandByObject(o);
 const inner = new THREE.Box3(); for (const o of named(/^(fan\.blade|compressor\.shell|coil\.fins|pcb\.box|valve\.gas)$/)) inner.expandByObject(o);
-const WIDE = isoFrame(unit, { W, H, margin: 1.05 }), MED = isoFrame(inner, { W, H, margin: 1.08 }), CLOSE = isoFrame(compBox, { W, H, margin: 1.25 });
+const WIDE = isoFrame(unit, { W, H, margin: 1.05 }), MED = isoFrame(inner, { W, H, margin: 1.08 }), CLOSE = isoFrame(compBox, { W, H, margin: 2.5 });
+place(camera, WIDE); camera.getWorldDirection(cutDir); cutDir.y = 0; cutDir.normalize();   // from the camera side inwards
+const cutS = (() => { const b = new THREE.Box3(); for (const m of [...quarters, ...front]) b.expandByObject(m); let lo = Infinity, hi = -Infinity; const v = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) { v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z); const d = cutDir.dot(v); lo = Math.min(lo, d); hi = Math.max(hi, d); } return [lo - 0.01, hi + 0.01]; })();
 const lerpPose = (a, b, u) => ({ target: a.target.clone().lerp(b.target, u), k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * u) });
 const poseAt = (t) => t < 2.6 ? lerpPose(WIDE, MED, ease(seg(t, 1.5, 2.6))) : lerpPose(MED, CLOSE, ease(seg(t, 3.8, 5.0)));
 
-// pins on their beats: [part, where, enters at]
-const PINS = [["fan.blade", null, 0.6], ["coil.bends", null, 2.9], ["compressor.shell", null, 3.3], ["compressor.windings", "top", 5.3], ["compressor.rotor", null, 5.7], ["compressor.piston", "bottom", 6.1]];
+// pins on their beats: [part, where, enters at, label]
+const PINS = [["fan.blade", null, 0.6, "Kipas"], ["coil.bends", null, 2.9, "Kondensor"], ["compressor.shell", null, 3.3, "Kompresor"], ["compressor.windings", "top", 5.3, "Stator"], ["compressor.rotor", null, 5.7, "Rotor"], ["compressor.piston", "bottom", 6.1, "Piston"]];
 const composer = new EffectComposer(renderer, { stencilBuffer: true, multisampling: 0 });
 composer.addPass(new RenderPass(scene, camera));
 const ao = new N8AOPostPass(scene, camera, W, H);
@@ -105,16 +117,15 @@ const out = document.getElementById("out"), g = out.getContext("2d");
 function frame(t) {
   pivot.rotation.y = THREE.MathUtils.degToRad(-4 + 10 * (t / DUR));                    // the slow one-way turn
   const turn = (RPM / 60) * Math.PI * 2;                                                 // rad per second
-  if (fan) { fan.rotation.z = turn * t; for (const [gh, i] of ghosts) gh.rotation.z = turn * (t - (i / 5) / FPS); }
+  fan.rotation.z = turn * t; disc.rotation.z = turn * t;
   flowT.value = t * 1.4;
   const xr = 1 - seg(t, 2.0, 2.8);                                                       // the glass fades on the way to medium
   for (const m of casing) { m.material.opacity = 0.3 * xr; m.visible = xr > 0.001; const l = lineOf(m); if (l) l.material.opacity = 0.75 * xr; }
-  const cut = seg(t, 4.3, 4.9);                                                          // the section opens on the way to close
-  for (const m of [...quarters, ...front]) { m.material.opacity = 1 - cut; m.material.depthWrite = cut < 0.5; m.visible = cut < 0.999; const l = lineOf(m); if (l) l.material.opacity = 1 - cut; }
-  for (const gh of ghosts) gh[0].visible = cut < 0.999;
+  const cut = ease(seg(t, 4.2, 5.0));                                                    // the section plane sweeps through on the way to close
+  pivot.updateMatrixWorld(); cutPlane.set(cutDir, -(cutS[0] + (cutS[1] - cutS[0]) * cut)); cutPlane.applyMatrix4(pivot.matrixWorld);
   context.forEach((m, i) => m.material.color.copy(ctxFrom[i]).lerp(calm, seg(t, 4.0, 4.8)));
-  arrows.forEach(([gr, mat, i]) => { const a = (i / 12) * Math.PI * 2, r = 0.06 + (i % 3) * 0.055, u = (t * 1.6 + i * 0.37) % 1, local = fanLocal;
-    gr.position.set(local.x + Math.cos(a) * r, local.y + Math.sin(a) * r, local.z + 0.12 + u * 0.32); mat.opacity = 0.9 * (1 - u) * (1 - seg(t, 3.6, 4.2)); gr.visible = mat.opacity > 0.01; });
+  arrows.forEach(([gr, mat, i]) => { const a = (i / 6) * Math.PI * 2 + Math.PI / 6, r = fanR * 0.62, u = (t * 1.2 + (i % 2) * 0.5) % 1, local = fanLocal;   // the blades push the air out at a steady rate
+    gr.position.set(local.x + Math.cos(a) * r, local.y + Math.sin(a) * r, local.z + 0.1 + u * 0.3); mat.opacity = 0.95 * Math.sin(Math.PI * u) * (1 - seg(t, 3.6, 4.2)); gr.visible = mat.opacity > 0.01; });
   const pose = poseAt(t); place(camera, pose);
   renderer.clear(); composer.render();                                                   // the composer turns autoClear off: clear by hand or the last frame shows through
   // the frame: grid paper, the render, the pins, crop marks
@@ -122,14 +133,16 @@ function frame(t) {
   for (let x = 0; x <= W; x += 27) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
   for (let y = 0; y <= H; y += 27) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
   g.drawImage(renderer.domElement, 0, 0);
-  PINS.forEach(([n, where, at], i) => { const a = seg(t, at, at + 0.35); if (a <= 0) return; const o = named(new RegExp("^" + n.replace(".", "\\.") + "$"))[0]; if (!o || !o.visible) return;
+  PINS.forEach(([n, where, at, label], i) => { const a = seg(t, at, at + 0.35); if (a <= 0) return; const o = named(new RegExp("^" + n.replace(".", "\\.") + "$"))[0]; if (!o || !o.visible) return;
     if (i < 3 && t > 4.4) return;                                                         // the first beats' pins leave for the close
     const b = new THREE.Box3().setFromObject(o); if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y);
     const v = b.getCenter(new THREE.Vector3()).project(camera), x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H, dx = i % 2 ? 1 : -1, dy = i % 3 === 2 ? 1 : -1, px = x + dx * 120, py = y + dy * 50, s = back(a);
     g.globalAlpha = clamp(a * 2); g.strokeStyle = "#1E1E20"; g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (px - x) * clamp(a * 1.6), y + (py - y) * clamp(a * 1.6)); g.stroke();
     g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill();
     g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(px, py, 33 * s, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(px, py, 28 * s, 0, 7); g.fill();
-    g.fillStyle = "#fff"; g.font = "700 30px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i < 3 ? i + 1 : i - 2), px, py + 1); g.globalAlpha = 1; });
+    g.fillStyle = "#fff"; g.font = "700 30px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i < 3 ? i + 1 : i - 2), px, py + 1);
+    g.font = "600 30px Helvetica Neue, Arial"; const tw = g.measureText(label).width, side = px + 44 + tw > W - 48 ? -1 : px - 44 - tw < 48 ? 1 : dx, lx = px + side * 44;   // the label stays inside the frame
+    g.textAlign = side > 0 ? "left" : "right"; g.fillStyle = "rgba(243,242,238,0.92)"; g.fillRect(side > 0 ? lx - 8 : lx - tw - 8, py - 22, tw + 16, 44); g.fillStyle = "#1E1E20"; g.fillText(label, lx, py + 1); g.globalAlpha = 1; });
   g.strokeStyle = "#8C8B85"; g.lineWidth = 3; for (const [x, y, dx, dy] of [[30, 30, 1, 1], [W - 30, 30, -1, 1], [30, H - 30, 1, -1], [W - 30, H - 30, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 36 * dy); g.lineTo(x, y); g.lineTo(x + 36 * dx, y); g.stroke(); }
 }
 
