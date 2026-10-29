@@ -17,9 +17,11 @@ script, exported as glTF and reused by every film that needs it. The scripts are
   named nodes, sheet edges rounded by a bevel the export applies, about 240k triangles, a few seconds to build. `Blender -b -P assemblies/condensing_unit.py -- <out dir>` writes
   `condensing_unit.glb` and `.blend` there.
 - `assemblies/condensing_unit.shot.html`: its cutaway still in the engine/three iso look (`isoLook`, `inkLines`) with a
-  softer matcap: the casing as blue x-ray glass with a thin blue wire (wide), opened (medium), the compressor sectioned
-  by hiding its quarters (close), context in calm greys (never transparency), refrigerant as colour code, the fan
-  turned from its motor speed, numbered pins on leader lines.
+  softer, graded matcap and a thin ambient occlusion: the casing as blue x-ray glass with a thin blue wire (wide),
+  opened (medium), the compressor sectioned by hiding its quarters (close), the coil's end with its tube sheet off
+  (coil), context in calm greys (never transparency), refrigerant as colour code, the fan
+  turned from its motor speed, numbered pins on leader lines that alternate sides. The wide shot writes its measured fill (the
+  subject's projected box against the frame) beside the PNG.
 
 A new asset: a script in `assemblies/` from `parts.py` (a missing part goes into `parts.py`, generic), measured from
 references (shape only: no reference pixel is ever projected or baked), dotted node names a film addresses, a moving
