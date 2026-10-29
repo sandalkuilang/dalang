@@ -17,4 +17,5 @@ turn re-reads all before it, so keep output small:
 5. Budget: the brief's; without one, Express: about 25 turns, 30 at most (a fix round: 10), at most 2 contact-sheet rounds,
    a report of ≤ 12 lines; Studio: `look-build.md` "Builder budget". When you reach it, stop and report what is left.
 6. Change only the files the brief gives you.
-7. Report within the budget's lines: the files you changed, each check and its result, and what is not done.
+7. Write the full report to `review/reports/<job>.md` (the brief names the job): the files you changed, each check and
+   its result, what is not done. Reply within the budget's lines with the same in short and that path.

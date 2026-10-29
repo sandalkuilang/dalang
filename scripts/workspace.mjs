@@ -73,6 +73,10 @@ const claudeJson = path.join(process.env.CLAUDE_CONFIG_DIR ? cfg : homedir(), '.
 const dir = path.resolve(dirArg || process.cwd());
 const proj = path.join(dir, '.claude', 'settings.json'), local = path.join(dir, '.claude', 'settings.local.json');
 const bak = proj + '.bak', bakMark = bak + '.dalang';
+// A long film session compacts near this many tokens instead of near the model's whole window (Claude Code clamps the
+// value to 100K..the model window, so a 200K model is unchanged). Set by init when no scope sets its own.
+const COMPACT_WINDOW = '200000';
+let compactSet = false;
 let localFiles = []; // the settings.local.json files items() found and read (the folder's and the repository root's)
 const sha = b => createHash('sha256').update(b).digest('hex');
 const q = s => (/[^\w@%+=:,./-]/.test(s) ? `'${s.replace(/'/g, `'\\''`)}'` : s); // shell-safe in a printed command
@@ -149,6 +153,7 @@ function items() {
   const first = get => scopes.map(([, s]) => get(s)).find(v => v !== undefined);
   const set = (name, on, job) => out.push({ kind: 'set', name, from: 'cli', on, video: keepArg.includes(name), job, overridden: false });
   set('bundled-skills', first(s => s?.disableBundledSkills) !== true, 'CLI built-in skills (loop, schedule, …)');
+  compactSet = first(s => obj(s?.env).CLAUDE_CODE_AUTO_COMPACT_WINDOW) !== undefined || process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW !== undefined;
   set('claudeai-connectors', String(first(s => obj(s?.env).ENABLE_CLAUDEAI_MCP_SERVERS) ?? process.env.ENABLE_CLAUDEAI_MCP_SERVERS) !== 'false', 'account connectors (deploy, docs, …)');
   return out;
 }
@@ -214,11 +219,12 @@ if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) { console.error(`$
 if (cmd === 'status') {
   let list;
   try { list = items(); } catch (e) { fail(e); }
-  const toOff = list.filter(i => i.on && !i.video), lean = toOff.length === 0;
+  const toOff = list.filter(i => i.on && !i.video), lean = toOff.length === 0 && compactSet;
   if (asJson) console.log(JSON.stringify({ dir, lean, items: list, overridden: list.filter(i => i.overridden).map(i => i.name), agentsMissing: agentsStale() }));
   else {
     for (const i of list) console.log(line(i));
     console.log(`Lean: ${lean ? 'yes' : 'no'} — ${toOff.length} item${toOff.length === 1 ? '' : 's'} a video never uses ${toOff.length === 1 ? 'is' : 'are'} on`);
+    console.log(`Auto-compact window: ${compactSet ? 'set' : `not set (init --yes sets ${COMPACT_WINDOW})`}`);
     const stale = agentsStale();
     console.log(`Agents: ${stale.length ? `${stale.join(', ')} not installed or out of date (init --yes installs them)` : 'dalang-* installed'}`);
   }
@@ -231,11 +237,12 @@ if (cmd === 'init') {
   for (const i of list) console.log(line(i, !i.on ? 'was off' : i.video ? 'keep' : 'off'));
   const stale = agentsStale();
   if (stale.length) console.log(`agents  ${stale.join(', ')} → ${agentDir} (lean subagent types)`);
-  if (!toOff.length && !stale.length) { console.log('already lean: nothing to switch off.'); process.exit(0); }
+  if (!compactSet) console.log(`set     env CLAUDE_CODE_AUTO_COMPACT_WINDOW=${COMPACT_WINDOW} (a long session compacts near 200K)`);
+  if (!toOff.length && !stale.length && compactSet) { console.log('already lean: nothing to switch off.'); process.exit(0); }
   const apply = `node ${q(self)} init ${q(dir)}${keepArg.length ? ` --keep ${q(keepArg.join(','))}` : ''} --yes`;
   if (!yes) { console.log(`\nNothing written. Ask the user; to apply (only ${path.join(dir, '.claude', 'settings.json')}${stale.length ? ' and the dalang-*.md agents' : ''} change): ${apply}`); process.exit(0); }
   if (stale.length) { mkdirSync(agentDir, { recursive: true }); for (const f of stale) copyFileSync(path.join(AGENTS, f), path.join(agentDir, f)); console.log(`Installed ${stale.length} agent type(s) in ${agentDir}.`); }
-  if (!toOff.length) { console.log(`Takes effect in the next Claude session started in ${dir}.`); process.exit(0); }
+  if (!toOff.length && compactSet) { console.log(`Takes effect in the next Claude session started in ${dir}.`); process.exit(0); }
   let cur;
   try { cur = readJson(proj); } catch (e) { fail(e); }
   if (cur && ((cur.enabledPlugins !== undefined && !isObj(cur.enabledPlugins)) || (cur.deniedMcpServers !== undefined && !Array.isArray(cur.deniedMcpServers))))
@@ -258,10 +265,11 @@ if (cmd === 'init') {
     else if (i.name === 'claudeai-connectors') next.env = { ...obj(next.env), ENABLE_CLAUDEAI_MCP_SERVERS: 'false' };
     else if (!next.deniedMcpServers.some(x => x?.serverName === i.name)) next.deniedMcpServers.push({ serverName: i.name });
   }
+  if (!compactSet) next.env = { ...obj(next.env), CLAUDE_CODE_AUTO_COMPACT_WINDOW: COMPACT_WINDOW };
   if (!toOff.some(i => i.kind === 'plugin') && !cur?.enabledPlugins) delete next.enabledPlugins;
   if (!next.deniedMcpServers.length) delete next.deniedMcpServers;
   writeFileSync(proj, JSON.stringify(next, null, 2) + '\n');
-  console.log(`\nWrote ${proj} (${toOff.length} switched off).`);
+  console.log(`\nWrote ${proj} (${toOff.length} switched off${compactSet ? '' : `, auto-compact window ${COMPACT_WINDOW}`}).`);
   let still = [];
   try { still = items().filter(i => i.on && !i.video).map(i => i.name); } catch { /* the write itself succeeded */ }
   if (still.length) console.log(`still on: ${still.join(', ')} — settings.local.json turns them on (${localFiles.join(', ') || 'a local file'}); edit that file to switch them off`);

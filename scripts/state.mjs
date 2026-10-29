@@ -435,9 +435,9 @@ if (cmd === 'approve') {
   if (!tk) out.push('Tokens: not checked (tokens.mjs could not read the transcripts: rerun)');
   else {
     out.push('| Agent (job) | Model | Effort | Turns | Tokens | Start | End |', '|---|---|---|---|---|---|---|',
-      `| main${tk.main.shared ? ' (whole session, shared)' : ''} | ${tk.main.model ?? '?'} | session | ${tk.main.turns} | ${M(tk.main.total)} | ${hm(tk.main.start)} | ${hm(tk.main.end)} |`,
+      `| main${tk.main.shared ? ' (whole session, shared)' : ''} | ${tk.main.model ?? '?'} | the session's | ${tk.main.turns} | ${M(tk.main.total)} | ${hm(tk.main.start)} | ${hm(tk.main.end)} |`,
       ...[...tk.subagents].sort((a, b) => String(a.start).localeCompare(String(b.start))).map(a => `| ${a.desc} | ${a.model ?? '?'} | ${a.effort} | ${a.turns} | ${M(a.total)} | ${hm(a.start)} | ${hm(a.end)} |`),
-      '', `Subagents: ${M(tk.subagentTotal)} tokens in ${tk.subagents.length} agents`);
+      '', `**Total tokens: ${M(tk.main.total + tk.subagentTotal)}** (main ${M(tk.main.total)}${tk.main.shared ? ', the whole session' : ''} + ${tk.subagents.length} subagents ${M(tk.subagentTotal)}) · main model ${tk.main.model ?? '?'} · effort "inherited" = the session's own`);
   }
   const md = out.join('\n') + '\n';
   try { mkdirSync(path.join(dir, 'review'), { recursive: true }); writeFileSync(path.join(dir, 'review', 'metrics.md'), md); } catch (e) { console.error(`WARN: review/metrics.md not written (${e.code || e.message})`); }

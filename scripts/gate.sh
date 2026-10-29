@@ -32,6 +32,8 @@ step "state.mjs next vs fixture projects and fixture skills" node tests/reading.
 step "build docs (Step 5 / Step 6 item 4 agree with the parallel build)" node tests/build-docs.mjs
 step "cue table (words per beat as the engine counts them)" node tests/cues.mjs
 step "express steps (no take, a take with a WARNING)" node tests/express.mjs
+step "studio steps (fixer lines, a round put aside, no music bed fails)" node tests/studio.mjs
+step "music bed (bundled, licence row, an own bed kept)" node tests/music.mjs
 if [ $fast -eq 0 ]; then
   step "engine build + self-check" engine
   step "preflight vs mocks (VoiceStudio, skill clone, Kokoro, Blender, workspace)" node tests/preflight-mock.mjs
