@@ -78,6 +78,7 @@ export function shapesOf(world, { values = {}, ground = [], floor, cut = 0, kitP
         return put(A.prism({ o: F.at([0, 0, 0]), u: F.dir(B[0]), v: F.dir(B[1]), a: F.dir(B[2]) }, p.outline.map(([u, v]) => [R(u) * k, R(v) * k]), 0, h * k), p, spec, owner, name);
       }
       case "board": { const w = num(p, "w"), d = num(p, "d"), h = (p.layers || [{ h: 0.2 }]).reduce((s, L) => s + R(L.h), 0); return put(A.orientedBox(F.at([0, 0, -h / 2]), axes, [w / 2 * k, d / 2 * k, h / 2 * k]), p, spec, owner, name); }
+      case "plate": { const w = num(p, "w"), r = (R(p.d) ?? w / 2.8), h = R(p.h) ?? w * 0.6; return put(A.orientedBox(F.at([0, 0, h / 2]), axes, [r * k, r * k, h / 2 * k]), p, spec, owner, name); } // the traced drawing's box (h: its height when known)
       case "figure": { const h = num(p, "h", 1.7); return put(A.orientedBox(F.at([0, 0, h / 2]), axes, [0.2 * h * k, 0.2 * h * k, h / 2 * k]), p, spec, owner, name); }
       case "sweep": { const t = A.tube(p.path.map((q) => F.at(q.map(R))), num(p, "r", 0.05) * k, { name, owner: name, object: owner }); /* owner: the pipe's own fittings, so it may land on its own object */ t.tips = [t.points[0], t.points.at(-1)]; t.tipAxes = [unitV(sub(t.points[1], t.points[0])), unitV(sub(t.points.at(-2), t.points.at(-1)))]; t.tipRims = [t.radii[0], t.radii.at(-1)]; t.free = [false, false]; tubes.push(t); return; }
       case "group": return parts(p.parts || [], F, spec, owner, name + ".");

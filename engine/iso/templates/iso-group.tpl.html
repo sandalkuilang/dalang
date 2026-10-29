@@ -14,10 +14,12 @@
   <script type="module">
     import { Iso, tri, clamp, lerp, seg, ss, eo, eio, back } from "./assets/iso.js";
     import { build } from "./assets/build.js";
+    import { loadPlates } from "./assets/plate.js";
     import { drawLayers } from "./assets/parallax.js";
     import { camAt, orbit25, filmOrbit, motionBlur, makeFinish } from "./assets/cinema.js";
     import { makeOverlay, w, we, b } from "./assets/editorial.js";
     import { COLORS, WORLD, VALUES } from "./assets/world.js";
+    const plates = await loadPlates(WORLD);   // the user's traced photos (assets/plates/<plate>/), before the timeline
 
     const G0 = b("__FROM__"), G1 = b("__TO__"), DUR = G1 - G0;   // absolute seconds; t below is local (0 at G0)
     const L = (abs) => abs - G0;
@@ -48,7 +50,7 @@
       c.clearRect(0, 0, 1080, 1920);
       drawLayers(i, cam, orbit(t), [
         // { depth: 0.3, draw: (j) => { /* far: skyline, paper */ } },
-        { depth: 1, draw: (j) => { Object.assign(PIN, build(j, WORLD, { values: v }).at); } },
+        { depth: 1, draw: (j) => { Object.assign(PIN, build(j, WORLD, { values: v, plates }).at); } },
       ], { focus: 1, aperture: 0 });
     }
     function frame(t) {
