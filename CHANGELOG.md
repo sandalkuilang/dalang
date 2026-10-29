@@ -66,6 +66,17 @@ that reads as:
   iso look with a softer, graded matcap and a thin ambient occlusion (blue x-ray casing with a thin wire, opened unit,
   sectioned compressor, the coil's end with its tube sheet off, context in calm greys, refrigerant as colour code, the fan turned from its motor speed, numbered pins on leader lines). Blender (GPL) runs on the machine
   only; `tests/blender-parts.mjs` builds and reads the asset where it is installed.
+- `references/hero-asset.md`: the hero subject goes from the user's 2D pictures (photos, cutaway diagram, manual page,
+  sketch) to a Blender-scripted model once: the pictures read into a parts sheet with tagged sizes, library parts
+  first, the still checked against the pictures, then the motion recipe (graded matcap and ink, x-ray shell, a
+  sweeping clip-plane section, a blur disc for a fast rotor, a fluid coded along its whole loop, labelled pins kept in
+  frame; the composer's autoClear trap; snapshots before any render). `condensing_unit.clip.html` is its 7 s example.
+
+### Changed
+
+- The hero subject is modelled from pictures into `engine/blender/` instead of taken as a CC0 model; CC0 models stay
+  the first route for supporting objects. The Brief asks for any 2D pictures of the subject, not only photos of the
+  user's own machine.
 
 ### Changed
 
