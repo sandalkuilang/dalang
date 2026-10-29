@@ -8,7 +8,7 @@ then return at most 15 lines: the files, the `scaffold.mjs` line (below), the or
 **Read, once each, nothing else:** `BRIEF.md`; `script.md`; `audio/beats.json`; the word cues
 (`node <skill-dir>/scripts/cues.mjs .`); `references/express.md` from "Express Step 5" to the end; each design language
 the film uses (`engine/epic/languages/<name>.md`); `references/look-build.md` Step 5 (the SPEC parts and the shot
-table with its Check paragraph); `references/camera-motion.md` §3, §8, §10–12; `references/visual-direction.md` §3 (the
+table with its Check paragraph); `references/camera-motion.md` §3, §7, §8–10; `references/visual-direction.md` §3 (the
 chosen energy's row), §7 and §12. Never an engine source, the engine README or another film's folder.
 
 ## `SPEC.md` (the builders' law, 20 KB at most)

@@ -32,11 +32,15 @@ that reads as:
 
 ### Changed
 
+- `camera-motion.md` and `craft-rules.md` are numbered without gaps (camera-motion §6–10, craft-rules §1–6), every pointer
+  rewritten to match.
 - With no reference video, Gate 3's benchmark board is the skill's own samples (`docs/assets/samples/`: the Express
   stills, `studio-*.jpg` for Studio), not a golden sheet. A hero's stills are snapshots of its clip page.
 
 ### Removed
 
+- The 18 lessons kept only "for grep" (each is now a failing script), dead pointers to deleted epic files, history
+  notes in READMEs, and the `isoMaterial` export.
 - The golden eval: `examples/golden/`, `evals/golden/3.0.0/`, `scripts/golden.mjs` and its two tests (unused since
   3.0.0, and it covered one Studio scene only).
 - `engine/blender/assemblies/condensing_unit.shot.html` (the clip page gives the same stills).

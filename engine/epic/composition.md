@@ -44,7 +44,7 @@ composition (one zone, ≤ ⅓ of the canvas), never as the whole layout.
 ## The patterns
 
 ### 1. The Big Object
-One oversized drawn object (see `illustration-and-texture.md`) dominates —
+One oversized drawn object dominates —
 40–70% of the canvas — and the data lives ON and AROUND it: labels pinned
 to its parts, a chart built into it (fill level, segments, rings), callouts
 with leader lines. The object may bleed off an edge.

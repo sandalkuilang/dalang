@@ -1,7 +1,7 @@
 // Shared type for a film drawn on one canvas as a function of t: caption phrases, the caption, labels pinned to a part
 // of the set, and the check that a caption never repeats a label. It imports nothing, so a composition, a render worker
 // and the self-check all run the same code (phrases() also runs in Node, see scripts/captions.mjs). Sizes are at
-// 1080 px on the short side (craft-rules.md §6, visual-direction.md §9); zones are the platform's safe zones.
+// 1080 px on the short side (craft-rules.md §5, visual-direction.md §9); zones are the platform's safe zones.
 //
 //   import { drawCaption, pinLabel, repeats, layoutFrame } from "./assets/type.js";
 //   // audio/captions.js (node scripts/captions.mjs audio/narration.txt audio/words.json, after every take) sets CAPTIONS

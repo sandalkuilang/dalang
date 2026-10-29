@@ -2,19 +2,19 @@
 
 These are the numbers that make code-made animation feel alive. They come from measuring hand-made explainer films. Use them as a starting point, then adjust to a reference video's measurements if there is one.
 
-## 2. Push-in: camera, not scissors
+## 1. Push-in: camera, not scissors
 
 - The reference film, almost 9 minutes long, has only about **4 hard cuts**.
 - Everything else uses a camera pushing in or pulling out, plus objects that **appear in place** (drawn on, growing from small, or "crossed out").
 - Scale numbers, eases and when a push needs a reason: `camera-motion.md` §2 (up to 1.15 only for the illustrated looks). Move the world or the hero, never creep the scale of a landed title late in a scene — `/hyperframes` lists that as a generated-video tell. Move the visual wrapper, not the clip element that carries `data-start`. Technical details are in `references/motion.md` of the `/hyperframes` skill.
 
-## 3. Beats: everything lands on a word
+## 2. Beats: everything lands on a word
 
 - Nearly every change on screen happens exactly on a spoken word.
 - Sync means the thing is **readable on the word**, not that its tween starts there. Per element, choose: **lead** — structure the eye can prepare (axes, a card, a set) arrives ~0.2 s early; **sync** — a new fact or object lands by the word: start = `BEATS.<name>.start` minus its entrance time (a 1.4 s count-up is `{{name - 1.4}}`, so the value is settled when it is said; a quick entrance starts 0.03–0.08 s early); **wait** — a punchline, negation or withheld answer is gated to the revealing word. Never late: it feels late.
 - Quick test: if an object appears without a word triggering it, the object is probably unnecessary, or the script is missing a word.
 
-## 4. Motion budget: no dead seconds
+## 3. Motion budget: no dead seconds
 
 - Target: "still" ≤ 10% of the total duration. A good reference film is only about 5%.
 - Every shot needs at least one **continuous** motion: the subject acting (wheels turning, a needle moving, a fill rising); the camera or a light sweep only supports it (`visual-direction.md` §3 "Minimum motion"). Breathing or pulsing text and UI is not continuous motion; `/hyperframes` lists it as a tell of generated video.
@@ -22,14 +22,14 @@ These are the numbers that make code-made animation feel alive. They come from m
 - A moving mouth alone **does not count** as motion. It is the number-one reason films feel dead.
 - Measure with `scripts/stillness.mjs`.
 
-## 5. The mitten rule (stylised characters only)
+## 4. The mitten rule (stylised characters only)
 
 - Only for a stylized figure in the iso world (a small person for scale, a character the user asked for). Real people follow `visual-direction.md` §1 "People are the hardest subject".
 - No fingers, no elbows, no body part bending at more than one point.
 - Why: fewer joints, fewer bugs. Five-fingered hands holding objects are the most common source of errors in code-made animation.
 - Suggested base shapes: round/oval head, bean-shaped body, mitten hands, short legs. Expression through eyes, brows, and mouth is enough.
 
-## 6. On-screen text
+## 5. On-screen text
 
 - Captions stay in a fixed position on screen; they do not move with the camera.
 - On-screen text is in the narration language from `BRIEF.md`. Check that the chosen font has every glyph that language needs (accents, CJK, Arabic, Devanagari, ...); right-to-left languages need `dir="rtl"`.
@@ -47,7 +47,7 @@ These are the numbers that make code-made animation feel alive. They come from m
 - At most about 7 words per caption line (about 16 characters for CJK). Break long sentences at the speech pauses in `words.json`. The engine's `type.js` does this (`phrases()`: a narration line end, a sentence end, `,` `:` after 3 words, a run over 7 words at its longest pause of at least 0.3 s with 2 words on each side and, with no pause, in near-equal parts, a phrase held through the pause that follows; `drawCaption` never draws outside the caption zone: a phrase that does not fit in two lines at 54 px is shrunk, so keep phrases short; `node scripts/captions.mjs audio/narration.txt audio/words.json` writes `audio/captions.js`).
 - The same module holds the zones above (`safeArea`) and the drawing (`drawCaption`, `pinLabel`) and the layout record: call `layoutFrame(ctx, t, { format, hero: heroBox(camera, heroObject, W, H) })` (`heroBox` from `camera.js`) LAST in the frame function, after every caption, label and card (the `shots.js` runner does it for you). It draws nothing; it hands the text boxes and the hero's box to `strips.mjs`, so the Step 7 reviewer reads them as numbers (`review.md`). Use the module, never per-film caption code. The caption sits at the target position above, under the subject; world labels stay above it.
 
-## 7. Sound
+## 6. Sound
 
 - The narration is always clear. Background music ducks under the narration and never disappears completely.
 - A sound with a physical cause (an impact, a latch, a break) is placed at its computed contact time and may be dense; use the other sound effects sparingly and only on key beats: a "pop" when an object appears, a "whoosh" on a fast camera move, a pen scratch while drawing.

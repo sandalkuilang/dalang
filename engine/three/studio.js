@@ -237,7 +237,7 @@ export function isoTone(normal) {
   const n = normal.clone().normalize(), wt = Math.max(n.y, 0), wl = Math.max(n.z, 0), wr = Math.max(n.x, 0), sum = wt + wl + wr || 1;
   return (wt * ISO_TONES.top + wl * ISO_TONES.left + wr * ISO_TONES.right) / sum;
 }
-export const isoMaterial = (top, o = {}) => new THREE.MeshMatcapMaterial({ color: top, matcap: isoMatcap(), ...o });
+const isoMaterial = (top, o = {}) => new THREE.MeshMatcapMaterial({ color: top, matcap: isoMatcap(), ...o });
 // isoLook(root): every mesh under root onto the iso material, keeping its colour, map, opacity, side and clipping (so a
 // cutaway made later cuts it, attend() still ghosts it). A glowing part (emissive above black) keeps its own material:
 // unlit, it shows its emissive colour, the glow the narration names. Run it before cutaway() and attend().

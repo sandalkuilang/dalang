@@ -37,7 +37,7 @@ No catalogue of objects: any object is a few shape families, written as data, or
   housing, a room, a fridge, washer, wall AC or server rack, a broadleaf or pine tree); `{ form: "kit", kit: "car" }`.
 - `figure.js`: a person as a jointed 3D body in real proportions (head, hair, eyes, neck, torso, elbows, hands, knees,
   shoes), posed by preset or joint angles, a hand reaching a point by two-bone IK, feet always set on the ground or the
-  pelvis on a seat; build()'s `figure` form draws it. The vendor's flat `person()` billboard is no longer used.
+  pelvis on a seat; build()'s `figure` form draws it.
 - `kit.js`: components every made thing is assembled from (fasteners, faces and controls, pipes, hoses, cables, tyres,
   springs, fins, containers, windows, doors, furniture, plants, lamps, tools), each a function of its sizes returning
   ordinary parts; `{ form: "kit", kit: "tyre", r, width }` in a spec. Anatomy's audit expands them the same way.
