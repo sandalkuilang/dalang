@@ -8,7 +8,7 @@
 //          tts_timestamps.mjs runs it itself after a clean Express take (--take-clean: it read the WARNING lines)
 //        node express.mjs scaffold [dir]
 //          the planner's last call: storyboard_lint clean, then scaffold.mjs with the arguments of SPEC.md's one
-//          `SCAFFOLD:` line (--look … --groups … --illustration "…" --music …); prints the builders' prompt line
+//          `SCAFFOLD:` line (--look … --groups … --music …); prints the builders' prompt line
 //        node express.mjs assemble [dir]
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
@@ -86,7 +86,7 @@ if (cmd === 'after-voice') {
   const spec = existsSync(path.join(dir, 'SPEC.md')) ? readFileSync(path.join(dir, 'SPEC.md'), 'utf8') : null;
   const lines = (spec ?? '').split('\n').filter(l => /^\W*SCAFFOLD\W*:/.test(l));
   if (spec === null) { failed++; console.log('FAILED SPEC.md not found: the planner writes it first'); }
-  else if (lines.length !== 1) { failed++; console.log(`FAILED SPEC.md needs exactly one \`SCAFFOLD: --look <look> --groups <name>:<first beat>,… --illustration "<label>" --music <calm|bright|tense>\` line (found ${lines.length})`); }
+  else if (lines.length !== 1) { failed++; console.log(`FAILED SPEC.md needs exactly one \`SCAFFOLD: --look <look> --groups <name>:<first beat>,… --music <calm|bright|tense>\` line (found ${lines.length})`); }
   else if (sb.ok) {
     // the line's arguments, quotes kept together ("a label", 'a label'); backticks around the line are dropped
     const argv = [...lines[0].replace(/^\W*SCAFFOLD\W*:/, '').replace(/`/g, ' ').matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3]);

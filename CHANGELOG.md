@@ -32,6 +32,12 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+### Added
+- **Closer = orbit-in** (`camera-motion.md`, the Express planner card): a move that closes in on a subject (a push, zoom or dive of 1.2× or more, or one size step tighter) turns the view while the frame tightens, in the film's one orbit direction, never a straight push; accent pushes under 1.2×, the one dolly zoom and the one crash zoom are exempt. `storyboard_lint` fails a Camera cell that closes in with no orbit word. "Arrive and orbit" is no longer limited to three a film.
+
+### Removed
+- The on-screen illustration label ("ILLUSTRATION", "not to scale"): `ov.chip`, the `illustration` option of `makeOverlay`, `scaffold.mjs --illustration` and the `__ILLUSTRATION__` template slot are gone; a `[illus]` number gets no label (the voice says "roughly").
+
 ### Fixed
 - `tts_timestamps.mjs`: a VoiceStudio `429` (GPU worker pool saturated, often by queued jobs whose client was stopped) is BUSY like a `503`: wait, retry once, then `WARN … rerun` and exit 3, never `FAILED`.
 

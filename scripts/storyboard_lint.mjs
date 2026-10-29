@@ -93,6 +93,16 @@ if (C.size >= 0 && C.out >= 0) for (let i = 0; i + 1 < rows.length; i++) {
   if (a === b || (turn !== null && turn < 60)) problems.push(`${at(rows[i])} → ${rows[i + 1].n}: a hard cut keeps the view (${a} → ${b}${turn !== null ? `, ${turn}°` : ''}): cut to a new view (front, a side, the back: 60° or more) or drop the cut and continue the move; a cut to another subject says "new subject"`);
 }
 
+// (f) closer = orbit-in: a camera cell that closes in on the subject names the orbit (a straight push is the dead zoom)
+if (C.cam >= 0) for (const r of rows) {
+  const t = (r.c[C.cam] ?? '').toLowerCase().replace(/`/g, '');
+  if (!/\b(push|zoom|dive|dolly in|punch in|move in|close in|closer|tighten)/.test(t) || /zoom out|pull|dolly ?zoom|crash/.test(t)) continue;
+  if (/orbit|arc\b|spiral|sweep|swing|circl|turn|rotat|whip/.test(t)) continue;
+  const m = t.match(/(\d+(?:\.\d+)?)\s*(?:→|->|to)\s*(\d+(?:\.\d+)?)/);
+  if (m && +m[1] > 0 && +m[2] / +m[1] < 1.2) continue;   // an accent push, under 1.2×
+  problems.push(`${at(r)}: the camera closes in with no orbit ("${(r.c[C.cam] ?? '').trim().slice(0, 50)}"): turn the view while it tightens ("push + orbit", camera-motion.md "Closer = orbit-in"), or keep a push under 1.2×`);
+}
+
 // (c) share of rows whose focal point is text only (heuristic)
 if (need('see', 'What we see', 'text-only check') && need('act', 'Subject action', 'text-only check')) {
   const TEXT = /\b(text|title|headline|kicker|typograph\w*|caption|quote|lettering|kinetic type|words?)\b/i;

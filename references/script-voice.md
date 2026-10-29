@@ -21,7 +21,7 @@ Rules:
   - `[src: <publisher or standard, title, year, page or table>]` — checked in a source. **Evidence card**: the number, a quote of ≤ 12 words, the source name, "translation ours" when translated.
   - `[calc: name]` — a `model.mjs` result ("Numbers model" below; inputs `[src]` or `[assume]`, never `[unknown]`). **Calculation card**: the steps `node model.mjs` prints, kicker "our calculation".
   - `[assume: <what, and why this value>]` — a chosen value, only as a `[calc]` input, never a fact about the world. A labelled "assumption" line on the calculation card.
-  - `[illus]` — the picture is not to scale or not measured. An **illustration tag** under the headline ("ILLUSTRATION · position and size approximate") while it is up.
+  - `[illus]` — the picture is not to scale or not measured. No on-screen label: when it matters the voice says "roughly" or "about".
   - `[unknown]` — not found or does not exist. The admission spoken and shown ("not found yet: <what>"), a beat of its own. A `[src]` you could not open is `[unknown]`.
   Card words are in the narration language.
 - **Uncertainty is a beat**, never a flat claim or an invented number: say what is not known (`[unknown]`), then what is certain. Two sources disagree: show both or the range, each tagged. An unsourceable claim is dropped, or becomes an `[unknown]` beat when it is the point.

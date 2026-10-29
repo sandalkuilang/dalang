@@ -242,7 +242,7 @@ export function pinLabel(ctx, { at, camera, text }, opts = {}) {
 
 // The text band (visual-direction.md §9): at the top of the label zone, on a light scrim, a kicker in
 // tracked monospace capitals, a bold headline that states the claim or the number, and an optional dark status tag
-// (ILLUSTRATION, SPED UP, OUR MODEL). Left-aligned, drawn only inside the label zone: the kicker and the tag are 36 px or
+// (SPED UP, OUR MODEL). Left-aligned, drawn only inside the label zone: the kicker and the tag are 36 px or
 // more, the headline 64..96 px at 1080 (a headline that does not fit in two lines at 64 px shrinks, `shrunk: true`).
 // Pass the result's `box.y1` as `top` to pinLabel and dimension so that they stay clear of it.
 // text: { kicker?, headline (required: the claim or the number, from the numbers model), tag? }.

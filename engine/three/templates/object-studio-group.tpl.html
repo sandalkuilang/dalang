@@ -34,8 +34,8 @@
     ];
     S.shots(SHOTS, { stations: st, parts: {}, actions: ["act"], at: (t) => { /* pose the subjects from t */ } }, { moves: [] });
 
-    // overlays in the narration language (SPEC OVERLAYS); the illustration label is required
-    const ov = makeOverlay(host, { prefix: "__GROUP__", G0, illustration: "__ILLUSTRATION__" });
+    // overlays in the narration language (SPEC OVERLAYS)
+    const ov = makeOverlay(host, { prefix: "__GROUP__", G0 });
     // ov.headline({ kicker: "KICKER", text: "Sentence [accent]", from: b("__FROM__"), to: b("__TO__") });
     S.loop({ overlay: ov, key: "__GROUP__" });
 

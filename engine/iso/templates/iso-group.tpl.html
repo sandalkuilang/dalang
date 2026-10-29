@@ -53,8 +53,7 @@
     }
 
     // overlays (SPEC OVERLAYS) in the narration language
-    const ov = makeOverlay(cv.parentElement, { prefix: "__GROUP__", G0, accent: COLORS.subject, ink: COLORS.ink,
-      illustration: "__ILLUSTRATION__" });
+    const ov = makeOverlay(cv.parentElement, { prefix: "__GROUP__", G0, accent: COLORS.subject, ink: COLORS.ink });
     // ov.headline({ kicker: "KICKER", text: "Sentence [accent]", from: b("__FROM__"), to: G1 });
     // ov.pill({ text: "Label", at: () => PIN.part, offset: [160, -120], from: w("word"), to: G1 });   // part: a name in PINS
     const project = (p) => { const [x, y] = iso.P(p[0], p[1], p[2]); return { x, y, ok: true }; };

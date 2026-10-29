@@ -9,7 +9,7 @@
 // Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
 //
 // Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
-//                          [--title "…"] [--illustration "label in the narration language"] [--music calm|bright|tense|none]
+//                          [--title "…"] [--music calm|bright|tense|none]
 //   --music   the bundled music bed (engine/music, public domain / CC0, free for any use), default calm: copied as
 //             assets/music.mp3 with its ASSETS.json row, under the voice at a low level with fades. No search, no listening.
 //   --groups  each group's name and first beat, in narration order; a group ends where the next starts, the last at the
@@ -27,7 +27,7 @@ import { musicBed, MOODS } from './music.mjs';
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = k => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
-const music = opt('--music') ?? 'calm', look = opt('--look'), groupArg = opt('--groups'), title = opt('--title') ?? 'DALANG film', label = opt('--illustration') ?? 'ILLUSTRATION';
+const music = opt('--music') ?? 'calm', look = opt('--look'), groupArg = opt('--groups'), title = opt('--title') ?? 'DALANG film';
 const dir = path.resolve(args[0] ?? '.');
 const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
 const ISO = ['isometric-world', 'cutaway', 'blueprint'];
@@ -109,7 +109,7 @@ groups.forEach((g, i) => {
   let t = gtpl.replace(/\{\{__TO__ - __FROM__\}\}/g, span(g, i).dur)
     .replace(/b\("__TO__"\)/g, next ? `b("${next}")` : 'window.NARRATION_DURATION')
     .replace(/b\("__FROM__"\)/g, i ? `b("${g.from}")` : '0')
-    .replace(/__GROUP__/g, g.name).replace(/__FROM__/g, g.from).replace(/__ILLUSTRATION__/g, label);
+    .replace(/__GROUP__/g, g.name).replace(/__FROM__/g, g.from);
   t = t.replace(/__TO__/g, next ?? 'END').replace(/^<!--[\s\S]*?-->\n/, `<!-- group ${g.name}: ${g.from} → ${next ?? 'END'}, written by scaffold.mjs; fill its data from SPEC.md with Edit -->\n`);
   put(`src/compositions/${g.name}.tpl.html`, t);
 });

@@ -56,7 +56,7 @@ const { IN_DUR, OUT_SHARE } = await import(`${assets}/editorial.js`);
 let cam = null, vals = null, ovs = [];
 Object.defineProperty(Iso.prototype, "cam", { configurable: true, get() { return this._cam; }, set(v) { this._cam = v; cam = v; } });
 writeFileSync(path.join(tmp, "build.mjs"), `import { build as b } from "${assets}/build.js";\nexport * from "${assets}/build.js";\nexport function build(i, s, o = {}) { globalThis.__vals = o.values; return b(i, s, o); }\n`);
-writeFileSync(path.join(tmp, "editorial.mjs"), `import { makeOverlay as m } from "${assets}/editorial.js";\nexport * from "${assets}/editorial.js";\nexport function makeOverlay(...a) { const o = m(...a); for (const k of ["headline", "card", "pill", "chip", "big", "tags"]) if (typeof o[k] === "function") { const f = o[k].bind(o); o[k] = (x = {}) => { globalThis.__ovs.push({ kind: k, ...x }); return f(x); }; } return o; }\n`);
+writeFileSync(path.join(tmp, "editorial.mjs"), `import { makeOverlay as m } from "${assets}/editorial.js";\nexport * from "${assets}/editorial.js";\nexport function makeOverlay(...a) { const o = m(...a); for (const k of ["headline", "card", "pill", "big", "tags"]) if (typeof o[k] === "function") { const f = o[k].bind(o); o[k] = (x = {}) => { globalThis.__ovs.push({ kind: k, ...x }); return f(x); }; } return o; }\n`);
 
 for (const g of groups) {
   const js = /<script type="module">([\s\S]*?)<\/script>/.exec(file(g.src))?.[1];
@@ -151,7 +151,7 @@ for (const g of groups) {
 
 // reading: the settled hold between the entrance and the exit, against the words it carries
 const words = (o) => [o.kicker, o.text, o.label, o.value, o.sub, ...(o.rows ?? []).flatMap((r) => [r.k, r.v])].filter(Boolean).join(" ").replace(/[[\]]/g, "").split(/\s+/).filter(Boolean).length;
-const kinds = { headline: "hl", card: "card", pill: "pill", chip: "chip", big: "big", tags: "tag" };
+const kinds = { headline: "hl", card: "card", pill: "pill", big: "big", tags: "tag" };
 for (const g of groups) for (const o of g.ovs) {
   if (!Number.isFinite(o.from)) continue;
   const end = Number.isFinite(o.to) ? o.to : g.start + g.dur, inD = IN_DUR[kinds[o.kind]] ?? 0.25, hold = end - o.from - inD * (1 + OUT_SHARE), n = words(o), need = Math.max(0.8, 0.3 * n);

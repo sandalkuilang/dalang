@@ -1883,7 +1883,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(Math.abs(lin(0.37) - 0.37) < 1e-4 && so(0) === 0 && so(1) === 1 && so(0.3) > 1 - 0.7 ** 3, "bezier: linear is identity, the strong ease-out beats a cubic at 30 %");
     assert.ok(ED.EASE.out(0.5) < 0.5 && ED.EASE.in(0.5) > 0.5, "exits accelerate away, reveals decelerate in");
     const D = ED.IN_DUR;
-    assert.ok(D.chip < D.card && D.card < D.hl && Object.values(D).every((x) => x > 0 && x <= 0.8), "entrance grows with size, never over 0.8 s");
+    assert.ok(D.pill < D.card && D.card < D.hl && Object.values(D).every((x) => x > 0 && x <= 0.8), "entrance grows with size, never over 0.8 s");
     assert.ok(ED.envelope(1.85, 1, 2, { inDur: 0.2 }).a === 1 && ED.envelope(1.93, 1, 2, { inDur: 0.2 }).a > 0.5 && ED.envelope(1.999, 1, 2, { inDur: 0.2 }).a < 0.1 && [1.9, 1.93, 1.96, 1.99].every((t, i, T) => !i || ED.envelope(t, 1, 2, { inDur: 0.2 }).a < ED.envelope(T[i - 1], 1, 2, { inDur: 0.2 }).a), "the exit takes 0.14 s (0.7 of 0.2), falling faster as it goes");
     const late = ED.envelope(1.99, 1, 2, { inDur: 0.2 });
     assert.ok(late.s < 1 && late.s >= 0.96, "an exit shrinks back toward 0.96: it leaves the way it came");
@@ -1897,10 +1897,10 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const fake = () => { const e = { children: [], style: { setProperty(k, v) { this[k] = v; } }, attrs: {}, classList: { add() {}, remove() {}, toggle() {} }, appendChild(c) { this.children.push(c); if (!this.firstChild) this.firstChild = c; return c; }, setAttribute(k, v) { this.attrs[k] = v; } }; return e; };
   const doc = { head: fake(), getElementById: () => null, createElement: fake, createElementNS: fake, createTextNode: fake };
   const root = fake(); root.ownerDocument = doc;
-  const ov = ED.makeOverlay(root, { prefix: "t", G0: 10, accent: "#00AAFF", illustration: "ILUSTRASI" });
-  assert.throws(() => ED.makeOverlay(root, { prefix: "u", G0: 10 }).chip({ from: 11, to: 12 }), /illustration label/, "the illustration chip needs its label in the narration language");
-  const hlE = ov.headline({ kicker: "kicker", text: "a [b]", from: 11, to: 13 }), cardE = ov.card({ label: "L", rows: [{ k: "x", v: "1", hi: true }], source: "S", from: 12, to: 14 }), chipE = ov.chip({ from: 11, to: 12 });
-  assert.ok(hlE.innerHTML.includes('class="ov-acc">b<') && cardE.innerHTML.includes('class="ov-src">S<') && chipE.innerHTML.includes("ILUSTRASI") && ov.layer.style["--ov-acc"] === "#00AAFF", "overlay: headline accent, card source line, chip label as given, accent colour");
+  const ov = ED.makeOverlay(root, { prefix: "t", G0: 10, accent: "#00AAFF" });
+  assert.equal(typeof ov.chip, "undefined", "no illustration chip: a picture is never labelled not-to-scale on screen");
+  const hlE = ov.headline({ kicker: "kicker", text: "a [b]", from: 11, to: 13 }), cardE = ov.card({ label: "L", rows: [{ k: "x", v: "1", hi: true }], source: "S", from: 12, to: 14 });
+  assert.ok(hlE.innerHTML.includes('class="ov-acc">b<') && cardE.innerHTML.includes('class="ov-src">S<') && ov.layer.style["--ov-acc"] === "#00AAFF", "overlay: headline accent, card source line, accent colour");
   assert.throws(() => ov.card({ label: "L", value: "1", from: 12, to: 14 }), /source/, "a card without a source line is refused");
   assert.throws(() => ov.headline({ text: "x", from: 2, to: 1 }), /to > from/, "a window that ends before it starts is refused");
   assert.throws(() => ED.makeOverlay(root, {}), /prefix/, "makeOverlay needs a prefix");

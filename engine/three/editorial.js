@@ -6,15 +6,15 @@
 // Every element is a pure function of t (seek-safe): ov.update(tLocal, project) once per frame sets opacity, transform
 // and leader lines. Times are ABSOLUTE narration seconds (from the cue helpers below); `G0` is the group's host start,
 // so ov.update takes the group's local t and adds G0 itself. All words on screen come from the caller in the narration's
-// language; the `illustration` chip's label too: makeOverlay refuses to draw the chip without it.
+// language.
 //
 //   import { makeOverlay, captions, w, b } from "./editorial.js";
-//   const ov = makeOverlay(rootEl, { prefix: "intro", G0, accent: "#FFD400", illustration: "ILLUSTRATION" });
+//   const ov = makeOverlay(rootEl, { prefix: "intro", G0, accent: "#FFD400" });
 //   ov.headline({ kicker: "THE QUESTION", text: "Which one is [safer?]", from: b("hook"), to: w("because") });
 //   ov.card({ label: "MELTING POINT", rows: [{ k: "A", v: "24 °C" }, { k: "B", v: "33 °C", hi: true }], source: "Source: …", from, to });
 //   ov.tags([{ title: "A", value: "1×", sub: "…", x: 300 }, { title: "B", value: "2×", sub: "…", x: 780 }], { from, to });
 //   ov.pill({ text: "VALVE", at: () => part, offset: [-220, -120], from, to });
-//   ov.chip({ from, to });   ov.big({ text: "2×", at: () => part, offset: [0, -120], from, to });
+//   ov.big({ text: "2×", at: () => part, offset: [0, -120], from, to });
 //   each frame: ov.update(tLocal, project)
 //
 // "[word]" in any text marks the one accent word (a chip in the accent colour); "<br>" breaks a line.
@@ -65,9 +65,9 @@ export function bezier(x1, y1, x2, y2) {
 }
 // One ease table for the overlays: a reveal lands with a strong ease-out, an exit accelerates away.
 export const EASE = Object.freeze({ in: bezier(0.23, 1, 0.32, 1), out: bezier(0.3, 0, 0.8, 0.15) });
-// Entrance by size (s): a chip or pill is quick, a card longer, a headline longest (all under 0.8 s); an exit takes
+// Entrance by size (s): a pill is quick, a card longer, a headline longest (all under 0.8 s); an exit takes
 // 0.7 of its entrance and leaves the way it came (scale back toward 0.96), so nothing appears from or vanishes into nothing.
-export const IN_DUR = Object.freeze({ chip: 0.2, pill: 0.25, big: 0.3, card: 0.3, hl: 0.4, tag: 0.3 });
+export const IN_DUR = Object.freeze({ pill: 0.25, big: 0.3, card: 0.3, hl: 0.4, tag: 0.3 });
 export const OUT_SHARE = 0.7;
 // envelope(t, from, to, { inDur, outDur }): fade + scale 0.96 -> 1 over inDur on EASE.in, back out over outDur on
 // EASE.out, ending at `to`
@@ -124,8 +124,6 @@ const css = `
 .ov-ts{font-weight:${W_.sub};font-size:24px;color:#555;text-align:center;padding:2px 10px 16px}
 .ov-pill{left:0;top:0;white-space:nowrap}
 .ov-pi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-weight:${W_.heading};font-size:26px;letter-spacing:.04em;text-transform:uppercase;padding:10px 18px 9px;border-radius:999px;box-shadow:0 0 0 2.5px var(--ov-ink),0 8px 18px rgba(0,0,0,.18);transform-origin:50% 50%}
-.ov-chip{right:60px;top:118px;transform-origin:100% 0}
-.ov-ci{display:inline-block;background:rgba(11,11,11,.82);color:var(--ov-acc);border:2px solid var(--ov-acc);border-radius:8px;font-weight:${W_.heading};font-size:20px;letter-spacing:.16em;padding:7px 14px 6px}
 .ov-big{left:0;top:0}
 .ov-bi{display:inline-block;background:var(--ov-acc);color:var(--ov-ink);font-weight:${W_.title};font-size:120px;line-height:1;letter-spacing:-.03em;padding:8px 26px 10px;border-radius:22px;box-shadow:0 0 0 4px var(--ov-ink),0 16px 34px rgba(0,0,0,.22);transform-origin:50% 50%}
 .ov-lead{position:absolute;left:0;top:0;overflow:visible}
@@ -144,11 +142,11 @@ function style(doc, id, text) {
   const s = el(doc, "style", null, doc.head); s.id = id; s.textContent = text;
 }
 
-// makeOverlay(root, { prefix, G0, accent, ink, illustration, W, H, safe }): prefix (the group id) keeps element ids
+// makeOverlay(root, { prefix, G0, accent, ink, W, H, safe }): prefix (the group id) keeps element ids
 // unique; safe = { x, top, bottom } px, the box a pinned pill stays in (bottom: above the caption band).
 // Type: one family (font.js), weight by role: headline and big values Bold, pills and captions Semibold, kickers and labels
 // Medium, source lines Regular.
-export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", illustration, W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
+export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
   if (!root) throw new Error("makeOverlay(root): pass the composition root element");
   if (!prefix) throw new Error("makeOverlay: pass { prefix } (the group id, for unique element ids)");
   const doc = docOf(root);
@@ -215,15 +213,6 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
       items.push({ e, from, to, kind: "pill", at, offset, line, dot, inner: e.firstChild });
       return e;
     },
-    // the illustration chip (top right): the picture is not measured
-    chip({ text = illustration, from, to, top = 118 }) {
-      check({ from, to }, "chip");
-      if (!text) throw new Error('chip(): the illustration label in the narration language (makeOverlay({ illustration }) or chip({ text }))');
-      const e = el(doc, "div", "ov-el ov-chip", layer, `<span class="ov-ci">${A(text)}</span>`);
-      e.id = id("chip"); e.style.top = top + "px";
-      items.push({ e, from, to, kind: "chip" });
-      return e;
-    },
     // a big number pinned near a 3D point (no leader)
     big({ text, at, offset = [0, -120], from, to, size }) {
       check({ from, to }, "big");
@@ -242,7 +231,7 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
         it.e.style.opacity = on ? v.a.toFixed(3) : "0";
         if (it.line) it.line.style.opacity = it.dot.style.opacity = on ? v.a.toFixed(3) : "0";
         if (!on) continue;
-        if (it.kind === "hl" || it.kind === "card" || it.kind === "chip") { it.e.style.transform = `scale(${v.s.toFixed(4)})`; continue; }
+        if (it.kind === "hl" || it.kind === "card") { it.e.style.transform = `scale(${v.s.toFixed(4)})`; continue; }
         if (it.kind === "tag") {
           const p = tagSwing(t - it.from, it.seed);
           it.e.style.transform = `translateY(${p.y.toFixed(1)}px) rotate(${p.deg.toFixed(3)}deg) scale(${it.scale || 1})`;

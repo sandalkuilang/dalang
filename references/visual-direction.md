@@ -76,7 +76,7 @@ Shot sizes, angles, moves, axis, cutting, rhythm: `camera-motion.md` §1–3. He
 - Text safe zones per format: `craft-rules.md` §5.
 - Comparisons on 9:16: sequential, stacked, one object in two states, or two subjects each with a card beside it (≤ 30 % of the width, §12); never side-by-side columns of prose.
 - A number that is the point is the biggest thing on screen (220–320 px at 1080 wide), tabular figures, counting up over 1.2–1.6 s, then holding.
-- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (`[assume]` inputs on a line labelled "assumption"), `[illus]` → illustration tag under the headline, `[unknown]` → the shown admission. Cards follow §12.
+- **A number's tag decides its form** (`script-voice.md` §3): `[src]` → evidence card, `[calc]` → calculation card (`[assume]` inputs on a line labelled "assumption"), `[illus]` → no label (the voice says "roughly"), `[unknown]` → the shown admission. Cards follow §12.
 
 ## 8. What the best educational videos do
 
@@ -132,7 +132,7 @@ Fix every failure before Gate 4; a Set, Reality or merged Figure-ground fail (P0
 
 | Layer | Job | Size | Where and when |
 |---|---|---|---|
-| Claim headline | the current claim as a takeaway, its key term italic + underline in ink; a kicker over it (section or source, monospace caps, tracked +8–12 %); an optional status tag under it: ILLUSTRATION (`[illus]`), SPED UP, OUR MODEL (`[calc]`), one colour per tag for the film | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes each claim beat (every 3–5 s); read alone, the headlines tell the argument; `textBand()` adds a scrim on a busy ground |
+| Claim headline | the current claim as a takeaway, its key term italic + underline in ink; a kicker over it (section or source, monospace caps, tracked +8–12 %); an optional status tag under it: SPED UP, OUR MODEL (`[calc]`), one colour per tag for the film | headline 64–96 px bold, ≤ 8 words, ≤ 2 lines; kicker and tag 36 px | top of the text band; changes each claim beat (every 3–5 s); read alone, the headlines tell the argument; `textBand()` adds a scrim on a busy ground |
 | Data card | one option's value, counting in sync with the world | ≤ 30 % of the width; value 72–110 px tabular, label 36 px | beside its subject: A left, B right, one hue per option for the film |
 | World label | names a part ("PART · size") with a leader | ≥ 36 px (`pinLabel`) | on its part, above the caption, the language's pin style, never over the subject, ≤ 3 per frame |
 | Caption | the spoken words | 54–64 px (`drawCaption`) | its target position (`craft-rules.md` §5) |
