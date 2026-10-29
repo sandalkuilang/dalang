@@ -20,7 +20,7 @@
 </style>
 <div id="frame"><div class="crop tl"></div><div class="crop tr"></div><div class="crop bl"></div><div class="crop br"></div></div>
 <script type="module">
-import { THREE, GLTFLoader } from "./assets/three-vendor.js";
+import { THREE, GLTFLoader, EffectComposer, RenderPass, N8AOPostPass } from "./assets/three-vendor.js";
 import { isoLook, inkLines } from "./assets/studio.js";
 import { isoCamera, isoFrame, place } from "./assets/camera.js";
 
@@ -53,12 +53,12 @@ for (const m of meshesOf(named(/^pipe\.discharge|^flare\.gas/))) { m.material = 
 for (const m of meshesOf(named(/^pipe\.(suction|liquid)|^flare\.liquid/))) { m.material = m.material.clone(); m.material.color = new THREE.Color(COLD); }
 isoLook(scene);
 scene.add(wall);   // the wall stays flat paper, outside the three tones
-// softer light than the engine's iso tones: the same three directions, closer together and with a slight roll-off,
-// the reference's even studio light
+// softer light than the engine's iso tones: the same three directions, closer together, rolled off toward a curved
+// part's silhouette (a soft gradient on every round surface), the reference's even studio light
 const soft = (() => { const n = 64, d = new Uint8Array(n * n * 4), back = new THREE.Vector3(1, 1, 1).normalize(), right = new THREE.Vector3(1, 0, -1).normalize(), up = back.clone().cross(right), v = new THREE.Vector3();
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = ((i + 0.5) / n - 0.5) / 0.495, y = ((j + 0.5) / n - 0.5) / 0.495, z = Math.sqrt(Math.max(0, 1 - x * x - y * y));
     v.set(0, 0, 0).addScaledVector(right, x).addScaledVector(up, y).addScaledVector(back, z).normalize();
-    const wt = Math.max(v.y, 0), wl = Math.max(v.z, 0), wr = Math.max(v.x, 0), sum = wt + wl + wr || 1, f = (wt * 1 + wl * 0.88 + wr * 0.76) / sum * (0.94 + 0.06 * z), o = (j * n + i) * 4;
+    const wt = Math.max(v.y, 0), wl = Math.max(v.z, 0), wr = Math.max(v.x, 0), sum = wt + wl + wr || 1, f = (wt * 1 + wl * 0.88 + wr * 0.76) / sum * (0.84 + 0.16 * Math.pow(z, 0.8)), o = (j * n + i) * 4;
     d[o] = d[o + 1] = d[o + 2] = Math.round(255 * Math.min(1, f)); d[o + 3] = 255; }
   const t = new THREE.DataTexture(d, n, n); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t; })();
 scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.isMeshMatcapMaterial) m.matcap = soft; });
@@ -75,7 +75,12 @@ if (SHOT === "close") {
   for (const o of named(/\.quarter$/)) o.visible = false;                                                      // the section: the front-right quarter off
   for (const o of named(/^(casing\.|grille\.|fan\.|pcb|divider|insulation\.divider)/)) o.visible = false;  // what stands between it and the camera
   recolor(named(/^(coil\.|bracket\.|insulation\.field|pipe\.field|valve\.expansion|pipe\.strainer|pipe\.liquid_valve)/), CALM);
-  recolor(named(/^pipe\.suction$/), "#A9C9E6");                                                              // the pipe across the section: pale, still its colour code
+  for (const o of named(/^pipe\.suction$/)) o.visible = false;                                               // the pipe that crosses in front of the section
+}
+// the coil's end, its tube sheet off: the punched end fins, their collars, the tubes and return bends through them
+if (SHOT === "coil") {
+  for (const o of named(/^(casing\.|grille\.|fan\.|pcb|divider|coil\.endplates|insulation\.)/)) o.visible = false;
+  recolor(named(/^(compressor\.|bracket\.|pipe\.(field|strainer|liquid_valve)|valve\.)/), CALM);
 }
 if (SHOT === "medium") {
   for (const o of named(/^(casing\.(top|front|side_right|valve_cover|screws)|grille\.front)$/)) o.visible = false;   // opened as the reference is
@@ -101,32 +106,50 @@ for (let i = 0; i < 9; i++) {
 }
 
 // the shot: wide (the unit on its wall, casing as glass), medium (open, coil-fan-compressor), close (the cut compressor)
-const target = SHOT === "close" ? compBox : unit;
-const pose = isoFrame(target, { W, H, margin: SHOT === "wide" ? 1.03 : SHOT === "medium" ? 1.0 : 1.12 });
+const endBox = new THREE.Box3(); for (const o of named(/^coil\.bends$/)) endBox.expandByObject(o);
+endBox.expandByVector(new THREE.Vector3(0.05, 0.03, 0.05));
+const target = SHOT === "close" ? compBox : SHOT === "coil" ? endBox : unit;
+const pose = isoFrame(target, { W, H, margin: SHOT === "wide" ? 1.03 : SHOT === "medium" ? 1.0 : SHOT === "coil" ? 1.0 : 1.12 });
 place(camera, pose);
+// a thin ambient occlusion: contact shade where parts meet and in the coil's gaps, the reference's soft depth (stylized:
+// a few centimetres of radius, no lights, no shadows)
+// the plain render first: its alpha is the subject's mask (the composer's output is opaque and would black the paper)
 renderer.render(scene, camera);
+const mask = document.createElement("canvas"); mask.width = W; mask.height = H; mask.getContext("2d").drawImage(renderer.domElement, 0, 0);
+const composer = new EffectComposer(renderer, { stencilBuffer: true, multisampling: 0 });
+composer.addPass(new RenderPass(scene, camera));
+const ao = new N8AOPostPass(scene, camera, W, H);
+Object.assign(ao.configuration, { aoRadius: 0.04, distanceFalloff: 0.6, intensity: 1.6, halfRes: false, color: new THREE.Color("#2A2926") });
+composer.addPass(ao);
+composer.render();
+// the wide shot's composition, measured: the subject's projected box against the frame
+const proj = (b) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (let i = 0; i < 8; i++) { const v = new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).project(camera); const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } return { w: (Math.min(x1, W) - Math.max(x0, 0)) / W, h: (Math.min(y1, H) - Math.max(y0, 0)) / H }; };
+const fill = proj(new THREE.Box3().setFromObject(unit)); window.FILL = { width: +fill.w.toFixed(3), height: +fill.h.toFixed(3), area: +(fill.w * fill.h).toFixed(3) };
 
 // the composite: grid paper, the render, the yellow ring on the fan, numbered pins, crop marks; saved as one PNG
 const out = document.createElement("canvas"); out.width = W; out.height = H; const g = out.getContext("2d");
 g.fillStyle = "#F3F2EE"; g.fillRect(0, 0, W, H); g.strokeStyle = "#E1E0DA"; g.lineWidth = 1;
 for (let x = 0; x <= W; x += 27) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
 for (let y = 0; y <= H; y += 27) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
-g.drawImage(renderer.domElement, 0, 0);
+{ const sub = document.createElement("canvas"); sub.width = W; sub.height = H; const c = sub.getContext("2d");   // the AO render, cut to the plain render's alpha
+  c.drawImage(renderer.domElement, 0, 0); c.globalCompositeOperation = "destination-in"; c.drawImage(mask, 0, 0); g.drawImage(sub, 0, 0); }
 const P = (o) => { const b = o.isBox3 ? o : new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3()).project(camera); return [(c.x + 1) / 2 * W, (1 - c.y) / 2 * H, b]; };
 if (fan && SHOT !== "close") { const [x, y, b] = P(fan), s3 = b.getSize(new THREE.Vector3()), r = Math.max(s3.x, s3.y) * pose.k * 0.5;
   g.lineWidth = 6; g.strokeStyle = "#F2C230"; g.beginPath(); g.ellipse(x, y, r, r * 0.82, -0.5, 0, 7); g.stroke(); }
 // a pin sits on a point of its part the camera sees: [name, where] (where: centre, top, bottom of its box)
-const pins = { wide: [["fan.blade"], ["compressor.shell"], ["coil.bends"]], medium: [["fan.blade"], ["compressor.shell"], ["coil.bends"], ["valve.gas"]], close: [["compressor.windings", "top"], ["compressor.rotor"], ["compressor.piston", "bottom"]] }[SHOT];
+const pins = { wide: [["fan.blade"], ["compressor.shell"], ["coil.bends"]], medium: [["fan.blade"], ["compressor.shell"], ["coil.bends"], ["valve.gas"]], close: [["compressor.windings", "top"], ["compressor.rotor"], ["compressor.piston", "bottom"]], coil: [["coil.fins", "frame"], ["coil.bends"]] }[SHOT];
 const LEAD = 92;   // px from the part to its pin, out along the side of the frame the part is on
 pins.forEach(([n, where], i) => { const o = named(new RegExp("^" + n.replace(".", "\\.") + "$"))[0]; if (!o) return; const b = new THREE.Box3().setFromObject(o);
-  if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y); const [x, y] = P(b);
-  const dx = x < W / 2 ? -1 : 1, px = x + dx * LEAD * 0.8, py = y - LEAD * 0.6;
+  if (where === "top") b.min.y = b.max.y - 0.15 * (b.max.y - b.min.y); if (where === "bottom") b.max.y = b.min.y + 0.25 * (b.max.y - b.min.y); if (where === "frame") b.intersect(target);
+  const [x, y] = P(b);
+  // pins alternate sides and rise or fall, so two parts on one axis never stack their discs
+  const dx = i % 2 ? 1 : -1, dy = i % 3 === 2 ? 1 : -1, px = x + dx * LEAD * 1.3, py = y + dy * LEAD * 0.55;
   g.strokeStyle = "#1E1E20"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x, y); g.lineTo(px, py); g.stroke();
   g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
   g.fillStyle = "#F3F2EE"; g.beginPath(); g.arc(px, py, 27, 0, 7); g.fill(); g.fillStyle = "#1E1E20"; g.beginPath(); g.arc(px, py, 23, 0, 7); g.fill();
   g.fillStyle = "#fff"; g.font = "700 24px Helvetica Neue, Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), px, py + 1); });
 g.strokeStyle = "#8C8B85"; g.lineWidth = 2; for (const [x, y, dx, dy] of [[22, 22, 1, 1], [W - 22, 22, -1, 1], [22, H - 22, 1, -1], [W - 22, H - 22, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 26 * dy); g.lineTo(x, y); g.lineTo(x + 26 * dx, y); g.stroke(); }
 frame.innerHTML = ""; frame.append(out);
-if (q.get("save")) await fetch(`/save?name=${SHOT}.png`, { method: "POST", body: out.toDataURL("image/png") });
+if (q.get("save")) { await fetch(`/save?name=${SHOT}.png`, { method: "POST", body: out.toDataURL("image/png") }); await fetch(`/save?name=${SHOT}.json`, { method: "POST", body: JSON.stringify(window.FILL) }); }
 window.READY = true;
 </script>
