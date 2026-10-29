@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="1200" height="500" role="img" aria-labelledby="ttl desc">
-<title id="ttl">Express and Studio</title>
-<desc id="desc">Two lanes from a topic to a film. Express: Brief, Script, Voice (VoiceStudio or Kokoro), Plan, Build in Canvas 2D, Render with HyperFrames, about twenty minutes. Studio: Brief, Script and voice, the subject modelled in Blender from your pictures, Look and Build in three.js, QC and a high render with HyperFrames. A dot runs each lane and lights every step as it passes.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 816" width="1200" height="816" role="img" aria-labelledby="ttl desc">
+<title id="ttl">Express and Studio, engine by engine</title>
+<desc id="desc">Two swimlane charts, one row per engine and one column per step. Express: Claude Code runs setup, the Brief and the script, research and planner and builder subagents follow, VoiceStudio or Kokoro speaks the voice (ElevenLabs only on request), the scenes are Canvas 2D isometric (three.js only for object-studio), HyperFrames lints and renders, scripts check every gate and no reviewer is used. Studio: the same start, then Blender models the subject once in the Look step, three.js renders the still, style frames and scenes, HyperFrames snapshots, composes and renders a draft and a high final, a reviewer scores the style frames at Gate 3 and reviews the draft with a quiz at Gate 4. A playhead sweeps each chart and fills each bar while that engine works.</desc>
 <style>
 /*PALETTE*/
 :root{--card:#ffffff;--card2:#ffffff;--bd:#d1d9e0;--tx:#1f2328;--mu:#59636e;--dim:#818b98;--ac:#bc4c2e;--acbd:#bc4c2e;--acsoft:#fdf1ec;--bl:#0969da;--blsoft:#eaf2fd;--tr:#d1d9e0}
@@ -8,72 +8,207 @@
 text{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
 .lane{font-size:15px;font-weight:700;letter-spacing:1.4px;fill:var(--ac)}
 .lane2{font-size:15px;font-weight:700;letter-spacing:1.4px;fill:var(--bl)}
-.note{font-size:14px;fill:var(--mu)}
-.card{fill:var(--card);stroke:var(--bd);stroke-width:1.2}
-.num{font-size:13px;font-weight:700;letter-spacing:.6px;fill:var(--dim)}
-.ttl{font-size:20px;font-weight:650;fill:var(--tx)}
-.sub{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-size:13px;fill:var(--dim)}
-.eng{font-size:12px;font-weight:600;fill:var(--ac)}
-.eng2{font-size:12px;font-weight:600;fill:var(--bl)}
-.gate{font-size:12px;font-weight:700;fill:var(--ac)}
-.track{stroke:var(--tr);stroke-width:2;stroke-linecap:round}
-.end{fill:var(--acsoft);stroke:var(--acbd);stroke-width:1.2}
-.end2{fill:var(--blsoft);stroke:var(--bl);stroke-width:1.2}
-.dot{fill:var(--ac)}
-.dot2{fill:var(--bl)}
-/* each card lights as its lane's dot reaches it: the dot runs the track in 5/6 of the period, rests on the film for 1/6 */
-.e{animation:e 7s linear infinite}
-.s{animation:s 11s linear infinite}
-@keyframes e{0%,13%{stroke:var(--ac);stroke-width:2}19%,100%{stroke:var(--bd);stroke-width:1.2}}
-@keyframes s{0%,13%{stroke:var(--bl);stroke-width:2}19%,100%{stroke:var(--bd);stroke-width:1.2}}
-.d1{animation-delay:0s}.d2{animation-delay:1.1667s}.d3{animation-delay:2.3333s}.d4{animation-delay:3.5s}.d5{animation-delay:4.6667s}.d6{animation-delay:5.8333s}
-.t1{animation-delay:0s}.t2{animation-delay:1.8333s}.t3{animation-delay:3.6667s}.t4{animation-delay:5.5s}.t5{animation-delay:7.3333s}.t6{animation-delay:9.1667s}
-@media (prefers-reduced-motion:reduce){.e,.s{animation:none}}
+.note{font-size:13px;fill:var(--mu)}
+.row{font-size:13px;font-weight:600;fill:var(--tx)}
+.step{font-size:12px;font-weight:700;letter-spacing:.4px;fill:var(--dim);text-anchor:middle}
+.grid{stroke:var(--bd);stroke-width:1}
+.band{fill:var(--card2)}
+.bar{fill:var(--card);stroke:var(--bd);stroke-width:1}
+.fe{fill:var(--ac);opacity:.42}
+.fs{fill:var(--bl);opacity:.42}
+.lbl{font-size:11px;font-weight:600;fill:var(--tx)}
+.empty{font-size:11px;font-style:italic;fill:var(--dim)}
+.gate{font-size:11px;font-weight:700;fill:var(--ac);text-anchor:middle}
+.gd{fill:var(--card2);stroke:var(--ac);stroke-width:1.6}
+.head{stroke-width:2}
+.he{stroke:var(--ac)}
+.hs{stroke:var(--bl)}
+.foot{font-size:13px;fill:var(--mu);text-anchor:middle}
 </style>
-
-<!-- EXPRESS -->
-<text class="lane" x="40" y="34">EXPRESS</text>
-<text class="note" x="128" y="34">fast lane · Canvas 2D isometric · about 20 minutes</text>
-<line class="track" x1="125" y1="198" x2="1085" y2="198"/>
-<g>
-  <rect class="card e d1" x="40" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="56" y="78">01</text><text class="ttl" x="56" y="106">Brief</text><text class="sub" x="56" y="130">all questions</text><text class="eng" x="56" y="162">Claude Code</text>
-  <rect class="card e d2" x="232" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="248" y="78">02</text><text class="gate" x="386" y="78" text-anchor="end">GATE 1</text><text class="ttl" x="248" y="106">Script</text><text class="sub" x="248" y="130">lints run itself</text><text class="eng" x="248" y="162">Claude · lints</text>
-  <rect class="card e d3" x="424" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="440" y="78">03</text><text class="gate" x="578" y="78" text-anchor="end">GATE 2</text><text class="ttl" x="440" y="106">Voice</text><text class="sub" x="440" y="130">timed per word</text><text class="eng" x="440" y="162">VoiceStudio / Kokoro</text>
-  <rect class="card e d4" x="616" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="632" y="78">04</text><text class="ttl" x="632" y="106">Plan</text><text class="sub" x="632" y="130">SPEC + storyboard</text><text class="eng" x="632" y="162">planner subagent</text>
-  <rect class="card e d5" x="808" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="824" y="78">05</text><text class="gate" x="962" y="78" text-anchor="end">GATE 3</text><text class="ttl" x="824" y="106">Build</text><text class="sub" x="824" y="130">groups in parallel</text><text class="eng" x="824" y="162">Canvas 2D (engine/iso)</text>
-  <rect class="end e d6" x="1000" y="54" width="170" height="124" rx="10"/>
-  <text class="num" x="1016" y="78">06</text><text class="gate" x="1154" y="78" text-anchor="end">GATE 4</text><text class="ttl" x="1016" y="106">Render</text><text class="sub" x="1016" y="130">film.mp4</text><text class="eng" x="1016" y="162">HyperFrames · ffmpeg</text>
-</g>
-<circle class="dot" r="7" cx="0" cy="0">
-  <animateMotion dur="7s" repeatCount="indefinite" path="M125,198 L1085,198" keyPoints="0;1;1" keyTimes="0;0.8333;1" calcMode="linear"/>
-</circle>
-
-<!-- STUDIO -->
-<text class="lane2" x="40" y="262">STUDIO</text>
-<text class="note" x="118" y="262">precision lane · Blender + three.js · the subject modelled once from your pictures</text>
-<line class="track" x1="125" y1="426" x2="1085" y2="426"/>
-<g>
-  <rect class="card s t1" x="40" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="56" y="306">01</text><text class="ttl" x="56" y="334">Brief</text><text class="sub" x="56" y="358">+ 3–5 pictures</text><text class="eng2" x="56" y="390">Claude Code</text>
-  <rect class="card s t2" x="232" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="248" y="306">02</text><text class="gate" x="386" y="306" text-anchor="end">GATE 1·2</text><text class="ttl" x="248" y="334">Script, voice</text><text class="sub" x="248" y="358">facts, take</text><text class="eng2" x="248" y="390">VoiceStudio / Kokoro</text>
-  <rect class="end2 s t3" x="424" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="440" y="306">03</text><text class="ttl" x="440" y="334">Model</text><text class="sub" x="440" y="358">once, from pictures</text><text class="eng2" x="440" y="390">Blender (engine/blender)</text>
-  <rect class="card s t4" x="616" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="632" y="306">04</text><text class="gate" x="770" y="306" text-anchor="end">GATE 3</text><text class="ttl" x="632" y="334">Look</text><text class="sub" x="632" y="358">frames + reviewer</text><text class="eng2" x="632" y="390">three.js (engine/three)</text>
-  <rect class="card s t5" x="808" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="824" y="306">05</text><text class="ttl" x="824" y="334">Build</text><text class="sub" x="824" y="358">x-ray · section</text><text class="eng2" x="824" y="390">three.js · HyperFrames</text>
-  <rect class="end s t6" x="1000" y="282" width="170" height="124" rx="10"/>
-  <text class="num" x="1016" y="306">06</text><text class="gate" x="1154" y="306" text-anchor="end">GATE 4</text><text class="ttl" x="1016" y="334">QC, render</text><text class="sub" x="1016" y="358">film.mp4 (high)</text><text class="eng2" x="1016" y="390">HyperFrames · ffmpeg</text>
-</g>
-<circle class="dot2" r="7" cx="0" cy="0">
-  <animateMotion dur="11s" repeatCount="indefinite" path="M125,426 L1085,426" keyPoints="0;1;1" keyTimes="0;0.8333;1" calcMode="linear"/>
-</circle>
-
-<text class="note" x="600" y="476" text-anchor="middle">Both run hands-off after the Brief. HyperFrames renders every film; a modelled subject stays in your library for the next one.</text>
+<text class="lane" x="40" y="34">EXPRESS</text><text class="note" x="138" y="34">fast lane · about 20 minutes · no stop after the Brief</text>
+<text class="step" x="315.7" y="60">SETUP</text>
+<text class="step" x="447.1" y="60">BRIEF</text>
+<text class="step" x="578.6" y="60">SCRIPT</text>
+<text class="step" x="710.0" y="60">VOICE</text>
+<text class="step" x="841.4" y="60">PLAN</text>
+<text class="step" x="972.9" y="60">BUILD</text>
+<text class="step" x="1104.3" y="60">RENDER</text>
+<rect class="band" x="30" y="72" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="91">Claude (main agent)</text>
+<text class="row" x="40" y="121">Subagents</text>
+<rect class="band" x="30" y="132" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="151">Voice</text>
+<text class="row" x="40" y="181">Blender</text>
+<rect class="band" x="30" y="192" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="211">three.js</text>
+<text class="row" x="40" y="241">Canvas 2D</text>
+<rect class="band" x="30" y="252" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="271">HyperFrames</text>
+<text class="row" x="40" y="301">Checks (scripts, ffmpeg)</text>
+<rect class="band" x="30" y="312" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="331">Reviewer</text>
+<line class="grid" x1="250.0" y1="72" x2="250.0" y2="342"/>
+<line class="grid" x1="381.4" y1="72" x2="381.4" y2="342"/>
+<line class="grid" x1="512.9" y1="72" x2="512.9" y2="342"/>
+<line class="grid" x1="644.3" y1="72" x2="644.3" y2="342"/>
+<line class="grid" x1="775.7" y1="72" x2="775.7" y2="342"/>
+<line class="grid" x1="907.1" y1="72" x2="907.1" y2="342"/>
+<line class="grid" x1="1038.6" y1="72" x2="1038.6" y2="342"/>
+<line class="grid" x1="1170.0" y1="72" x2="1170.0" y2="342"/>
+<rect class="bar" x="253.0" y="77.0" width="388.3" height="20" rx="5"/>
+<rect class="fe" x="253.0" y="77.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;388.3;388.3" keyTimes="0;0.0000;0.3857;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="260.0" y="91.0">preflight · questions · script</text>
+<rect class="bar" x="1041.6" y="77.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="1041.6" y="77.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.7714;0.9000;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1048.6" y="91.0">hand-off</text>
+<rect class="bar" x="515.9" y="107.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="515.9" y="107.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.2571;0.3857;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="522.9" y="121.0">research</text>
+<rect class="bar" x="778.7" y="107.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="778.7" y="107.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.5143;0.6429;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="785.7" y="121.0">planner</text>
+<rect class="bar" x="910.1" y="107.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="910.1" y="107.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.6429;0.7714;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="917.1" y="121.0">builders ×N</text>
+<rect class="bar" x="647.3" y="137.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="647.3" y="137.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.3857;0.5143;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="654.3" y="151.0">VoiceStudio · Kokoro</text>
+<text class="empty" x="258" y="181.0">reuses a library model; never models</text>
+<rect class="bar" x="910.1" y="197.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="910.1" y="197.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.6429;0.7714;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="917.1" y="211.0">object-studio only</text>
+<rect class="bar" x="910.1" y="227.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="910.1" y="227.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.6429;0.7714;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="917.1" y="241.0">isometric scenes</text>
+<rect class="bar" x="910.1" y="257.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="910.1" y="257.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.6429;0.7714;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="917.1" y="271.0">lint</text>
+<rect class="bar" x="1041.6" y="257.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="1041.6" y="257.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.7714;0.9000;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1048.6" y="271.0">render</text>
+<rect class="bar" x="515.9" y="287.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="515.9" y="287.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.2571;0.3857;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="522.9" y="301.0">lints</text>
+<rect class="bar" x="647.3" y="287.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="647.3" y="287.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.3857;0.5143;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="654.3" y="301.0">pad · captions</text>
+<rect class="bar" x="778.7" y="287.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="778.7" y="287.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.5143;0.6429;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="785.7" y="301.0">storyboard</text>
+<rect class="bar" x="910.1" y="287.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="910.1" y="287.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.6429;0.7714;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="917.1" y="301.0">film gate</text>
+<rect class="bar" x="1041.6" y="287.0" width="125.4" height="20" rx="5"/>
+<rect class="fe" x="1041.6" y="287.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;125.4;125.4" keyTimes="0;0.7714;0.9000;1" dur="10s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1048.6" y="301.0">assets</text>
+<text class="empty" x="258" y="331.0">none: the scripts pass every gate</text>
+<rect class="gd" x="630.3" y="346" width="28" height="16" rx="8"/><text class="gate" x="644.3" y="358">G1</text>
+<rect class="gd" x="761.7" y="346" width="28" height="16" rx="8"/><text class="gate" x="775.7" y="358">G2</text>
+<rect class="gd" x="1024.6" y="346" width="28" height="16" rx="8"/><text class="gate" x="1038.6" y="358">G3</text>
+<rect class="gd" x="1156.0" y="346" width="28" height="16" rx="8"/><text class="gate" x="1170.0" y="358">G4</text>
+<g><line class="head he" x1="250" y1="68" x2="250" y2="342"/><animateTransform attributeName="transform" type="translate" values="0 0;920 0;920 0" keyTimes="0;0.9;1" dur="10s" repeatCount="indefinite"/></g>
+<text class="lane2" x="40" y="412">STUDIO</text><text class="note" x="126" y="412">precision lane · the subject modelled once from your pictures</text>
+<text class="step" x="301.1" y="438">SETUP</text>
+<text class="step" x="403.3" y="438">BRIEF</text>
+<text class="step" x="505.6" y="438">REF*</text>
+<text class="step" x="607.8" y="438">SCRIPT</text>
+<text class="step" x="710.0" y="438">VOICE</text>
+<text class="step" x="812.2" y="438">LOOK</text>
+<text class="step" x="914.4" y="438">BUILD</text>
+<text class="step" x="1016.7" y="438">QC</text>
+<text class="step" x="1118.9" y="438">FINAL</text>
+<rect class="band" x="30" y="450" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="469">Claude (main agent)</text>
+<text class="row" x="40" y="499">Subagents</text>
+<rect class="band" x="30" y="510" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="529">Voice</text>
+<text class="row" x="40" y="559">Blender</text>
+<rect class="band" x="30" y="570" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="589">three.js</text>
+<text class="row" x="40" y="619">Canvas 2D</text>
+<rect class="band" x="30" y="630" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="649">HyperFrames</text>
+<text class="row" x="40" y="679">Checks (scripts, ffmpeg)</text>
+<rect class="band" x="30" y="690" width="1150" height="30" rx="4"/>
+<text class="row" x="40" y="709">Reviewer</text>
+<line class="grid" x1="250.0" y1="450" x2="250.0" y2="720"/>
+<line class="grid" x1="352.2" y1="450" x2="352.2" y2="720"/>
+<line class="grid" x1="454.4" y1="450" x2="454.4" y2="720"/>
+<line class="grid" x1="556.7" y1="450" x2="556.7" y2="720"/>
+<line class="grid" x1="658.9" y1="450" x2="658.9" y2="720"/>
+<line class="grid" x1="761.1" y1="450" x2="761.1" y2="720"/>
+<line class="grid" x1="863.3" y1="450" x2="863.3" y2="720"/>
+<line class="grid" x1="965.6" y1="450" x2="965.6" y2="720"/>
+<line class="grid" x1="1067.8" y1="450" x2="1067.8" y2="720"/>
+<line class="grid" x1="1170.0" y1="450" x2="1170.0" y2="720"/>
+<rect class="bar" x="253.0" y="455.0" width="505.1" height="20" rx="5"/>
+<rect class="fs" x="253.0" y="455.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;505.1;505.1" keyTimes="0;0.0000;0.5000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="260.0" y="469.0">preflight · questions · script · decisions</text>
+<rect class="bar" x="1070.8" y="455.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="1070.8" y="455.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.8000;0.9000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1077.8" y="469.0">hand-off</text>
+<rect class="bar" x="559.7" y="485.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="559.7" y="485.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.3000;0.4000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="566.7" y="499.0">research</text>
+<rect class="bar" x="866.3" y="485.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="866.3" y="485.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.6000;0.7000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="873.3" y="499.0">pilot → groups</text>
+<rect class="bar" x="968.6" y="485.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="968.6" y="485.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.7000;0.8000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="975.6" y="499.0">fix rounds</text>
+<rect class="bar" x="661.9" y="515.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="661.9" y="515.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.4000;0.5000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="668.9" y="529.0">VoiceStudio · Kokoro</text>
+<rect class="bar" x="764.1" y="545.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="764.1" y="545.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.5000;0.6000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="771.1" y="559.0">model once</text>
+<rect class="bar" x="764.1" y="575.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="764.1" y="575.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.5000;0.6000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="771.1" y="589.0">still · frames</text>
+<rect class="bar" x="866.3" y="575.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="866.3" y="575.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.6000;0.7000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="873.3" y="589.0">scenes</text>
+<text class="empty" x="258" y="619.0">Studio's iso look is three.js</text>
+<rect class="bar" x="764.1" y="635.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="764.1" y="635.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.5000;0.6000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="771.1" y="649.0">snapshots</text>
+<rect class="bar" x="866.3" y="635.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="866.3" y="635.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.6000;0.7000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="873.3" y="649.0">composition</text>
+<rect class="bar" x="968.6" y="635.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="968.6" y="635.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.7000;0.8000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="975.6" y="649.0">draft</text>
+<rect class="bar" x="1070.8" y="635.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="1070.8" y="635.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.8000;0.9000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1077.8" y="649.0">high render</text>
+<rect class="bar" x="457.4" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="457.4" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.2000;0.3000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="464.4" y="679.0">measure</text>
+<rect class="bar" x="559.7" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="559.7" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.3000;0.4000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="566.7" y="679.0">lints</text>
+<rect class="bar" x="661.9" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="661.9" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.4000;0.5000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="668.9" y="679.0">pad</text>
+<rect class="bar" x="866.3" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="866.3" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.6000;0.7000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="873.3" y="679.0">lint scene</text>
+<rect class="bar" x="968.6" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="968.6" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.7000;0.8000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="975.6" y="679.0">qc_all</text>
+<rect class="bar" x="1070.8" y="665.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="1070.8" y="665.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.8000;0.9000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="1077.8" y="679.0">assets</text>
+<rect class="bar" x="764.1" y="695.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="764.1" y="695.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.5000;0.6000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="771.1" y="709.0">benchmark</text>
+<rect class="bar" x="968.6" y="695.0" width="96.2" height="20" rx="5"/>
+<rect class="fs" x="968.6" y="695.0" width="0" height="20" rx="5"><animate attributeName="width" values="0;0;96.2;96.2" keyTimes="0;0.7000;0.8000;1" dur="16s" repeatCount="indefinite"/></rect>
+<text class="lbl" x="975.6" y="709.0">review · quiz</text>
+<rect class="gd" x="644.9" y="724" width="28" height="16" rx="8"/><text class="gate" x="658.9" y="736">G1</text>
+<rect class="gd" x="747.1" y="724" width="28" height="16" rx="8"/><text class="gate" x="761.1" y="736">G2</text>
+<rect class="gd" x="849.3" y="724" width="28" height="16" rx="8"/><text class="gate" x="863.3" y="736">G3</text>
+<rect class="gd" x="1053.8" y="724" width="28" height="16" rx="8"/><text class="gate" x="1067.8" y="736">G4</text>
+<g><line class="head hs" x1="250" y1="446" x2="250" y2="720"/><animateTransform attributeName="transform" type="translate" values="0 0;920 0;920 0" keyTimes="0;0.9;1" dur="16s" repeatCount="indefinite"/></g>
+<text class="foot" x="600" y="800">G1–G4: the four gates. *Ref: optional, a reference video measured. ElevenLabs (paid) replaces the voice only on request.</text>
 </svg>

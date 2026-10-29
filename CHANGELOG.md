@@ -34,8 +34,9 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ### Changed
 
-- README: what Express and Studio each ask for, their steps and what each hands over, with an animated diagram of both
-  lanes (`docs/assets/lanes.*.svg`, light derived from dark).
+- README: what Express and Studio each ask for, their steps and what each hands over, with an animated swimlane diagram
+  of both lanes: one row per engine (Claude Code, subagents, voice, Blender, three.js, Canvas 2D, HyperFrames, checks,
+  reviewer), one column per step, the gates marked (`docs/assets/lanes.*.svg`, light derived from dark).
 
 ## [4.2.0] - 2026-10-29
 
