@@ -32,6 +32,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-10-29
+
 ### Added
 
 - Detail focus for the Studio iso lane (`engine/three/bokeh.js`): three.js's `BokehPass` as a pass of the pmndrs composer
@@ -1827,7 +1829,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.3.0...HEAD
+[4.3.0]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/sandalkuilang/dalang/compare/v3.10.0...v4.0.0
