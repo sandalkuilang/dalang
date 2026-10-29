@@ -176,7 +176,9 @@ function order(iso, list) {
   while (seq.length < n) {
     let pick = -1;
     for (let i = 0; i < n; i++) if (!done[i] && deg[i] === 0 && (pick < 0 || centre[i] < centre[pick])) pick = i;
-    if (pick < 0) for (let i = 0; i < n; i++) if (!done[i] && (pick < 0 || centre[i] < centre[pick])) pick = i; // a cycle: centre depth
+    // a cycle: break it where the fewest parts still wait to go first (ties by centre depth), so one cycle never undoes
+    // the order of the rest of the world
+    if (pick < 0) for (let i = 0; i < n; i++) if (!done[i] && (pick < 0 || deg[i] < deg[pick] || (deg[i] === deg[pick] && centre[i] < centre[pick]))) pick = i;
     done[pick] = true; seq.push(pick); for (const j of after[pick]) deg[j]--;
   }
   let d = -Infinity;
