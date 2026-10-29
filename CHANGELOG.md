@@ -30,6 +30,14 @@ that reads as:
 
 ## [Unreleased]
 
+### Added
+
+- `engine/iso/kit.js`: about forty components every made thing is assembled from (bolts, panels with screws and seams,
+  vents, grilles, screens, buttons, knobs, handles, labels, hinges, pipes with flanges, hoses with fittings, cables,
+  tyres with tread, rim and spokes, springs, cooling fins, bottles, drums, pans, cans, crates, cartons, windows, doors,
+  tables, chairs, shelves, plants, lamps, tools), written in a spec as `{ form: "kit", kit, …sizes }`. Each expands into
+  ordinary parts, so pins, the cutaway, focus and Anatomy's audit see them; each stands proven on a slab in the test.
+
 ### Changed
 
 - The Express look draws like an illustration, not a block game: every solid is one mesh whose silhouette and creases

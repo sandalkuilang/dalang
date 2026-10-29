@@ -15,6 +15,7 @@
 // so the world's longest side is about 100 units: the audit's tolerances (touch 0.15, sunk 0.5) are then 0.15 % and
 // 0.5 % of the set. ponytail: one scale per world; split a huge set with a tiny mechanism into two audits.
 import * as A from "./audit.mjs";
+import { expandKit } from "../iso/kit.js";
 
 const rotZ = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -80,6 +81,7 @@ export function shapesOf(world, { values = {}, ground = [], floor, cut = 0 } = {
       case "figure": { const h = num(p, "h", 1.7); return put(A.orientedBox(F.at([0, 0, h / 2]), axes, [0.2 * h * k, 0.2 * h * k, h / 2 * k]), p, spec, owner, name); }
       case "sweep": { const t = A.tube(p.path.map((q) => F.at(q.map(R))), num(p, "r", 0.05) * k, { name, owner: name, object: owner }); /* owner: the pipe's own fittings, so it may land on its own object */ t.tips = [t.points[0], t.points.at(-1)]; t.tipAxes = [unitV(sub(t.points[1], t.points[0])), unitV(sub(t.points.at(-2), t.points.at(-1)))]; t.tipRims = [t.radii[0], t.radii.at(-1)]; t.free = [false, false]; tubes.push(t); return; }
       case "group": return parts(p.parts || [], F, spec, owner, name + ".");
+      case "kit": return parts(expandKit(p, R), F, spec, owner, name + ".");
       default: skipped.push(name); // flat, line, model: no solid to prove
     }
   }
