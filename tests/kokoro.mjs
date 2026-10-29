@@ -319,6 +319,32 @@ await test("K7. a sentence the voice garbles is named with the respell command; 
   assert.equal(clean.calls.length, 4, "a clean take sends nothing more");
 });
 
+await test("K8. an Express film: a clean take runs after-voice itself; a flagged take stops; no brief, no chain", async () => {
+  const film = path.join(tmp, "express-clean");
+  fs.mkdirSync(film);
+  fs.writeFileSync(path.join(film, "BRIEF.md"), "# Brief\n- mode: express\n- platform: Reels\n");
+  const r = await take(NARRATION, { dir: film });
+  assert.match(r.out, /Express\s+: clean take: express\.mjs after-voice/, r.out);
+  assert.match(r.out, /OK     take: no WARNING \(read by tts_timestamps\.mjs\)/, "after-voice ran, told the take was read");
+  assert.match(r.out, /^OK\s+pad_voice$/m, "after-voice went on to pad the voice");
+  assert.match(r.out, /^OK\s+captions \(reels\)$/m, "captions in the brief's format");
+  assert.match(r.out, /FAILED gate 1 by agent/, "this bare folder has no script.md: the gate fails");
+  assert.notEqual(r.code, 0, "after-voice's failure is the call's exit");
+  const bad = path.join(tmp, "express-flagged");
+  fs.mkdirSync(bad);
+  fs.writeFileSync(path.join(bad, "BRIEF.md"), "- Mode: Express\n");
+  const f = await take(NARRATION, { dir: bad, env: { DALANG_TEST_GARBLE: "wheel" } });
+  assert.equal(f.code, 0, f.out);
+  assert.match(f.out, /Express\s+: \d WARNING\/Retake line\(s\) above: after-voice not run/, f.out);
+  assert.doesNotMatch(f.out, /pad_voice/, "a flagged take is never padded or gated");
+  const studio = path.join(tmp, "studio-film");
+  fs.mkdirSync(studio);
+  fs.writeFileSync(path.join(studio, "BRIEF.md"), "- mode: studio\n");
+  const s = await take(NARRATION, { dir: studio });
+  assert.equal(s.code, 0, s.out);
+  assert.doesNotMatch(s.out, /Express\s+:/, "a Studio film keeps its own Step 4");
+});
+
 await test("L1. the licence table knows Kokoro-82M, and a Kokoro take with no model is unknown", async () => {
   const v = voiceModel({ engine: "kokoro", model: "Kokoro-82M" });
   assert.equal(v?.licence, "Apache-2.0");

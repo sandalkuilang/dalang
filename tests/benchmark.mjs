@@ -34,11 +34,16 @@ Board: measure/reference-board.jpg
 `;
 const swap = (from, to) => { assert.ok(GOOD.includes(from), `fixture line ${from} not in GOOD`); return GOOD.replace(from, to); };
 
+// Files Gates 1 and 2 pass their own checks on (approve runs the lints and pad_voice): a lintable script, a padded take.
+const gate12 = (p) => {
+  put(p, "script.md", "Promise: one thing.\nTakeaway: the thing.\n"); put(p, "narration.txt", "Some words.\n");
+  put(p, "audio/beats.json", JSON.stringify({ duration: 2, beats: [], pad: { lead: 1.45, tail: 1.35, take: "narration.wav" } })); put(p, "audio/words.json", "[]\n");
+};
 let n = 0;
 // A project with gates 1-2 approved and the Gate 3 files in place (the fixture pair: stub board + stub style frame).
 const project = () => {
   const p = path.join(tmp, `p${n++}`);
-  put(p, "script.md"); put(p, "narration.txt"); put(p, "audio/beats.json", "[]\n");
+  gate12(p);
   for (const g of ["1", "2"]) assert.equal(run("approve", g, p).code, 0);
   put(p, "SPEC.md"); put(p, "storyboard.md"); put(p, "style-frames/a.png"); put(p, "measure/reference-board.jpg");
   return p;
@@ -55,13 +60,13 @@ try {
   // A0 Express: Gate 3 needs neither a benchmark nor style frames (Express makes none); Studio still needs them
   {
     const e = path.join(tmp, "express");
-    put(e, "BRIEF.md", "- mode: express\n"); put(e, "script.md"); put(e, "narration.txt"); put(e, "audio/beats.json", "[]\n");
+    put(e, "BRIEF.md", "- mode: express\n"); gate12(e);
     for (const g of ["1", "2"]) assert.equal(run("approve", g, e).code, 0);
     put(e, "SPEC.md"); put(e, "storyboard.md");
     const r = run("approve", "3", e, "--by", "agent");
     assert.equal(r.code, 0, `express gate 3 without style frames: ${r.out}${r.err}`);
     const s = path.join(tmp, "studio-nosf");
-    put(s, "script.md"); put(s, "narration.txt"); put(s, "audio/beats.json", "[]\n");
+    gate12(s);
     for (const g of ["1", "2"]) assert.equal(run("approve", g, s).code, 0);
     put(s, "SPEC.md"); put(s, "storyboard.md");
     assert.match(run("approve", "3", s).err, /missing files: style-frames/, "studio still needs style frames");

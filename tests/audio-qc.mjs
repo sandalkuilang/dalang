@@ -993,6 +993,30 @@ try {
       assert.match(r.stderr, /FAILED: ffmpeg not found/);
       console.log("ok  CLI: no ffmpeg on PATH -> exit 1 'FAILED: ffmpeg not found'");
     }
+
+    // 15. qc_all.mjs: Step 7's seven checks in one call, one tagged line each, details only under a non-PASS.
+    {
+      const all = path.join(here, "..", "scripts", "qc_all.mjs");
+      const qa = (args, cwd) => spawnSync(process.execPath, [all, ...args], { encoding: "utf8", cwd });
+      assert.equal(qa([]).status, 64, "no draft is usage");
+      const dir = fs.mkdtempSync(path.join(tmp, "qcall-"));
+      let r = qa(["nope.mp4", dir], dir);
+      assert.equal(r.status, 1);
+      assert.match(r.stdout, /^FAIL   draft: nope\.mp4 not found/m);
+      fs.writeFileSync(path.join(dir, "BRIEF.md"), "- Platform: YouTube (16:9)\n");
+      const mp4 = path.join(dir, "draft.mp4");
+      const f = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=320x180:d=2:r=10", "-f", "lavfi", "-i", "sine=f=440:d=2", "-shortest", "-pix_fmt", "yuv420p", mp4]);
+      assert.equal(f.status, 0, String(f.stderr));
+      r = qa(["draft.mp4", dir], dir);
+      const tags = r.stdout.split("\n").filter(l => /^(PASS|FAIL|WARN) /.test(l));
+      assert.equal(tags.length, 7, "seven check lines:\n" + r.stdout);
+      for (const n of ["stillness", "loudness", "audio_qc", "qc (1920x1080)", "timing_lint", "lint_scene", "scopes"]) assert.ok(tags.some(l => l.includes(n)), `${n} line:\n${r.stdout}`);
+      assert.match(r.stdout, /^FAIL   qc \(1920x1080\) \(exit 3\)\n.*size 320x180, expected 1920x1080/m, "the size comes from BRIEF.md's platform and its problem line follows");
+      assert.ok(tags.filter(l => l.startsWith("PASS")).every(l => !/\(exit/.test(l)), "a PASS carries no exit code");
+      assert.notEqual(r.status, 0);
+      assert.match(r.stdout, /^Result: \d check\(s\) FAILED/m);
+      console.log("ok  CLI: qc_all.mjs runs the seven Step 7 checks, one line each, size from BRIEF.md, details under a FAIL only");
+    }
   }
   console.log("OK");
 } finally {

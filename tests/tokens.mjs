@@ -80,13 +80,13 @@ assert.equal(r.code, 2);
 assert.match(r.err, /cannot be read/);
 
 // state.mjs approve records the Result line, and a missing transcript is "not checked", never a block.
-for (const [f, s] of [["script.md", "# s\n"], ["narration.txt", "words\n"]]) put(path.join(other, f), s);
+for (const [f, s] of [["script.md", "Promise: one thing.\nTakeaway: the thing.\n"], ["narration.txt", "Some words.\n"]]) put(path.join(other, f), s);
 const a = spawnSync(process.execPath, [state, "approve", "1", other, "--by", "agent"], { encoding: "utf8", env });
 assert.equal(a.status, 0, a.stdout + a.stderr);
 assert.match(a.stdout, / · Tokens: main \d/);
 const st = JSON.parse(fs.readFileSync(path.join(other, "state.json"), "utf8"));
 assert.match(st.approvals[1].tokens, /^main /);
-for (const [f, s] of [["script.md", "# s\n"], ["narration.txt", "words\n"]]) put(path.join(lone, f), s);
+for (const [f, s] of [["script.md", "Promise: one thing.\nTakeaway: the thing.\n"], ["narration.txt", "Some words.\n"]]) put(path.join(lone, f), s);
 const c = spawnSync(process.execPath, [state, "approve", "1", lone, "--by", "agent"], { encoding: "utf8", env: { ...env, CLAUDE_CONFIG_DIR: path.join(tmp, "nowhere") } });
 assert.equal(c.status, 0, c.stdout + c.stderr);
 assert.match(c.stdout, / · Tokens: not checked/);

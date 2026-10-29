@@ -91,6 +91,17 @@ try {
     assert.ok(!fs.existsSync(path.join(e, "src")) && !fs.existsSync(path.join(e, "assets")), `${groups}: nothing written`);
   }
   assert.match(run(proj("look"), "--look", "watercolour", "--groups", "a:hook").out, /--look must be one of/);
+  // object-studio installs engine/three (assets/examples/, no examples.js): its brief never names the iso look's file
+  const os3 = proj("studio");
+  fs.mkdirSync(path.join(os3, "assets")); fs.writeFileSync(path.join(os3, "assets/objectStudio.js"), "// engine already installed\n");
+  r = run(os3, "--look", "object-studio", "--groups", "a:hook,b:close", "--music", "none");
+  assert.equal(r.code, 0, r.out);
+  for (const g of ["a", "b"]) {
+    const brief = read(os3, `review/builder-${g}.md`);
+    assert.doesNotMatch(brief, /examples\.js/, `${g}: object-studio has no assets/examples.js`);
+    assert.match(brief, /`assets\/examples\/`[^.]*flask\.js/, `${g}: object-studio points at engine/three's examples folder`);
+    assert.match(brief, /object-studio-API\.md/, `${g}: object-studio reads its own card`);
+  }
   console.log("scaffold: ok");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });

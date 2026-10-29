@@ -52,7 +52,7 @@ Every film. The main agent never writes, patches or reads the film's scene code 
 
 | Job | Who | Returns to the main agent |
 |---|---|---|
-| Pilot (item 3; under 3 groups the whole film), then the assembly (item 5) | one builder subagent (`SKILL.md` table) | files touched, lint/check result, draft path, open questions (≤ 15 lines) |
+| Pilot (item 3; under 3 groups the whole film), then the assembly (item 5) | one builder subagent (model and effort: `state.mjs next`) | files touched, lint/check result, draft path, open questions (≤ 15 lines) |
 | Other shot groups (item 4) | one builder subagent per group | the same |
 | Each QC fix round (`review.md` "How" item 3) | one builder subagent per round, given the P0/P1 list and the files | per finding: fixed / not fixed + one line; files touched |
 | Fix check | a fresh subagent | pass/fail per item |

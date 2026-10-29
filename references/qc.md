@@ -6,19 +6,20 @@ Review like someone else's code: find bugs.
 
 ```bash
 npx hyperframes check --snapshots
-node <skill-dir>/scripts/lint_scene.mjs     # no code swallowed by a mid-line // comment (exit 1: file:line), before the draft
 npx hyperframes render --fps 10 --quality draft --quiet --output draft.mp4   # in the background
-node <skill-dir>/scripts/stillness.mjs draft.mp4    # ≤ 10 %, no still stretch > 1.5 s (planned pauses: --allow a-b)
-node <skill-dir>/scripts/loudness.mjs draft.mp4     # ≈ −14 LUFS, true peak ≤ −1 dBTP
-node <skill-dir>/scripts/audio_qc.mjs . --mix draft.mp4   # bed 8–25 dB under the voice, no click, dropout or off pitch; exit 3 = flag, exit 2 = not checked
-node <skill-dir>/scripts/qc.mjs draft.mp4 --size <WxH from BRIEF.md>   # black frames, clipping, silences, early end, codec and colour tags
-node <skill-dir>/scripts/timing_lint.mjs    # every picture cut between words, no scene under 1 s
+node <skill-dir>/scripts/qc_all.mjs draft.mp4 [--allow a-b]   # the seven measured checks, one PASS / FAIL / WARN line each
 npx hyperframes snapshot --review --describe false   # --describe false unless the user agreed to upload frames
 node <skill-dir>/scripts/strips.mjs --crops   # 3 stills per shot on numbered sheets, a subject crop per shot, index.md
-node <skill-dir>/scripts/scopes.mjs draft.mp4 --png   # exposure and hue per cut
 ```
 
-The read-only scripts on `draft.mp4` go out in one message; reviewer, quiz and Set / Reality check start together once the strips exist, with no render, check or snapshot beside them (models: `SKILL.md`).
+`qc_all.mjs` runs, side by side, and prints only a failing check's own lines: `stillness.mjs` (≤ 10 %, no still stretch
+over 1.5 s; planned pauses `--allow a-b`), `loudness.mjs` (≈ −14 LUFS, true peak ≤ −1 dBTP), `audio_qc.mjs --mix` (bed
+8–25 dB under the voice, no click, dropout or off pitch), `qc.mjs` (`--size` from `BRIEF.md`: black frames, clipping,
+silences, early end, codec and colour tags), `timing_lint.mjs` (every cut between words, no scene under 1 s),
+`lint_scene.mjs` (no code swallowed by a mid-line `//` comment) and `scopes.mjs --png` (exposure and hue per cut). A
+WARN (exit 2: a check could not run) is never a pass: fix its cause and rerun. Each script still runs alone, for a
+rerun of one check. Reviewer, quiz and Set / Reality check start together once the strips exist, with no render, check
+or snapshot beside them (models: `SKILL.md`).
 
 - **Scopes**: `scopes.mjs` prints YMIN/YMAX, YLOW/YHIGH, SATAVG, HUEAVG per cut. Out of band: crushed blacks = YLOW at the floor (16; 0 full range); clipped whites = YHIGH at the ceiling (235 / 255); hue jump = > 40° between adjacent cuts both with SATAVG ≥ 20. All inside: no PNG, no subagent. Outside: a subagent opens only the `--png` PNGs and gives a text verdict (no clipped hero or face highlights; crushed blacks only if the look wants them; skin on the skin-tone line; no accidental orange-and-teal).
 - **Contact sheet of every cut**: `ffmpeg -i draft.mp4 -vf "select='eq(n\,0)+gt(scene\,0.3)',scale=480:-2,tile=4x3" -frames:v 1 -fps_mode vfr review/cuts.png`

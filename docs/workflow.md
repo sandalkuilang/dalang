@@ -41,10 +41,10 @@ flowchart TD
 | 7 QC | `draft.mp4`, stillness ≤ 10 %, ≈ −14 LUFS, `audio_qc.mjs` flags 0 (an exit 2 is named in the hand-off), scopes (numbers), review strips (`strips.mjs`), sound-off quiz; Express: `express.mjs assemble` (`film_gate.mjs`, `iso_audit.mjs`, the lints), no reviewer | **4** |
 | 8 Hand-off | final file, `POST.md` (post description) + honest numbers from `PRODUCTION.md`; optional second-language cut: `final.<lang>.mp4` + `narration.<lang>.srt` (same storyboard, `beats_lint.mjs`) | — |
 
-Before each step the agent runs `node <skill-dir>/scripts/state.mjs next`: it works out the step from the project's
+A first `state.mjs approve <n>` runs that gate's checks (Gate 1 the lints, Gate 2 the padding) and prints the next step's reading, so `next` is for resumes. `node <skill-dir>/scripts/state.mjs next` works out the step from the project's
 files and prints only that step's reading list (with `--print` the sections' text in one call, else `sed` commands; the step's lesson headlines), then a
 "look up when needed" index (one heading and `sed` command per section the step points to, no body). The gate counts
-what is printed to read (sections and lesson headlines) against 60 KB for Steps 0–8; every indexed section still has
+what is printed to read (sections and lesson headlines) against its budgets (SKILL.md 9.5 KB, the Express path 45 KB, the Studio path 60 KB); every indexed section still has
 to exist and fit 8 KB, and `tests/reading.mjs` fails when any section of a reference is over 8 KB or a pointer in the
 step's text has no index line. Images
 (stills, strips, contact sheets) are read by subagents that return a text verdict, never in the main context (the one exception: the author of `style-frames/src/`, the main agent or a builder, opens each Step 5 `review/refs-board-<frame>.jpg` once before its first write). The film's scene code is too (the Step 5 style frames excepted): builder subagents write the pilot, the groups, the assembly and each QC fix round, and return a short report (`look-build.md` "Parallel build"). Each subagent job has a model and an effort, picked from one table and never asked: the top model for the jobs that judge the film (high effort) and the Studio builders (high for the pilot, medium after), a mid tier for Express builders, research, fix checks and asset pair checks, a light tier for text-only media screening. A job that fails its own check is replaced one notch up (effort first, then model), never repeated at the same setting (`SKILL.md` "Work fast").

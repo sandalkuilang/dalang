@@ -30,7 +30,7 @@ Rules:
 - **Read-through.** A NEW subagent gets only `narration.txt` and returns the topic in one sentence, what the viewer learns, the order of the parts, each term it could not explain, each sentence it could not follow and why. Topic and learning must match Promise and Takeaway; else rewrite and read through once more.
 - **Quiz.** Write `review/quiz.md` (5 rows, `review.md` §Sound-off quiz), each answerable from a headline or card.
 
-Gate 1 shows: Promise and Takeaway, the read-through's answer, a table number → tag → source, arithmetic or assumption, and an empty **Untagged numbers** list (grep `script.md` for every digit and number word; tag, rewrite or cut each). Then `numbers_lint.mjs` exits 0 and `node <skill-dir>/scripts/narration_lint.mjs` is clean: `state.mjs approve 1 --by agent`.
+Gate 1 shows: Promise and Takeaway, the read-through's answer, a table number → tag → source, arithmetic or assumption, and an empty **Untagged numbers** list (grep `script.md` for every digit and number word; tag, rewrite or cut each). Then `state.mjs approve 1 --by agent`: it runs `numbers_lint.mjs`, `narration_lint.mjs` and, for each `narration.<lang>.txt`, `beats_lint.mjs`, and refuses with their problems, one line each (fix them all, approve again).
 
 ### Narration craft: one idea, followed on one hearing
 
@@ -60,12 +60,12 @@ Read with Step 3, before the first line. The viewer hears it once and cannot rew
 
 A script with a `[calc]` number gets `model.mjs` in the project at Step 3: plain JavaScript, the one source of every computed number.
 
-- **Inputs, named**: each a `[src]` or `[assume]` value of `script.md`. A changed assumption is one edit here, then `node model.mjs`, then the lint. Gate 1 covers `model.mjs` and `numbers.json`: a change to either makes it stale.
+- **Inputs, named**: each a `[src]` or `[assume]` value of `script.md`. A changed assumption is one edit here, then `node model.mjs`, then `approve 1` again. Gate 1 covers `model.mjs` and `numbers.json`: a change to either makes it stale.
 - **`numbers`**: every `[calc]` result by name, `{ value, say }`. `value` is unrounded, in the unit the film states; `say` is computed from `value` by a small `words()` in the narration language with the narration's rounding ("about forty dollars"), never typed. A counterfactual is the same model with one input changed.
 - **`state(t)`**, for a process over time: counters, on/off states and levels at model time `t`; the scene maps film time to model time and reads it every frame.
 - **A pure ES module**: no top-level `node:` imports, so the scene can `import { numbers, state } from '../model.mjs'`; run as main, it prints the calculation card's lines and writes `numbers.json`.
 - **Narration**: numbers stay words. A spoken model number is a beat named after it: `{about forty dollars|cost_month}`; a further mention is `<name>__<suffix>` (`cost_month__recap`). Never one name twice. The beat passes when it holds the `say` (whole words; case, punctuation, hyphens ignored) or a figure equal to the value after rounding, alone in the beat (`{$40|cost}`) or in place of the say's number beside its words (`about 40`, `40 dollars`). No `say`: any figure that rounds to the value. A figure among other words (`{40 minutes|cost}`) is not a mention: close the beat around the number.
-- **Gate 1**: `node <skill-dir>/scripts/numbers_lint.mjs` in the project. Exit 1 names `file:line`: a model beat without its number, a beat name used twice, a `[calc: name]` missing from `numbers.json`, `numbers.json` older than `model.mjs`. Exit 2: a file it could not read, or a worded number with no `say` (rerun or add `say`); never "missing". Hand arithmetic `[calc: a × b = c]` is listed, not checked: name it in the model.
+- **Gate 1**: `state.mjs approve 1` runs `numbers_lint.mjs` (alone while iterating: `node <skill-dir>/scripts/numbers_lint.mjs`). Exit 1 names `file:line`: a model beat without its number, a beat name used twice, a `[calc: name]` missing from `numbers.json`, `numbers.json` older than `model.mjs`. Exit 2: a file it could not read, or a worded number with no `say` (rerun or add `say`); never "missing". Hand arithmetic `[calc: a × b = c]` is listed, not checked: name it in the model.
 - **Build (Step 6)**: cards, counters, gauges, tables and world states read `numbers` and `state(t)`; no number is typed into the composition.
 
 ```js
@@ -122,7 +122,7 @@ Engine VoiceStudio (free) unless `BRIEF.md` says `elevenlabs` (bills) or `kokoro
 - Audition 2–3 voices of the narration language with `--sample` (own file names; it prints the pace). More than 10 % off the target → adjust the script; less → `--speed` or `--tempo`.
 - Act on every warning before the storyboard: a flagged sentence gets `--retake auto` (plus `--from-response audio/narration.response.json` on an existing take); still flagged after its two tries → respell it in `narration.txt`, then `--retake changed`. A mispronounced word: the same respell and `--retake changed`. A `503` or drop ending in `WARN … rerun`: rerun later (it resumes), never restart VoiceStudio or switch engines. Log characters billed (0 unless ElevenLabs).
 
-No warning left → `node <skill-dir>/scripts/pad_voice.mjs` (again after any retake), then `state.mjs approve 2 --by agent`.
+No warning left → `state.mjs approve 2 --by agent`: it pads the take first (`pad_voice.mjs`, idempotent; a retake makes Gate 2 stale and the next approval pads it again).
 
 ### Voice sources and outputs (Step 4, look up when needed)
 
@@ -137,6 +137,6 @@ No warning left → `node <skill-dir>/scripts/pad_voice.mjs` (again after any re
 The same film in another narration language, re-timed from the same storyboard: every animation time is a named beat, so a narration with the same beat names in the same order re-times every scene with no scene code change. No new look, storyboard, style frames or look review. Made only when `BRIEF.md` has `second_language: <ISO code>`, after the first final; both are reported.
 
 - **Step 3b, translate for the ear** into `narration.<lang>.txt`: that language's spoken register (Step 3 "Write for the ear") at its starting pace, never literal. Keep every `{…|name}` beat, same name, same order, on the words that carry the same moment; keep the `# Section` lines; numbers as words. A number whose unit or format changes is re-tagged in `script.md` (a conversion is a `[calc]` in `model.mjs`); `numbers_lint.mjs` reads the first narration only.
-- **Lint before any voice:** `node <skill-dir>/scripts/beats_lint.mjs narration.txt narration.<lang>.txt`. Exit 1 names `file:line`: fix the second narration, never the first. Exit 2: unreadable file; rerun.
+- **Lint before any voice:** `approve 1` runs `beats_lint.mjs` on each `narration.<lang>.txt` it finds; one written after Gate 1: `node <skill-dir>/scripts/beats_lint.mjs narration.txt narration.<lang>.txt`. Exit 1 names `file:line`: fix the second narration, never the first. Exit 2: unreadable file; rerun.
 - **Step 4 again** into its own folder: `tts_timestamps.mjs --input narration.<lang>.txt --out audio/<lang> --language <lang> …`, with Step 4's audition, model and warning rules. `audio/` stays as it is (Gate 2 hashes `audio/beats.json`); `state.mjs` does not record this take. Then build: `look-build.md` "Second-language cut".
 - Log: `state.mjs log "3b | narration.<lang>.txt | …"`, `"4b | audio/<lang> | …"`.
