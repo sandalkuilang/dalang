@@ -8,9 +8,11 @@ that reads as:
 
 | Bump | When |
 |---|---|
-| **MAJOR** | a step, gate or project file is removed or renamed — an in-flight video would break |
-| **MINOR** | a new step, option, look, engine or script flag |
+| **MAJOR** | what the user sees breaks: a video project started on the previous version cannot be continued, or the way to ask for a video changes |
+| **MINOR** | anything new, and internal removals (an engine module, a script flag, an example, a reference section) |
 | **PATCH** | a fix, a clarification, a tightened rule |
+
+Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 <details>
 <summary><b>How a release is cut</b></summary>
@@ -38,6 +40,8 @@ that reads as:
 
 ### Changed
 
+- Version rule: MAJOR only when a project from the previous version cannot continue or the way to ask for a video
+  changes; internal removals are MINOR; at most one release a week.
 - Fast path: `state.mjs approve <n>` runs its gate's checks itself (Gate 1 the lints, Gate 2 the padding), refuses with
   every problem, and on success prints the next step's reading, so the agent spends no turn on `next` (Express Steps 3–4
   and 5–6 read as one); a clean Express take runs `after-voice` by itself. Measured on a fixture: Express 15 → 6 calls,

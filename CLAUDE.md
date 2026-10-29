@@ -66,7 +66,8 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - `main` is protected: every change, a release included, goes in from a branch through a PR (rebase merge, linear
   history), with its gate green. No direct push, no force push, for admins too.
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
-- Releases: `scripts/release.sh x.y.z`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
+- Releases: at most one a week (sooner only for an urgent fix), bumped by the table at the top of `CHANGELOG.md` (MAJOR
+  only when a project from the previous version cannot continue or the way to ask changes). `scripts/release.sh x.y.z`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
   moves `Unreleased` into `## [x.y.z] - date`, pins the README's clone example, merges that PR at once and tags the
   merged commit; the `release` workflow publishes the section and its own checks refuse a broken tag. No local gate
   and no CI wait for a release (CI still runs on `main`).
