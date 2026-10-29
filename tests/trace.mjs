@@ -18,7 +18,7 @@ try {
   // a red body with a black wheel (a white hole in it: the wall seen through) on a white wall
   const photo = path.join(tmp, "thing.png");
   ff(photo, "color=c=white:s=400x300,drawbox=x=60:y=60:w=220:h=110:c=0xC0303A:t=fill,drawbox=x=220:y=150:w=110:h=110:c=0x202020:t=fill,drawbox=x=267:y=197:w=16:h=16:c=white:t=fill");
-  const out = path.join(tmp, "plate"), r = run(photo, "--out", out, "--width", "400", "--colors", "3", "--part", "wheel=0.69,0.68,0.16,0.21,0");
+  const out = path.join(tmp, "plate"), r = run(photo, "--out", out, "--width", "400", "--materials", "3", "--part", "wheel=0.69,0.68,0.16,0.21,0");
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const t = JSON.parse(fs.readFileSync(path.join(out, "trace.json"), "utf8"));
   assert.deepEqual(t.layers, ["body", "wheel"]);
