@@ -43,12 +43,12 @@ fs.writeFileSync(path.join(sp, "storyboard.md"), ["| # | Time | Beat | Job · em
 r = run("scaffold", sp);
 assert.equal(r.code, 1); assert.match(r.out, /needs exactly one `SCAFFOLD:/, "no SCAFFOLD line: named, nothing written");
 assert.ok(!fs.existsSync(path.join(sp, "src")));
-fs.appendFileSync(path.join(sp, "SPEC.md"), "SCAFFOLD: `--look isometric-world --groups a:hook,b:middle --illustration \"A DRAWING\" --music none`\n");
+fs.appendFileSync(path.join(sp, "SPEC.md"), "SCAFFOLD: `--look isometric-world --groups a:hook,b:middle --music none`\n");
 r = run("scaffold", sp);
 assert.equal(r.code, 0, r.out);
 assert.match(r.out, /OK     storyboard_lint/); assert.match(r.out, /OK     scaffold/);
 assert.match(r.out, /next: one dalang-builder per group \(a hook→middle, b middle→END\)/, "the builders' prompt line is printed for the main agent");
-assert.match(fs.readFileSync(path.join(sp, "src/compositions/b.tpl.html"), "utf8"), /illustration: "A DRAWING"/, "a quoted label stays one argument");
+assert.doesNotMatch(fs.readFileSync(path.join(sp, "src/compositions/b.tpl.html"), "utf8"), /illustration/, "no illustration label in a group");
 fs.writeFileSync(path.join(sp, "storyboard.md"), "| # | Time | Size | Camera | Subject action |\n|---|---|---|---|---|\n| 1 | 0–6 | wide |  |  |\n");
 r = run("scaffold", sp);
 assert.equal(r.code, 1); assert.match(r.out, /FAILED storyboard_lint/, "a storyboard that fails its lint is never scaffolded");

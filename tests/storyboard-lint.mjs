@@ -3,7 +3,7 @@
 // table of storyboard.md (the one with a "Subject action" column) and flags, each at its row: an empty Subject
 // action or Camera cell; 3+ consecutive rows with the same size and angle; the share of rows whose focal point is
 // text only, over the energy's limit; an average shot over the energy's limit (limits: visual-direction.md §3); a hard cut
-// that keeps the view (the angle cell) or turns it under 60°.
+// that keeps the view (the angle cell) or turns it under 60°; a camera cell that closes in with no orbit.
 // Other tables are ignored. A storyboard it cannot read or parse is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -31,7 +31,7 @@ const build = (rows, { nocam = false, step = 2.5 } = {}) => {
   const at = {};
   rows.forEach((r, i) => {
     const k = i + 1;
-    const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow push-in, the valve fills the frame", act: "water flows out of the valve (3D, physics)", ...r };
+    const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow orbit right, the valve fills the frame", act: "water flows out of the valve (3D, physics)", ...r };
     at[k] = lines.length + 1;
     const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, d.out ?? "dissolve", "-", "-"];
     lines.push(`| ${cells.join(" | ")} |`);
@@ -134,6 +134,17 @@ const check = (rows, args = [], opts, brief) => {
   // the last row's transition goes nowhere
   r = check(clean(2, { 2: { size: "wide · iso", ...cut } }));
   assert.equal(r.code, 0, r.out);
+}
+// 9. closer = orbit-in: a camera cell that closes in names the orbit; a small accent push, a pull-back and the named crash/dolly zoom pass
+{
+  let r = check(clean(3, { 2: { cam: "push-in 1.00→1.60 on the dial" } }));
+  assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), [r.at[2]], r.out); assert.match(msg(r.out, r.at[2]), /closes in with no orbit/);
+  r = check(clean(3, { 2: { cam: "dive into the unit" } }));
+  assert.equal(r.code, 1, r.out);
+  for (const cam of ["push-in + orbit right 1.00→1.60", "zoom to the dial, view turns 30°", "spiral in on the fins", "push 1.00→1.06 (accent)", "pull-back to the wide", "dolly zoom on the crack", "crash zoom on the hit", "pan along the pipe"]) {
+    r = check(clean(3, { 2: { cam } }));
+    assert.equal(r.code, 0, `${cam}: ${r.out}`);
+  }
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("storyboard-lint: ok");

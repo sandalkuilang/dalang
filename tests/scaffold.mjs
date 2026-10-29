@@ -17,7 +17,7 @@ const read = (d, f) => fs.readFileSync(path.join(d, f), "utf8");
 
 try {
   const d = proj("iso");
-  let r = run(d, "--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close", "--illustration", "DRAWING");
+  let r = run(d, "--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close");
   assert.equal(r.code, 0, r.out);
   const host = read(d, "src/index.tpl.html");
   assert.match(host, /id="intro" [^>]*data-start="0" data-duration="\{\{middle\}\}"/, "the first group opens at 0");
@@ -29,7 +29,7 @@ try {
   for (const g of ["intro", "body", "end"]) assert.doesNotMatch(read(d, `src/compositions/${g}.tpl.html`), /__[A-Z]+__/, `${g}: every placeholder filled`);
   assert.match(read(d, "src/compositions/intro.tpl.html"), /const G0 = 0, G1 = b\("middle"\)/);
   assert.match(read(d, "src/compositions/end.tpl.html"), /G1 = window\.NARRATION_DURATION/);
-  assert.match(read(d, "src/compositions/end.tpl.html"), /illustration: "DRAWING"/);
+  assert.doesNotMatch(read(d, "src/compositions/end.tpl.html"), /illustration|__ILLUSTRATION__/, "no illustration label in a group");
   for (const f of ["iso.js", "build.js", "parallax.js", "cinema.js", "editorial.js"]) assert.ok(fs.existsSync(path.join(d, "assets", f)), `assets/${f} copied`);
   // one shared world, imported by every group (never one copy per group), and each builder's whole brief
   assert.match(read(d, "assets/world.js"), /export const WORLD/, "the isometric look's one world is written");

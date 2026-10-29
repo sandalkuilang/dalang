@@ -55,9 +55,9 @@ README or another film's folder.
 **Camera, isometric:** the drawing keeps its projection; every move is 2.5D, depth layers moved against each other
 (`cinema.js`: `camAt` keys eased, zoom in log; `orbit25`, `crane25`, `dollyZoom25`, `drone25`, `focusRing`, `ramp`,
 `whip`). Life is one slow `orbit25` in **one direction for the film** (`filmOrbit`), never handheld or back-and-forth;
-otherwise a subject turns itself (on a visible turntable, in a hand). Every zoom that lands **arrives and orbits**: no
-stop, sweep 0.08–0.14, toward the open side or what the narration names next, edges blurred while it travels (at most
-one a beat, three a film, never under text being read). One move per beat; one `dollyZoom25` (the Crack) and one
+otherwise a subject turns itself (on a visible turntable, in a hand). Every move that closes in (1.2× or more, or a size one step tighter) is an **orbit-in**: the view turns while the frame tightens, then the
+same orbit carries on from the landing with no stop, sweep 0.08–0.14, toward the open side or what the narration names next, edges blurred while it travels (at most
+one a beat, never under text being read); the Camera cell names it ("push + orbit"), else the lint fails the row. One move per beat; one `dollyZoom25` (the Crack) and one
 `drone25` at most. Zoom levels 2–3, the closest kept for the climax; aperture follows size (a wide f5.6, a close
 f1.2–2.8 with `focusRing` on the named part, racked on its first word). **One wow shot** on the impact. **No same-view cut:** a new size at the same view is one continuous push, never a cut; a new
 view (60° or more: front, a side, the back) arrives by an `orbit25` sweep or a `whip` to that side (`film_gate` fails a jump
@@ -115,7 +115,7 @@ Then `node <skill-dir>/scripts/storyboard_lint.mjs .` until it is clean.
 ## Groups and scaffold
 
 Groups as in `express.md` "Parallel build": neighbouring beats with about equal runtime. Write them as one line in
-`SPEC.md`: `SCAFFOLD: --look <look> --groups <name>:<first beat>,… --illustration "<label>" --music <calm|bright|tense>`.
+`SPEC.md`: `SCAFFOLD: --look <look> --groups <name>:<first beat>,… --music <calm|bright|tense>`.
 Then run `node <skill-dir>/scripts/express.mjs scaffold .` (storyboard lint, then `scaffold.mjs` with that line) until it
 prints `Result: OK`, and end your report with its `next:` line: the main agent starts the builders from it.
 
