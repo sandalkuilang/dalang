@@ -149,7 +149,7 @@ export function zFight(root, { cameras, bits = 24, mpu = M, reach = 0.05, maxFac
   const shown = (o) => { for (let p = o; p; p = p.parent) if (!p.visible || p.userData.cutaway) return false; return true; };
   root.traverse((o) => {
     if (!o.isMesh || !shown(o)) return;
-    if (o.isInstancedMesh || o.isSkinnedMesh || o.userData.fur) { skipped.push({ name: label(o), why: "not probed" }); return; }
+    if (o.isInstancedMesh || o.isSkinnedMesh) { skipped.push({ name: label(o), why: "not probed" }); return; }
     const f = faces(o, mpu);
     if (f.length > maxFaces) { skipped.push({ name: label(o), why: "too many faces (" + f.length + ")" }); return; }
     const mats = [].concat(o.material);

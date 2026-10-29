@@ -5,7 +5,7 @@ export const deg = Math.PI / 180;
 export const tone = (k, s) => { const x = Math.sin(k * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); }; // seeded
 // The set's real scale, set by makeKit({ mpu }): metres per scene unit, measured from things of known size (a desk
 // top 0.75 m, a door 2.03 m; kit models are rarely 1 unit = 1 m). G is gravity in scene units/s². Every module reads
-// these live: physics in real units, new props modelled in metres and scaled by 1/M.
+// these live: motion in real units, new props modelled in metres and scaled by 1/M.
 export let M = 1, G = 9.81;
 
 // A model's materials are dressed by name: `palette` maps a name to a colour ("*" for any name it lacks; without
@@ -70,13 +70,13 @@ export function makeKit(scene, { mpu = 1, floor = 0, wear = 0, palette = {}, kin
     const rc = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), misses = [];
     const box = (o) => new THREE.Box3().setFromObject(o.userData.foot || o, true); // from the vertices
     const rootOf = (x) => { while (x.parent && x.parent !== scene) x = x.parent; return x; };
-    const solid = (h) => h.object.visible && !h.object.userData.fur && !h.object.material.transparent && !h.object.material.isShadowMaterial;
+    const solid = (h) => h.object.visible && !h.object.material.transparent && !h.object.material.isShadowMaterial;
     const bottoms = new Map(), minY = (r) => (bottoms.has(r) ? bottoms.get(r) : bottoms.set(r, new THREE.Box3().setFromObject(r, true).min.y).get(r));
     resting.filter((o) => !skip.includes(o)).map((o) => ({ o, y: box(o).min.y })).sort((a, b) => a.y - b.y).forEach(({ o }) => {
       scene.updateMatrixWorld(true);
       const b = box(o), own = new Set(), part = [];
       o.traverse((x) => own.add(x));
-      (o.userData.foot || o).traverse((x) => x.isMesh && !x.userData.fur && part.push(x)); // fur and whiskers are not what it rests on
+      (o.userData.foot || o).traverse((x) => x.isMesh && part.push(x));
       const below = (x) => minY(rootOf(x)) < b.min.y - 0.001 / M; // only what is lower can carry it (tolerances in metres / M)
       // Its lowest points, the lowest vertex in each cell of a 6 × 6 grid over its footprint (a leg, a corner, a seam:
       // wherever it can touch), each tested against the surface under it. It drops by the smallest gap, so it lands

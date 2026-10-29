@@ -7,9 +7,14 @@ flowchart LR
     U(["User"]) <--> CC["Claude Code"]
     CC --> SK["dalang skill<br/>SKILL.md"]
 
-    SK -. state.mjs next: one § at a time .-> REF["references/<br/>one file per step +<br/>visual-direction, camera-motion,<br/>looks, voice, lessons"]
+    SK -. state.mjs next: one § at a time .-> REF["references/<br/>one file per step +<br/>express, hero-asset, looks,<br/>visual-direction, camera-motion,<br/>voice, lessons"]
     SK --> SC["scripts/"]
-    SK --> EN["engine/three/<br/>three.js systems<br/>with a self-check"]
+    SK -- Express, default --> EI["engine/iso/<br/>Canvas 2D isometric:<br/>kits, templates, cinema"]
+    SK -- Studio, precision --> EN["engine/three/<br/>three.js iso look +<br/>object-studio, self-check"]
+    EN --- EB["engine/blender/<br/>hero modelled once<br/>from 2D pictures (local Blender)"]
+    EI --- EA["engine/anatomy/<br/>world audit"]
+    SK -. both lanes .-> EP["engine/epic/<br/>isometric-world · cutaway · blueprint"]
+    SK --> MU["engine/music/<br/>CC0 / public-domain beds"]
 
     subgraph SCR["scripts/"]
         PF["preflight.mjs"]
@@ -18,6 +23,7 @@ flowchart LR
         LD["loudness.mjs · audio_qc.mjs"]
         AL["align.py"]
         QC["qc.mjs · timing_lint.mjs · lint_scene.mjs<br/>state.mjs · check_assets.mjs"]
+        EX["express.mjs · film_gate.mjs · iso_audit.mjs<br/>trace.mjs · scaffold.mjs · pad_voice.mjs"]
         MR["measure_reference.sh · palette.mjs"]
     end
     SC --- SCR
@@ -34,6 +40,7 @@ flowchart LR
     MR --> FF
 
     SK --> PROJ[("video/slug/<br/>BRIEF, PRODUCTION,<br/>script, audio, SPEC,<br/>storyboard")]
+    EI -- scaffold.mjs copies into assets/ --> PROJ
     EN -- build.mjs copies into assets/ --> PROJ
 ```
 
@@ -65,12 +72,22 @@ flowchart LR
 | `scripts/layout_lint.mjs` | canvas text boxes per frame (caption, label, card, hero): outside the safe area, over the hero by more than 10 %, under the minimum size, caption over a label, each with its time; run by `strips.mjs` into `index.md`, and by the gate on fixtures | judge text placement by eye alone, read a missing record as "no faults" |
 | `scripts/find_media.mjs` | free licensed media search (Openverse, Commons, bundled SFX; `--type model`: Poly Haven, Smithsonian Open Access 3D, NASA 3D Resources, Kenney, with triangles, stated size and a contact sheet): previews, then `--take` copies one (a glTF with its textures) and writes its `ASSETS.json` row from the source's own licence | use NC / ND media, need a key, report a failed source as "nothing found" |
 | `scripts/state.mjs`, `check_assets.mjs` | gate approvals (stale on change; Gate 1 also hashes `model.mjs` and `numbers.json`; Gate 3 refuses without `review/benchmark.md` or with a row > 1 point behind), `next` prints each step's reading list from one table and `reading` checks it (headings, 8 KB per section, 60 KB for Steps 0–8), licence gate + `CREDITS.md`; reads the engine build's `.engine.json` so engine files are never hand-listed, checks joined licences (`A AND B`, `A + B`, `A, B` ...) part by part, a CC BY part anywhere gets its credit | approve on the user's behalf outside autonomous mode |
+| `scripts/scaffold.mjs` | the film's frame written by code: the engine into `assets/` (with `.engine.json` licences), the host, one template per group, the shared isometric world; `--music <mood>` copies a bed | write scene content |
+| `scripts/pad_voice.mjs` | room around the voice: `audio/voice.wav` with 1.45 s before and 1.35 s after, every timing file moved to match; the take untouched | edit the take |
+| `scripts/captions.mjs` | caption phrases from `narration.txt` and `words.json` into `audio/captions.js` | write captions by hand |
+| `scripts/series.mjs` | a series kit (look, HUD, captions, voice, rules) saved once and loaded by each video of the series; opt-in | carry anything into a video outside a series |
+| `scripts/voice_licences.mjs` | the voice licence table behind `check_assets.mjs --commercial`; a model not in it is unknown, never commercial-OK | guess a licence |
+| `scripts/score_run.mjs` | the scorecard of a finished or drafted project, run on each golden brief (`references/evals.md`) after a skill change | judge taste |
 | `scripts/golden.mjs` | release evals: renders the fixed golden scene (`examples/golden/`), records render time, stillness, macro detail and shadow texel per station into `evals/golden/<version>/`, diffs against the previous version and FLAGs a regression beyond tolerance | judge the frames |
-| `engine/three/` | generic 3D systems (real scale and settling, surfaces, machine parts and transmissions, air jets, granular fills, cutaways, the iso look every film uses (`isoCamera` and `isoFrame` in `camera.js`: true isometric, pan and zoom only; `isoLook`, `blueprintLook`, `inkLines` and `isoStudio` in `studio.js`: three tones per face or linework, no lights), the older perspective render rig (`studio.js`, kept for the engine's examples), captions, pinned labels and the engineering text band in `type.js`, quantities shown in the world (flow arrows and tile fills in `quantity.js`, range cards in `type.js`), dimension lines drawn on the frame over the parts (`quantity.js`), printed markings at real size and electronics parts placed by reference designator (`markings.js`, `electronics.js`), standard machine parts and an x-ray housing (`parts.js`), circuits and signals (current flow in the waveform's shape, heat glow, lamps, arcs and failure states in `circuit.js`, live instruments in `instruments.js`), fields (field lines seeded by flux, filings and compasses in `fields.js`) and optics (rays by Snell and Fresnel through lenses, mirrors and prisms with dispersion, the focus reported, shafts and caustics in `optics.js`), camera stations and attention by ghosting, and `shots.js`, the runner that plays a film's shot list: times from beats, no overshoot, labels on the frame), each with a self-check; ready pieces in `examples/` | know a scene, a topic or a list of objects |
-| `engine/blender/` | hero machine assets modelled once by Blender Python scripts and reused: `parts.py` (finned coils, axial fans, motors, a rotary compressor with its inside and a section, pipes, insulation, flare nuts, service and expansion valves, sheet casings, brackets, fasteners) and `assemblies/` (a condensing unit, with its cutaway still in the iso look); Blender is a tool on the machine, never shipped | primitives for a hero seen close; reference pixels projected or baked |
+| `engine/iso/` | Express's renderer, Canvas 2D with no three.js: `iso.js` (vendored, MIT; every solid inked at its silhouette and creases, boxes bevelled), `build.js` (a world as data: forms, arrays, cutaway skins, focus, meshing gears by tooth ratio, contact shadows, each named part's pin point), `kit.js` (parts) and `templates.js` (whole objects), `figure.js` (a person), `plate.js` (the user's traced photo), `parallax.js` (depth layers), `cinema.js` (keyed camera, one-way orbit, motion blur, the frame finish), group and world templates in `templates/` | know a topic, draw with three.js, move anything without a cue |
+| `engine/anatomy/` | the geometry audit `iso_audit.mjs` runs on an Express world (Anatomy, vendored unchanged, MIT; `world.mjs` reads `build()` specs as true shapes) | draw anything |
+| `engine/epic/` | the three design languages both lanes use (`languages/`: `isometric-world`, `cutaway`, `blueprint`) and their composition and chart rules (vendored, MIT) | render or animate (HyperFrames renders; motion is the GSAP timeline or the three.js set's function of t) |
+| `engine/music/` | three free music beds (CC0 / public domain, `CREDITS.md`), copied into a film by `scaffold.mjs --music` | carry a licence that needs a credit or forbids monetising |
+| `engine/three/` | Studio's generic 3D systems (real scale and settling, surfaces, machine parts and transmissions, air jets, granular fills, cutaways, Studio's isometric look (`isoCamera` and `isoFrame` in `camera.js`: true isometric, pan and zoom only; `isoLook`, `blueprintLook`, `inkLines` and `isoStudio` in `studio.js`: three tones per face or linework, no lights), the perspective render rig (`studio.js`) behind the `object-studio` look (`objectStudio.js`: the real object on a light grey sweep, x-ray, editorial cards; `editorial.js` is the overlay layer both lanes use), captions, pinned labels and the engineering text band in `type.js`, quantities shown in the world (flow arrows and tile fills in `quantity.js`, range cards in `type.js`), dimension lines drawn on the frame over the parts (`quantity.js`), printed markings at real size and electronics parts placed by reference designator (`markings.js`, `electronics.js`), standard machine parts and an x-ray housing (`parts.js`), circuits and signals (current flow in the waveform's shape, heat glow, lamps, arcs and failure states in `circuit.js`, live instruments in `instruments.js`), fields (field lines seeded by flux, filings and compasses in `fields.js`) and optics (rays by Snell and Fresnel through lenses, mirrors and prisms with dispersion, the focus reported, shafts and caustics in `optics.js`), camera stations and attention by ghosting, and `shots.js`, the runner that plays a film's shot list: times from beats, no overshoot, labels on the frame), each with a self-check; ready pieces in `examples/` | know a scene, a topic or a list of objects |
+| `engine/blender/` | Studio's precision lane: a hero asset read from the user's 2D pictures into a parts sheet and modelled once by a Blender Python script (`references/hero-asset.md`), then reused: `parts.py` (finned coils, axial fans, motors, a rotary compressor with its inside and a section, pipes, insulation, flare nuts, service and expansion valves, sheet casings, brackets, fasteners) and `assemblies/` (a condensing unit, with its cutaway still in the iso look); Blender is a tool on the machine, never shipped | primitives for a hero seen close; reference pixels projected or baked |
 | fresh-eyes reviewer (`references/review.md`) | a defect list from a subagent with no build history, on the strongest model, sheets and crops first and full-res only for a doubt; a sound-off quiz answered from the strips alone | fix anything |
 | benchmark reviewer (`references/review.md` "Benchmark review") | Gate 3: a fresh subagent scores the style frames against the reference board (or the golden sheet) on seven rows, text only; a row > 1 point behind is a fix before the build | build anything, open the images in the main context |
-| builder subagents (`references/look-build.md` "Parallel build", `review.md` §3) | all of the film's scene code (the Step 5 style frames stay with the main agent): the pilot (a film under 3 groups whole), each shot group, the assembly, each QC fix round; a report of at most 15 lines | approve a gate, review their own work |
+| builder subagents (`references/look-build.md` "Parallel build", `review.md` §3) | all of the film's scene code (the Step 5 style frames stay with the main agent): the pilot (a film under 3 groups whole; Express: no pilot, every group at once), each shot group, the assembly, each QC fix round; a report of at most 15 lines | approve a gate, review their own work |
 | HyperFrames skills | scene building, preview, render | pick the script or voice |
 | Project files | all state (one video = one session) | live in the skill repo |
 
@@ -80,7 +97,8 @@ flowchart LR
 - **Lean `SKILL.md`, details in `references/`.** Each step names the one § it needs.
 - **Measure, don't guess.** Duration, cost, stillness and loudness come from script output, never from memory.
 - **Secrets stay in the shell.** The ElevenLabs key is read from `ELEVENLABS_API_KEY`, never printed or written to a project file.
-- **The 3D engine grows by behaviours, not objects.** Any model is a body from its own mesh and its looked-up mass and friction; a new law (a liquid, an orbit, an ion in a field) is built generic, self-checked, proved in a render, then added.
+- **Two lanes.** Express (the default) is one Canvas 2D builder pass in 20 minutes of work; Studio is the precision lane: the same three languages in three.js and a hero modelled once from 2D pictures. The look (`isometric-world` or `object-studio`) is chosen apart from the lane.
+- **The engines grow by behaviours, not objects.** Any motion is a pure function of t from its cause (a ratio, a law, a cue): no physics engine, no bake. A new law (a liquid level, an orbit, an ion in a field) is built generic, self-checked, proved in a render, then added; a hero seen close is modelled once in `engine/blender`, never rebuilt from boxes.
 - **Engines are swappable.** Both voice engines produce the same outputs, so later steps don't care which one ran.
 
 See [`references/lessons.md`](../references/lessons.md) for the real failures that shaped each rule.

@@ -88,7 +88,7 @@ await test("C2. every way of joining two licences is a part-by-part check; a pla
     assert.equal(r.code, 3, `${licence}: ${r.out}`);
     assert.match(r.out, /non-commercial/, licence);
   }
-  for (const licence of ["MIT OR Apache-2.0", "(MIT OR Apache-2.0)", "Apache-2.0, MIT", "MIT + Zlib", "MIT License", "CC0 1.0 Universal", "Pexels License", "Pixabay Content License", "Public Domain", "public-domain", "CC-BY-SA-4.0", "ISC", "user", "own", "bundled"]) {
+  for (const licence of ["MIT OR Apache-2.0", "(MIT OR Apache-2.0)", "Apache-2.0, MIT", "MIT + Zlib", "MIT License", "CC0 1.0 Universal", "Pixabay Content License", "Public Domain", "public-domain", "CC-BY-SA-4.0", "ISC", "user", "own", "bundled"]) {
     const r = await run(check, [project({ "assets/a.png": "x" }, [row(licence)]), "--commercial"]);
     assert.equal(r.code, 0, `${licence}: ${r.out}`);
   }
@@ -219,8 +219,8 @@ await test("E. a real build lists its own files: a fresh project passes with ASS
     assert.ok(vendor, "three-vendor.js row");
     assert.ok(vendor.components.some((c) => c.name === "three"), JSON.stringify(vendor.components));
     assert.match(vendor.licence, /Zlib/);
-    assert.ok(!rows.some((r) => r.file === "rapier.js"), "no physics bundle");
     assert.ok(rows.some((r) => r.file === "examples/flask.js" && r.licence === "MIT"), "example row");
+    for (const f of ["cinema.js", "parallax.js"]) assert.ok(rows.some((r) => r.file === f && r.licence === "MIT" && r.source.includes("engine/iso/" + f)) && fs.existsSync(path.join(dir, sub, f)), f + " ships for the Studio iso rig");
     assert.ok(rows.every((r) => !("author" in r)), "no author: the engine stays out of CREDITS.md");
     const r = await run(check, [dir]);
     assert.equal(r.code, 0, `${sub}: ${r.out}`);

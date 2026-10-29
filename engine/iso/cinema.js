@@ -2,7 +2,7 @@
 // slid: a camera that moves between keyed poses like an operated rig, a slow one-way orbit as its life (never a
 // handheld shake: a sum of sines reads as a wobble, worst on a close-up), speed ramps, whip pans with
 // motion blur, and the finish a cinematographer grades with (contrast, warmth, bloom, a light sweep, vignette, grain,
-// letterbox bars). Every function is a pure function of t (grain and shake are seeded), so a seek renders the same
+// letterbox bars). Every function is a pure function of t (grain is seeded), so a seek renders the same
 // frame. Use them on purpose: each technique does a story job (camera-motion.md §11–12), 4–6 per film.
 //
 //   const cam = camAt(tau, keys), o = orbit25(tau, { rest, from: 0, to: 1, dur });   // keyed poses, a one-way orbit

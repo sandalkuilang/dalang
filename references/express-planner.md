@@ -22,7 +22,7 @@ chosen energy's row), §7 and §12. Never an engine source, the engine README or
   on light grounds reads as unfinished: everything at the same lightness is a frame with no subject.
 - **Fonts only from the language's `## Typography`** (the template already loads them); any other face has no
   `@font-face` and fails `hyperframes lint`. Its px scale is for print: on a phone the sizes in OVERLAYS below win.
-- **CAMERA:** 4–6 techniques, each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
+- **CAMERA:** the Express count of techniques (`camera-motion.md` intro), each with its story job; the film's orbit direction (`ORBIT = filmOrbit(1)` right or
   `-1` left, the same in every group); each group's OPEN and CLOSE pose `{ x, y, z, k }`, a group's OPEN the previous
   group's CLOSE.
 - **MOTION:** what moves, its cause and its timing rule; the claim's mechanism shown as the thing itself (what flows,
@@ -61,7 +61,7 @@ on top of that table's Check:
 - **Shots 2–3 s on average** (`storyboard_lint.mjs` reads the Time column); sizes vary: never 3 rows in a row at the
   same size, a close-up or insert at every mechanism, wide only to establish a place or for the payoff.
 - **The subject fills a third of the frame height or more** on every row but a wide; a wide still shows it at once.
-- **Every section opens readable:** its first shot shows the whole place (the diorama with its edges, the subject
+- **Every section opens readable:** its first shot shows the whole place (the world on its slab with its edges, the subject
   at once), then the close shots; a close shot frames one focal part with clear ground around it, never a crop of
   pipes and boxes with no focal point.
 - **Focus greys the context, never the whole frame:** the subject stays in full colour in every row.
@@ -72,7 +72,7 @@ Then `node <skill-dir>/scripts/storyboard_lint.mjs .` until it is clean.
 
 ## Groups
 
-From 45 s, 2 groups (3 above 75 s) of neighbouring beats with about equal runtime. End your report with the line the
+Groups as in `express.md` "Parallel build": neighbouring beats with about equal runtime. End your report with the line the
 main agent runs: `node <skill-dir>/scripts/scaffold.mjs . --look <look> --groups <name>:<first beat>,… --illustration
 "<label>" --music <calm|bright|tense>`.
 

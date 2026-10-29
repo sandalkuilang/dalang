@@ -49,9 +49,9 @@ const listed = new Set(rows.filter(a => a.file).map(a => path.normalize(a.file))
 
 // Allowed for any use (OFL: the SIL Open Font License, which lets a font be embedded in any work); NC/research licences only for non-commercial films; ND never (\b so "Licence" isn't "NC").
 // A licence is one id, optionally followed by an SPDX version ("CC0-1.0", "MIT-0") and a version or a plain word
-// ("CC0 1.0 Universal", "CC-BY-4.0 International", "MIT License", "Pexels License"); anything else after it ("MIT
+// ("CC0 1.0 Universal", "CC-BY-4.0 International", "MIT License", "Pixabay Content License"); anything else after it ("MIT
 // GPL-3.0") is a second licence and fails. Matched whole, never by its start.
-const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pexels|Pixabay|Apache-2\.0|MIT|OFL|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)(-[\d.]+)?(\s+(v?\d[\d.]*|universal|international|unported|license|licence|content|mark|dedication|only))*$/i;
+const OK = /^(CC0|PD|public[- ]domain|CC-BY(-SA)?(-[\d.]+)?|Pixabay|Apache-2\.0|MIT|OFL|Zlib|ISC|BSD-[23]-Clause|own|user|bundled)(-[\d.]+)?(\s+(v?\d[\d.]*|universal|international|unported|license|licence|content|mark|dedication|only))*$/i;
 // A credit note ("attribution", "credit required") states a duty, not a licence: the voice table's own string for an
 // ElevenLabs free-tier narration is "...: non-commercial, attribution". Alone it is no licence (the whole text fails).
 const NOTE = /^(with\s+)?(attribution|credit)(\s+(required|needed))?$/i;

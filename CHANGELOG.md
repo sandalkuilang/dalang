@@ -71,32 +71,61 @@ that reads as:
   first, the still checked against the pictures, then the motion recipe (graded matcap and ink, x-ray shell, a
   sweeping clip-plane section, a blur disc for a fast rotor, a fluid coded along its whole loop, labelled pins kept in
   frame; the composer's autoClear trap; snapshots before any render). `condensing_unit.clip.html` is its 7 s example.
+- Preflight's `Blender` row (`--check-blender`): the version when installed; not there is MISSING with the consent note
+  Brief Call 0 asks (optional, Studio's hero asset only, about 1 GB, GPL); a timeout, crash or odd reply is WARN
+  "rerun". The gate's syntax step also checks `engine/iso`, `engine/anatomy` and `scripts/*.py`.
 
 ### Changed
 
 - The hero subject is modelled from pictures into `engine/blender/` instead of taken as a CC0 model; CC0 models stay
   the first route for supporting objects. The Brief asks for any 2D pictures of the subject, not only photos of the
   user's own machine.
-
 - The Express look draws like an illustration, not a block game: every solid is one mesh whose silhouette and creases
   are inked and whose lit top edges carry a light rim; a box's top edges are chamfered (`bevel`, 8 % of its least side
   by default); spheres get an outline; each object stands on a soft contact shadow (`shadow: false` turns it off).
   `iso.ink = null` gives the old flat look.
-
 - Express builders and fixers run `film_gate.mjs . --group <group>` before they report: their seams, the world in motion and
   reading time are caught in the build, not first at `assemble`, and a fix that clears one float but raises another is
   seen by its fixer. A seam FAILED goes to the later group's fixer.
 - The builder brief asks for the first CAMERA key as `{ t: 0, ...OPEN }` and the last as `...CLOSE`, nothing overridden
   and no zoom unit of its own, and for every edit of one round of checks in one message.
 - A film_gate jump names both poses (where the earlier group ends, where the later one opens).
+- One home per rule: the slow one-way orbit (`camera-motion.md` §2), the technique count per mode (its intro: Studio
+  6–10, Express 4–6), contact squash ≤ 4 % (§5.2), parallax depths (`express.md` Step 6), builder budgets (Express in
+  `express.md`, Studio in `look-build.md`); the other files point to them. In a Studio isometric film the subject turns
+  under a fixed view; lens, angle and light apply to `object-studio` only.
+- Every gate is the agent's in the references too (`state.mjs approve <n> --by agent`); no step waits for the user.
+  `SKILL.md`, `CLAUDE.md` and the docs describe Express as Canvas 2D (`engine/iso`, the fast lane) and Studio as the
+  precision lane (three.js with the hero modelled once in `engine/blender`); `docs/architecture.md` shows every engine.
+- `state.mjs reading` counts Steps 0–8 without the optional Step 2, printed on its own line (50.7 KB of 60 KB); lessons
+  whose fix is a failing script move to "Enforced by scripts", outside the per-step headlines.
+- One narration parser: `audio_qc.mjs` and `scaffold.mjs` use `tts_timestamps.mjs`'s `parseNarration` (speaker names in
+  a dialogue are not words). `pad_voice.mjs` pads by the fixed 1.45 s / 1.35 s only. The benchmark row "Overlays caused
+  by physics" is "Overlays caused by motion".
+- README: the two lanes, Blender and vtracer as optional tools asked first, samples re-rendered with the current Express
+  engine and alt texts that say only what each image shows. NOTICE credits the vendored MIT code and the bundled music.
+  `.gitignore` ignores Blender output.
+
+### Removed
+
+- Engine examples nothing pointed to (`torch`, `torch-shots`, `magnet`, `straw`, `supply`, `psu`, `canister`, `fan`; the
+  self-check keeps their coverage on inline fixtures), `engine/epic` `data-vocabulary.md` and
+  `illustration-and-texture.md`, the `toon` studio look, unused exports (`rng`, `ease3`, vendor `HDRLoader`,
+  `RectAreaLightUniformsLib`, `BloomEffect`) and `userData.fur` handling.
+- Leftovers of removed features: `craft-rules.md` §1 (line boil), the drifting-plate trick, old look letters and words,
+  six physics-engine lessons, `series.mjs`'s physics-bake check, `Pexels` as an allowed licence, the no-op
+  `--no-language` flag, `pad_voice.mjs` `--lead`/`--tail`, and `evals/golden/1.6.0` (scene revision 1, not comparable
+  with any later version).
 
 ### Fixed
 
 - Objects of one `WORLD` were painted object by object, so a wide floor or wall could cover small objects beside it.
   `build()` now takes the whole `WORLD` and orders all its parts together; the group template calls it that way.
-
 - `express.mjs assemble` could drop a seam FAILED under a long list of findings (it kept the last 12 lines, and the
   seams print first). film_gate now prints its FAILED lines last and assemble keeps 24.
+- A Studio project now gets `cinema.js` and `parallax.js` (`build.mjs` ships them; `isoStudio`'s finish needs them).
+  `series.mjs` also refuses Express scene modules as scene code. Dead pointers in the references, `iso-API.md` without
+  `loadPlates`, engine READMEs (install path, render step, `palette.js`), the gate header and CI comment.
 
 ## [3.10.0] - 2026-10-29
 

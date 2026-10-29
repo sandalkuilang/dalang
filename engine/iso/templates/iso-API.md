@@ -56,7 +56,8 @@ part three readable faces at any base: `color: triad(COLORS.subject)`.
   amount: "<value>" } }, flows: [{ path: [[fx, fy], …], color, width, at: "<value>" (travel), on }], marks: { <name>:
   [fx, fy] } }` draws `assets/plates/<name>/` (traced from their photo by `trace.mjs`) upright at its point, lowest edge
   on the ground. Paths and marks are fractions of the photo, read off it; pins `<part>.<layer>` and `<part>.<mark>`. The
-  template loads it before the timeline.
+  template loads it before the timeline: `const plates = await loadPlates(WORLD)` (base `./assets/plates`), then
+  `build(iso, WORLD, { values, plates })`.
 - Any number may name a key of `values` (`h: "level"`): `values(t)` returns them, pure in t. `focus` greys all but that
   group; `cut` 0–1 slides every `skin` off (cutaway).
 - A ready CC0 model: `const m = await loadModel(url)` (`model.js`, before the timeline), `build(iso, spec, { models: { name: m } })`

@@ -156,11 +156,9 @@ export function backdrop(at, { w = 1, h = w, opacity = 0.22, color = 0x4a4a48, f
   m.position.copy(V(at)); m.rotation.y = face; m.name = "backdrop"; m.userData.cut = false; m.userData.attend = false;
   return m;
 }
-// seeded random (mulberry32) and the easings the overlays and poses share
-export function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// the easings the overlays and poses share
 export const clamp = (x, a = 0, z = 1) => Math.min(z, Math.max(a, x));
 export const smooth = (u) => { u = clamp(u); return u * u * (3 - 2 * u); };
-export const ease3 = (u) => 1 - (1 - clamp(u)) ** 3;
 
 // ---------- the sweep: floor curving up into a back wall (a cyclorama), metres ----------
 export function makeSweep({ width = 80, front = 16, R = 5, wall = 14, x = 0, z = -6, floor = SWEEP.floor, top = SWEEP.top } = {}) {

@@ -8,7 +8,7 @@ import { M } from "./kit.js";
 // frame(t, outlet, axis) sets where the outlet is and where it points at time t (units; axis of length 1), so an
 // oscillating head or a moving nozzle is a frame function; D: the outlet's diameter (m); u0: core speed (m/s).
 // wind(p, t, out) is the air velocity at p (units/s): use it to move what the air carries. block(objects) gives
-// the obstacles, once every prop is placed. A fan model built on it: examples/fan.js.
+// the obstacles, once every prop is placed.
 export function jet({ frame, D: dm = 0.4, u0 = 2.5 }) {
   const outlet = new THREE.Vector3(), axis = new THREE.Vector3(), d = new THREE.Vector3(), gust = (p, t) => 1 + 0.25 * (0.5 * Math.sin(t * 8.2 + p.y * 9) + 0.3 * Math.sin(t * 18.4 + p.x * 13) + 0.2 * Math.sin(t * 29.3 + p.z * 17));
   const D = dm / M, U = u0 / M, ray = new THREE.Ray(), hit = new THREE.Vector3();

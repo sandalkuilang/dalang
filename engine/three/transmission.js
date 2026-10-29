@@ -7,7 +7,7 @@ import { THREE } from "./three-vendor.js";
 //   - loopPath() / openLength() / centreFor() / linkPoses(): the closed path of a belt or chain around its wheels, the centre
 //     distance for a whole number of links, and the links placed along it.
 //   - angleOf() / phaseOf(): where the links are, read from the driver wheel's replayed pose alone.
-// All lengths are metres (scale a mesh by 1/M, as examples/fan.js does). 2D is the plane normal to the axle: x, y right-handed
+// All lengths are metres (scale a mesh by 1/M). 2D is the plane normal to the axle: x, y right-handed
 // with the axle along +z. Gears are not covered: bevel, worm, helical, rack.
 
 const TAU = 2 * Math.PI, DEG = Math.PI / 180;

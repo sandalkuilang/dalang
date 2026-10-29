@@ -8,6 +8,8 @@
 // unreadable settings WARN.
 // `--check-kokoro` checks the Kokoro row against a fake Python: present, package or weights missing, no Python, and
 // a crash, odd reply or hang (those are "could not check", never MISSING, and never suggest an install).
+// `--check-blender` checks the Blender row against a fake binary: a version is OK, a binary that does not exist is
+// MISSING with the consent note, and a crash, odd reply or hang is "could not check", never MISSING, no install offer.
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -257,6 +259,33 @@ for (const [name, setup, status, note, not] of skillCases) {
     if (f.head) assert.equal(git(dir, "rev-parse", "HEAD"), f.head, "the check never pulls");
   } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
 }
+// The Blender row (--check-blender): BLENDER names a fake binary that answers `--version` per DALANG_TEST_BLENDER.
+const fakeBlender = path.join(tmp, "fake-blender");
+fs.writeFileSync(fakeBlender, `#!/bin/sh
+case "$DALANG_TEST_BLENDER" in
+  ok) printf 'Blender 4.2.3 LTS\\n\\tbuild date: 2024-10-21\\n' ;;
+  crash) echo "Segmentation fault" >&2; exit 139 ;;
+  garbage) echo "hello" ;;
+  hang) sleep 30 ;;
+esac
+`, { mode: 0o755 });
+const blenderCases = [
+  ["blender installed", fakeBlender, "ok", "OK", /Blender 4\.2\.3/],
+  ["blender not installed", path.join(tmp, "no-such-blender"), "ok", "MISSING", /Brief Call 0.*about 1 GB.*GPL.*consent/],
+  ["blender crashes", fakeBlender, "crash", "WARN", /could not check.*rerun/],
+  ["blender odd reply", fakeBlender, "garbage", "WARN", /could not check.*rerun/],
+  ["blender hangs", fakeBlender, "hang", "WARN", /could not check.*timeout.*rerun/],
+];
+for (const [name, bin, mode, status, note] of blenderCases) {
+  const { out } = await run(["--check-blender"], seal, { BLENDER: bin, DALANG_TEST_BLENDER: mode, DALANG_PREFLIGHT_BLENDER_MS: "1500" });
+  try {
+    const got = parse(out), row = got.rows["Blender"];
+    assert.equal(row?.status, status, "status");
+    assert.match(row.note, note, "note");
+    if (status === "WARN") assert.doesNotMatch(row.note, /GB|blender\.org|consent/, "an unread state offers no install");
+    assert.deepEqual(Object.keys(got.rows), ["Blender"], "only the Blender row");
+  } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
+}
 // The Workspace row: a videos folder that loads plugins or MCP servers a video never uses is INFO (asked in Brief Call 0),
 // a lean one is OK, and settings preflight cannot read are a WARN to rerun, never "nothing enabled". HOME is a fixture.
 {
@@ -282,4 +311,4 @@ for (const [name, setup, status, note, not] of skillCases) {
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + skillCases.length + 3} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + blenderCases.length + skillCases.length + 3} cases`);

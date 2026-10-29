@@ -11,9 +11,11 @@ changing the skill: humans, Claude sessions and backlog agents alike. Making a v
 - `scripts/`: the pipeline's tools (`preflight.mjs`, `tts_timestamps.mjs`, `state.mjs`, QC scripts).
   `scripts/gate.sh` is the gate.
 - `engine/three/`: the generic three.js engine copied into each video project (`build.mjs`), with
-  `selfcheck.mjs`. `examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
+  `selfcheck.mjs`. `engine/three/examples/` holds ready pieces built on it. `engine/iso/`: Express's isometric look (Canvas 2D, objects
   as data, parallax, cinema). `engine/anatomy/`: Anatomy's geometry audit (MIT, vendored unchanged) and `world.mjs`,
   which proves an Express world (`scripts/iso_audit.mjs`). `engine/epic/`: the design languages both modes use (isometric-world first, cutaway, blueprint).
+- `engine/blender/`: the precision lane's hero assets, modelled once by script (`parts.py` library,
+  `assemblies/<name>.py`, checked by `tests/blender-parts.mjs`). `engine/music/`: the bundled CC0 / public-domain beds.
 - `examples/golden/`: the fixed golden scene, built only from engine parts. `evals/golden/<version>/`: the
   committed release evals (frames, `sheet.jpg`, `metrics.json`, `diff.md`).
 - `tests/`: checks the gate runs (`preflight-mock.mjs`: preflight against a mock VoiceStudio).
@@ -42,10 +44,11 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - **Motion is light, physical and caused.** No local image or video generation models, no physics engine. Things
   that touch, fall or collide are posed from their cause as a pure function of t (fall time from the place's gravity,
   an eased landing with contact squash, stops, tooth ratios); nothing floats, drifts or loops without a visible
-  cause. Real scale, real materials, real mass. Studio is three.js 3D; Express (the default, `references/express.md`)
-  is 2.5D illustration in HTML/SVG with the same caused motion, true shapes, and a hard budget of 20 minutes of work
-  per film.
-- **Stylized only, two looks.** No hyperreal look, no filmed footage, no photoreal render, no generated still
+  cause. Real scale, real materials, real mass. Express (the default, `references/express.md`) is 2.5D isometric in
+  Canvas 2D (`engine/iso`; charts and type in SVG/HTML), 20 minutes of work per film. Studio is the precision lane:
+  three.js (`engine/three`) for the iso look, its hero modelled once from 2D pictures as a Blender script
+  (`engine/blender`, `references/hero-asset.md`). Both keep the same caused motion and true shapes.
+- **Stylized only, two looks.** No hyperreal look, no filmed footage, no photoreal render, no generated image
   or clip. Express and Studio share three languages (`references/looks.md`): `isometric-world` is the
   main language, flat drawing made to read as 3D (2.5D) through layers and colour, `cutaway` on the beats that open a thing
   up, `blueprint` on beats that need engineering-grade detail; always true to how the subject looks and works. The second look,

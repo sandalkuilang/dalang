@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// node selfcheck.mjs <project>/assets/engine — after build.mjs: each check fails loudly if a known trap is back.
+// node selfcheck.mjs <project>/assets — after build.mjs: each check fails loudly if a known trap is back.
 import assert from "node:assert/strict";
 import { resolve, join } from "node:path";
 import { realpathSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
@@ -15,7 +15,6 @@ const { jet } = await use("air.js");
 const { cutaway } = await use("cutaway.js");
 const { makeFlask } = await use("examples/flask.js");
 const { grains, presets } = await use("grains.js");
-const { makeCanister } = await use("examples/canister.js");
 const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, fovFromMm, dofFor, orbit, crane, dollyZoom, drone, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
@@ -25,18 +24,12 @@ const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { twinSets } = await use("examples/twin.js");
 const { wire, flow, glow, lamp, arc, failure, blackbody, DRAPER, LAMPS } = await use("circuit.js");
 const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
-const { supplyChain } = await use("examples/supply.js");
-const { openTorch, LOOK, lensFov } = await use("examples/torch.js");
 const { shots, cueTime } = await use("shots.js");
-const { TORCH_SHOTS, torchSet } = await use("examples/torch-shots.js");
 const parts = await use("parts.js");
 const { markings, glyphPx, legible, READ_PX, STYLES } = await use("markings.js");
 const { PARTS, board, bands, BAND_HEX, cable, CONDUCTOR, polarityClashes } = await use("electronics.js");
-const { openPsu } = await use("examples/psu.js");
 const FLD = await use("fields.js");
-const { makeMagnetDemo } = await use("examples/magnet.js");
 const O = await use("optics.js");
-const { makeStrawGlass } = await use("examples/straw.js");
 const OS = await use("objectStudio.js");
 const ED = await use("editorial.js");
 
@@ -239,6 +232,17 @@ assert.ok(grains(kit, { preset: "coffee", at: new THREE.Vector3(), width: 0.1, d
 const sugar = grains(kit, { preset: "sugar", at: new THREE.Vector3(), radius: 0.05, height: 0.05, instances: false });
 assert.ok(!sugar.mesh && sugar.body && sugar.counts.top === 0, "grains too small to see are the body's texture alone");
 assert.ok(finite(get("grains", { size: 0.005, long: 1.4 }).a.image.data), "grains map has NaN");
+// A fixture container: an open lathed wall (a thin shell) and a base in metres, a grains() fill nested in it, and one
+// cutaway() driving wall and fill (the pattern grains.js documents for nesting a fill in a group modelled in metres).
+const makeCanister = (k, { at, height = 0.16, radius = 0.055, fill = "coffee", level = 0.75, cut } = {}) => {
+  const group = new THREE.Group(), m = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+  group.position.copy(at); group.scale.setScalar(1 / K.M); k.scene.add(group);
+  const lathe = (pts, shell) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 64), m); if (shell) o.userData.cut = { shell }; return o; };
+  group.add(lathe([[radius, 0.004], [radius, height]], 0.0015), lathe([[0, 0], [radius, 0], [radius, 0.004], [0, 0.004]]));
+  const f = grains(k, { preset: fill, at: new THREE.Vector3(), radius: radius - 0.0018, height: level * height, cut: cut && { normal: cut.normal ?? new THREE.Vector3(0, 0, 1), offset: cut.offset ?? 0 } });
+  f.group.scale.setScalar(1); f.group.position.set(0, 0.004, 0); group.add(f.group);
+  return { group, fill: f, cut: cut ? cutaway(group, { normal: new THREE.Vector3(0, 0, 1), offset: 0, ...cut }) : null };
+};
 const CN = makeCanister({ ...kit, scene: new THREE.Scene(), rest: (o) => o }, { at: new THREE.Vector3(), cut: {} });
 CN.group.updateMatrixWorld(true); CN.cut.at(0);
 assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh.userData.cut?.shell), "the canister's wall is cut and its grains stay whole");
@@ -941,10 +945,7 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     assert.ok(Number.isFinite(down.radius) && down.radius < R, "a camera looking straight down fits finitely, tighter than the whole set");
     for (const p of [new THREE.Vector3(c.x, -0.01 / M, c.z), new THREE.Vector3(c.x, -0.01 / M, c.z + 0.3 / M)]) { const q = ndc(p); assert.ok(Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1, "the floor under a camera looking straight down is in the frustum"); }
   }
-  // Toon: no AO, its own map; unknown names refused; a dry rig does not render.
-  const toon = studio(null, new THREE.Scene(), camera, { look: "toon", set: world });
-  assert.equal(toon.state(at.dive.p).ao, null, "toon has no AO");
-  assert.equal(toon.key.shadow.mapSize.x, LOOKS.toon.shadow.map, "toon's shadow map");
+  // Unknown names refused; a dry rig does not render.
   assert.throws(() => studio(null, new THREE.Scene(), camera, { look: "noir", set: world }), /unknown look/);
   assert.throws(() => studio(null, new THREE.Scene(), camera, { preset: "neon", set: world }), /preset/);
   assert.throws(() => o.render(0), /renderer/, "a dry rig refuses to render");
@@ -1332,11 +1333,9 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   // A lamp's colour temperature is checked when the lamp is made, not when a voltage first lights it.
   for (const bad of [NaN, 0, -2700, "2700", null]) assert.throws(() => lamp(new THREE.PointLight(), { rated: { V: 230, lm: 800 }, voltage: () => 0, cct: bad }), /cct/, "lamp refuses cct " + bad);
 }
-{ // Failure states, instrument widgets and the supply chain (circuit.js, instruments.js, examples/supply.js): a part fails
-  // at the model's event time and only then (the original is hidden, never rewritten); a widget draws the number its
-  // model signal gives, with units and a label, and prints "--" for a value it cannot read, never 0; the chain is one
-  // film's parts, every value from state(t).
-  const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z);
+{ // Failure states and instrument widgets (circuit.js, instruments.js): a part fails at the model's event time and only
+  // then (the original is hidden, never rewritten); a widget draws the number its model signal gives, with units and a
+  // label, and prints "--" for a value it cannot read, never 0.
   const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, box = (o) => new THREE.Box3().setFromObject(o);
   const part = (geo, color = 0x8899aa) => { const g = new THREE.Group(), m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8 })); g.add(m); return { g, m }; };
   const geos = {
@@ -1425,42 +1424,6 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(mk(5).fill === 0.25 && mk(40).fill === 1 && mk(-1).fill === 0 && mk(NaN).fill === null, "fill = value / max, clamped, null when unreadable");
     assert.throws(() => barMeter(rec().ctx, { value: 1, max: 20, units: "A", x: 0, y: 0, w: 1, h: 1 }), /label/);
     assert.throws(() => barMeter(rec().ctx, { value: 1, max: 0, units: "A", label: "x", x: 0, y: 0, w: 1, h: 1 }), /max/); }
-
-  // The supply chain: plug, cord, fuse, rectifier, dc trace, motor and lamp, every value from the model's state(t).
-  { const FUSE = 3, st = (t) => ({ Vac: 230, Iac: t < FUSE ? 0.8 : 0, Vdc: 12, Idc: t < FUSE ? 2 : 0, rpm: Math.min(3000, 1500 * t), V: t < FUSE ? 230 : 0 });
-    const O = { state: st, events: { fuseBlown: FUSE }, arc: { dur: 0.005, energy: 50, efficacy: 20 }, lamp: { lm: 800 }, timeScale: 0.1, speed: 0.5 };
-    const c = supplyChain(null, O);
-    assert.ok(c.group.isGroup && c.flows.ac.length >= 1 && c.flows.ac.every((f) => f.waveform === "ac") && c.flows.dc.waveform === "dc", "ac upstream, dc downstream");
-    assert.ok(c.flows.ac[0].shownFreq === 5 && /50 Hz/.test(c.labels.ac) && /visuali[sz]ation/.test(c.labels.ac), "the mains frequency is slowed and said: " + c.labels.ac);
-    const r1 = c.at(1);
-    assert.ok(r1.Vdc === 12 && r1.rpm === 1500 && c.fuse.normal.visible && !c.fuse.failed.visible, "before the event: the fuse is whole and at(t) gives the model's numbers");
-    assert.ok(c.arc.light.intensity === 0 && c.arc.channel.visible === false, "no arc before the blow");
-    c.at(FUSE + 0.02);
-    assert.ok(!c.fuse.normal.visible && c.fuse.failed.visible, "the fuse is blown from the event");
-    assert.ok(c.arc.light.intensity > 0 && c.arc.channel.visible, "the arc lights the board at the event");
-    c.at(FUSE + 0.2);
-    assert.ok(c.arc.light.intensity === 0, "and only for its frames");
-    assert.ok(!c.flows.ac[0].ribbons[0].mesh.visible && !c.flows.dc.ribbons[0].mesh.visible, "no current, no flow drawn");
-    c.at(0.5); const lit = c.lamp.light.intensity;
-    c.at(FUSE + 1);
-    assert.ok(lit > 0 && c.lamp.light.intensity === 0, "the lamp follows state(t).V");
-    // the shaft: its angle is the integral of the speed, the same for any order of frames
-    const ang = (cc, t) => { cc.at(t); return cc.shaft.rotation.x; };
-    const c2 = supplyChain(null, { ...O, events: {}, arc: undefined, state: () => ({ ...st(0), rpm: 600 }) });
-    assert.ok(Math.abs(ang(c2, 2) - 600 / 60 * 2 * Math.PI * 0.1 * 2) < 1e-6, "angle = integral of rpm x time scale: " + ang(c2, 2));
-    const fwd = [0.5, 1, 1.5].map((t) => ang(c, t)), back = [1.5, 1, 0.5].map((t) => ang(supplyChain(null, O), t)).reverse();
-    assert.ok(fwd.every((v, i) => Math.abs(v - back[i]) < 1e-9), "pure of t: seeking gives the same shaft angle");
-    assert.throws(() => supplyChain(null, { ...O, state: () => ({ ...st(0), rpm: 6000 }) }).at(1), /alias/, "a shaft turning too fast for the frame rate is refused");
-    assert.throws(() => supplyChain(null, { ...O, state: () => ({ ...st(0), Vdc: NaN }) }).at(1), /Vdc/, "a bad model value is named");
-    assert.throws(() => supplyChain(null, { ...O, state: undefined }), /state/);
-    assert.throws(() => supplyChain(null, { ...O, arc: undefined }), /arc/, "an arc needs its energy and efficacy from the model");
-    assert.throws(() => supplyChain(null, { ...O, lamp: undefined }), /lamp/);
-    const na = supplyChain(null, { ...O, events: {}, arc: undefined }); na.at(10);
-    assert.ok(na.arc === null && na.fuse.normal.visible, "no event, no arc and a whole fuse");
-    const aud = scaleAudit(c.group);
-    assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 8, "every part is its real size at this scale: " + aud.problems.join("; ") + " checked " + aud.checked);
-    const big = supplyChain(null, { ...O, at: V(1 / Mq, 0, 0) });
-    assert.ok(Math.abs(big.group.position.x * Mq - 1) < 1e-9, "placed at `at`"); }
 }
 { // Fields (fields.js): a field is drawn by its law in real units. Lines are traced by RK4 from seeds spaced by FLUX, so
   // how close lines lie means how strong the field is; filings lie along B, a compass needle settles along it, and a
@@ -1560,29 +1523,18 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(w.tubes.every((t) => t.material.depthTest !== false), "in-world lines are depth tested");
   }
 
-  { // Refusals and the demo.
+  { // Refusals.
     assert.throws(() => FLD.field([]), /field/);
     assert.throws(() => FLD.field([FLD.charge(1e-9, V(0, 0, 0)), FLD.straightWire(1, V(0, 0, 0), V(1, 0, 0))]), /kind/, "E and B sources are not mixed");
     assert.throws(() => FLD.barMagnet({ at: V(0, 0, 0), axis: V(1, 0, 0), length: 0.02, width: 0.01, depth: 0.005 }), /Br/, "Br comes from the film's model");
     assert.throws(() => FLD.fieldLines(FLD.field([FLD.charge(1e-9, V(0, 0, 0))]), { count: 4, mode: "x" }), /mode/);
     assert.throws(() => FLD.charge(NaN, V(0, 0, 0)), /q/);
     assert.throws(() => FLD.loop(1, { at: V(0, 0, 0), normal: V(0, 0, 1), R: -1 }), /R/);
-    assert.throws(() => makeMagnetDemo(kit, {}), /Br/);
-
-    const demo = makeMagnetDemo(kit, { Br: 1.3, filings: { count: 300, w: 0.12, d: 0.1 }, compass: [m(0.08, 0, 0.03)], lines: { count: 8 }, motion: (t) => m(0.01 * t, 0, 0) });
-    const aud = scaleAudit(demo.group);
-    assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 3, "the magnet is its real size: " + aud.problems.join("; ") + " checked " + aud.checked);
-    const x0 = demo.magnet.mesh.position.x;
-    const d0 = demo.filings.dirs.map((d) => d.clone());
-    demo.at(2);
-    assert.ok(Math.abs((demo.magnet.mesh.position.x - x0) * Mq - 0.02) < 1e-9, "the magnet slid 2 cm by the film's motion");
-    assert.ok(demo.filings.dirs.some((d, i) => d.angleTo(d0[i]) > 0.05 && Math.PI - d.angleTo(d0[i]) > 0.05), "the filings re-aligned to the moved magnet");
-    assert.ok(demo.compasses.length === 1 && Number.isFinite(demo.compasses[0].at(2).angle));
   }
 }
 { // Optics (optics.js): rays are traced by Snell's law and the Fresnel split through the set's surfaces, with the index of a
   // cited material; a lens's focus is traced and compared with the lensmaker's formula, a prism spreads colours, a mesh from the
-  // set refracts by its own normals, and the straw example draws the apparent bend from the same law.
+  // set refracts by its own normals, and a point under water is seen at its apparent place by the same law.
   const Mq = K.M, V = (x, y, z) => new THREE.Vector3(x, y, z), m = (x, y, z) => V(x / Mq, y / Mq, z / Mq); // metres → scene units
   const D = Math.PI / 180, rel = (a, b) => Math.abs(a - b) / Math.abs(b);
   const nAir = O.MATERIALS.air.n(589.3), nWater = O.MATERIALS.water.n(589.3), nBk7 = O.MATERIALS.bk7.n(587.6);
@@ -1724,28 +1676,10 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(same(t2.rays.instanceMatrix.array, teach.reveal(1).rays.instanceMatrix.array), "teaching tubes are as thin for the same branches whatever the source power");
     assert.ok(same(w2.rays.instanceColor.array, world.reveal(1).rays.instanceColor.array), "and a shaft is as bright");
   }
-
-  { // The straw: a glass of water bends a straw by the same law; the example draws the apparent position for the camera.
-    const eye = m(0.01, 0.4, 0.0), camera = new THREE.PerspectiveCamera(); camera.position.copy(eye); camera.updateMatrixWorld(true);
-    const demo = makeStrawGlass(kit, { at: m(0, 0, 0), eye, rays: true });
-    const aud = scaleAudit(demo.group);
-    assert.ok(aud.ok && aud.checked >= 2, "glass and straw are their real size: " + aud.problems.join("; ") + " checked " + aud.checked);
-    demo.at(0, camera);
-    const want = O.apparent(demo.real.foot, eye, demo.surface).image;
-    assert.ok(demo.drawn.tip.distanceTo(want) < 1e-6, "the submerged tip is drawn at its apparent position");
-    assert.ok(demo.drawn.tip.y > demo.real.foot.y + 1e-5 / Mq, "which is shallower than the real one");
-    assert.ok(demo.drawn.end.distanceTo(demo.real.end) < 1e-12, "the end above the water is unchanged");
-    assert.ok(demo.rays && demo.rays.group.children.length > 0, "teaching rays are drawn from straw points to the eye");
-    assert.throws(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0, 0.05, 0) }), /below the rim/, "an eye below the glass's rim is refused");
-    assert.throws(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0.5, 0.12, 0) }), /side wall/, "an eye above the rim but so far off that the sight line crosses the side wall is refused");
-    // The sample on the water line may round a hair above the surface: every fill, glass and eye the docs allow draws.
-    for (const fill of [0.1, 0.3, 0.5, 0.59, 0.6, 0.7, 0.8, 0.9]) for (const gl of [{}, { h: 0.12, r: 0.04 }, { h: 0.09, r: 0.03 }]) {
-      assert.doesNotThrow(() => makeStrawGlass(kit, { at: m(0, 0, 0), eye: m(0.01, 0.4, 0), fill, glass: gl }), "fill " + fill + " glass " + JSON.stringify(gl));
-    }
-  }
 }
-// The torch example (a perspective engineering cutaway): at real size, its lens set and framing (subject low), and the
-// drafting-style text on the frame: a dimension line, pill labels and a text band, all inside the safe area.
+// The frame's text on a perspective set: a lens in mm, a fixture set with three stations, and the drafting-style text
+// on the frame (a dimension line, pill labels, a text band, the caption) all inside the safe area; then shots.js plays
+// the same frames from data.
 {
   const W = 1080, H = 1920, em = 0.55;
   const mockCtx = (paint) => {
@@ -1773,51 +1707,39 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const up = V3(0, 1, 0);
   layoutFrame(mockCtx(bright), 0, { send: () => {} }); // empties the list of boxes drawn by the checks above
 
-  // The lens set: a 36 mm gauge on the long side.
-  assert.ok(Math.abs(lensFov(70, 9 / 16) - 28.84) < 0.01 && Math.abs(lensFov(100, 9 / 16) - 20.41) < 0.01 && Math.abs(lensFov(135, 9 / 16) - 15.19) < 0.01, "70, 100 and 135 mm on a 36 mm gauge, portrait");
-  assert.ok(Math.abs(lensFov(100, 16 / 9) - 2 * Math.atan(36 / (16 / 9) / 200) * 180 / Math.PI) < 1e-9, "landscape: the gauge is the width");
-  for (const bad of [0, -50, NaN, Infinity]) assert.throws(() => lensFov(bad, 9 / 16), /mm/, "a focal length must be finite and > 0");
-  assert.ok(LOOK.accents.label === "#ffd400" && LOOK.lens.macro === 135 && LOOK.ground === "#e8e9e6", "the look's defaults are data");
+  // A lens on a 36 mm gauge on the frame's long side (objectStudio.js lensFov).
+  assert.ok(Math.abs(OS.lensFov(70, 9 / 16) - 28.84) < 0.01 && Math.abs(OS.lensFov(100, 9 / 16) - 20.41) < 0.01 && Math.abs(OS.lensFov(135, 9 / 16) - 15.19) < 0.01, "70, 100 and 135 mm on a 36 mm gauge, portrait");
+  assert.ok(Math.abs(OS.lensFov(100, 16 / 9) - 2 * Math.atan(36 / (16 / 9) / 200) * 180 / Math.PI) < 1e-9, "landscape: the gauge is the width");
+  for (const bad of [0, -50, NaN, Infinity]) assert.throws(() => OS.lensFov(bad, 9 / 16), /mm/, "a focal length must be finite and > 0");
 
-  // The torch: real sizes, a dc flow caused by the model, refused inputs, cut open.
-  const O = { state: () => ({ I: 1.5 }), speed: 0.05, full: 2 };
-  const tc = openTorch(null, O);
-  const aud = scaleAudit(tc.group);
-  assert.ok(aud.ok && aud.off.length === 0 && aud.checked >= 7, "every part is its real size: " + aud.problems.join("; ") + " checked " + aud.checked);
-  assert.deepEqual(tc.at(1), { I: 1.5 }, "at(t) returns the model's state");
-  assert.ok(tc.flows.length >= 1 && tc.flows.every((f) => f.waveform === "dc" && f.ribbons[0].mesh.visible), "current flows as dc");
-  { const off = openTorch(null, { ...O, state: () => ({ I: 0 }) }); off.at(0); assert.ok(off.flows.every((f) => !f.ribbons[0].mesh.visible), "no current, no flow drawn"); }
-  assert.throws(() => openTorch(null, { ...O, state: () => ({ I: NaN }) }).at(1), /I/, "a bad model value is named");
-  assert.throws(() => openTorch(null, { ...O, state: undefined }), /state/);
-  assert.throws(() => openTorch(null, { ...O, speed: 0 }), /speed/);
-  assert.ok(tc.cut.parts.length >= 3 && tc.cut.plane, "the torch is cut open");
+  // A fixture set: five parts on one axis along x (metres, scaled by 1/M) in one cut group, three stations framed by
+  // camera.js frame() through a 70, 100 and 135 mm lens, each placed with a view offset that sets the subject low.
+  const U = 1 / K.M, sg = new THREE.Group(), smat = new THREE.MeshStandardMaterial(), PILL = "#ffd400";
+  const box3 = (w, h, x) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w * U, h * U, h * U), smat); o.position.set(x * U, 0.01 * U, 0); sg.add(o); return o; }; // on one axis 1 cm up
+  const sp = { cell: box3(0.065, 0.018, 0.0405), driver: box3(0.004, 0.016, 0.077), star: box3(0.002, 0.016, 0.082), led: box3(0.003, 0.005, 0.0845), reflector: box3(0.012, 0.02, 0.092) };
+  const at3 = (x, y) => V3(x * U, y * U, 0);
+  const sdims = { cell: { a: at3(0.008, 0.021), b: at3(0.073, 0.021), m: 0.065 }, gap: { a: at3(0.079, 0.019), b: at3(0.086, 0.019), m: 0.007 }, reflector: { a: at3(0.086, 0.023), b: at3(0.098, 0.023), m: 0.012 } };
+  const boxOf = (...os) => { const b = new THREE.Box3(); for (const o of os) b.union(new THREE.Box3().setFromObject(o)); return b; };
+  sg.updateMatrixWorld(true);
+  const scut = cutaway(sg, { normal: V3(0, 0, 1), offset: 0 });
+  const station = (target, mm, azimuth, elevation, margin) => ({ ...frame(target, { fov: OS.lensFov(mm, W / H), aspect: W / H, azimuth, elevation, margin }), view: { offsetY: -0.045 } });
+  const fr = { wide: station(sg, 70, 20, 35, 1.25), medium: station(boxOf(sp.driver, sp.star, sp.led), 100, 15, 40, 1.15), macro: station(boxOf(sp.led, sp.star, sp.reflector), 135, 10, 50, 1.4) };
+  const placeSt = (camera, st, w, h) => { placeCamera(camera, st); camera.setViewOffset(w, h, 0, (st.view?.offsetY ?? -0.045) * h, w, h); camera.updateProjectionMatrix(); return camera; };
 
-  // The three style frames: lens, elevation 20-60 degrees, macro DOF only, the subject low in frame.
-  const fr = tc.frames({ W, H });
-  assert.ok(fr.wide && fr.medium && fr.macro, "three stations");
-  for (const [k, mm] of [["wide", 70], ["medium", 100], ["macro", 135]]) {
-    const st = fr[k], el = Math.asin(st.position.clone().sub(st.target).normalize().y) * 180 / Math.PI;
-    assert.ok(Math.abs(st.fov - lensFov(mm, W / H)) < 1e-9, k + " is a " + mm + " mm lens");
-    assert.ok(el >= 20 && el <= 60, k + " elevation " + el.toFixed(1) + " is within 20-60 degrees");
-  }
-  assert.ok(fr.macro.dof.bokehScale === 6 && Math.abs(fr.macro.dof.worldFocusRange - 0.6 * fr.macro.radius) < 1e-9 && fr.wide.dof === null && fr.medium.dof === null, "DOF on the macro only: bokeh 6, focus range 0.6 x the framed radius");
-
-  // Every text of the frame (band, labels, dimension, caption) is inside the safe area in all three style frames.
+  // Every text of the frame (band, labels, dimension, caption) is inside the safe area in all three stations.
   const caption = [{ text: "the cell feeds the driver", start: 0, end: 5, words: ["the", "cell", "feeds", "the", "driver"].map((w, i) => ({ text: w, start: i * 0.3, end: i * 0.3 + 0.25, gap: true })) }];
   const zone = safeArea("shorts", W, H);
   for (const k of ["wide", "medium", "macro"]) {
     const st = fr[k], cam = new THREE.PerspectiveCamera(st.fov, W / H, 1e-4, 100);
-    tc.place(cam, st, W, H);
-    const centre = st.target.clone().project(cam); // what the station frames: a view offset of -4.5 % of the height is -0.09 in NDC
-    assert.ok(centre.y < -0.05 && centre.y > -0.13, k + ": the subject sits low in frame (NDC y " + centre.y.toFixed(3) + ")");
+    placeSt(cam, st, W, H);
     const ctx = mockCtx(bright);
     const band = textBand(ctx, { kicker: "How it works", headline: "The cell pushes 1.5 A through the driver", tag: "Illustration" }, { format: "shorts" });
-    const [pa, pb] = { wide: [tc.parts.cell, tc.parts.driver], medium: [tc.parts.driver, tc.parts.star], macro: [tc.parts.led, tc.parts.reflector] }[k];
-    const l1 = pinLabel(ctx, { at: pa, camera: cam, text: "cell" }, { pill: LOOK.accents.label, top: band.box.y1 });
-    const l2 = pinLabel(ctx, { at: pb, camera: cam, text: "driver" }, { pill: LOOK.accents.label, top: band.box.y1 });
-    const d = { wide: tc.dims.cell, medium: tc.dims.gap, macro: tc.dims.reflector }[k];
+    const [pa, pb] = { wide: [sp.cell, sp.driver], medium: [sp.driver, sp.star], macro: [sp.led, sp.reflector] }[k];
+    const l1 = pinLabel(ctx, { at: pa, camera: cam, text: "cell" }, { pill: PILL, top: band.box.y1 });
+    const l2 = pinLabel(ctx, { at: pb, camera: cam, text: "driver" }, { pill: PILL, top: band.box.y1 });
+    const d = { wide: sdims.cell, medium: sdims.gap, macro: sdims.reflector }[k];
     const dm = dimension(ctx, d.a, d.b, { camera: cam, text: Math.round(d.m * 1000) + " mm", dir: up, top: band.box.y1 });
-    drawCaption(ctx, 0.5, caption, { format: "shorts", pill: true, accent: LOOK.accents.label });
+    drawCaption(ctx, 0.5, caption, { format: "shorts", pill: true, accent: PILL });
     const rec = layoutFrame(ctx, 0.5, { send: () => {} });
     assert.ok(l1 && l2, k + ": both labels are on the frame");
     assert.ok(dm && dm.drawn === true, k + ": the dimension line is drawn: " + JSON.stringify(dm));
@@ -1831,26 +1753,33 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     for (const b of [l1, l2]) assert.ok(b.y >= band.box.y1 - 1e-6, k + ": a pill label stays under the text band");
   }
 
-  // shots.js: the same three style frames from data. The camera and every drawn call match the hand-written frame above;
-  // a shot list with a missing beat, an overshooting key, a label off the frame or a shot with no action is refused.
+  // shots.js: the same three frames from data. The camera and every drawn call match the hand-written frame; a shot
+  // list with a missing beat, an overshooting key, a label off the frame or a shot with no action is refused.
   { const BEATS = { hook: { start: 0.2, end: 1.4 }, inside: { start: 3.1, end: 4.0 }, detail: { start: 6.0, end: 7.1 } };
     const WORDS = Array.from({ length: 30 }, (_, i) => ({ start: i * 0.3, end: i * 0.3 + 0.25 }));
     assert.ok(cueTime("inside", { beats: BEATS }) === 3.1 && cueTime("inside.end", { beats: BEATS }) === 4.0 && cueTime("w3.end", { words: WORDS }) === 1.15, "cues: a beat's start or end, a word's start or end");
     assert.ok(cueTime("hook", { beats: [{ name: "hook", start: 0.2, end: 1.4 }] }) === 0.2, "beats.json's array works as well as BEATS");
-    const T = { beats: BEATS, words: WORDS, end: 9.5, fps: 30, W, H, set: torchSet(tc, { W, H }), pill: LOOK.accents.label };
-    const run = shots(TORCH_SHOTS, T);
+    const BAND = { kicker: "How it works", headline: "The cell drives the LED through the driver", tag: "Illustration" };
+    const SHOTS = [
+      { name: "wide", beat: "hook", action: "flow", transition: "cut", camera: [{ station: "wide" }], band: BAND, labels: [{ part: "cell", text: "cell" }, { part: "driver", text: "driver" }], dims: [{ dim: "cell" }] },
+      { name: "medium", beat: "inside", action: "flow", transition: "cut", camera: [{ station: "medium" }], band: BAND, labels: [{ part: "driver", text: "driver" }, { part: "star", text: "star board" }], dims: [{ dim: "gap" }] },
+      { name: "macro", beat: "detail", action: "flow", transition: "cut", camera: [{ station: "macro" }], band: BAND, labels: [{ part: "led", text: "LED" }, { part: "reflector", text: "reflector" }], dims: [{ dim: "reflector" }] },
+    ];
+    const set = { stations: fr, parts: sp, dims: sdims, cut: scut, group: sg, keep: [], actions: ["flow"], at: () => ({}), place: placeSt };
+    const T = { beats: BEATS, words: WORDS, end: 9.5, fps: 30, W, H, set, pill: PILL };
+    const run = shots(SHOTS, T);
     assert.deepEqual(run.shots.map((s) => [s.start, s.end]), [[0.2, 3.1], [3.1, 6], [6, 9.5]], "each shot runs from its beat to the next one's");
     const hand = { wide: [["cell", "cell"], ["driver", "driver"], "cell"], medium: [["driver", "driver"], ["star", "star board"], "gap"], macro: [["led", "LED"], ["reflector", "reflector"], "reflector"] };
     const near = (x, y) => x.every((v, i) => Math.abs(v - y[i]) < 1e-9);
     for (const [i, k] of ["wide", "medium", "macro"].entries()) {
       const s = run.shots[i], t = (s.start + s.end) / 2, st = fr[k];
       const a = new THREE.PerspectiveCamera(30, W / H, 1e-4, 100), b = new THREE.PerspectiveCamera(st.fov, W / H, 1e-4, 100);
-      run.at(t, a); tc.place(b, st, W, H);
+      run.at(t, a); placeSt(b, st, W, H);
       assert.ok(near(a.matrixWorld.elements, b.matrixWorld.elements) && near(a.projectionMatrix.elements, b.projectionMatrix.elements), k + ": the runner's camera is the hand-placed station");
       const ca = mockCtx(bright); run.draw(ca, t, a); const ra = layoutFrame(ca, t, { send: () => {} });
-      const cb = mockCtx(bright), band = textBand(cb, { kicker: "How it works", headline: "The cell drives the LED through the driver", tag: "Illustration" }, { format: "shorts" });
-      for (const [part, text] of hand[k].slice(0, 2)) pinLabel(cb, { at: tc.parts[part], camera: b, text }, { format: "shorts", pill: LOOK.accents.label, top: band.box.y1 });
-      const d = tc.dims[hand[k][2]];
+      const cb = mockCtx(bright), band = textBand(cb, BAND, { format: "shorts" });
+      for (const [part, text] of hand[k].slice(0, 2)) pinLabel(cb, { at: sp[part], camera: b, text }, { format: "shorts", pill: PILL, top: band.box.y1 });
+      const d = sdims[hand[k][2]];
       dimension(cb, d.a, d.b, { camera: b, text: Math.round(d.m * 1000) + " mm", dir: up, top: band.box.y1 });
       const rb = layoutFrame(cb, t, { send: () => {} });
       assert.ok(ra.boxes.length === 6, k + ": band (3), two labels and the dimension are drawn: " + ra.boxes.length);
@@ -1858,11 +1787,11 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       assert.deepEqual(ca.log, cb.log, k + ": the same draw calls as the hand-written frame");
     }
     // travel: the camera leaves the previous pose on the shot's beat and arrives on the station at the end of its beat, never past it
-    const moved = structuredClone(TORCH_SHOTS); moved[1].transition = "travel";
+    const moved = structuredClone(SHOTS); moved[1].transition = "travel";
     const tr = shots(moved, T), wide = fr.wide, med = fr.medium, dist = (t) => tr.pose(t).position.distanceTo(med.position);
     assert.ok(tr.pose(3.0).position.equals(wide.position) && tr.pose(4.0).position.equals(med.position) && tr.pose(5).position.equals(med.position), "travel: wide until the beat, medium from its end");
     for (let t = 3.1, prev = Infinity; t <= 4.0; t += 1 / 30) { const x = dist(t); assert.ok(x <= prev + 1e-9, "travel: the camera only closes on the station (no overshoot) at " + t.toFixed(3)); prev = x; }
-    const bad = (edit, rx, why) => { const l = structuredClone(TORCH_SHOTS); edit(l); assert.throws(() => shots(l, T), rx, why); };
+    const bad = (edit, rx, why) => { const l = structuredClone(SHOTS); edit(l); assert.throws(() => shots(l, T), rx, why); };
     bad((l) => { l[1].beat = "nowhere"; }, /no beat "nowhere"/, "a shot on a beat that is not in beats.json");
     bad((l) => { l[0].camera.push({ station: "medium", at: "hook", ease: (u) => 1 + 2.70158 * (u - 1) ** 3 + 1.70158 * (u - 1) ** 2 }); }, /overshoots/, "a key whose ease goes past its station");
     bad((l) => { l[2].labels.push({ part: "cell", text: "cell" }); }, /label "cell" on "cell" is off the frame/, "a label on a part the macro does not frame");
@@ -1965,6 +1894,28 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const flat = () => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), grey); m.scale.set(0.02 / Mk, 0.004 / Mk, 0.06 / Mk); return m; }; // 20 x 4 x 60 mm under a non-uniform scale
   const topAt = V(0, 0.002 / Mk, 0);
   const worldBox = (o) => { o.updateWorldMatrix(true, false); return new THREE.Box3().setFromObject(o, true); };
+  // A fixture board, 72 x 48 mm, placed by reference designator as a film would build its own: parts with their prints,
+  // a warning sticker, traces from pin to pin (an electrolytic's pin 1 is plus), and cables out of the terminals in
+  // their conductor colours. The parts, places and values are test values, not a catalogue.
+  const testBoard = (k, { at = new THREE.Vector3(), prints = {} } = {}) => {
+    const b = board({ at, w: 0.072, d: 0.048, name: "test board" }), P = (ref, type, o) => b.place(ref, type, { ...o, print: prints[ref] ?? o.print });
+    P("J1", "terminal.5.08", { at: [-29, -16], poles: 2 }); P("F1", "fuse.5x20", { at: [-18, -4], print: ["T1A", "250V"] });
+    P("RV1", "varistor", { size: "07D", at: [-31, 3], print: ["07D471K"] }); P("C1", "cap.film", { size: "P15", at: [0, -17.5], print: ["0.1µF X2", "275VAC"] });
+    P("U1", "ic.dip8", { at: [20, -16], print: ["PWM", "CTRL"] }); P("C2", "cap.electrolytic", { size: "10x16", at: [28, -3], print: ["22µF", "400V"] });
+    P("Q1", "ic.to220", { at: [5, 21.5], heatsink: true, print: ["SW", "FET"] }); P("K1", "relay", { at: [-16, 15], print: ["12VDC", "10A 250VAC"] });
+    P("C3", "cap.electrolytic", { size: "8x11.5", at: [28, 14], print: ["1000µF", "16V"] }); P("R1", "resistor", { size: "0.25W", at: [14, 3], value: 4700 });
+    P("R2", "resistor", { size: "0.25W", at: [0, 3], value: 220 }); P("R3", "resistor", { size: "0.5W", at: [24, 22.5], value: 1e6 });
+    P("J2", "terminal.5.08", { at: [30.5, -16], poles: 2 });
+    b.print({ icon: "W012", text: ["HIGH", "VOLTAGE"], h: 0.0015, style: "sticker", at: [2.5, -6.5] });
+    const traces = [b.trace(["J1:1", [-31.5, -8], "F1:1"]), b.trace(["F1:2", "RV1:1"]), b.trace(["C2:1", [20, -3], "R1:2"]), b.trace(["C3:1", "J2:1"])];
+    const u = 1 / Mk, v = (x, y, z) => new THREE.Vector3(x * 0.001 * u, y * 0.001 * u, z * 0.001 * u);
+    const lead = (ref, n, conductor, run) => {
+      const local = b.group.worldToLocal(b.pin(ref, n).clone()), x = local.x * Mk * 1000, z = b.parts[ref].footprint.z0 * 1000;
+      const c = cable(new THREE.CatmullRomCurve3([v(x, 5, z), v(x, 6, z - 6), v(x + run * 0.4, 9, z - 15), v(x + run, 12, z - 26)]), { conductor });
+      b.group.add(c.group); c.pin = `${ref}:${n}`; return c;
+    };
+    return { group: b.group, board: b, parts: b.parts, marks: b.marks, traces, cables: [lead("J1", 1, "L", -16), lead("J1", 2, "N", -6), lead("J2", 1, "+", 6), lead("J2", 2, "-", 16)] };
+  };
 
   // 1. real size under a non-uniform parent scale: the print is never flattened with the mesh scale
   { const box = flat(), r = markings(box, [{ text: "16V", h: 0.002, at: topAt, normal: UP, style: "pad" }]), it = r.items[0];
@@ -2017,7 +1968,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     } finally { delete globalThis.document; }
   }
   // 5. legible at the macro station (the acceptance): a 2 mm print is at least READ_PX tall at 1080 px; far away it is not
-  { const p = openPsu(null), c2 = p.parts.C2, m = c2.marks.find((x) => x.h === 0.002), cam = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk);
+  { const p = testBoard(null), c2 = p.parts.C2, m = c2.marks.find((x) => x.h === 0.002), cam = new THREE.PerspectiveCamera(15.19, 16 / 9, 1e-4 / Mk, 100 / Mk);
     assert.ok(m, "C2 carries a 2 mm rating print");
     placeCamera(cam, frame(c2.body, { fov: 15.19, aspect: 16 / 9, azimuth: 0, elevation: 20 }));
     const px = glyphPx(m, cam, 1080);
@@ -2030,13 +1981,13 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   // 5b. legibility follows the print and the frame: a print is read where its mesh is now, and only when it is in the frame
   { const mkCam = (fov = 15.19) => new THREE.PerspectiveCamera(fov, 16 / 9, 1e-4 / Mk, 100 / Mk), macro = (cam, part, az = 0) => placeCamera(cam, frame(part.body, { fov: 15.19, aspect: 16 / 9, azimuth: az, elevation: 20 })), mark2 = (p) => p.parts.C2.marks.find((x) => x.h === 0.002);
     // a board flipped to show its solder side, and lifted: the rating print now faces down
-    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
+    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
       assert.ok(glyphPx(m, cam, 1080) >= READ_PX, "before the flip the rating reads");
       p.group.rotation.x = Math.PI; p.group.position.y += 0.1 / Mk; p.group.updateMatrixWorld(true);
       assert.equal(glyphPx(m, cam, 1080), 0, "a print on a flipped board faces away: it is read where it is now, not where it was printed"); assert.ok(!legible(m, cam, 1080));
     }
     // the same board inside a housing that turns, the camera turning with it: the print reads as before
-    { const p = openPsu(null), housing = new THREE.Group(); housing.add(p.group);
+    { const p = testBoard(null), housing = new THREE.Group(); housing.add(p.group);
       const m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2); const px0 = glyphPx(m, cam, 1080);
       housing.rotation.y = Math.PI / 2; housing.updateMatrixWorld(true);
       const q = housing.quaternion; cam.position.applyQuaternion(q); cam.quaternion.premultiply(q); cam.updateMatrixWorld(true);
@@ -2044,19 +1995,19 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       assert.ok(px0 >= READ_PX && Math.abs(px1 / px0 - 1) < 0.01, "a turned housing and a camera turned with it: " + px0.toFixed(1) + " px before, " + px1.toFixed(1) + " px after");
     }
     // a print moved into view reads (it was out of the frame when it was printed)
-    { const q = openPsu(null), p = openPsu(null, { at: V(0.5 / Mk, 0, 0) }), m = mark2(p), cam = mkCam(); macro(cam, q.parts.C2);
+    { const q = testBoard(null), p = testBoard(null, { at: V(0.5 / Mk, 0, 0) }), m = mark2(p), cam = mkCam(); macro(cam, q.parts.C2);
       assert.equal(glyphPx(m, cam, 1080), 0, "a board half a metre to the side is out of the frame");
       p.group.position.x -= 0.5 / Mk; p.group.updateMatrixWorld(true);
       assert.ok(glyphPx(m, cam, 1080) >= READ_PX && legible(m, cam, 1080), "moved into the frame, its print reads (" + glyphPx(m, cam, 1080).toFixed(1) + " px)");
     }
     // a print outside the frame is not read: the macro station on the film capacitor C1 does not show C2's rating, 28 mm to the side
-    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C1);
+    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C1);
       assert.equal(glyphPx(m, cam, 1080), 0, "C2's print is outside the frame framed on C1"); assert.ok(!legible(m, cam, 1080));
       placeCamera(cam, frame(p.parts.C3.body, { fov: 15.19 })); assert.ok(!legible(m, cam, 1080), "nor does the default three-quarter station on C3");
       macro(cam, p.parts.C2); assert.ok(legible(m, cam, 1080), "framed on C2 it reads");
     }
     // a print half out of the frame is not readable, the whole of it in the frame is
-    { const p = openPsu(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
+    { const p = testBoard(null), m = mark2(p), cam = mkCam(); macro(cam, p.parts.C2);
       const dist = cam.position.distanceTo(m.centre) * Mk, aim = (at, halfW) => { cam.fov = (2 * Math.atan(halfW / (16 / 9) / dist) * 180) / Math.PI; cam.lookAt(at); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); };
       aim(m.centre.clone().addScaledVector(m.right, m.w / 2 / Mk), m.w / 4);
       assert.equal(glyphPx(m, cam, 1080), 0, "the edge of the print is in the frame, the rest of it is not");
@@ -2078,8 +2029,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       }
     }
     assert.ok(declared >= 14, declared + " catalogue sizes were built and measured");
-    const p = openPsu(null), a = scaleAudit(p.group, { tol: 0.01 });
-    assert.ok(a.ok && a.checked >= 13 * 3, "the opened power supply: " + a.checked + " sizes checked, " + a.problems.join("; "));
+    const p = testBoard(null), a = scaleAudit(p.group, { tol: 0.01 });
+    assert.ok(a.ok && a.checked >= 13 * 3, "the fixture board: " + a.checked + " sizes checked, " + a.problems.join("; "));
   }
   // 7. resistor colour code (IEC 60062)
   { assert.deepEqual(bands(4700), ["yellow", "violet", "red", "gold"]);
@@ -2091,7 +2042,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.throws(() => bands(4750), /significant/, "4750 ohm needs 3 digits: not on a 4-band");
     assert.throws(() => bands(-1), /ohms/);
     assert.throws(() => bands(100, { tol: 7 }), /tol/);
-    const r1 = openPsu(null).parts.R1, want = bands(4700).map((n) => new THREE.Color(BAND_HEX[n]).getHex());
+    const r1 = testBoard(null).parts.R1, want = bands(4700).map((n) => new THREE.Color(BAND_HEX[n]).getHex());
     assert.deepEqual(r1.rings.map((m) => m.material.color.getHex()), want, "R1's rings are its value's colours");
     assert.ok(r1.rings.every((m, i) => i === 0 || m.position.x > r1.rings[i - 1].position.x), "in order along +x");
   }
@@ -2122,8 +2073,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.throws(() => cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X" }), /conductor/);
     assert.equal(cable([V(0, 0, 0), V(1, 0, 0)], { conductor: "X", color: 0x123456 }).meshes[0].material.color.getHex(), new THREE.Color(0x123456).getHex(), "a film in another region passes its own colour");
   }
-  // 9. the opened power supply
-  { const p = openPsu(null), refs = Object.keys(p.parts);
+  // 9. the fixture board
+  { const p = testBoard(null), refs = Object.keys(p.parts);
     assert.ok(refs.length === 13 && ["J1", "F1", "RV1", "C1", "U1", "Q1", "C2", "K1", "C3", "R1", "R2", "R3", "J2"].every((r) => refs.includes(r)), "thirteen parts by reference: " + refs.join(" "));
     const onBoard = p.board.mesh.children.filter((c) => c.userData.marking).map((c) => [].concat(c.userData.marking.text ?? []));
     for (const r of refs) assert.ok(onBoard.some((t) => t.includes(r)), r + " has its silkscreen reference");
@@ -2132,11 +2083,11 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(p.cables.every((c) => c.meshes[0].material.color.getHex() === new THREE.Color(CONDUCTOR[c.conductor]).getHex()), "cores in their conductor colours");
     let lowest = Infinity; for (const c of p.cables) for (let s = 0; s <= c.length; s += c.length / 40) lowest = Math.min(lowest, c.pointAt(s).y * Mk);
     assert.ok(lowest > 0.0016, "a cable never goes through the board (lowest " + lowest + " m)");
-    assert.equal(openPsu(null, { prints: { C2: ["47µF", "450V"] } }).parts.C2.marks.some((m) => [].concat(m.text).includes("450V")), true, "a film can print its own values");
+    assert.equal(testBoard(null, { prints: { C2: ["47µF", "450V"] } }).parts.C2.marks.some((m) => [].concat(m.text).includes("450V")), true, "a film can print its own values");
     assert.ok(p.traces.length >= 3 && p.traces.every((t) => t.length > 0), "traces between pins");
   }
   // 10. polarity: the minus stripe of an electrolytic is on the side of its minus lead, and a trace never joins it to the other pole
-  { const p = openPsu(null);
+  { const p = testBoard(null);
     for (const rot of [0, 90, 180]) {
       const b = board({ w: 0.04, d: 0.04 }); b.place("C9", "cap.electrolytic", { size: "10x16", rot, print: ["1µF", "50V"] });
       const stripe = b.parts.C9.marks.find((m) => [].concat(m.text).includes("−")), plus = b.pin("C9", 1), minus = b.pin("C9", 2);
@@ -2144,7 +2095,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
       assert.ok(stripe.centre.distanceTo(minus) < stripe.centre.distanceTo(plus), "rot " + rot + ": the minus stripe is on the side of the minus lead");
     }
     assert.equal(p.board.polarity("R1", 1), null, "a resistor has no polarity");
-    assert.deepEqual(polarityClashes(p.board, p.cables), [], "the example joins plus to plus and minus to minus: " + polarityClashes(p.board, p.cables).join("; "));
+    assert.deepEqual(polarityClashes(p.board, p.cables), [], "the fixture board joins plus to plus and minus to minus: " + polarityClashes(p.board, p.cables).join("; "));
     const dc = p.cables.filter((c) => c.conductor === "+" || c.conductor === "-"); assert.ok(dc.length === 2 && dc.every((c) => /^J2:\d$/.test(c.pin)), "the dc cables say which pin they leave from");
     const c3 = p.traces.find((t) => t.pins.includes("C3:1")), j2 = c3.pins.find((x) => x.startsWith("J2:")), cab = dc.find((c) => c.pin === j2);
     assert.equal(cab.conductor, "+", "the output capacitor's plus lead runs to the dc plus cable");
@@ -2170,7 +2121,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     { const g = mk();
       assert.equal(polarityClashes(g, [{ pin: "C9:1", conductor: "-" }]).length, 1, "a minus cable soldered straight to the plus lead, no trace on it, is a clash");
       assert.deepEqual(polarityClashes(g, [{ pin: "C9:1", conductor: "+" }]), [], "a plus cable soldered straight to the plus lead is not");
-      assert.equal(polarityClashes(p.board, [...p.cables, { pin: "C3:2", conductor: "+" }]).length, 1, "on the example: a plus cable on C3's untraced minus lead"); }
+      assert.equal(polarityClashes(p.board, [...p.cables, { pin: "C3:2", conductor: "+" }]).length, 1, "on the fixture board: a plus cable on C3's untraced minus lead"); }
     // the class: connectivity has one source, board.nets(). Every pin is in exactly one net, a trace's named pins share a
     // net, the nets do not depend on the order traces are drawn in, and a clash is reported for exactly the nets that see both signs.
     { const route = [["C9:1", "R9:1"], ["R9:1", [0, 4]], [[0, 4], [3, -2]], ["C9:2", [-5.5, -12], [8, -12]], ["J9:1", [7.46, -8]], ["J9:2", [15, 8]]];
@@ -2359,4 +2310,4 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(+hlE.style.opacity === 1 && cardE.style.opacity === "0", "overlay: shown in its window only (local t + G0)");
 }
 
-console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments, supply chain), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics, the straw), torch (lens set, real sizes, subject low, dimension lines, pill labels, text band in the safe area), shots from data (the torch frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, an opened power supply), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
+console.log("selfcheck ok:object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows), iso look (true iso, pan and zoom only, three tones, cutaway on it), surfaces (M = " + M + "), jet, cutaway, grains, transmissions (involute gears without interference, belt and chain paths, links at ω·r), type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar, twin sets), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, failure variants, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), markings (a 2 mm print legible at the macro station and not from far away, real size under any parent scale, lifted on its normal with a curled sticker corner, wrapped on a cylinder, refusals by field, icons and wear drawn), electronics (catalogue sizes within 1 %, IEC 60062 colour bands, parts by reference designator, pins and traces, a fixture board, polarity by net), parts (ISO sizes at any scale, a nut clears its bolt, bearing balls in their grooves at the cage speed, a spring between solid and free, the x-ray shell on its own material), any scale");
