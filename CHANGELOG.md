@@ -32,6 +32,8 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-10-30
+
 ### Added
 - `scripts/studio.mjs`: Studio's mechanical steps as one call each (`after-voice`, `frames`, `qc`, `fixes`, `final`), run in the background, so the main session only decides, spawns and reads short verdicts instead of writing chains, polling and retyping verdicts.
 - `scripts/music.mjs`: the bundled public-domain / CC0 music bed for every film, offline; Studio runs it at Gate 2 and `studio.mjs qc` fails a film without a bed (unless the Brief says `music: none`). A searched track is only for when the user asks.
@@ -1843,7 +1845,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.3.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.4.0...HEAD
+[4.4.0]: https://github.com/sandalkuilang/dalang/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/sandalkuilang/dalang/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/sandalkuilang/dalang/compare/v4.0.0...v4.1.0
