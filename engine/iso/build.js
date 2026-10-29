@@ -6,7 +6,8 @@
 //   pin(iso, ...out.at.pump, { text: "Pump" });
 //
 // spec  = { at: [x, y, z], rot: quarter turns, scale, color: base hex, focus, cut, parts: [part, …] }
-// part  = { name, form, at: [x, y, z] (base centre), color, turn (rad about z), skin: [dx, dy, dz] | true (slides out with
+// spec  … shadow: false (no contact shadow); an array of specs is one WORLD, ordered together
+// part  = { name, form, at: [x, y, z] (base centre), color, bevel (box: the top edges chamfered, default 8 % of its least side), turn (rad about z), skin: [dx, dy, dz] | true (slides out with
 //          cut), group (focus key), array: { count, step: [dx, dy, dz] }, …the form's own fields }
 // forms = box { w, d, h } · cyl { r, h, axis 'z'|'x'|'y' } · cone { r, h } · sphere { r } · roof { w, d, h, ridge }
 //         lathe { profile: [[r, z], …] } · extrude { outline: [[u, v], …], h, plane } · sweep { path, r }
@@ -23,17 +24,34 @@ import { drawModel } from "./model.js";
 const FORMS = new Set(["box", "cyl", "cone", "sphere", "roof", "lathe", "extrude", "sweep", "gear", "wheel", "board", "figure", "model", "flat", "line", "group"]);
 const NEAR = [0.7071, 0.7071, 0]; // a skin with skin: true slides toward the viewer (depth is x + y + z)
 
+// spec may be an array (a whole WORLD): its objects are then ordered together, so a small thing beside a wide floor is
+// painted after the floor wherever it stands.
 export function build(iso, spec, state = {}) {
   const s = { values: {}, models: {}, cut: 0, ...state }, out = { at: {}, angle: {}, teeth: {} }, list = [];
   const R = (v) => (typeof v === "string" && v in s.values ? s.values[v] : v);
-  const keep0 = iso.keep, alpha0 = iso.alpha, focus = R(spec.focus ?? s.focus);
-  if (focus) iso.desat = R(s.desat ?? 1); // the engine greys at flush: it stays set for this frame, so the rest of the set greys too
-  const [x, y, z] = (spec.at || [0, 0, 0]).map(R);
-  iso.push(x, y, z, ((R(spec.rot) || 0) * Math.PI) / 2, R(spec.scale) || 1);
-  try { parts(iso, spec.parts || [], { s, R, focus, base: spec.color || "#B8B2A6", out, list, alpha0, cut: Math.min(Math.max(R(spec.cut ?? s.cut) || 0, 0), 1) }); }
-  finally { iso.pop(); iso.keep = keep0; iso.alpha = alpha0; }
+  for (const sp of Array.isArray(spec) ? spec : [spec]) {
+    const keep0 = iso.keep, alpha0 = iso.alpha, focus = R(sp.focus ?? s.focus), from = list.length;
+    if (focus) iso.desat = R(s.desat ?? 1); // the engine greys at flush: it stays set for this frame, so the rest of the set greys too
+    const [x, y, z] = (sp.at || [0, 0, 0]).map(R);
+    iso.push(x, y, z, ((R(sp.rot) || 0) * Math.PI) / 2, R(sp.scale) || 1);
+    try { parts(iso, sp.parts || [], { s, R, focus, base: sp.color || "#B8B2A6", out, list, alpha0, cut: Math.min(Math.max(R(sp.cut ?? s.cut) || 0, 0), 1) }); }
+    finally { iso.pop(); iso.keep = keep0; iso.alpha = alpha0; }
+    if (sp.shadow !== false) shadow(iso, list, from);
+  }
   order(iso, list);
   return out;
+}
+
+// A soft contact shadow under an object: the footprint of its parts that reach its lowest point, in three widening
+// rings, ordered after what it stands on and before the object.
+function shadow(iso, list, from) {
+  const mine = list.slice(from); if (!mine.length) return;
+  const z = Math.min(...mine.map((e) => e.min[2])), low = mine.filter((e) => e.min[2] <= z + 0.03);
+  const x0 = Math.min(...low.map((e) => e.min[0])), x1 = Math.max(...low.map((e) => e.max[0])), y0 = Math.min(...low.map((e) => e.min[1])), y1 = Math.max(...low.map((e) => e.max[1]));
+  const size = Math.max(x1 - x0, y1 - y0); if (!(size > 0)) return;
+  const start = iso.items.length;
+  for (const [e, a] of [[0.12, 0.04], [0.06, 0.05], [0.015, 0.08]]) { const m = e * size; iso.flat([[x0 - m, y0 - m], [x1 + m, y0 - m], [x1 + m, y1 + m], [x0 - m, y1 + m]], z, "#1E1A24", { a, layer: 1 }); }
+  list.push({ start, end: iso.items.length, min: [x0, y0, z + 1e-4], max: [x1, y1, z + 2e-4] });
 }
 
 function parts(iso, list, c) {
@@ -80,7 +98,7 @@ function draw(iso, p, c, R, col) {
   const num = (f, d) => { const v = R(p[f]); if (v === undefined) { if (d !== undefined) return d; throw new Error(`build: part ${p.name || p.form} needs ${f}`); } if (!Number.isFinite(v)) throw new Error(`build: part ${p.name || p.form}: ${f} is not a number (${JSON.stringify(p[f])})`); return v; };
   const span = (pts, i) => [Math.min(...pts.map((q) => q[i])), Math.max(...pts.map((q) => q[i]))];
   switch (p.form) {
-    case "box": { const w = num("w"), d = num("d"), h = num("h"); if (h > 0) iso.box(-w / 2, -d / 2, 0, w, d, h, col, { cull: false }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
+    case "box": { const w = num("w"), d = num("d"), h = num("h"); if (h > 0) iso.box(-w / 2, -d / 2, 0, w, d, h, col, { cull: false, bevel: R(p.bevel) ?? Math.min(w, d, h * 0.5, 0.5) * 0.08 }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
     case "cyl": {
       const r = num("r"), h = num("h"), axis = p.axis || "z"; if (h <= 0) return [0, [0, 0, 0, 0, 0, 0]];
       if (axis === "z") { iso.cyl(0, 0, 0, r, h, col, { cull: false }); return [h, [-r, -r, 0, r, r, h]]; }
@@ -92,14 +110,14 @@ function draw(iso, p, c, R, col) {
     case "roof": { const w = num("w"), d = num("d"), h = num("h"); iso.roof(-w / 2, -d / 2, 0, w, d, h, col, { ridge: p.ridge || "x", over: R(p.over) || 0 }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
     case "lathe": {
       const pr = p.profile.map(([r, z]) => [R(r), R(z)]), r = Math.max(...pr.map((q) => q[0])), [z0, z1] = span(pr, 1);
-      solid(iso, lathe(pr, { n: p.n || 24 }), col); return [z1, [-r, -r, z0, r, r, z1]];
+      solid(iso, lathe(pr, { n: p.n || 24 }), col, { smooth: true }); return [z1, [-r, -r, z0, r, r, z1]];
     }
     case "extrude": {
       const h = num("h"), plane = p.plane || "xy", F = extrude(p.outline, { h, plane }), all = F.flat();
       solid(iso, F, col); const [x0, x1] = span(all, 0), [y0, y1] = span(all, 1), [z0, z1] = span(all, 2); return [z1, [x0, y0, z0, x1, y1, z1]];
     }
     case "sweep": {
-      const path = p.path.map((q) => q.map(R)), r = num("r", 0.05); solid(iso, sweep(path, { r, n: p.n || 8, closed: !!p.closed }), col);
+      const path = p.path.map((q) => q.map(R)), r = num("r", 0.05); solid(iso, sweep(path, { r, n: p.n || 8, closed: !!p.closed }), col, { smooth: true });
       const [x0, x1] = span(path, 0), [y0, y1] = span(path, 1), [z0, z1] = span(path, 2); return [path[path.length >> 1][2], [x0 - r, y0 - r, z0 - r, x1 + r, y1 + r, z1 + r]];
     }
     case "gear": {

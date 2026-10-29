@@ -48,7 +48,7 @@
       c.clearRect(0, 0, 1080, 1920);
       drawLayers(i, cam, orbit(t), [
         // { depth: 0.3, draw: (j) => { /* far: skyline, paper */ } },
-        { depth: 1, draw: (j) => { for (const s of WORLD) Object.assign(PIN, build(j, s, { values: v }).at); } },
+        { depth: 1, draw: (j) => { Object.assign(PIN, build(j, WORLD, { values: v }).at); } },
       ], { focus: 1, aperture: 0 });
     }
     function frame(t) {
