@@ -35,6 +35,12 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+- `studio.mjs frames` took an arbitrary snapshot dir (uuid names sorted) and printed "FAILED no stills": it now takes
+  the newest by mtime and its first stills in numeric order, without HyperFrames' extra tail frame (`scripts/snapshots.mjs`).
+
+### Changed
 - **The user's pictures are matched, and measured** (`hero-asset.md` "The user supplies reference images"). When the
   user gives pictures of the subject, the Brief asks "Match the references exactly" or "Inspired by" (`fidelity:
   exact|inspired`). With exact, the outline of each picture is traced as measurement data (pixels, logos and text are
@@ -48,12 +54,6 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   freezes on the action's physical key pose, beat punch-ins under 1.2×, whip smears that may roll the frame ≤ 8°, a motif
   framing that returns, shallow focus on every close shot, and a whoosh or hit on each cut. Handheld shake, flash frames and footage stay out.
   `storyboard_lint.mjs` checks its 1.0 s average shot (`--energy hype`, or `energy: hype` in `BRIEF.md`).
-
-### Fixed
-- `studio.mjs frames` took an arbitrary snapshot dir (uuid names sorted) and printed "FAILED no stills": it now takes
-  the newest by mtime and its first stills in numeric order, without HyperFrames' extra tail frame (`scripts/snapshots.mjs`).
-
-### Changed
 - **Express researches the inside of the object a film explains** (`express.md` Steps 3–4, the anatomy strand): the facts job also
   reads the user's documents, the maker's manual or datasheet, a patent or a teardown, saves 2–3 pictures to `refs/`
   and writes `research/anatomy.md`, a sourced parts table down to fasteners (15 rows or more, generic structure rows
