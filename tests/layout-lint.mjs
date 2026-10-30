@@ -36,6 +36,9 @@ try {
     ["hero cover", frame({ t: 2.5, hero: { x0: 100, y0: 400, x1: 900, y1: 1300 } }), /caption .*covers \d+ % of the hero box/],
     ["minimum size", frame({ t: 2.5, boxes: [{ ...caption }, { ...label, size: 30 }] }), /label "valve".*30 px.*36 px minimum/],
     ["caption over label", frame({ t: 2.5, boxes: [{ ...caption }, { ...label }, { kind: "label", text: "pipe", x0: 300, y0: 1120, x1: 500, y1: 1200, size: 40 }] }), /caption .*overlaps label "pipe"/],
+    ["small hero", frame({ t: 2.5, hero: { x0: 300, y0: 500, x1: 600, y1: 900 } }), /hero box .*fills 21 % of the frame height and 28 % of its width, under 33 %/],
+    ["hero cut", frame({ t: 2.5, hero: { x0: 0, y0: 400, x1: 500, y1: 1100 } }), /hero box .*is cut by the frame's left edge/],
+    ["pale hero", frame({ t: 2.5, contrast: 6.5 }), /hero reads at ΔL\* 6\.5 .*under 12/],
   ];
   for (const [name, fr, re] of faults) {
     r = run(put([fr]));
@@ -49,6 +52,24 @@ try {
   r = run(put([frame({ t: 2.5, boxes: [{ ...caption, size: 50 }] })]));
   assert.equal(r.code, 1);
   assert.match(lines(r.out, "PROBLEM")[0], /caption .*50 px.*54 px minimum/);
+  // Framing edges: a close-up that fills the frame on both axes is not "cut"; a clipped box (camera inside the
+  // subject's box) is a lower bound and skips size and cut; contrast at or over the floor is OK; no contrast key, no check.
+  r = run(put([frame({ boxes: [], hero: { x0: 0, y0: 0, x1: 1080, y1: 1920 } })]));
+  assert.equal(r.code, 0, "a close-up filling the frame: " + r.out);
+  r = run(put([frame({ hero: { x0: 0, y0: 400, x1: 300, y1: 600, clipped: true } })]));
+  assert.equal(r.code, 0, "a clipped hero box is not judged for size or cut: " + r.out);
+  r = run(put([frame({ contrast: 20 })]));
+  assert.equal(r.code, 0, r.out);
+  r = run(put([frame({ contrast: 6.5 })]), "--min-contrast", "5");
+  assert.equal(r.code, 0, "--min-contrast lowers the floor: " + r.out);
+  r = run(put([frame({ hero: { x0: 300, y0: 500, x1: 600, y1: 900 } })]), "--min-hero", "0.2");
+  assert.equal(r.code, 0, "--min-hero lowers the share: " + r.out);
+  // --no-safe-area: the label outside the safe area is not flagged; everything else still is.
+  r = run(put([frame({ boxes: [{ ...caption }, { ...label, x1: 1000 }] })]), "--no-safe-area");
+  assert.equal(r.code, 0, "--no-safe-area skips the safe area: " + r.out);
+  r = run(put([frame({ contrast: 1 })]), "--min-contrast", "x");
+  assert.equal(r.code, 2, "a bad knob is a usage WARN: " + r.out);
+
   // A card is held to the label minimum and the label zone.
   r = run(put([frame({ boxes: [{ ...caption }, { ...label, kind: "card", size: 30 }] })]));
   assert.equal(r.code, 1);
@@ -127,6 +148,7 @@ try {
   // Imported: no CLI side effect, the shapes are arrays.
   const { lintLayout } = await import(pathToFileURL(script).href);
   assert.deepEqual(lintLayout([frame()]), { problems: [], warns: [], infos: [] });
+  assert.equal(lintLayout([frame({ boxes: [{ ...caption }, { ...label, x1: 1000 }] })], { safe: false }).problems.length, 0, "safe: false skips the safe area");
   const bad = lintLayout([frame({ t: 2.5, boxes: [{ ...caption }, { ...label, size: 30 }] })]);
   assert.equal(bad.problems.length, 1);
   assert.deepEqual([bad.warns, bad.infos], [[], []]);
