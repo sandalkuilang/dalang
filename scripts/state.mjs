@@ -155,7 +155,7 @@ const READING = {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against the reference)'),
     refs: [
       ...LOOKS, ...THREEJS,
-      ...VD_HERO, ...of('hero-asset.md', '# Hero asset: from 2D pictures to a 3D model, once', '## 1. Read the pictures', '## 2. Model it by script', '## 3. Shot-led acceptance: measured first, then judged', '### The hero check, fix rounds, escalation', '## 4. The motion recipe'),
+      ...VD_HERO, ...of('hero-asset.md', '# Hero asset: from 2D pictures to a 3D model, once', '## 1. Read the pictures', '### The user supplies reference images', '## 2. Model it by script', '## 3. Shot-led acceptance: measured first, then judged', '### The hero check, fix rounds, escalation', '## 4. The motion recipe'),
       ...VD_ENERGY, ...VD_RESTRAINT, ...VD_CINEMA,
       ...of('visual-direction.md', '## 7. Composition (read the format from `BRIEF.md`)', '## 8. What the best educational videos do'), ...VD_LAYERS, ...VD_QUANTITY,
       ...of('craft-rules.md', '## 1. Push-in: camera, not scissors', '## 2. Beats: everything lands on a word', '## 3. Motion budget: no dead seconds', '## 4. The mitten rule (stylised characters only)', '## 5. On-screen text'),
@@ -389,20 +389,29 @@ if (cmd === 'approve') {
   // 'sv' formats local time as YYYY-MM-DD HH:MM
   // Gate 3 records the storyboard lint's verdict; it never blocks (a heuristic must not lock a gate) and an
   // unreadable result is "not checked", never OK.
-  let lint, bench;
+  let lint, bench, sil;
   if (g === 3) {
     bench = express ? { summary: 'none (express)' } : benchmarkOf();
     if (bench.error) { console.error(`FAILED: gate 3 (look) ${bench.error}`); process.exit(1); }
     const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'storyboard_lint.mjs'), dir], { encoding: 'utf8' });
     lint = (r.stdout || '').match(/^\s*Result\s*:\s*(.+)$/m)?.[1].trim() || 'not checked';
+    // fidelity exact (the user's pictures): the hero's silhouette IoU per view from hero-measure.json; WARN, never a block
+    if (/^\W*fidelity\W*:\W*exact/im.test(existsSync(path.join(dir, 'BRIEF.md')) ? readFileSync(path.join(dir, 'BRIEF.md'), 'utf8') : '')) {
+      let refs = [];
+      try { refs = JSON.parse(readFileSync(path.join(dir, 'review', 'hero-measure.json'), 'utf8')).refs ?? []; } catch { /* not measured */ }
+      const low = refs.filter(v => v.status === 'FAIL');
+      sil = !refs.length || refs.some(v => v.status === 'WARN') ? 'not checked'
+        : low.length ? `below: ${low.map(v => `${v.name} ${v.iou}`).join(', ')}` : `pass (${refs.length} views)`;
+    }
   }
   // Every gate records the token report (tokens.mjs, review/tokens.json); like the lint it never blocks, and an
   // unreadable transcript is "not checked".
   const t = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'tokens.mjs'), dir], { encoding: 'utf8' });
   const tokens = (t.stdout || '').match(/^Result: (.+)$/m)?.[1].trim() || 'not checked';
-  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }), tokens, ...(note && { note }) };
+  state.approvals[g] = { at: new Date().toLocaleString('sv').slice(0, 16), by, hash: hashOf(g), ...(lint && { lint }), ...(bench && { benchmark: bench.summary }), ...(sil && { silhouette: sil }), tokens, ...(note && { note }) };
   writeFileSync(file, JSON.stringify(state, null, 2));
   console.log([`DONE gate ${g} (${GATES[g].name}) approved by ${by}`, `Tokens: ${tokens}${t.status === 3 ? ' (WARN rows: tokens.mjs)' : ''}`, lint && `Storyboard lint: ${lint}`, bench && `Benchmark: ${bench.summary}`].filter(Boolean).join(' · '));
+  if (sil) console.log(sil.startsWith('pass') ? `Silhouette: ${sil}` : `WARN Silhouette: ${sil} (hero-asset.md "The user supplies reference images"): send the user the overlays before style frames`);
   // A first approval moves the film on: print what the next step reads (a re-approval does not: it was read).
   if (first) {
     const nexts = AFTER[express ? 'express' : 'studio'][g];

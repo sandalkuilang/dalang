@@ -35,13 +35,27 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 ## [Unreleased]
 
 ### Added
+- **The user's pictures are matched, and measured** (`hero-asset.md` "The user supplies reference images"). When the
+  user gives pictures of the subject, the Brief asks "Match the references exactly" or "Inspired by" (`fidelity:
+  exact|inspired`). With exact, the outline of each picture is traced as measurement data (pixels, logos and text are
+  still never put on the model), curved surfaces are built as curves, and `scripts/silhouette_iou.mjs` compares each
+  picture with the hero's mask from its camera (`measure.py` `refs`): one uniform scale so a wrong proportion shows,
+  IoU, aspect difference, the worst region and an overlay the user sees before style frames. A view under its
+  threshold is a P0 shape item before any polish, and two rounds under it question the method. Gate 3 records the
+  IoU and warns when it is missing or low, never blocks.
 - **Hype edit, a fourth energy** for 9:16 and 4:5 (the Brief's Energy question, which Express now asks too): the
   short-form beat-cut edit, 0.4–1.0 s shots cut on the voice's stressed words, a velocity ramp per shot that slows or
   freezes on the action's physical key pose, beat punch-ins under 1.2×, whip smears that may roll the frame ≤ 8°, a motif
   framing that returns, shallow focus on every close shot, and a whoosh or hit on each cut. Handheld shake, flash frames and footage stay out.
   `storyboard_lint.mjs` checks its 1.0 s average shot (`--energy hype`, or `energy: hype` in `BRIEF.md`).
 
+### Fixed
+- `studio.mjs frames` took an arbitrary snapshot dir (uuid names sorted) and printed "FAILED no stills": it now takes
+  the newest by mtime and its first stills in numeric order, without HyperFrames' extra tail frame (`scripts/snapshots.mjs`).
+
 ### Changed
+- `SKILL.md`: a skill rule that defeats what the user asked for is flagged to the user in one line, never passed on
+  silently.
 - **Bokeh is real optics, always** (`camera-motion.md` §9.2 "Real lens"): blur only from the shot's lens, f-stop and
   focus distance (`dofFor`, `bokeh`), growing with depth in front and behind, a punch-in scaling the same blur, discs
   only on real lights or speculars, the explained part sharp through its hold.

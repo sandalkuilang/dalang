@@ -32,8 +32,10 @@ const spec = {
     { shot: 5, side: "left", target: [0, 0, 0], focal: ["part.roller"], soft: ["part.cover"], keys: [{ az: 90, ...lens }], need: { instances: 6, minPx: 40 } },
     { shot: 6, side: "left", target: [0, 0, 0], focal: ["part.rolle"], keys: [{ az: 90, ...lens }] },
   ],
+  refs: [{ name: "left", image: "ref-left.png", az: 90, ...lens, target: [0, 0, 0] }, { name: "gone", image: "nope.png", ortho: true, az: 0 }],
 };
 const specPath = path.join(out, "hero-shots.json");
+assert.equal(spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=white:s=270x480,drawbox=x=60:y=140:w=150:h=200:c=black:t=fill", "-frames:v", "1", path.join(out, "ref-left.png")]).status, 0, "ffmpeg makes the reference");
 fs.writeFileSync(specPath, JSON.stringify(spec));
 const run = (env = {}) => {
   const r = spawnSync(B, ["-b", "-P", fixture, "--", out, specPath], { encoding: "utf8", timeout: 300000, env: { ...process.env, ...env } });
@@ -60,6 +62,10 @@ try {
   assert.ok(row(1, "low").got.contrast > 30, "steel rollers on a dark hub stand apart: " + row(1, "low").got.contrast);
   assert.deepEqual(row(6).got.missing, ["part.rolle"], "a focal prefix that matches nothing is named");
   assert.equal(row(6).pass, false);
+  const left = res.refs.find((v) => v.name === "left");
+  assert.ok(left.iou >= 0 && left.iou <= 1 && left.phi >= 0, "a reference view has an IoU and its phi: " + JSON.stringify(left));
+  for (const f of ["silhouette/left.png", "silhouette/left-overlay.png"]) assert.ok(fs.existsSync(path.join(out, f)), f);
+  assert.equal(res.refs.find((v) => v.name === "gone").status, "WARN", "an unreadable picture is WARN, never a fail");
   assert.ok(res.phi > 0 && res.history.length === 1);
   assert.match(stdout, /MEASURE FAIL/);
   assert.ok(fs.readFileSync(path.join(out, "hero-measure.md"), "utf8").includes("| 2 |"), "the report has a row per shot");

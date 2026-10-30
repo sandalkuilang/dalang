@@ -21,7 +21,11 @@
 #   import measure; measure.measure_from_env(set_state, set_cut)   # last in the asset script, after export and stills
 #   set_state(name) poses a state; set_cut(deg) turns the section plane deg about the focal's axis (0 = as built).
 #   DALANG_MEASURE=<film>/review/hero-shots.json Blender -b -P <asset>.py -- <out>   -> <film>/review/hero-measure.md/.json
-import json, math, os, re, tempfile
+# `refs` (the user's pictures, BRIEF.md fidelity exact): each is rendered as the hero's white mask from that picture's
+# camera (`ortho: true` for a blueprint view) into review/silhouette/<name>.png and compared by
+# scripts/silhouette_iou.mjs (one uniform scale, IoU, worst region, overlay); a view under its threshold adds
+# (min - iou) / min to phi, an unreadable picture is recorded as WARN and adds nothing.
+import json, math, os, re, shutil, subprocess, tempfile
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -71,11 +75,15 @@ def _camera(spec, row, key):
     f = Vector(spec.get('front', [0, -1, 0])).normalized()
     az, el = math.radians(key['az']), math.radians(key.get('el', 0))
     h = Vector((f.x * math.cos(az) - f.y * math.sin(az), f.x * math.sin(az) + f.y * math.cos(az), 0)).normalized()
-    d = (h * math.cos(el) + Vector((0, 0, 1)) * math.sin(el)) * key['dist']
+    d = (h * math.cos(el) + Vector((0, 0, 1)) * math.sin(el)) * key.get('dist', 10)
     cam = bpy.data.objects.get('_measure_cam') or bpy.data.objects.new('_measure_cam', bpy.data.cameras.new('_measure_cam'))
     if cam.name not in sc.collection.objects:
         sc.collection.objects.link(cam)
-    cam.data.sensor_fit, cam.data.sensor_height, cam.data.lens = 'VERTICAL', 24, key['mm']
+    cam.data.type = 'ORTHO' if key.get('ortho') else 'PERSP'
+    if key.get('ortho'):
+        cam.data.ortho_scale = key['orthoScale']
+    else:
+        cam.data.sensor_fit, cam.data.sensor_height, cam.data.lens = 'VERTICAL', 24, key['mm']
     cam.data.clip_start, cam.data.clip_end = 0.001, 100
     cam.location = Vector(t) + d
     cam.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
@@ -221,6 +229,55 @@ def _explore(spec, row, key, set_state, set_cut, tmp):
     return {'class': 'decision', 'pass': passed} if passed else {'class': 'model', 'pass': []}
 
 
+def _refs(spec, spec_path, out_dir):
+    """Each reference picture's view: the hero's mask from its camera, then silhouette_iou.mjs on all of them."""
+    sc = bpy.context.scene
+    base = os.path.dirname(os.path.abspath(spec_path))
+    film = os.path.dirname(base) if os.path.basename(base) == 'review' else base
+    sil = os.path.join(out_dir, 'silhouette')
+    os.makedirs(sil, exist_ok=True)
+    objs = _objects()
+    pts = [o.matrix_world @ Vector(c) for o in objs for c in o.bound_box]
+    lo = [min(p[i] for p in pts) for i in range(3)]
+    hi = [max(p[i] for p in pts) for i in range(3)]
+    centre, extent = [(a + b) / 2 for a, b in zip(lo, hi)], max(b - a for a, b in zip(lo, hi))
+    for o in objs:
+        o.color = (1, 1, 1, 1)
+    sc.display.shading.color_type = 'OBJECT'
+    views, warns = [], []
+    for ref in spec['refs']:
+        image = os.path.join(film, ref['image'])
+        try:
+            im = bpy.data.images.load(image)
+            w, h = im.size
+            bpy.data.images.remove(im)
+        except RuntimeError:
+            warns.append({'name': ref['name'], 'status': 'WARN', 'why': f'cannot read {ref["image"]} — rerun'})
+            continue
+        k = 1080 / max(w, h) if max(w, h) > 1080 else 1
+        sc.render.resolution_x, sc.render.resolution_y = int(w * k), int(h * k)
+        _camera(spec, {'shot': ref['name'], 'target': ref.get('target', centre)}, {**ref, 'orthoScale': ref.get('orthoScale', extent * 1.15)})
+        sc.render.filepath = os.path.join(sil, f"{ref['name']}.png")
+        bpy.ops.render.render(write_still=True)
+        views.append({'name': ref['name'], 'ref': image, 'render': f"{ref['name']}.png", 'ortho': bool(ref.get('ortho')),
+                      'overlay': f"{ref['name']}-overlay.png"})
+    if not views:
+        return warns
+    json.dump(views, open(os.path.join(sil, 'views.json'), 'w'), indent=1)
+    node = shutil.which('node')
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts', 'silhouette_iou.mjs')
+    if not node:
+        return warns + [{'name': v['name'], 'status': 'WARN', 'why': 'node not found — rerun where node is on PATH'} for v in views]
+    r = subprocess.run([node, script, '--list', os.path.join(sil, 'views.json'), '--json'], capture_output=True, text=True)
+    try:
+        out = json.loads(r.stdout)['views']
+    except (ValueError, KeyError):
+        out = [{'name': v['name'], 'status': 'WARN', 'why': f'silhouette_iou.mjs gave no result (exit {r.returncode}) — rerun'} for v in views]
+    for v in out:
+        v['phi'] = round(max(0.0, (v['min'] - v['iou']) / v['min']), 3) if v.get('status') in ('PASS', 'FAIL') else 0.0
+    return warns + out
+
+
 def run(spec_path, out_dir, set_state=None, set_cut=None):
     spec = json.load(open(spec_path))
     sc = bpy.context.scene
@@ -232,7 +289,7 @@ def run(spec_path, out_dir, set_state=None, set_cut=None):
     keep_sh = (sh.light, sh.color_type, sh.show_object_outline, sh.show_cavity, sh.show_shadows,
                sh.show_specular_highlight, sh.show_xray, sh.background_type, tuple(sh.background_color), sc.display.render_aa)
     colours = {o: tuple(o.color) for o in _objects()}
-    rows, explore, tmp = [], {}, tempfile.mkdtemp(prefix='dalang-measure-')
+    rows, explore, refs, tmp = [], {}, [], tempfile.mkdtemp(prefix='dalang-measure-')
     try:
         sc.render.engine = 'BLENDER_WORKBENCH'
         sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = W // SCALE, H // SCALE, 100
@@ -252,6 +309,8 @@ def run(spec_path, out_dir, set_state=None, set_cut=None):
                                  'need': {k: need[k] for k in got if k in need}, 'phi': round(float(phi), 3), 'pass': bool(phi == 0)})
                 if fail and (key.get('hold') or len(row['keys']) == 1):
                     explore[str(row['shot'])] = _explore(spec, row, key, set_state, set_cut, tmp)
+        if spec.get('refs'):
+            refs = _refs(spec, spec_path, out_dir)
     finally:
         (sc.render.engine, sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage,
          sc.render.filepath, sc.render.dither_intensity, sc.view_settings.view_transform, sc.view_settings.look,
@@ -263,13 +322,13 @@ def run(spec_path, out_dir, set_state=None, set_cut=None):
         cam = bpy.data.objects.get('_measure_cam')
         if cam:
             bpy.data.objects.remove(cam)
-    phi = round(sum(r['phi'] for r in rows), 3)
+    phi = round(sum(r['phi'] for r in rows) + sum(v.get('phi', 0) for v in refs), 3)
     jpath = os.path.join(out_dir, 'hero-measure.json')
     try:
         history = json.load(open(jpath)).get('history', []) + [phi]
     except (FileNotFoundError, ValueError):
         history = [phi]
-    res = {'phi': phi, 'history': history, 'rows': rows, 'explore': explore}
+    res = {'phi': phi, 'history': history, 'rows': rows, 'explore': explore, 'refs': refs}
     json.dump(res, open(jpath, 'w'), indent=1)
     md = ['# Hero measure', '', f'phi {phi} (history {history})', '',
           '| shot | key | state | instances | min px | visible | cap | move | contrast | phi | |', '|---|---|---|---|---|---|---|---|---|---|---|']
@@ -283,6 +342,9 @@ def run(spec_path, out_dir, set_state=None, set_cut=None):
         md.append(f"\nShot {shot}: {e['class']} — " + ({'legal': 'a legal camera or cut passes: use it',
                   'decision': 'only another side passes: the main agent decides the storyboard camera',
                   'model': 'no camera passes: fix the model or the cut'}[e['class']]) + (f" {e['pass'][:4]}" if e['pass'] else ''))
+    for v in refs:
+        md.append(f"\nRef {v['name']}: " + (f"WARN {v['why']}" if v['status'] == 'WARN' else
+                  f"{v['status']} IoU {v['iou']} / {v['min']}, aspect {v['aspect']:+.0%}, worst: {v['worst']}, overlay silhouette/{v['name']}-overlay.png"))
     open(os.path.join(out_dir, 'hero-measure.md'), 'w').write('\n'.join(md) + '\n')
     for line in md[4:]:
         print(line)

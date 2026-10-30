@@ -17,7 +17,29 @@ licence), never installed on its own; declined, the hero falls back to a CC0 mod
 - Write `review/hero-<name>.md`: every part and its count, what is inside or touches what, materials and colours, real
   sizes. Sizes come from a stated dimension, a part standard or a cited spec, tagged like script numbers (`[src]`,
   `[calc]`, `[assume]`); a side no picture shows is built as such things are built, marked `[assume]`.
-- Shape only: no pixel of a picture is ever projected, traced or baked onto the model.
+- Shape from the pictures, never their pixels: no picture, logo, decal or text is projected, baked or textured onto
+  the model; the outline of a picture the user gave is traced as measurement data (next section).
+
+### The user supplies reference images
+
+The user's pictures are the shape to match, not inspiration. `BRIEF.md` says `fidelity: exact` (the Brief's default
+when pictures are given) or `inspired` (proportions only, no IoU).
+- **Views:** an orthographic or blueprint view first, else the photo closest to side, front or top; each is a `refs` row
+  of `review/hero-shots.json` (`name`, `image` under the film folder, `az`, `el`, and `ortho: true` or the photo's
+  estimated `mm` and `dist`, tagged `[assume]` in the parts sheet).
+- **Outline and scale:** the picture's subject mask (`scripts/silhouette_iou.mjs`: what differs from the border colour,
+  or the alpha) is the outline to build to, scaled from one real dimension. A busy background gives no mask: ask the
+  user for a picture on a plain background, never guess the outline.
+- **Surfaces:** curved surfaces as curves plus subdivision (or an equally smooth method), never flat panels standing in
+  for a curve.
+- **Measured:** `measure.py` renders the hero's mask from each ref's camera and compares it (one uniform scale, so a
+  wrong proportion shows): IoU, aspect difference, the worst ninth of the outline; a view under its threshold (starting
+  values 0.85 photo, 0.92 ortho, `--photo` / `--ortho-min`) adds to phi. Overlays: `review/silhouette/<name>-overlay.png`
+  (picture red, render blue).
+- **Shown early:** the overlays go to the user before style frames start (`SendUserFile` where the host has it, else
+  their paths in one line), so the shape is confirmed before anything is styled.
+- **Method, not polish:** a view still under its threshold after two rounds questions the method (base mesh, curves
+  vs panels, which picture is the side view) in the next brief; no material, light or focus round comes first.
 
 ## 2. Model it by script
 
@@ -63,7 +85,8 @@ it against `storyboard.md` (exit 1 names the row).
 
 - **Then one contact sheet** of the hold keys only (`strips.mjs --frames`), read once, for what numbers cannot see.
 - **The hero check** (a fresh `dalang-checker`, after a measure PASS) reads `hero-measure.md` first and never re-judges a
-  measured line. Its rubric: shape, parts, counts and placement against the pictures and `review/hero-<name>.md`;
+  measured line. With `fidelity: exact` it reports each ref view's IoU first; a side-by-side alone never passes, and a
+  view under its threshold is P0 "shape", fixed before any material, light or focus item. Its rubric: shape, parts, counts and placement against the pictures and `review/hero-<name>.md`;
   surface only as the SPEC look shows it (the film renders the GLB in three.js: Blender material tricks and beauty
   renders are not judged; stylized, never hyperreal). Each finding names the still, the shot row and the picture or
   hero line it contradicts; one that names none is P2 at most. From round 2 it re-judges only the open items and the
