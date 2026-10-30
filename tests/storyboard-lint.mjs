@@ -90,6 +90,10 @@ const check = (rows, args = [], opts, brief) => {
   r = check(clean(5), [], { step: 2.4 }, "Energy: Modern balanced\n"); assert.equal(r.code, 0, r.out);
   r = check(clean(5), [], { step: 2.4 }, "- Energy: Punchy social\n");
   assert.equal(r.code, 1, r.out); assert.match(r.out, /over 1\.8 s for punchy/);
+  r = check(clean(6), ["--energy", "hype"], { step: 1.2 });
+  assert.equal(r.code, 1, r.out); assert.match(r.out, /over 1 s for hype/);
+  r = check(clean(6), ["--energy", "hype"], { step: 0.8 }); assert.equal(r.code, 0, r.out);
+  r = check(clean(6), [], { step: 1.2 }, "energy: hype\n"); assert.match(r.out, /over 1 s for hype/, "BRIEF.md's hype line");
   r = check(clean(5), [], { step: 2.4 }); assert.equal(r.code, 0, r.out); assert.match(r.out, /INFO\s*: energy not found/);
 }
 // 6. cannot check

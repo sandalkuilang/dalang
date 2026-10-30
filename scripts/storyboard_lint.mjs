@@ -6,8 +6,8 @@
 // energy's limit; an average shot length over the energy's limit; a hard cut that keeps the view (two shots cut together
 // at the same angle, or under 60° apart: a jump cut that shows nothing new). Limits = references/visual-direction.md §3.
 // The text-only check is a heuristic on the "What we see" focal clause and the Subject action's source words.
-// Energy: --energy calm|balanced|punchy, else the Energy line of BRIEF.md, else balanced (INFO).
-// Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy]   (default: .)
+// Energy: --energy calm|balanced|punchy|hype, else the Energy line of BRIEF.md, else balanced (INFO).
+// Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy|hype]   (default: .)
 // Exit 1 on a problem, 2 when the storyboard cannot be read or a check cannot run (rerun / fix), 0 when clean.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -17,7 +17,7 @@ const ei = args.indexOf('--energy');
 const energyArg = ei >= 0 ? args.splice(ei, 2)[1] : null;
 const dir = path.resolve(args.find(a => !a.startsWith('--')) ?? '.');
 const problems = [], warns = [], infos = [];
-const LIMITS = { calm: { avg: 5, text: 0.10 }, balanced: { avg: 3, text: 0.15 }, punchy: { avg: 1.8, text: 0.25 } };
+const LIMITS = { calm: { avg: 5, text: 0.10 }, balanced: { avg: 3, text: 0.15 }, punchy: { avg: 1.8, text: 0.25 }, hype: { avg: 1.0, text: 0.25 } };
 const read = rel => { // text, null when absent, undefined when it could not be read (never "absent")
   try { return readFileSync(path.join(dir, rel), 'utf8'); }
   catch (e) { if (e.code === 'ENOENT') return null; warns.push(`${rel}: cannot read (${e.code}) — rerun`); return undefined; }
@@ -33,13 +33,13 @@ const done = () => {
 
 let energy = 'balanced';
 const rows = [];
-if (energyArg && !LIMITS[energyArg]) warns.push(`--energy ${energyArg}: use calm, balanced or punchy`);
+if (energyArg && !LIMITS[energyArg]) warns.push(`--energy ${energyArg}: use calm, balanced, punchy or hype`);
 else if (energyArg) energy = energyArg;
 else {
   const brief = read('BRIEF.md');
-  const l = (brief ?? '').split('\n').find(x => /energy/i.test(x) && /calm|modern|balanced|punchy/i.test(x));
-  const m = l && l.match(/calm|punchy|modern|balanced/i);
-  if (m) energy = /calm/i.test(m[0]) ? 'calm' : /punchy/i.test(m[0]) ? 'punchy' : 'balanced';
+  const l = (brief ?? '').split('\n').find(x => /energy/i.test(x) && /calm|modern|balanced|punchy|hype/i.test(x));
+  const m = l && l.match(/calm|punchy|hype|modern|balanced/i);
+  if (m) energy = /calm|punchy|hype/i.test(m[0]) ? m[0].toLowerCase() : 'balanced';
   else if (brief !== undefined) infos.push('energy not found in BRIEF.md, assuming Modern balanced');
 }
 const lim = LIMITS[energy];

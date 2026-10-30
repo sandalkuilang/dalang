@@ -58,7 +58,7 @@ Order: Call 0 only when setup left a choice, Calls 1 and 2 (≤ 4 questions each
 ### Call 1
 0. **Mode** (first) — "Express — ready in ~20 minutes (Recommended)": no stop after the Brief, parallel builders, one `--quality looks` render (`express.md`); "Studio — the precision lane: a Blender hero, reference boards, style-frame check, benchmark and review (slower; also no stop after the Brief)". Save `mode: express` or `mode: studio`.
 0b. **Look** (second; a series kit answers it) — "Isometric 2.5D (Recommended)": `isometric-world` as the main language, flat drawing that reads as 3D through layers and colour, with `cutaway` and `blueprint` on the beats that need them (`engine/iso`); "3D object studio": `object-studio`, the real object as clean 3D on a light grey studio sweep, x-ray, editorial cards, karaoke captions (`engine/three`, `looks.md` "object-studio"). Save `look: isometric-world` or `look: object-studio`. A link or file under "Other" is a Step 2 reference, never a third look. Mode and look are locked after the Brief; only the user changes either.
-**Express** asks only Mode, Look, Platform, Language and Duration here, skips Call 2's energy and audience (Modern balanced, general public) and Call 3 unless the voice is unclear, asks Call 4's extras that apply, then goes to Step 3.
+**Express** asks only Mode, Look, Platform, Language, Duration and Energy, skips Call 2's audience (general public) and Call 3 unless the voice is unclear, asks Call 4's extras that apply, then goes to Step 3.
 1. **Platform** — YouTube Shorts (9:16, 1080×1920, ≤ 3 min, hook in 1–2 s) · Instagram Reels (9:16, ≤ 3 min, taller bottom overlay) · YouTube landscape (16:9, 1920×1080) · Instagram feed (4:5, 1080×1350, ≤ 60 s, often muted). TikTok and 1:1 via "Other".
 2. **Language** — the user's language "(Recommended)", English, one other likely language; the rest via "Other". Store the ISO 639-1 code.
 3. **Angle** — 3 options **built from the topic** (e.g. "Myth vs fact", "Step by step", "A vs B"). People acting or speaking are stylized or faceless figures (`visual-direction.md` §1 "People").
@@ -69,7 +69,7 @@ Order: Call 0 only when setup left a choice, Calls 1 and 2 (≤ 4 questions each
 
 4. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Above 3 min, one composition per section.
 5. **Visual style** — answered by 0b. A look outside the two: say so in one line; only its palette, type and overlays carry over. The camera is never asked. A kit's older look letter reads as `isometric-world`.
-6. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" on Punchy for 9:16 under 60 s, else Modern balanced. YouTube landscape adds "Calm cinematic, film look (24 fps)", the only option that saves fps 24.
+6. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" on Punchy for 9:16 under 60 s, else Modern balanced. 9:16 and 4:5 add "Hype edit — beat-cut: 0.4–1 s shots on the stressed words, speed ramps into a held pose, punch-ins, whip smears" (saved `energy: hype`). YouTube landscape adds "Calm cinematic, film look (24 fps)", the only option that saves fps 24.
 7. **Audience** — General public, one main idea "(Recommended)"; Students; Professionals/enthusiasts.
 
 ### Call 3 — Voice
