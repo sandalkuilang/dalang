@@ -13,16 +13,16 @@ that reads as:
 | **PATCH** | everything else, most releases: bug fixes, improvements, new features, rules, the agent's workflow, internal scripts, docs, removals | `### Added`, `### Changed`, `### Fixed`, `### Removed` |
 
 The bump is never picked by hand: `scripts/release.sh` reads it from the sections above (`next_version.mjs`). The size of
-the change sets it, not its kind: a new feature is a PATCH. Releases batch what landed: at most one a week (the script refuses
-sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Published versions are never re-tagged.
+the change sets it, not its kind: a new feature is a PATCH. A release may come whenever there is something in `Unreleased`.
+Published versions are never re-tagged.
 
 <details>
 <summary><b>How a release is cut</b></summary>
 
 <br/>
 
-1. `scripts/release.sh` (`--urgent` for a PATCH within the week) cuts it in one go, its version from `Unreleased`: a `release/vx.y.z` branch from `origin/main` with `Unreleased`
-   moved into `## [x.y.z] - YYYY-MM-DD`, its link at the bottom and the README's clone example pinned, a PR merged at
+1. `scripts/release.sh` cuts it in one go, its version from `Unreleased`: a `release/vx.y.z` branch from `origin/main` with `Unreleased`
+   moved into `## [x.y.z] - YYYY-MM-DD`, its link at the bottom and `.claude-plugin/plugin.json`'s version set, a PR merged at
    once, and the tag on the merged commit. Nothing waits on CI; it still runs on `main`.
 2. When the release changes how films look, first run `node scripts/golden.mjs --version x.y.z` and commit
    `evals/golden/x.y.z/` (exit 3 blocks the release until explained).
@@ -39,6 +39,8 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   then `claude plugin install dalang@dalang`); each version is its own folder, so a film in progress keeps its version
   while the repo moves. Preflight reports a plugin copy's version and WARNs when a clone and the plugin are both
   installed; `release.sh` sets `plugin.json`'s version, and the release workflow refuses a tag that differs.
+- **Releases are no longer limited to one a week** (`scripts/next_version.mjs`, `scripts/release.sh`): a release may come
+  whenever `Unreleased` has an entry; `--urgent` is gone (it only lifted that limit), the bump still comes from the sections.
 
 ### Added
 - **Gradient glass bands at the top and bottom** (`engine/three/editorial.js` `makeOverlay`, both looks): the picture,
