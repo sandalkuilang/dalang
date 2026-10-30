@@ -62,6 +62,7 @@ Calm's 24 fps variant (YouTube landscape only): `brief.md` Call 2 item 6. Energy
 
 - **One hero move per shot;** at most **two** things move at once (background and camera not counted).
 - The accent colour appears on **one** element per shot. Colour is a legend for the film (one hue per material or role); by default the shot's accent is the caption's key-word box.
+- **Colour roles mean the same in every film** (a series keeps them; `SPEC.md` palette slots name each one used): **red** heat or electric current, **green** safe or working as meant, **blue** cold or a fluid, **violet** a field (magnetic, electric), **yellow** the focus, "this part, now" (the shot's one accent), **orange glow** hotter or higher than it should be. A role colours only what carries that state, from its first word to its last; a part's own colour stays its own until a role takes it. A role never changes hue in a film, and a hue never means two roles. The legend needs no key: the first use lands on its word ("hot", "magnet").
 - Text besides the caption follows §12: one claim headline (≤ 8 words), at most 3 cards at once; the caption never repeats them word for word (`repeats(CAPTIONS, LABELS)` in `type.js` warns).
 - 3–5 transition kinds per film, each caused by something on screen; never the same entrance two beats in a row.
 - Allowed finish: grain, vignette, depth of field, motion blur on fast moves.

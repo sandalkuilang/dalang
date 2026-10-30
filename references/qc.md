@@ -60,7 +60,7 @@ Written at the hand-off from `script.md` (and `numbers.json` / `model.mjs`), in 
 
 1. The hook as a question, with the short answer, in one line.
 2. The model in plain sentences: the example case, the rule of thumb, the adjustments. A number that changes over time is dated ("as of <month year>"); a computed result is labelled "our model, not a measurement".
-3. Both failure modes, one line each.
+3. Both failure modes, one line each; an anatomy explainer lists its parts table instead, "<#> <part>: what it does", one line each.
 4. A self-check with the viewer's own numbers: "<your measure> x <rule>, add for <conditions>, compare with the label, the bill or the gauge".
 5. One save or share call to action, then one comment question asking for the next topic.
 6. One sources line (publishers only), then 4–5 hashtags.

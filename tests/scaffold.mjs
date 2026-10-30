@@ -23,6 +23,13 @@ try {
   assert.match(host, /id="intro" [^>]*data-start="0" data-duration="\{\{middle\}\}"/, "the first group opens at 0");
   assert.match(host, /id="body" [^>]*data-start="\{\{middle\}\}" data-duration="\{\{close - middle\}\}"/);
   assert.match(host, /id="end" [^>]*data-start="\{\{close\}\}" data-duration="\{\{END - close\}\}"/, "the last group closes at END");
+  assert.doesNotMatch(read(d, "review/builder-intro.md"), /research\/anatomy\.md/, "no anatomy file: the world brief does not name one");
+  const a = proj("anat");
+  fs.mkdirSync(path.join(a, "research")); fs.writeFileSync(path.join(a, "research/anatomy.md"), "Thing: a pump\n");
+  r = run(a, "--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close");
+  assert.equal(r.code, 0, r.out);
+  assert.match(read(a, "review/builder-intro.md"), /research\/anatomy\.md/, "the world builder builds the hero from its anatomy");
+  assert.doesNotMatch(read(a, "review/builder-body.md"), /research\/anatomy\.md/, "only the world's owner reads it");
   assert.match(host, /font-family: "Kohinoor Bangla", Helvetica/, "the host sets the one typeface");
   assert.match(host, /@font-face\{font-family:"Kohinoor Bangla";font-weight:600;src:local\("Kohinoor Bangla Semibold"\)/, "its weights are declared from the installed font");
   assert.doesNotMatch(host, /googleapis|Fredoka|Nunito|Inter"|__FAMILY__|__FONT_FACES__/, "no other family, no placeholder left");

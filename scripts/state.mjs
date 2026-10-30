@@ -197,9 +197,9 @@ const JOBS = {
     7: [['fresh-eyes review, Set / Reality check', TOP, 'high'], ['sound-off quiz', TOP, 'medium'], ['scopes verdict', TOP, 'medium'], ['builder: each QC fix round', TOP, 'medium'], ['fix check, contact-sheet triage', MID, 'low']],
   },
   express: {
-    3: [['fact research: one job, ≤ 2 strands (≤ 6 searches, 8 fetches)', MID, 'medium'], ['script writer (dalang-builder)', TOP, 'high'], ['Gate 1 read-through', MID, 'medium'], ['voice job (dalang-builder)', TOP, 'medium']],
+    3: [['fact research: one job, ≤ 2 strands (≤ 6 searches, 8 fetches), + the anatomy strand for a made thing (≤ 3 searches, 4 fetches)', MID, 'medium'], ['script writer (dalang-builder)', TOP, 'high'], ['Gate 1 read-through', MID, 'medium'], ['voice job (dalang-builder)', TOP, 'medium']],
     5: [['planner (subagent_type dalang-builder)', TOP, 'high']],
-    6: [['builder per group, and its one fix round', MID, 'medium']],
+    6: [['builder per group, and its one fix round', MID, 'medium'], ['anatomy check vs refs (dalang-checker), beside assemble', MID, 'low']],
   },
 };
 const JOBS_HEAD = 'Subagents (model · effort; top = omit `model`, mid = "sonnet", light = "haiku"; a failed job escalates one notch):';
