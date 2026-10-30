@@ -331,9 +331,11 @@ export function heroBox(camera, object, W, H) {
   const b = new THREE.Box3(), mb = new THREE.Box3();
   object.traverseVisible((o) => {
     if (!o.isMesh || o.userData.attend === false || !o.geometry) return;
-    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-    if (o.geometry.boundingBox.isEmpty()) return;
-    b.union(mb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld));
+    // an InstancedMesh's template (often a unit box scaled per instance) is not its extent: its instances are
+    if (o.isInstancedMesh) o.computeBoundingBox();
+    const gb = o.isInstancedMesh ? o.boundingBox : (o.geometry.boundingBox ?? (o.geometry.computeBoundingBox(), o.geometry.boundingBox));
+    if (!gb || gb.isEmpty()) return;
+    b.union(mb.copy(gb).applyMatrix4(o.matrixWorld));
   });
   if (b.isEmpty()) return null;
   const v = new THREE.Vector3(), r1 = (x) => Math.round(x * 10) / 10, cl = (x, a, z) => Math.min(Math.max(x, a), z);

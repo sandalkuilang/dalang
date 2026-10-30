@@ -592,6 +592,15 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
       const grown = heroBox(cam, g, W, H);
       assert.ok(grown && grown.x1 > base.x1 + 1, "a visible mesh grows the box: " + JSON.stringify([base, grown]));
     }
+    {
+      // instanced parts (a unit box scaled per instance into small parts) measure by their instances, not by the 1 m template
+      const g = new THREE.Group(), im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), 2), m4 = new THREE.Matrix4();
+      im.setMatrixAt(0, m4.compose(new THREE.Vector3(-0.1, 0, 0), new THREE.Quaternion(), new THREE.Vector3(0.05, 0.05, 0.05)));
+      im.setMatrixAt(1, m4.compose(new THREE.Vector3(0.1, 0, 0), new THREE.Quaternion(), new THREE.Vector3(0.05, 0.05, 0.05)));
+      im.instanceMatrix.needsUpdate = true; g.add(im); g.updateMatrixWorld(true);
+      const ib = heroBox(cam, g, W, H);
+      assert.ok(ib && ib.x1 - ib.x0 < W / 3, "instanced parts: the box follows the instances, not the unit template: " + JSON.stringify(ib));
+    }
   }
 }
 // Camera stations, attention by ghosting, loop end: one world, one camera, no cut. A small set in metres (a kept base,
