@@ -14,16 +14,18 @@
 ## Install
 
 ```bash
-git clone https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
+claude plugin marketplace add sandalkuilang/dalang
 ```
-
-Pin a release instead: `git clone --branch v4.5.3 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang`
-
-Restart Claude Code, check your machine once, then ask in any language:
 
 ```bash
-node ~/.claude/skills/dalang/scripts/preflight.mjs
+claude plugin install dalang@dalang
 ```
+
+Each version lives in its own folder, so a film in progress keeps its version while you update
+(`claude plugin update dalang`, then a new session). Installed before as a clone at `~/.claude/skills/dalang`? Remove that
+folder after installing the plugin, or the skill loads twice.
+
+Restart Claude Code, check your machine once (the agent runs `preflight.mjs` from the plugin), then ask in any language:
 
 ```
 "make a 45 s YouTube Short about why steel ships float"

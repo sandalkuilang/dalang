@@ -73,8 +73,9 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
 - Releases: at most one a week (`--urgent`: a PATCH sooner), the bump read from `Unreleased` by the table at the top of
   `CHANGELOG.md`, never picked, by the size of the change: `### Redesign` MAJOR (a very large design or algorithm overhaul, only
   with `--major`, the owner's call), `### Rework` MINOR (medium to large), everything else PATCH (fixes, improvements, features). `scripts/release.sh`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
-  moves `Unreleased` into `## [x.y.z] - date`, pins the README's clone example, merges that PR at once and tags the
+  moves `Unreleased` into `## [x.y.z] - date`, sets `.claude-plugin/plugin.json`'s version, merges that PR at once and tags the
   merged commit; the `release` workflow publishes the section and its own checks refuse a broken tag. No local gate
   and no CI wait for a release (CI still runs on `main`).
-- The installed copy (`~/.claude/skills/dalang`) is a clone of this repo: update it with `git pull`, never edit
-  it directly.
+- DALANG installs as a plugin (`.claude-plugin/`, the skill is the repo root): each version is its own folder in Claude
+  Code's plugin cache, so this repo is edited freely while a film runs; a session gets a release after
+  `claude plugin update dalang`. `scripts/release.sh` sets `plugin.json`'s version.

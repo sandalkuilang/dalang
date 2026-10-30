@@ -34,6 +34,12 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 
 ## [Unreleased]
 
+### Changed
+- DALANG installs as a Claude Code plugin from its own marketplace (`claude plugin marketplace add sandalkuilang/dalang`,
+  then `claude plugin install dalang@dalang`); each version is its own folder, so a film in progress keeps its version
+  while the repo moves. Preflight reports a plugin copy's version and WARNs when a clone and the plugin are both
+  installed; `release.sh` sets `plugin.json`'s version, and the release workflow refuses a tag that differs.
+
 ## [4.5.3] - 2026-10-30
 
 ### Fixed
