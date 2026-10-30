@@ -337,11 +337,14 @@ export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {})
 // and range card drawn since the last call, in px at the canvas size, and the hero's box (camera.js heroBox) when
 // given. Call it last in the frame function; it empties the list. It sets globalThis.__dalangLayout and posts the
 // record to strips.mjs's receiver while one answers (the first failed post stops the posting for this page).
-// opts: format, hero ({ x0, y0, x1, y1 } | null), receiver, send (a function given the JSON instead of the post).
-// -> { t, W, H, format, hero?, boxes: [{ kind: "caption" | "label" | "card", text, x0, y0, x1, y1, size }] }
+// opts: format, hero ({ x0, y0, x1, y1 } | null), contrast (ΔL*, measure.js | null), boxes (text drawn outside this file,
+// DOM overlays: added after the drawn ones), receiver, send (a function given the JSON instead of the post).
+// -> { t, W, H, format, hero?, contrast?, boxes: [{ kind: "caption" | "label" | "card", text, x0, y0, x1, y1, size }] }
+// layoutLive(): false once a post failed (no receiver: a final render), so a page can skip work only the review reads.
 let live = true;
-export function layoutFrame(ctx, t, { format = "shorts", hero, receiver = "http://127.0.0.1:47614", send } = {}) {
-  const rec = { t: ms(t), W: ctx.canvas.width, H: ctx.canvas.height, format, ...(hero === undefined ? {} : { hero }), boxes: drawn };
+export const layoutLive = () => live;
+export function layoutFrame(ctx, t, { format = "shorts", hero, contrast, boxes = [], receiver = "http://127.0.0.1:47614", send } = {}) {
+  const rec = { t: ms(t), W: ctx.canvas.width, H: ctx.canvas.height, format, ...(hero === undefined ? {} : { hero }), ...(contrast === undefined ? {} : { contrast }), boxes: [...drawn, ...boxes] };
   drawn = [];
   globalThis.__dalangLayout = rec;
   const body = JSON.stringify(rec);

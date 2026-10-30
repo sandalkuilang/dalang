@@ -13,7 +13,7 @@ const K = await use("kit.js"); // a namespace: M and G are live bindings, set by
 const { jet } = await use("air.js");
 const { cutaway } = await use("cutaway.js");
 const { grains, presets } = await use("grains.js");
-const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, textBand, recordBox } = await use("type.js");
+const { phrases, drawCaption, pinLabel, rangeBar, repeats, safeArea, inkFor, readTime, layoutFrame, layoutLive, textBand, recordBox } = await use("type.js");
 const { stations, frame, travel, route, loopEnd, fovFromMm, dofFor, orbit, crane, dollyZoom, drone, place: placeCamera, heroBox, ISO, isoCamera, isoFrame, attend, snap, shotAt, overlayWindow, windowProblems } = await use("camera.js");
 const { scaleAudit, zFight } = await use("audit.js");
 const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
@@ -555,6 +555,13 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     assert.deepEqual(next.boxes, [], "each frame starts empty: the boxes are handed out once");
     assert.ok(!("hero" in next), "no hero given: no hero key (the lint says overlap is not checked)");
     assert.equal(layoutFrame(lc, tc, { hero: null, send() {} }).hero, null, "a hero off the frame is null, not absent");
+    const dom = { kind: "card", text: "dom card", x0: 10, y0: 20, x1: 110, y1: 80, size: 46 };
+    pinLabel(lc, { at: world(0.3, 0.2), camera: cam, text: "valve" });
+    const withDom = layoutFrame(lc, tc, { boxes: [dom], contrast: 18.4, send() {} });
+    assert.deepEqual(withDom.boxes.map((b) => b.text), ["valve", "dom card"], "boxes given (DOM overlays) come after the ones drawn");
+    assert.equal(withDom.contrast, 18.4, "the contrast is carried as given");
+    assert.ok(!("contrast" in next), "no contrast given: no contrast key");
+    assert.equal(typeof layoutLive(), "boolean", "layoutLive says whether a receiver still answers");
   }
   // heroBox: the object's bounding box on screen, clamped to the frame; null when not on screen; clipped when part of it is behind the camera.
   {
