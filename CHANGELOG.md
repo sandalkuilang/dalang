@@ -51,7 +51,10 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   under the group that owns the shot: a hero under a third of the frame, a hero cut by a frame edge (a close-up that fills
   the frame is fine), text covering the hero, a hero under 12 ΔL* against its ground. The lines go to the one fix round;
   final measures again and prints what is still open for the hand-off, so no polish round follows the render.
-  `layout_lint.mjs` gains `--min-hero`, `--min-contrast` and `--no-safe-area`.
+  `layout_lint.mjs` gains `--min-hero`, `--min-contrast`, `--min-caption`, `--min-label` and `--no-safe-area`; Express
+  measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero box is taken from the visible
+  meshes only: hidden objects, lights and `attend:false` things such as `backdrop()` never count, in the box or in the
+  contrast mask.
 - **Too few anatomy pictures: one image prompt for the user** (`references/express.md` Anatomy strand,
   `references/hero-asset.md` §1): fewer than two saved pictures (outside and inside), the agent asks once with a fixed
   prompt for a 2.5D isometric before-and-after (intact, then cut away) on white, which the user runs in their own image

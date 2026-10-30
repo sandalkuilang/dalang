@@ -321,12 +321,20 @@ export function place(camera, pose) {
 }
 
 // heroBox(camera, object, W, H): the object's box on screen in px (a W x H frame), from the 8 corners of its world
-// bounding box, clamped to the frame. null: an empty box, every corner behind the camera, or off the frame.
+// bounding box, clamped to the frame. The box is from the visible meshes only (traverseVisible) that attend
+// (`userData.attend !== false`): lights, emitters, hidden meshes and the backdrop() pool never count. null: an empty box, every corner behind the camera, or off the frame.
 // clipped: true when some corner is behind the camera (the box is then from the corners in front: a lower bound).
 // Pass it to type.js layoutFrame(ctx, t, { hero }) so the review can tell whether text covers the subject.
 export function heroBox(camera, object, W, H) {
   camera.updateMatrixWorld();
-  const b = new THREE.Box3().setFromObject(object, true);
+  object.updateMatrixWorld(true);
+  const b = new THREE.Box3(), mb = new THREE.Box3();
+  object.traverseVisible((o) => {
+    if (!o.isMesh || o.userData.attend === false || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    if (o.geometry.boundingBox.isEmpty()) return;
+    b.union(mb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld));
+  });
   if (b.isEmpty()) return null;
   const v = new THREE.Vector3(), r1 = (x) => Math.round(x * 10) / 10, cl = (x, a, z) => Math.min(Math.max(x, a), z);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, clipped = false;

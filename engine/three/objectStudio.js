@@ -301,9 +301,9 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
   }
 
   // loop({ overlay, post, key, hero, fonts }): hf-seek drives the frame (local t = global - G0 inside [G0, G1)); buildReady
-  // hero: the subject measured for framing and contrast (default: everything in S.world)
+  // hero: the subject measured for framing and contrast (default: the visible meshes under S.world, except attend:false ones such as backdrop())
   function loop({ overlay, post, key, hero = world, fonts = [font("title", 68), font("heading", 46), font("sub", 24)] } = {}) {
-    hero.traverse((o) => o.layers.enable(HERO_LAYER));
+    hero.traverse((o) => { if (o.userData.attend !== false) o.layers.enable(HERO_LAYER); });
     const draw = (tg) => {
       if (tg < G0 - 1e-6 || tg >= G1 + 1e-6) return; // not this group's window: its host is hidden
       const t = Math.max(G0, Math.min(tg, G1 - 1 / fps));

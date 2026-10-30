@@ -69,6 +69,26 @@ try {
   assert.equal(r.code, 0, "--no-safe-area skips the safe area: " + r.out);
   r = run(put([frame({ contrast: 1 })]), "--min-contrast", "x");
   assert.equal(r.code, 2, "a bad knob is a usage WARN: " + r.out);
+  // Text size minimums are knobs: the object-studio kit draws captions at 46 px and its kitSizedest label at 22 px.
+  const kitSized = frame({ boxes: [{ ...caption, size: 46 }, { ...label, size: 22 }] });
+  r = run(put([kitSized]));
+  assert.equal(r.code, 1, "46 px caption and 22 px label fail the defaults: " + r.out);
+  assert.match(lines(r.out, "PROBLEM").join("\n"), /caption.*under the 54 px minimum/);
+  r = run(put([kitSized]), "--min-caption", "46", "--min-label", "22");
+  assert.equal(r.code, 0, "the kit's own sizes pass with the knobs: " + r.out);
+  r = run(put([frame({ boxes: [{ ...caption, size: 40 }, { ...label, size: 22 }] })]), "--min-caption", "46", "--min-label", "22");
+  assert.equal(r.code, 1, "a shrunk caption is still caught: " + r.out);
+  r = run(put([frame()]), "--min-caption", "x");
+  assert.equal(r.code, 2, "a bad --min-caption is a usage WARN: " + r.out);
+  r = run(put([frame()]), "--min-label", "0");
+  assert.equal(r.code, 2, "a bad --min-label is a usage WARN: " + r.out);
+  r = run(put([frame()]), "--min-label");
+  assert.equal(r.code, 2, "--min-label with no value is a usage WARN: " + r.out);
+  {
+    const { lintLayout } = await import(pathToFileURL(script).href);
+    assert.deepEqual(lintLayout([kitSized], { minCaption: 46, minLabel: 22 }).problems, [], "lintLayout knobs minCaption, minLabel");
+    assert.ok(lintLayout([kitSized]).problems.length >= 2, "lintLayout defaults stay 54 and 36");
+  }
 
   // A card is held to the label minimum and the label zone.
   r = run(put([frame({ boxes: [{ ...caption }, { ...label, kind: "card", size: 30 }] })]));

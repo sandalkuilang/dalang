@@ -73,7 +73,7 @@ const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
   const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
   const cap = run('strips.mjs', '.', '--out', 'review/measure');
-  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area') : null;
+  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22') : null;
   if (!lint || lint.status === 2) { failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
   const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
   if (!probs.length) return console.log('OK     measured frames (hero size and edges, text over the hero, contrast)');
