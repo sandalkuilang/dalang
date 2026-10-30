@@ -24,10 +24,10 @@ import { THREE, DepthOfFieldEffect } from "./three-vendor.js";
 import { makeKit } from "./kit.js";
 import { studio } from "./studio.js";
 import { shots as runShots } from "./shots.js";
-import { fovFromMm, dofFor, place as placeCamera, heroBox } from "./camera.js";
+import { fovFromMm, dofFor, place as placeCamera, heroBox, inSubject } from "./camera.js";
 import { layoutFrame, layoutLive } from "./type.js";
 import { captionAt } from "./editorial.js";
-import { heroContrast } from "./measure.js";
+import { heroContrast, maskShare, edgeShare } from "./measure.js";
 import { makeFinisher } from "./finish.js";
 import { font } from "./font.js";
 import { scaleAudit } from "./audit.js";
@@ -265,13 +265,13 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
   }
 
   // measure(tg, hero): the frame's layout for express.mjs assemble (strips.mjs receiver -> layout_lint.mjs): the hero's
-  // box, every overlay and caption box on screen (DOM, px at the frame size), and the hero's ΔL* against the ground
+  // box, every overlay and caption box on screen (DOM, px at the frame size), and the hero's ΔE* against the ground
   // from a 270 px hero-only mask (layer HERO_LAYER, white on black). The mask ignores clipping planes: a cut-open hero
   // is measured whole. ponytail: one extra small render a frame, only while a receiver answers (type.js layoutLive).
   const HERO_LAYER = 7, MW = 270, MH = Math.round((270 * fh) / fw);
   let mask = null, small = null;
   function measure(tg, hero) {
-    const box = heroBox(camera, hero, fw, fh);
+    const box = heroBox(camera, hero, fw, fh, { explain: true });
     let contrast = null;
     if (box) {
       mask ??= { rt: new THREE.WebGLRenderTarget(MW, MH), px: new Uint8Array(MW * MH * 4), mat: new THREE.MeshBasicMaterial({ color: 0xffffff }) };
@@ -284,6 +284,7 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
       const sx = small.getContext("2d", { willReadFrequently: true });
       sx.drawImage(out, 0, 0, MW, MH);
       contrast = heroContrast(sx.getImageData(0, 0, MW, MH).data, mask.px, MW, MH);
+      box.edges = edgeShare(mask.px, MW, MH);
     }
     const c = out.getBoundingClientRect(), k = c.width ? fw / c.width : 1;
     const rectOf = (e, kind) => {
@@ -292,18 +293,20 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
       return { kind, text: (e.textContent || "").trim().slice(0, 80), x0: (r.left - c.left) * k, y0: (r.top - c.top) * k, x1: (r.right - c.left) * k, y1: (r.bottom - c.top) * k, size };
     };
     const boxes = [];
+    const stamp = () => { if (box && mask) for (const b of boxes) b.over = maskShare(mask.px, MW, MH, b, fw, fh); };
     for (const e of out.parentElement.querySelectorAll(".ov-el"))
       if (+getComputedStyle(e).opacity > 0.05 && e.getBoundingClientRect().width > 0) boxes.push(rectOf(e, e.classList.contains("ov-card") ? "card" : "label"));
     const phrase = globalThis.CAPTIONS ? captionAt(globalThis.CAPTIONS, tg).phrase : -1;
     const capEl = phrase >= 0 && document.getElementById(`cap-${phrase}`);
     if (capEl) boxes.push(rectOf(capEl, "caption"));
+    stamp();
     layoutFrame(octx, tg, { format, hero: box, contrast, boxes });
   }
 
   // loop({ overlay, post, key, hero, fonts }): hf-seek drives the frame (local t = global - G0 inside [G0, G1)); buildReady
   // hero: the subject measured for framing and contrast (default: the visible meshes under S.world, except attend:false ones such as backdrop())
   function loop({ overlay, post, key, hero = world, fonts = [font("title", 68), font("heading", 46), font("sub", 24)] } = {}) {
-    hero.traverse((o) => { if (o.userData.attend !== false) o.layers.enable(HERO_LAYER); });
+    hero.traverse((o) => { if (inSubject(o)) o.layers.enable(HERO_LAYER); });
     const draw = (tg) => {
       if (tg < G0 - 1e-6 || tg >= G1 + 1e-6) return; // not this group's window: its host is hidden
       const t = Math.max(G0, Math.min(tg, G1 - 1 / fps));

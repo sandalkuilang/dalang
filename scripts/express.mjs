@@ -14,7 +14,7 @@
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
 //          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under a third
 //          of the frame or cut by an edge, text over the hero, the hero against its ground), each line printed OPEN under its group
-//          (report only, never a stop, until the checks are calibrated on real films),
+//          (a line fails the step: the fix round takes it),
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir] [--quality looks|high]
@@ -69,7 +69,7 @@ const gate = n => {
   if (reading) console.log(`\n${reading}`);
 };
 // object-studio: each shot measured in the browser (the page's layoutFrame records, captured by strips.mjs) and linted.
-// block: a line fails the step; else it is OPEN, for the hand-off (assemble and final both, for now: report only).
+// block: a line fails the step (assemble: the fix round takes it); else it is OPEN, for the hand-off (final: no polish round follows).
 // Unmeasured is a WARN, never clean; it fails the step only with block.
 const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
@@ -133,7 +133,7 @@ if (cmd === 'after-voice') {
   // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
   // the reading time of every overlay, dead stretches
   if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 24, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
-  measure({ block: false });
+  measure({ block: true });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
   writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');

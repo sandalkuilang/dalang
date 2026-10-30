@@ -325,17 +325,34 @@ export function place(camera, pose) {
 // (`userData.attend !== false`): lights, emitters, hidden meshes and the backdrop() pool never count. null: an empty box, every corner behind the camera, or off the frame.
 // clipped: true when some corner is behind the camera (the box is then from the corners in front: a lower bound).
 // Pass it to type.js layoutFrame(ctx, t, { hero }) so the review can tell whether text covers the subject.
-export function heroBox(camera, object, W, H) {
+// What is not the subject is inherited: `userData.attend = false` (as attend() reads it) or `userData.subject = false` on a
+// mesh or on any parent (a group of mounting board or wall pieces) leaves it out. `subject = false` is for a mount, board,
+// wall or floor that the film shows but whose size is not the hero's: it is left out of the measured box and contrast and
+// still ghosts and cuts like any part. `explain: true` adds `parts` to the box: the (up to 6) meshes with the
+// largest projected boxes, { name: "parent>…>mesh", w, h } in px, so a box that is too large can be traced to its mesh.
+export const inSubject = (o) => { for (let x = o; x; x = x.parent) if (x.userData.attend === false || x.userData.subject === false) return false; return true; };
+export function heroBox(camera, object, W, H, { explain = false } = {}) {
   camera.updateMatrixWorld();
   object.updateMatrixWorld(true);
-  const b = new THREE.Box3(), mb = new THREE.Box3();
+  const b = new THREE.Box3(), mb = new THREE.Box3(), parts = [];
+  const px = new THREE.Vector3();
   object.traverseVisible((o) => {
-    if (!o.isMesh || o.userData.attend === false || !o.geometry) return;
+    if (!o.isMesh || !o.geometry || !inSubject(o)) return;
     // an InstancedMesh's template (often a unit box scaled per instance) is not its extent: its instances are
     if (o.isInstancedMesh) o.computeBoundingBox();
     const gb = o.isInstancedMesh ? o.boundingBox : (o.geometry.boundingBox ?? (o.geometry.computeBoundingBox(), o.geometry.boundingBox));
     if (!gb || gb.isEmpty()) return;
-    b.union(mb.copy(gb).applyMatrix4(o.matrixWorld));
+    mb.copy(gb).applyMatrix4(o.matrixWorld);
+    b.union(mb);
+    if (explain) {
+      let a = Infinity, z = Infinity, c = -Infinity, d = -Infinity;
+      for (let i = 0; i < 8; i++) {
+        px.set(i & 1 ? mb.max.x : mb.min.x, i & 2 ? mb.max.y : mb.min.y, i & 4 ? mb.max.z : mb.min.z).project(camera);
+        a = Math.min(a, px.x); c = Math.max(c, px.x); z = Math.min(z, px.y); d = Math.max(d, px.y);
+      }
+      const names = []; for (let x = o; x && x !== object; x = x.parent) names.unshift(x.name || x.type);
+      parts.push({ name: names.join(">"), w: Math.round(((c - a) / 2) * W), h: Math.round(((d - z) / 2) * H) });
+    }
   });
   if (b.isEmpty()) return null;
   const v = new THREE.Vector3(), r1 = (x) => Math.round(x * 10) / 10, cl = (x, a, z) => Math.min(Math.max(x, a), z);
@@ -350,6 +367,7 @@ export function heroBox(camera, object, W, H) {
   if (x0 === Infinity) return null;
   const box = { x0: r1(cl(x0, 0, W)), y0: r1(cl(y0, 0, H)), x1: r1(cl(x1, 0, W)), y1: r1(cl(y1, 0, H)) };
   if (box.x1 <= box.x0 || box.y1 <= box.y0) return null;
+  if (explain) box.parts = parts.sort((p, q) => q.w * q.h - p.w * p.h).slice(0, 6);
   return clipped ? { ...box, clipped: true } : box;
 }
 
