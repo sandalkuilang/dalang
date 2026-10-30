@@ -100,6 +100,10 @@ const css = `
 .ov *{box-sizing:border-box}
 .ov-el{position:absolute;opacity:0;will-change:transform,opacity}
 .ov-hl{left:60px;top:110px;width:900px;transform-origin:0 0}
+/* the glass bands: the picture, then a frosted band (the top 27 % fading downward, the bottom 17 % fading upward), then the
+   text. Their own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop backdrop-filter seeing the frame */
+.ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.34) 55%,rgba(255,255,255,0) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)}
+.ov-glass.b{top:auto;bottom:0;opacity:1;background:linear-gradient(0deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.34) 55%,rgba(255,255,255,0) 100%);-webkit-mask-image:linear-gradient(0deg,#000 0%,#000 55%,transparent 100%);mask-image:linear-gradient(0deg,#000 0%,#000 55%,transparent 100%)}
 .ov-k{font-weight:${W_.sub};font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
 .ov-h{font-weight:${W_.title};font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
 .ov-acc{background:var(--ov-acc);color:var(--ov-ink);padding:0 .14em;border-radius:10px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
@@ -154,6 +158,8 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
   const layer = el(doc, "div", "ov", root); layer.id = prefix + "-ov";
   layer.style.width = fw + "px"; layer.style.height = fh + "px";
   layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink);
+  const glass = el(doc, "div", "ov-glass", layer); glass.style.height = Math.round(fh * 0.27) + "px"; // shown with a headline
+  const glassB = el(doc, "div", "ov-glass b", layer); glassB.style.height = Math.round(fh * 0.17) + "px"; // always on
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = doc.createElementNS(svgNS, "svg"); svg.setAttribute("class", "ov-lead"); svg.setAttribute("viewBox", `0 0 ${fw} ${fh}`); svg.setAttribute("width", fw); svg.setAttribute("height", fh); layer.appendChild(svg);
   const items = [];
@@ -163,8 +169,8 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
   const A = (s) => accentHtml(s);
 
   const api = {
-    layer, items,
-    // headline block top-left: mono kicker + bold headline (<= 2 lines), one [accent] word on a chip
+    layer, items, glass, glassB,
+    // headline block top-left, over the top glass: mono kicker + bold headline (<= 2 lines), one [accent] word on a chip
     headline({ kicker = "", text, from, to, top = 110, size = 68 }) {
       check({ from, to }, "headline");
       if (!text) throw new Error("headline: pass its text");
@@ -225,6 +231,8 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
     // update(tLocal, project): everything at t. project(anchor) -> { x, y, ok } in px.
     update(tl, project) {
       const t = tl + G0;
+      // the top glass follows the headline on screen (the strongest one fading in or out); the bottom one stays
+      glass.style.opacity = Math.max(0, ...items.filter((it) => it.kind === "hl").map((it) => envelope(t, it.from, it.to, { inDur: IN_DUR.hl ?? 0.25 }).a)).toFixed(3);
       for (const it of items) {
         const v = envelope(t, it.from, it.to, { inDur: IN_DUR[it.kind] ?? 0.25 });
         const on = v.a > 0.001;
