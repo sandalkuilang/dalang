@@ -8,12 +8,12 @@ that reads as:
 
 | Bump | When | Section in Unreleased |
 |---|---|---|
-| **MAJOR** | rare: a video project started on the previous version cannot be continued, or the way to ask for a video changes; the entry says how to move | `### Breaking` |
-| **MINOR** | a new capability the user can ask for or sees: a mode, a look, a platform, a voice engine, a command the user runs | `### Added` |
-| **PATCH** | everything else, most releases: fixes, new or tightened rules, the agent's workflow and token use, internal scripts and engine modules, docs, removals the user never sees | `### Changed`, `### Fixed`, `### Removed` |
+| **MAJOR** | a very large overhaul of the design or the algorithms; rare, the owner's call (`scripts/release.sh --major`); the entry says how to move | `### Redesign` |
+| **MINOR** | a medium-to-large overhaul: a step, an engine or a mode rebuilt | `### Rework` |
+| **PATCH** | everything else, most releases: bug fixes, improvements, new features, rules, the agent's workflow, internal scripts, docs, removals | `### Added`, `### Changed`, `### Fixed`, `### Removed` |
 
-The bump is never picked by hand: `scripts/release.sh` reads it from the sections above (`next_version.mjs`), so an
-internal change goes under Changed, never Added. Releases batch what landed: at most one a week (the script refuses
+The bump is never picked by hand: `scripts/release.sh` reads it from the sections above (`next_version.mjs`). The size of
+the change sets it, not its kind: a new feature is a PATCH. Releases batch what landed: at most one a week (the script refuses
 sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Published versions are never re-tagged.
 
 <details>
@@ -33,6 +33,11 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 </details>
 
 ## [Unreleased]
+
+### Changed
+- **The size of a change sets the version** (`scripts/next_version.mjs`, the table above): `### Redesign` (a very large
+  overhaul of the design or the algorithms) is a MAJOR, only with `scripts/release.sh --major`; `### Rework` (medium to
+  large) a MINOR; bug fixes, improvements and new features, `### Added` included, a PATCH.
 
 ## [4.5.2] - 2026-10-30
 

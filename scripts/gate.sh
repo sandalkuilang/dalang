@@ -35,7 +35,7 @@ step "express steps (no take, a take with a WARNING)" node tests/express.mjs
 step "studio steps (fixer lines, a round put aside, no music bed fails)" node tests/studio.mjs
 step "fan-out barrier (the n newest subagents, an old job never waited for)" node tests/wait.mjs
 step "written vs spoken (say.txt: captions, SRT, heard words, letter codes)" node tests/say.mjs
-step "release version (from Unreleased, weekly, --urgent a PATCH)" node tests/next-version.mjs
+step "release version (from Unreleased: Redesign MAJOR with --major, Rework MINOR, else PATCH)" node tests/next-version.mjs
 step "music bed (bundled, licence row, an own bed kept)" node tests/music.mjs
 if [ $fast -eq 0 ]; then
   step "engine build + self-check" engine

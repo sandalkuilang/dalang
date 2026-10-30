@@ -71,8 +71,8 @@ a new preflight state â†’ a case in `tests/preflight-mock.mjs`; an engine trap â
   history), with its gate green. No direct push, no force push, for admins too.
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
 - Releases: at most one a week (`--urgent`: a PATCH sooner), the bump read from `Unreleased` by the table at the top of
-  `CHANGELOG.md`, never picked: `### Breaking` MAJOR (rare), `### Added` MINOR (a capability the user sees), everything
-  else PATCH (an internal change goes under Changed). `scripts/release.sh`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
+  `CHANGELOG.md`, never picked, by the size of the change: `### Redesign` MAJOR (a very large design or algorithm overhaul, only
+  with `--major`, the owner's call), `### Rework` MINOR (medium to large), everything else PATCH (fixes, improvements, features). `scripts/release.sh`, one command and no waiting: from `origin/main` it opens `release/vx.y.z`,
   moves `Unreleased` into `## [x.y.z] - date`, pins the README's clone example, merges that PR at once and tags the
   merged commit; the `release` workflow publishes the section and its own checks refuse a broken tag. No local gate
   and no CI wait for a release (CI still runs on `main`).
