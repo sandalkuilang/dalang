@@ -515,7 +515,7 @@ try {
     const r2b = run("approve", "2", f);
     assert.equal(r2b.code, 0, r2b.err);
     assert.match(r2b.out, /^Step 5 Look — next after gate 2$/m);
-    assert.match(r2b.out, /^Subagents \(model · effort; top = omit `model`, mid = "sonnet", light = "haiku"[^\n]*\n  planner: SPEC\.md \+ storyboard\.md: top · high$/m, "Studio Step 5 names its subagents' model and effort");
+    assert.match(r2b.out, /^Subagents \(model · effort; top = omit `model`, mid = "sonnet", light = "haiku"[^\n]*\n  planner: SPEC\.md \+ storyboard\.md \+ review\/hero-shots\.json: top · high\n  hero builder [^\n]*: top · high\n  hero check [^\n]*: top · high$/m, "Studio Step 5 names its subagents' model and effort");
     // Step 0 prints Step 1 with it (the Brief follows preflight); --step 0 alone does not
     const z = run("next", mk("fresh"));
     assert.deepEqual([...z.out.matchAll(/^Step (\d) /gm)].map((m) => m[1]), ["0", "1"]);

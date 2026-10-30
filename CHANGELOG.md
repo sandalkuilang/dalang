@@ -34,6 +34,28 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 
 ## [Unreleased]
 
+### Added
+- **Hype edit, a fourth energy** for 9:16 and 4:5 (the Brief's Energy question, which Express now asks too): the
+  short-form beat-cut edit, 0.4–1.0 s shots cut on the voice's stressed words, a velocity ramp per shot that slows or
+  freezes on the action's physical key pose, beat punch-ins under 1.2×, whip smears that may roll the frame ≤ 8°, a motif
+  framing that returns, shallow focus on every close shot, and a whoosh or hit on each cut. Handheld shake, flash frames and footage stay out.
+  `storyboard_lint.mjs` checks its 1.0 s average shot (`--energy hype`, or `energy: hype` in `BRIEF.md`).
+
+### Changed
+- **Bokeh is real optics, always** (`camera-motion.md` §9.2 "Real lens"): blur only from the shot's lens, f-stop and
+  focus distance (`dofFor`, `bokeh`), growing with depth in front and behind, a punch-in scaling the same blur, discs
+  only on real lights or speculars, the explained part sharp through its hold.
+- **A Studio hero is accepted by measurement, shot by shot** (`hero-asset.md` §3). The planner writes
+  `review/hero-shots.json` (each shot that shows the hero: the film's camera, focal parts, states, what must read),
+  checked by `scripts/hero_shots.mjs`; modelling waits for it. `engine/blender/measure.py` renders a flat object-ID
+  pass per shot at the film's lens and measures readable instances, occlusion (a defocused foreground counts half), the
+  section face toward the camera, the state move and base-colour contrast against the part holding it (a misspelt part
+  name fails by name), with a phi the builder lowers inside its job (two runs without progress stop it). A failing row is
+  classified by trying cameras and, when the asset can turn it, the cut: a legal variant, a camera decision for the main agent, or the model. The hero check
+  judges only what numbers cannot (shape, parts, counts against the pictures; stylized, never hyperreal), from round 2
+  only the open items. Fix rounds are one builder each. Escalation stops at top · high: a P0 that survives is
+  classified, never pushed to xhigh or max.
+
 ## [4.5.1] - 2026-10-30
 
 ### Changed

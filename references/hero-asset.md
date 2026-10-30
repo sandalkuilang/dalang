@@ -31,11 +31,48 @@ licence), never installed on its own; declined, the hero falls back to a CC0 mod
 - Build: `Blender -b -P <videos folder>/library/hero/<name>/<name>.py -- <out dir>` writes `<name>.glb`; `node
   tests/blender-parts.mjs` checks the scripts (and builds them where Blender is installed).
 
-## 3. Check the still against the pictures
+## 3. Shot-led acceptance: measured first, then judged
 
-Snapshot the clip page (§4) at each planned shot size (`npx hyperframes snapshot --at <t>`) beside the pictures on one
-contact sheet: parts and counts, proportions, what sits where. Fix a wrong or missing part in the script before
-anything moves.
+The hero is built for the film's shots, so it starts from them. Its §1 (pictures, parts, sizes) runs beside the
+planner; modelling waits for the planner's `review/hero-shots.json`: one row per storyboard shot that shows the hero,
+with the film's camera (`side` = the storyboard's view word, `keys` [{ `az`, `el`, `mm`, `dist`, `hold` }]; az 0 = the
+asset's `front`, 90 its left; lens on a 24 mm vertical sensor as three.js `fovFromMm`), the `focal` parts (node-name
+prefixes; each object under one is an instance), `soft` (the defocused foreground the storyboard names: a real lens
+sees past it, so it counts half as an occluder), the `states` and `need` (`instances`, `minPx` at full frame,
+`visible`, `cap` for a `cut` row, `move` in px across the states, `contrast` in L* against the part holding it). `node <skill-dir>/scripts/hero_shots.mjs .` checks
+it against `storyboard.md` (exit 1 names the row).
+
+- **Measure in the build:** the asset script ends with `measure.measure_from_env(set_state)` (`engine/blender/measure.py`)
+  and is run with `DALANG_MEASURE=<film>/review/hero-shots.json`: a flat object-ID pass per row, key and state (seconds,
+  no image read) writes `review/hero-measure.md` and `.json`: per row the readable instances, min px, visible share,
+  section-cap share, move and base-colour contrast, a phi per row and in total (0 = every shot reads); a focal name that
+  matches no object fails by name. The asset script's hooks: `set_state(name)` poses a state, `set_cut(deg)` turns the
+  section plane about the focal's axis (0 = as built; lets explore try cuts), section faces use a material named `cap`
+  or `*_cap`, instances are dotted names (`part.roller.1`). A library asset without the hooks gets them on its first
+  reuse, before its shots are measured.
+- **The builder loops on phi inside its job:** build, measure, fix the failing rows, measure again, while phi falls.
+  `MEASURE STALL` (two runs that did not lower it) or the turn budget ends the loop: report the open rows. What may
+  change to pass: framing inside the shot's size class, the cut (where and which plane: a section shows only when its
+  face turns toward the camera), colour from the SPEC palette or the one highlight. Never a `[src]` size or a count:
+  their asserts stay, and a pass that breaks one is a fail.
+- **A failing row is classified by its explore line**, never by opinion: `legal` (a camera within az ± 15°, el ± 10°,
+  or a turned cut, passes: use it), `decision` (only another side passes: the builder stops on that row and reports it; the main agent
+  decides the storyboard camera and the planner edits it and `hero-shots.json`), `model` (no camera passes: the part or
+  the cut is wrong).
+### The hero check, fix rounds, escalation
+
+- **Then one contact sheet** of the hold keys only (`strips.mjs --frames`), read once, for what numbers cannot see.
+- **The hero check** (a fresh `dalang-checker`, after a measure PASS) reads `hero-measure.md` first and never re-judges a
+  measured line. Its rubric: shape, parts, counts and placement against the pictures and `review/hero-<name>.md`;
+  surface only as the SPEC look shows it (the film renders the GLB in three.js: Blender material tricks and beauty
+  renders are not judged; stylized, never hyperreal). Each finding names the still, the shot row and the picture or
+  hero line it contradicts; one that names none is P2 at most. From round 2 it re-judges only the open items and the
+  rows the fix touched; a new P0 only for a regression or a wrong part, never a new P2 that reopens a round.
+- **Fix rounds:** one builder per round with every finding of that round, never split by area; all rows measured every
+  build (cheap), stills re-rendered only for the rows the fix touched.
+- **Escalation stops at top · high.** A P0 that survives a round at top · high is classified (its explore line, or
+  "taste" when no number covers it): `decision` goes to the main agent, `model` gets one more round with the explore
+  line in its brief, "taste" is logged and left (as material effects, `looks.md`). Never xhigh or max on its own.
 
 ## 4. The motion recipe
 

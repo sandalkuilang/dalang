@@ -155,7 +155,7 @@ const READING = {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against the reference)'),
     refs: [
       ...LOOKS, ...THREEJS,
-      ...VD_HERO, ...of('hero-asset.md', null),
+      ...VD_HERO, ...of('hero-asset.md', '# Hero asset: from 2D pictures to a 3D model, once', '## 1. Read the pictures', '## 2. Model it by script', '## 3. Shot-led acceptance: measured first, then judged', '### The hero check, fix rounds, escalation', '## 4. The motion recipe'),
       ...VD_ENERGY, ...VD_RESTRAINT, ...VD_CINEMA,
       ...of('visual-direction.md', '## 7. Composition (read the format from `BRIEF.md`)', '## 8. What the best educational videos do'), ...VD_LAYERS, ...VD_QUANTITY,
       ...of('craft-rules.md', '## 1. Push-in: camera, not scissors', '## 2. Beats: everything lands on a word', '## 3. Motion budget: no dead seconds', '## 4. The mitten rule (stylised characters only)', '## 5. On-screen text'),
@@ -192,7 +192,7 @@ const JOBS = {
   studio: {
     3: [['fact research: one job for every strand (≤ 8 searches, 15 fetches)', MID, 'medium'], ['script writer (dalang-builder)', TOP, 'high'], ['Gate 1 read-through', MID, 'medium']],
     4: [['voice job (dalang-builder): sample, take, retakes, respells', TOP, 'medium']],
-    5: [['planner: SPEC.md + storyboard.md', TOP, 'high'], ['style-frame check, benchmark, Set / Reality check', TOP, 'high'], ['media screening (find_media candidates, reference boards)', LIGHT, 'low'], ['asset pair check', MID, 'low']],
+    5: [['planner: SPEC.md + storyboard.md + review/hero-shots.json', TOP, 'high'], ['hero builder (dalang-builder): model, measure loop on phi (hero-asset.md §3)', TOP, 'high'], ['hero check (dalang-checker): Reality only, hero-measure.md first', TOP, 'high'], ['style-frame check, benchmark, Set / Reality check', TOP, 'high'], ['media screening (find_media candidates, reference boards)', LIGHT, 'low'], ['asset pair check', MID, 'low']],
     6: [['builder: the pilot', TOP, 'high'], ['builder: other groups, assembly', TOP, 'medium'], ['media screening', LIGHT, 'low'], ['asset pair check', MID, 'low']],
     7: [['fresh-eyes review, Set / Reality check', TOP, 'high'], ['sound-off quiz', TOP, 'medium'], ['scopes verdict', TOP, 'medium'], ['builder: each QC fix round', TOP, 'medium'], ['fix check, contact-sheet triage', MID, 'low']],
   },
