@@ -7,7 +7,7 @@
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--all] [--start] [--check-skill] [--skill-dir PATH]
 //                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
-//   --check-skill  only the DALANG clone check (is the installed skill behind origin/main?): fetch only, never pulls.
+//   --check-skill  only the DALANG copy check (a clone behind origin/main? a plugin's version? two copies?): fetch only, never pulls.
 //                  --skill-dir points it at another folder.
 //   --check-workspace  only the Workspace row (is the videos folder lean? workspace.mjs status); --workspace-dir
 //                  points it at a folder other than the current one.
@@ -19,7 +19,7 @@
 //            Checks VoiceStudio only (the rest was just checked), so the run stays inside a 120 s tool timeout.
 
 import { execFile } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -291,8 +291,23 @@ class Unread extends Error {}
 const gitWhy = r => r.killed ? 'timeout' : clean(String(r.err).split('\n')[0]) || 'git failed';
 async function skillClone() {
   const item = 'DALANG skill', dir = skillDir;
+  return [...await skillCopy(item, dir), ...twoCopies()];
+}
+async function skillCopy(item, dir) {
+  // A plugin copy (Claude Code's cache: no .git, the manifest beside SKILL.md) updates through the plugin, never git.
+  if (!existsSync(path.join(dir, '.git')) && existsSync(path.join(dir, '.claude-plugin', 'plugin.json'))) {
+    let v; try { v = JSON.parse(readFileSync(path.join(dir, '.claude-plugin', 'plugin.json'), 'utf8')).version; } catch {}
+    if (!v) return [[item, 'WARN', 'could not read .claude-plugin/plugin.json — rerun preflight']];
+    return [[item, 'INFO', `plugin v${clean(v)} — to update: claude plugin update dalang (the user runs it), then a new session`]];
+  }
   try { return await readClone(item, dir); }
   catch (e) { return [[item, 'WARN', `could not check (${e instanceof Unread ? e.message : clean(e.message) || 'error'}) — rerun preflight; this is not "up to date"`]]; }
+}
+// The clone and the plugin both installed load two `dalang` skills: say so with both paths; never remove either.
+function twoCopies() {
+  const clone = path.join(homedir(), '.claude', 'skills', 'dalang'), cache = path.join(homedir(), '.claude', 'plugins', 'cache', 'dalang');
+  if (!existsSync(path.join(clone, 'SKILL.md')) || !existsSync(cache)) return [];
+  return [['DALANG copies', 'WARN', `two copies installed (${clone} and ${cache}) — the skill loads twice; ask the user to remove one, never remove it yourself`]];
 }
 async function readClone(item, dir) {
   const q = /[^\w@%+=:,./-]/.test(dir) ? `'${dir.replace(/'/g, `'\\''`)}'` : dir; // shell-safe in the printed fix
