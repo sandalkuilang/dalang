@@ -52,9 +52,13 @@ assert.doesNotMatch(fs.readFileSync(path.join(sp, "src/compositions/b.tpl.html")
 // a hero with no researched inside: refused, named, nothing scaffolded on top
 fs.appendFileSync(path.join(sp, "SPEC.md"), "- OBJECTS: the pump `hero: true`\n");
 r = run("scaffold", sp);
-assert.equal(r.code, 1); assert.match(r.out, /^FAILED SPEC\.md has a `hero: true` object but no research\/anatomy\.md/m, "a hero is built from its anatomy, never from memory");
+assert.equal(r.code, 1); assert.match(r.out, /^FAILED SPEC\.md has a `hero: true` object but research\/anatomy\.md has no parts table row/m, "a hero is built from its anatomy, never from memory");
 fs.mkdirSync(path.join(sp, "research"), { recursive: true });
-fs.writeFileSync(path.join(sp, "research/anatomy.md"), "Thing: a pump\n| # | Part | Count | Inside or touches | Material | Size | Moves, and what moves it | Tag |\n");
+const head = "Thing: a pump\n| # | Part | Count | Inside or touches | Material | Size | Moves, and what moves it | Tag |\n|---|---|---|---|---|---|---|---|\n";
+fs.writeFileSync(path.join(sp, "research/anatomy.md"), head);
+r = run("scaffold", sp);
+assert.equal(r.code, 1, "a header with no row is not an anatomy");
+fs.writeFileSync(path.join(sp, "research/anatomy.md"), head + "| 1 | body | 1 | the slab | cast iron | 0.3 m | - | [assume] |\n");
 r = run("scaffold", sp);
 assert.equal(r.code, 0, r.out); assert.match(r.out, /OK     anatomy: research\/anatomy\.md/);
 fs.writeFileSync(path.join(sp, "storyboard.md"), "| # | Time | Size | Camera | Subject action |\n|---|---|---|---|---|\n| 1 | 0–6 | wide |  |  |\n");
