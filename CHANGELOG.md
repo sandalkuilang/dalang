@@ -34,6 +34,8 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+## [4.5.4] - 2026-10-31
+
 ### Changed
 - DALANG installs as a Claude Code plugin from its own marketplace (`claude plugin marketplace add sandalkuilang/dalang`,
   then `claude plugin install dalang@dalang`); each version is its own folder, so a film in progress keeps its version
@@ -2011,7 +2013,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.3...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.4...HEAD
+[4.5.4]: https://github.com/sandalkuilang/dalang/compare/v4.5.3...v4.5.4
 [4.5.3]: https://github.com/sandalkuilang/dalang/compare/v4.5.2...v4.5.3
 [4.5.2]: https://github.com/sandalkuilang/dalang/compare/v4.5.1...v4.5.2
 [4.5.1]: https://github.com/sandalkuilang/dalang/compare/v4.5.0...v4.5.1
