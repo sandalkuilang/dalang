@@ -7,6 +7,5 @@ export { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 export { mergeVertices, toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 export { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 export { EffectComposer, RenderPass, EffectPass, DepthOfFieldEffect, ToneMappingEffect, ToneMappingMode, SMAAEffect, Pass } from "postprocessing";
-export { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
 export { N8AOPostPass } from "n8ao";
 export { LoopSubdivision } from "three-subdivide";

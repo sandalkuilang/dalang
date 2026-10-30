@@ -227,6 +227,7 @@ export function fovFromMm(mm, sensorH = 24) {
 //    longer lens and nearer focus all blur more; f/1.2 is 1.5 x f/1.8 and 4.7 x f/5.6 at the same lens and distance.
 //  - focusRange (metres) = the depth of field, 2 * N * z * focus^2 / mm^2 with the full-frame circle of confusion
 //    z = 0.03 mm (valid well inside the hyperfocal distance): the range over which the effect ramps to full blur.
+//    With focus in metres and mm in millimetres that is 2 * N * z * focusM^2 * 1000 / mm^2 metres (50 mm f/1.8 at 3 m: 0.39 m).
 //    Shallower for a wider aperture, a longer lens and a nearer focus; always finite and > 0.
 // `mpu` is accepted and checked but not needed: both outputs are in metres and studio() converts to scene units.
 export function dofFor({ mm, fstop, focusM, mpu = M } = {}) {
@@ -235,7 +236,7 @@ export function dofFor({ mm, fstop, focusM, mpu = M } = {}) {
   if (!(num(focusM) && focusM * 1000 > mm)) throw new Error("dofFor(): focusM is the focus distance in metres and must be beyond the lens's focal length (got " + focusM + ")");
   if (!(num(mpu) && mpu > 0)) throw new Error("dofFor(): mpu is metres per scene unit, > 0 (got " + mpu + ")");
   const c = (mm * mm) / (fstop * (focusM * 1000 - mm)); // blur circle on the sensor, mm
-  return { focusRange: (2 * fstop * 0.03 * focusM * focusM * 1000) / (mm * mm) / 1000, bokehScale: (100 * c) / 24 };
+  return { focusRange: (2 * fstop * 0.03 * focusM * focusM * 1000) / (mm * mm), bokehScale: (100 * c) / 24 }; // metres: 50 mm f/1.8 at 3 m -> 0.39
 }
 
 // The time part of a move: validates start/dur/ease the way travel() does, returns the eased u in 0..1 at t (exactly 0
