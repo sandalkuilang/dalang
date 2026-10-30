@@ -12,12 +12,15 @@
 //        node express.mjs assemble [dir]
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
+//          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under a third
+//          of the frame or cut by an edge, text over the hero, the hero against its ground), each line under its group,
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
 //        node express.mjs final [dir] [--quality looks|high]
 //          the files changed since assemble (review/assembled.json: the world and every group, by sha256), for the main
 //          agent to check against the fix round's assignments; hyperframes check and check_assets first (no render on a
 //          failure), render (BRIEF.md fps, --quality looks), the poster (the hook's last frame: poster.jpg and frame 0),
+//          object-studio: the frames measured again first; a line still open is printed OPEN for the hand-off, not a stop
 //          gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
@@ -64,6 +67,25 @@ const gate = n => {
   const reading = (r.stdout ?? '').split('\n').slice(1).join('\n').trim();
   if (reading) console.log(`\n${reading}`);
 };
+// object-studio: each shot measured in the browser (the page's layoutFrame records, captured by strips.mjs) and linted.
+// block: a line fails the step (assemble); else it is OPEN, for the hand-off (final). Unmeasured is a WARN, never clean.
+const measure = ({ block }) => {
+  if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
+  const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
+  const cap = run('strips.mjs', '.', '--out', 'review/measure');
+  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area') : null;
+  if (!lint || lint.status === 2) { failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
+  const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
+  if (!probs.length) return console.log('OK     measured frames (hero size and edges, text over the hero, contrast)');
+  if (block) failed++;
+  console.log(`${block ? 'FAILED' : 'OPEN  '} measured frames: ${probs.length} line(s)${block ? ', for the fix round' : ', name them in the hand-off'}`);
+  const html = existsSync(path.join(dir, 'index.html')) ? readFileSync(path.join(dir, 'index.html'), 'utf8') : '';
+  const groups = [...html.matchAll(/data-composition-id="([^"]+)"[^>]*?data-start="([\d.]+)"[^>]*?data-duration="([\d.]+)"/g)].filter(m => m[1] !== 'main').map(m => ({ g: m[1], a: +m[2], z: +m[2] + +m[3] }));
+  for (const l of probs) {
+    const t = Number(l.match(/t=([\d.]+)s/)?.[1]), g = groups.find(x => t >= x.a && t < x.z)?.g ?? '?';
+    console.log(`       → group ${g}: ${l.replace(/^\s*PROBLEM\s*:\s*/, '').slice(0, 220)}`);
+  }
+};
 
 if (cmd === 'after-voice') {
   // the newest take log: a retake writes its own, and the first take's WARNING lines are no longer the film's
@@ -109,6 +131,7 @@ if (cmd === 'after-voice') {
   // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
   // the reading time of every overlay, dead stretches
   if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 24, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
+  measure({ block: true });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
   writeFileSync(LOCK, JSON.stringify(Object.fromEntries(locked().map(f => [f, sha(f)])), null, 1) + '\n');
@@ -131,6 +154,7 @@ if (cmd === 'after-voice') {
     for (const f of changed) console.log(`CHANGED since assemble: ${f}${f === 'assets/world.js' ? ' (the world: its owner only)' : ''}`);
     for (const f of gone) console.log(`CHANGED since assemble: ${f} removed`);
   }
+  measure({ block: false });
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
   // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress
