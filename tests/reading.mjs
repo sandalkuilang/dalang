@@ -174,11 +174,14 @@ try {
   put(bl, "review/benchmark.md", BENCH);
   refused("6 Build | index.html | -", /gate 3 is waiting for approval/, "gate 3 unapproved");
   refused("Build | index.html | -", /gate 3/, "a line that starts with Build counts as Step 6");
+  fs.appendFileSync(path.join(bl, "BRIEF.md"), "fidelity: exact\n");
   const ap = ok(bl, "approve", "3"); // the storyboard is "x": unlintable, the approval still goes through
   const lintOf = () => JSON.parse(fs.readFileSync(path.join(bl, "state.json"), "utf8")).approvals[3].lint;
   assert.equal(typeof lintOf(), "string");
   assert.notEqual(lintOf(), "OK", "an unlintable storyboard is never recorded as OK");
   assert.match(ap.out, /Storyboard lint: /);
+  assert.match(ap.out, /WARN Silhouette: not checked/, "fidelity exact with no measured views warns, never blocks");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(bl, "state.json"), "utf8")).approvals[3].silhouette, "not checked");
   ok(bl, "log", "6 Build | index.html | -");
   put(bl, "storyboard.md", "edited after the approval\n"); // gate 3 STALE
   refused("Step 6 | index.html | -", /gate 3 is STALE/, "gate 3 stale");

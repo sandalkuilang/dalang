@@ -76,6 +76,7 @@ if [ $fast -eq 0 ]; then
   step "blender parts (library and assembly compile; built and read where Blender is installed)" node tests/blender-parts.mjs
   step "hero measure (ID pass: instances, occlusion, section cap, move, phi, explore class)" node tests/blender-measure.mjs
   step "hero shots lint (hero-shots.json against the storyboard)" node tests/hero-shots.mjs
+  step "silhouette IoU (uniform scale, known IoU, a hidden stretch caught, busy background WARN)" node tests/silhouette-iou.mjs
 fi
 
 echo "Gate summary ($([ $fast -eq 1 ] && echo fast || echo merge))"

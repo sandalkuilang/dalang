@@ -3,10 +3,11 @@
 // every storyboard shot that shows the hero, which engine/blender/measure.py measures (hero-asset.md §3). Each row must
 // be a shot of storyboard.md's table, its side word the storyboard's (front, front-left, left, back-left, back,
 // back-right, right, front-right), every key's az inside that side (± 22.5°; az 0 = the asset's front, 90 = its left),
-// lens (mm) and distance (m) real, focal named, need numbers positive, need.move with two states or more.
+// lens (mm) and distance (m) real, focal named, need numbers positive, need.move with two states or more. Each `refs`
+// view (a picture the user gave, fidelity exact): a name, its image under the film folder, az, and ortho or a lens and distance.
 // Usage: node hero_shots.mjs [project]   (default: .)
 // Exit 1 on a problem, 2 when a file cannot be read or is not written yet (rerun / write it), 0 when clean.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const dir = path.resolve(process.argv.slice(2).find(a => !a.startsWith('--')) ?? '.');
@@ -65,5 +66,12 @@ spec.rows.forEach((r, i) => {
   });
   for (const [k, v] of Object.entries(r.need ?? {})) if (!num(v)) problems.push(`${at}: need.${k} must be a number > 0`);
   if (r.need?.move && (r.states ?? []).length < 2) problems.push(`${at}: need.move needs two states or more`);
+});
+(spec.refs ?? []).forEach((v, i) => {
+  const at = `refs ${i + 1}`;
+  if (!(typeof v.name === 'string' && v.name)) problems.push(`${at}: name the view (side, front, top…)`);
+  if (!(typeof v.image === 'string' && existsSync(path.join(dir, v.image)))) problems.push(`${at}: image ${v.image} is not a file under the film folder`);
+  if (typeof v.az !== 'number') problems.push(`${at}: az, the view's angle from the asset's front`);
+  if (!v.ortho && !(num(v.mm) && num(v.dist))) problems.push(`${at}: ortho: true for a blueprint, else the photo's estimated mm and dist`);
 });
 done();

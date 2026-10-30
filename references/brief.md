@@ -79,7 +79,7 @@ Ask when preflight's `Voices` line lists two or more profiles, or one the audien
 ### Call 4 — Extras (the last call; only the questions that apply)
 
 - **Second-language cut** (unless a kit answers it) — "None (Recommended)", the most likely second language (English when the narration is not), another via "Other". Save `second_language: <ISO code>` or nothing; never offered at the hand-off.
-- **Pictures of the subject** (photos, a diagram, a sketch) — "No, use real references from the web (Recommended)"; "Yes, I'll attach them now": wait for them here.
+- **Pictures of the subject** (photos, a diagram, a sketch) — "No, use real references from the web (Recommended)"; "Yes, I'll attach them now": wait for them here. Pictures given (here or with the request): "Match the references exactly (silhouette traced, IoU-checked) (Recommended)" / "Inspired by (proportions only)"; save `fidelity: exact|inspired` (autonomous: exact).
 - **Permission for a recording or cloned voice** (only when the user brings one) — "Yes, the speaker gave permission"; "No" (Step 4 generates the voice).
 - **Series**: only the kit's own questions.
 
@@ -87,7 +87,7 @@ Autonomous mode: each call's recommended option or default, logged.
 
 ### Save the brief
 
-`BRIEF.md`: mode, topic, platform, ratio & resolution, fps, duration, narration language (ISO), angle, look, energy, audience, voice engine, voice model (VoiceStudio: the active one unless picked), voice (profile id, `design: <description>` or `audition`), signoff (only when given). Every later step reads format and language from it; a mid-way change updates `BRIEF.md` first.
+`BRIEF.md`: mode, topic, platform, ratio & resolution, fps, duration, narration language (ISO), angle, look, energy, audience, fidelity (only with the user's pictures), voice engine, voice model (VoiceStudio: the active one unless picked), voice (profile id, `design: <description>` or `audition`), signoff (only when given). Every later step reads format and language from it; a mid-way change updates `BRIEF.md` first.
 
 Step 2 (optional): `measure-reference.md`.
 
