@@ -34,6 +34,8 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 
 ## [Unreleased]
 
+## [4.5.1] - 2026-10-30
+
 ### Changed
 - **Versioning follows usual practice** (the table at the top): MAJOR only with a `### Breaking` entry, MINOR only
   for a capability the user sees (`### Added`), everything else PATCH; `scripts/release.sh` reads the bump from
@@ -1910,7 +1912,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.0...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.1...HEAD
+[4.5.1]: https://github.com/sandalkuilang/dalang/compare/v4.5.0...v4.5.1
 [4.5.0]: https://github.com/sandalkuilang/dalang/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/sandalkuilang/dalang/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/sandalkuilang/dalang/compare/v4.2.0...v4.3.0
