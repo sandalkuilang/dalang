@@ -17,7 +17,7 @@
 git clone https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang
 ```
 
-Pin a release instead: `git clone --branch v4.5.0 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang`
+Pin a release instead: `git clone --branch v4.5.1 --depth 1 https://github.com/sandalkuilang/dalang ~/.claude/skills/dalang`
 
 Restart Claude Code, check your machine once, then ask in any language:
 
