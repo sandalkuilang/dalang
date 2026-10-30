@@ -30,11 +30,11 @@ Pick stills with **implied motion** (a pose resolving forward, blur on one movin
 - **Push-in:** starts on the trigger word, stops on the reaction. Scale **per layer** (fg 1.00→1.10, hero 1.00→1.06, bg 1.00→1.03), `transform-origin` on the focal point, `power2.inOut`; optional bg blur 0 → 3 px. A **zoom** scales all layers equally (flatter, observational).
 - **Pull-back:** consequence, isolation, scale; needs overscanned plates; lands on the aftermath.
 - **Pan / tilt:** layers at their parallax ratios, in the scene's axis direction (§3), lead room ahead; subject a third from the trailing edge.
-- **Crash zoom:** scale 1.0 → 1.2–1.3 in 4–6 frames, `expo.out`, motion blur on; once per film, punchy energy only.
+- **Crash zoom:** scale 1.0 → 1.2–1.3 in 4–6 frames, `expo.out`, motion blur on; once per film, punchy or hype energy only.
 - **Dolly zoom:** one realisation beat. Hero constant, bg 1.00 → 1.15 over 0.6–1.2 s (3D: `fov = 2·atan(tan(fov0/2)·d0/d)`).
 - **Rack focus:** `power2.inOut`, landing slightly early; scale 1.00 → 1.01–1.02 while focus moves (lens breathing).
 - **No handheld, ever:** no sine shake. A camera's life is a slow orbit in one direction (Express `orbit25`, the film's `ORBIT`; Studio iso: the subject turns slowly one way under a fixed view; `object-studio`: `orbit`, `from` → `to`). Tension = a faster orbit, shorter shots, whips.
-- **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam.
+- **Whip pan:** a transition, not a shot: large translate plus directional blur across the seam; at hype energy it may roll the frame ≤ 8° through the whip, level again on landing (`visual-direction.md` §3 "Hype edit").
 - Orbit, crane, aerial, tracking, fly-through: a real rig only (§8), never faked on a still.
 
 ## 3. Axis, eyelines, cuts, rhythm
@@ -151,6 +151,7 @@ Isometric looks are unlit: mood comes from the grade and palette per section of 
 ### 9.2 Lens — how the world feels
 - **Lens as layers:** `bokeh(fstop, { focus, mm })` blurs layers by depth from the focus plane (f1.2–2 melts the bg on the key beat, f5.6–8 keeps the world sharp), `discs` paints out-of-focus lights, `haze` pales far layers.
 - **Aperture points at the part.** When the narration names a part seen close (the valve, the hinge, one blade), open to **f1.2–2.8** with focus on it (f1.2 a macro or small part, f2.8 when neighbours must stay readable). Focus lands on the part's first word (racked from the previous part over 0.3–0.5 s, `power2.inOut`, slightly early) and stays to its last; a second part named is a rack focus, never a cut. **Express:** give the part its own depth layer when it has one; otherwise `focusRing(target, buffer, { cx, cy, fstop, clear, feather, amount })` (`clear` ≈ its size in frame heights), timed with `hold(t, t0, t1, t2, t3)`. **Studio:** `dofFor({ mm, fstop, focusM })`, `focusM` = distance to the part; on the iso hero clip, `detailFocus` (three.js `BokehPass`, `hero-asset.md` §4). Skip it when the whole object is the subject (a wide stays f5.6).
+- **Real lens (every bokeh):** blur only from the optics of the shot: `dofFor({ mm, fstop, focusM })` (Studio) or `bokeh(fstop, { mm, focus })` (Express) with the lens, f-stop and focus distance the storyboard names, never a blur amount set by hand or one even blur on the whole background. Blur grows with distance from the focus plane, in front as behind; a longer lens, wider aperture or nearer focus blurs more. A punch-in is a crop of the same lens: its blur scales with the crop, it does not change. Discs (`discs`) only where the frame has a real light source or a bright specular, sized from that lens; the part being explained stays sharp through its hold.
 - **Scale by zoom:** a wide hold = the whole world, a close zoom = the macro; a circular inset shows a close-up while the wide stays.
 - **Into the thing:** a cutaway (`cutaway.js` in Studio) and a zoom through it.
 

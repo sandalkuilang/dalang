@@ -29,6 +29,18 @@ The three languages and how beats pick them: `looks.md`.
 | **Calm cinematic** | 3–5 s | ≤ 10 % | slow dollies, rack focus, long holds | 1.0 | 70–95 BPM | documentary, serious topics |
 | **Modern balanced** (default) | 1.8–3 s | ≤ 15 % | motivated transitions, 0.3–0.6 s moves | 0.8 | 95–115 BPM | most explainers |
 | **Punchy social** | 0.8–1.8 s | ≤ 25 % | whips, punch-ins, kinetic type every line | 0.72 | 115–130 BPM | 9:16 hooks, lists |
+| **Hype edit** (beat-cut) | 0.4–1.0 s | ≤ 25 % | cuts on the stressed words, speed ramps into a held pose, beat punch-ins, whip smears | 0.65 | 120–140 BPM | 9:16 / 4:5 under 60 s: a process, a showcase, a list |
+
+**Hype edit** (the short-form "velocity" edit): the rhythm is the voice's stressed words, and every cut lands on one.
+- **Cut grid:** shots 0.4–1.0 s, shortening toward the key beat (the staircase, `camera-motion.md` §3), then one hold of 1–2 s on the payoff; never two bursts back to back.
+- **Velocity ramp per shot:** the action runs fast into its key pose, slows to 0.2–0.3× or freezes on it for 0.2–0.4 s, then runs fast out (`cinema.js` `ramp`, keys on the pose; three.js: the same τ(t) into `at()`). The pose is the physical instant (the pour at its peak, the part at full travel), so the motion stays caused.
+- **Beat punch-in:** on a stressed word, scale 1.00 → 1.10–1.18 in 2–3 frames, `expo.out`, then held (an accent under 1.2×, so no orbit); at most every other cut.
+- **Whip smear between groups:** `whip` with motion blur, the frame rolling ≤ 8° through the whip only (rotate the canvas about its centre, or the camera's up vector), back to level on landing.
+- **Shallow focus on every close shot:** the focal part sharp, the world behind and in front melting (f1.4–2.8 on a close, f5.6 on a wide), racked to the next part on its word; real optics only (`camera-motion.md` §9.2 "Real lens").
+- **Motif return:** one hero framing (the finished thing, the anchor object) comes back 3–4 times, same framing, a new state each time.
+- **Toward the lens:** a subject or object moving at the camera (fg layer at 1.3–1.6× parallax, growing) carries a cut.
+- **Sound makes the beat:** a whoosh on each whip, a short hit on each punch-in (the bundled SFX library), under the voice.
+- Not taken from the style: handheld shake, flash or invert frames (`camera-motion.md` §3 "No white flash"), filmed footage, borrowed characters or logos.
 
 Calm's 24 fps variant (YouTube landscape only): `brief.md` Call 2 item 6. Energy changes rhythm, never restraint (§5); every energy holds 0.3–0.75 s before the payoff. `storyboard_lint.mjs` checks the average shot and text-only share against this table.
 
