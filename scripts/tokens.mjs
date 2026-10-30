@@ -31,6 +31,7 @@ const project = path.resolve(args[0] ?? '.');
 let express = false; try { express = /^\W*mode\W*:\W*express\b/im.test(readFileSync(path.join(project, 'BRIEF.md'), 'utf8')); } catch { /* Studio budget */ }
 const maxTurns = +(turnsArg ?? (express ? 30 : 120)), maxCtx = +(ctxArg ?? (express ? 150000 : 250000)), FILM_MAX = 10e6;
 const LONG = 2500;   // characters: about 15 lines of prompt or reply
+const STUDIO_MAIN_TURNS = 100; // a whole Studio film's main agent; a QC phase of 80+ turns at 400K+ context was 40 % of one
 const notChecked = why => { console.error(`NOT CHECKED: ${why}. Rerun, or pass --claude-dir / --session. This is not "no tokens used".`); console.log('Result: not checked'); process.exit(2); };
 if (!(maxTurns > 0 && maxCtx > 0)) notChecked('--max-turns and --max-ctx must be > 0');
 
@@ -99,7 +100,8 @@ const report = {
 try { mkdirSync(path.join(project, 'review'), { recursive: true }); writeFileSync(path.join(project, 'review', 'tokens.json'), JSON.stringify(report, null, 2)); }
 catch (e) { console.error(`WARN: review/tokens.json not written (${e.code || e.message})`); }
 
-const summary = `main ${M(main.total)}${shared ? ' (whole session, shared)' : ''}, subagents ${M(sum)} (${agents.length}), ` +
+// the main agent's cost is its turns × its context: both in the summary, so a gate shows which one grew
+const summary = `main ${M(main.total)} in ${main.turns} turns${shared ? ' (whole session, shared)' : ''}, subagents ${M(sum)} (${agents.length}), ` +
   `main context ${M(main.lastCtx)}; ${over.length ? `${over.length} builder(s) over budget` : 'builders within budget'}`;
 if (json) console.log(JSON.stringify(report, null, 2));
 else {
@@ -108,6 +110,7 @@ else {
   for (const a of agents) console.log(`${a.over ? 'WARN' : '    '} ${a.desc.slice(0, 39).padEnd(39)} ${String(a.turns).padStart(4)} turns  ${M(a.total).padStart(7)}  ctx max ${M(a.maxCtx)}${a.model ? `  ${a.model}` : ''}  effort ${a.effort}`);
   if (unreadable) console.log(`WARN: ${unreadable} subagent transcript(s) could not be read: rerun`);
   if (express && !shared && main.turns > 30) console.log(`WARN: the main agent took ${main.turns} turns (Express: about 25, 30 at most): send calls that do not need each other in one message (express.md "The main agent's turns")`);
+  if (!express && !shared && main.turns > STUDIO_MAIN_TURNS) console.log(`WARN: the main agent took ${main.turns} turns (Studio: ${STUDIO_MAIN_TURNS} at most): every turn and every subagent reply re-reads the whole session; a loop belongs in one job, a short runner in the foreground (SKILL.md "The main agent orchestrates")`);
   const film = (shared ? 0 : main.total) + agents.reduce((x, a) => x + a.total, 0);
   if (express && film > FILM_MAX) console.log(`WARN: this film used ${M(film)} tokens (Express budget ${M(FILM_MAX)}): express.md "Token budget" names where each part goes`);
   if (main.longPrompts || main.longBacks) console.log(`WARN: the main session carries ${main.longPrompts} Agent prompt(s) and ${main.longBacks} subagent reply(ies) over ${LONG} characters: prompts are the job and file paths, verdicts and reports go in files (SKILL.md "The main agent orchestrates")`);

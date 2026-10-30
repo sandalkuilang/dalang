@@ -206,6 +206,9 @@ const skillCases = [
   ["skill up to date", () => fixture().skill, "OK", /^up to date with origin\/main/],
   ["skill behind 2, never pulls", () => { const f = fixture(); advance(f.seed, "first fix"); advance(f.seed, "second fix"); f.head = git(f.skill, "rev-parse", "HEAD"); return f; }, "WARN", /2 commits behind \(latest: second fix\).*pull --ff-only/],
   ["skill behind 1", () => { const f = fixture(); advance(f.seed, "only fix"); return f.skill; }, "WARN", /1 commit behind \(latest: only fix\)/, /1 commits/],
+  // the version in words for the user's first line: the release the clone is on and the newest one on origin/main
+  ["skill up to date names its release", () => { const f = fixture(); git(f.seed, "tag", "v1.2.3"); git(f.seed, "push", "origin", "v1.2.3"); git(f.skill, "fetch", "--tags"); return f.skill; }, "OK", /^up to date with origin\/main \(DALANG v1\.2\.3, [0-9a-f]+\)$/],
+  ["skill behind names its release and the newest", () => { const f = fixture(); git(f.seed, "tag", "v1.2.3"); git(f.seed, "push", "origin", "v1.2.3"); git(f.skill, "fetch", "--tags"); advance(f.seed, "fix"); git(f.seed, "tag", "v1.2.4"); git(f.seed, "push", "origin", "v1.2.4"); return f.skill; }, "WARN", /1 commit behind \(latest: fix\); DALANG v1\.2\.3, newest release v1\.2\.4/],
   ["skill remote unreachable", () => { const f = fixture(); git(f.skill, "remote", "set-url", "origin", path.join(tmp, "does-not-exist.git")); return f.skill; }, "WARN", /could not check.*rerun/],
   ["skill dirty and behind", () => { const f = fixture(); advance(f.seed, "fix"); fs.appendFileSync(path.join(f.skill, "a.txt"), "local\n"); return f.skill; }, "WARN", /uncommitted/, /pull --ff-only/],
   ["skill diverged", () => { const f = fixture(); advance(f.seed, "remote fix"); advance(f.skill, "local work", false); return f.skill; }, "WARN", /diverged: 1 commit behind and 1 ahead/, /pull --ff-only/],

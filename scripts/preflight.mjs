@@ -321,11 +321,18 @@ async function readClone(item, dir) {
   const m = /^(\d+)\s+(\d+)$/.exec(c), [sha, ...subj] = sj.split(' ');
   if (!m || !/^[0-9a-f]{4,}$/.test(sha)) throw new Unread('unexpected git output for origin/main');
   const ahead = +m[1], behind = +m[2], latest = clean(subj.join(' '));
-  if (behind > 0 && ahead > 0) return [[item, 'WARN', `diverged: ${behind} ${pl(behind)} behind and ${ahead} ahead of origin/main — cannot fast-forward; tell the user, never pull or reset on your own`]];
-  if (behind > 0 && dirty) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) but the clone has uncommitted changes — a pull may refuse; ask the user, never stash or reset on your own`]];
-  if (behind > 0) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest}) — asked in Brief Call 0: git -C ${q} pull --ff-only, then re-read SKILL.md`]];
-  if (ahead > 0) return [[item, 'INFO', `${ahead} ${pl(ahead)} ahead of origin/main (local work) — nothing to pull`]];
-  return [[item, 'OK', `up to date with origin/main (${sha})${dirty ? '; uncommitted local changes' : ''}`]];
+  // the version in words for the user's first line: the release this clone is on (+n commits after it) and the newest
+  // release on origin/main; a clone without tags (shallow, a fork) has none to name, never a guessed one
+  const desc = async ref => { const r = await exec('describe', '--tags', '--match', 'v[0-9]*.[0-9]*.[0-9]*', ref); return r.ok ? r.out.trim().replace(/^(v[\d.]+)-(\d+)-g[0-9a-f]+$/, '$1+$2') : null; };
+  const [mine, onMain] = await Promise.all([desc('HEAD'), desc('origin/main')]);
+  const tagOf = v => v?.replace(/\+\d+$/, ''), newest = tagOf(onMain);
+  const ver = mine ? `DALANG ${mine}${newest && newest !== tagOf(mine) ? `, newest release ${newest}` : ''}` : '';
+  const v = ver ? `; ${ver}` : '';
+  if (behind > 0 && ahead > 0) return [[item, 'WARN', `diverged: ${behind} ${pl(behind)} behind and ${ahead} ahead of origin/main${v} — cannot fast-forward; tell the user, never pull or reset on your own`]];
+  if (behind > 0 && dirty) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest})${v} but the clone has uncommitted changes — a pull may refuse; ask the user, never stash or reset on your own`]];
+  if (behind > 0) return [[item, 'WARN', `${behind} ${pl(behind)} behind (latest: ${latest})${v} — asked in Brief Call 0: git -C ${q} pull --ff-only, then re-read SKILL.md`]];
+  if (ahead > 0) return [[item, 'INFO', `${ahead} ${pl(ahead)} ahead of origin/main (local work)${v} — nothing to pull`]];
+  return [[item, 'OK', `up to date with origin/main (${ver ? `${ver}, ` : ''}${sha})${dirty ? '; uncommitted local changes' : ''}`]];
 }
 
 // A detached HEAD is a pinned release: compare it with the newest release tag on origin (ls-remote writes nothing).

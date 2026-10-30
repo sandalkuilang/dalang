@@ -20,11 +20,14 @@
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
 //                                                    starts where the day's last logged line ended; refuses a
 //                                                    Step 6 line until storyboard.md exists and gate 3 is approved
-//        node state.mjs next [dir] [--step 0-8] [--print]
+//        node state.mjs next [dir] [--step 0-8] [--print] [--sub]
 //                                                 -> where the video stands, and the reading list of that step:
 //                                                    the exact sections to read, as ready commands (--print: their text),
 //                                                    the lesson headlines of the film's mode, each subagent job with its
-//                                                    model and effort; Step 0 prints Step 1 with it
+//                                                    model and effort; Step 0 prints Step 1 with it, Express Step 5 Step 6
+//                                                    --sub: only the step's subagent sections, as text: the subagent's
+//                                                    own call, so the main agent never carries them
+//                                                    (FAILED when the step has none)
 //        node state.mjs models                  -> every subagent job, its model and effort, per step and mode
 //        node state.mjs metrics [dir]           -> the run in numbers for the hand-off (review/metrics.md): start, end, output folder,
 //                                                 total, minutes per step, each subagent's model, effort and tokens
@@ -59,6 +62,7 @@ const by = flag('--by') ?? 'user', note = flag('--note');
 const stepGiven = args.includes('--step'), stepArg = flag('--step'), skillArg = flag('--skill');
 const json = args.includes('--json'); if (json) args.splice(args.indexOf('--json'), 1);
 const print = args.includes('--print'); if (print) args.splice(args.indexOf('--print'), 1);
+const forSub = args.includes('--sub'); if (forSub) args.splice(args.indexOf('--sub'), 1);
 const sub = ['approve', 'check', 'log', 'metrics', 'next', 'reading', 'models'].includes(args[0]) ? args[0] : null;
 const [cmd, gateArg, dirArg] = sub === 'next' || sub === 'metrics' ? [sub, null, args[1]] : sub === 'reading' || sub === 'models' ? [sub, null, null] : sub ? args : [null, null, args[0]];
 const dir = dirArg ?? '.';
@@ -133,6 +137,8 @@ const SECOND_CUT = [...of('script-voice.md', '### Second-language cut (asked onc
 const ASSET_PASS =of('review.md', '## Asset pass (before Gate 3, and again before the Step 6 blocking pass)');
 const SFX_MUSIC = of('look-build.md', '### Sound effects and music (Step 6, item 7)');
 const LEAN_WORKSPACE = of('brief.md', '### Lean workspace (workspace.mjs)');
+const SCRIPT_SUB = of('script-voice.md', '## Step 3 — Script → GATE 1', '### Narration craft: one idea, followed on one hearing');
+const VOICE_SUB = [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)', '### Timing, warnings and retakes (Step 4, look up when needed)')];
 const READING = {
   0: { name: 'Setup', read: of('brief.md', '## Step 0 — Setup (once)'), refs: [...of('voice.md', '## Setup — VoiceStudio', '## Setup — ElevenLabs (paid, optional)'), ...VD_HERO, ...LEAN_WORKSPACE], sub: [] },
   1: {
@@ -141,8 +147,10 @@ const READING = {
     read: of('brief.md', '## Step 1 — Brief (always via AskUserQuestion)', '### Call 0 (only when preflight left a choice; skip it otherwise)', '### Call 1', '### Call 2 (its options follow the platform)', '### Call 3 — Voice', '### Call 4 — Extras (the last call; only the questions that apply)', '### Save the brief'),
   },
   2: { name: 'Reference', read: of('measure-reference.md', null), refs: [], sub: [] }, // whole file: its template has fenced "#" lines
-  3: { name: 'Script', read: of('script-voice.md', '## Step 3 — Script → GATE 1'), refs: [...of('script-voice.md', '### Narration craft: one idea, followed on one hearing'), ...NUMBERS_MODEL, ...of('script-voice.md', '### Arc templates'), ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')], sub: [] },
-  4: { name: 'Voice', read: [...of('script-voice.md', '## Step 4 — Voice + per-word timing → GATE 2'), ...of('voice.md', '## Use (Step 4)')], refs: [...of('script-voice.md', '### Voice sources and outputs (Step 4, look up when needed)'), ...of('voice.md', '### Clone (VoiceStudio, free, local)', '### Timing, warnings and retakes (Step 4, look up when needed)'), ...SFX_MUSIC], sub: [] },
+  // Steps 3–4 are jobs: the main agent reads only its part (the jobs and their prompts); the writer and the voice job
+  // read the step itself with their own `next --step <n> --sub` call (SCRIPT_SUB, VOICE_SUB).
+  3: { name: 'Script', read: of('script-voice.md', "### Step 3, the main agent's part: three jobs"), refs: [], sub: [...SCRIPT_SUB, ...of('review.md', '## Sound-off quiz (Step 7, a second fresh subagent beside the reviewer)')] },
+  4: { name: 'Voice', read: of('script-voice.md', "### Step 4, the main agent's part: one voice job"), refs: SFX_MUSIC, sub: VOICE_SUB },
   5: {
     name: 'Look', read: of('look-build.md', '## Step 5 — Look, storyboard, style frames → GATE 3'), sub: of('review.md', '## Benchmark review (Gate 3: the style frames against the reference)'),
     refs: [
@@ -171,25 +179,25 @@ const READING = {
 // at Step 3, and Step 4 prints the same on a resume; express.md replaces Steps 5–7, with no Studio look-ups and no
 // lessons there (the builders read their own briefs). `lessons`: the steps whose headlines print.
 const EXPRESS = {
-  3: { read: [...READING[3].read, ...of('express.md', '# Express mode (the default)', '## Express Steps 3–4 — Script and voice'), ...READING[4].read],
-    refs: [...of('script-voice.md', '### Narration craft: one idea, followed on one hearing'), ...NUMBERS_MODEL, ...READING[4].refs.filter(e => !SFX_MUSIC.includes(e))], lessons: ['3', '4'] },
+  3: { read: of('express.md', '# Express mode (the default)', '## Express Steps 3–4 — Script and voice'), refs: [], sub: SCRIPT_SUB, lessons: ['3', '4'] },
   5: { read: of('express.md', '## Express Step 5 — Look in one frame'), refs: [], lessons: [] },
   6: { read: of('express.md', '## Express Step 6 — Build'), refs: [], lessons: [] },
   7: { read: of('express.md', '## Express Step 7 — Render → GATE 4'), refs: [], lessons: [] },
 };
-EXPRESS[4] = EXPRESS[3];
+EXPRESS[4] = { ...EXPRESS[3], sub: VOICE_SUB }; // one main reading for both; the voice job's own sections
 // Model and effort per subagent job, printed by `next` at its step (SKILL.md keeps one line pointing here). top = omit
 // `model`, mid = "sonnet", light = "haiku". A job that fails its check escalates one notch (SKILL.md "Escalate").
 const TOP = 'top', MID = 'mid', LIGHT = 'light';
 const JOBS = {
   studio: {
-    3: [['Gate 1 read-through', MID, 'medium'], ['fact research (≤ 8 searches, 15 fetches)', MID, 'medium']],
+    3: [['fact research: one job for every strand (≤ 8 searches, 15 fetches)', MID, 'medium'], ['script writer (dalang-builder)', TOP, 'high'], ['Gate 1 read-through', MID, 'medium']],
+    4: [['voice job (dalang-builder): sample, take, retakes, respells', TOP, 'medium']],
     5: [['planner: SPEC.md + storyboard.md', TOP, 'high'], ['style-frame check, benchmark, Set / Reality check', TOP, 'high'], ['media screening (find_media candidates, reference boards)', LIGHT, 'low'], ['asset pair check', MID, 'low']],
     6: [['builder: the pilot', TOP, 'high'], ['builder: other groups, assembly', TOP, 'medium'], ['media screening', LIGHT, 'low'], ['asset pair check', MID, 'low']],
     7: [['fresh-eyes review, Set / Reality check', TOP, 'high'], ['sound-off quiz', TOP, 'medium'], ['scopes verdict', TOP, 'medium'], ['builder: each QC fix round', TOP, 'medium'], ['fix check, contact-sheet triage', MID, 'low']],
   },
   express: {
-    3: [['Gate 1 read-through', MID, 'medium'], ['fact research (≤ 2 strands, each ≤ 6 searches, 8 fetches)', MID, 'medium']],
+    3: [['fact research: one job, ≤ 2 strands (≤ 6 searches, 8 fetches)', MID, 'medium'], ['script writer (dalang-builder)', TOP, 'high'], ['Gate 1 read-through', MID, 'medium'], ['voice job (dalang-builder)', TOP, 'medium']],
     5: [['planner (subagent_type dalang-builder)', TOP, 'high']],
     6: [['builder per group, and its one fix round', MID, 'medium']],
   },
@@ -272,7 +280,7 @@ const buildReading = skill => {
   const view = (n, mode) => {
     n = String(n);
     const def = READING[n], ex = mode === 'express' ? EXPRESS[n] : null;
-    const tiers = ex ? { read: ex.read, refs: ex.refs, sub: [] } : def;
+    const tiers = ex ? { read: ex.read, refs: ex.refs, sub: ex.sub ?? [] } : def;
     const at = ex ? ex.lessons : [n];
     const ls = lessons.filter(l => at.some(t => l.steps.has(t)) && (!l.mode || l.mode === mode)).map(l => l.h);
     const jobs = (JOBS[mode][ex && n === '4' ? '3' : n] ?? []).map(jobLine);
@@ -295,7 +303,7 @@ const buildReading = skill => {
   for (const n of Object.keys(READING)) steps[n] = view(n, 'studio');
   // Step 2 runs only with a reference video: shown, never in a total. Express reads Step 4 with Step 3: counted once.
   const total = budget('studio'), express = budget('express');
-  for (const def of Object.values(READING)) def.sub.forEach(find); // every subagent section checked, whatever the path
+  for (const def of [...Object.values(READING), ...Object.values(EXPRESS)]) (def.sub ?? []).forEach(find); // every subagent section checked, whatever the path
   const sp = path.join(skill, 'SKILL.md'), skillMd = existsSync(sp) ? statSync(sp).size : null;
   if (skillMd === null) errors.push(`FAILED: SKILL.md not found in ${skill}`);
   else if (skillMd > SKILL_MAX) errors.push(`FAILED: SKILL.md is ${kb(skillMd)} KB, over the ${SKILL_MAX / KB} KB budget (loaded every session)`);
@@ -335,8 +343,15 @@ const show = (r, n, why, asText) => {
   // the index: file, line range, heading; one command shape for all, so no absolute path is repeated per line
   if (refs.length) out.push(`Look up when needed (only the line the text points to): sed -n '<from>,<to>p' ${shq(path.join(r.skill, 'references'))}/<file>`, ...refs.map(indexLine));
   if (s.jobs.length) out.push(JOBS_HEAD, ...s.jobs.map(j => `  ${j}`));
-  if (s.commands.sub.length) out.push('For the subagent (paste into its prompt; do not run here):', ...s.commands.sub);
+  // the subagent reads its sections with its own call: the main agent pastes one command, never their text or ranges
+  if (s.found.sub.length) out.push(`For the subagent (its prompt runs it; never here, ${kb(sum(s.found.sub))} KB): node ${shq(path.join(r.skill, 'scripts', 'state.mjs'))} next ${shq(path.resolve(dir))} --step ${n} --sub`);
   console.log(out.join('\n'));
+};
+// --sub: the subagent's own reading of a step, as text (with each file's path, for a look-up of a section it points to).
+const showSub = (r, n) => {
+  const s = r.view(n, express ? 'express' : 'studio');
+  if (!s.found.sub.length) { console.error(`FAILED: Step ${n} has no subagent reading`); process.exit(1); }
+  console.log([`Step ${n} ${s.name} — the subagent's reading (${kb(sum(s.found.sub))} KB)`, ...s.found.sub.map(e => `\n===== ${e.path}:${e.from}\n${e.lines.slice(e.from - 1, e.to).join('\n')}`)].join('\n'));
 };
 const outOfDate = r => r.errors.filter(e => /not found|appears \d+ times|not a readable lesson/.test(e)).forEach(e => console.log(`WARN (skill copy out of date): ${e.replace(/^FAILED: /, '')}`));
 // The reading a first approval prints, so the next step costs no `next` turn: Studio the step after the gate; Express
@@ -469,9 +484,14 @@ if (cmd === 'approve') {
   const r = buildReading(readSkill);
   // an entry that cannot be found means this skill copy is out of date: say so, print the rest
   outOfDate(r);
-  show(r, now, why, print);
-  // a new film: the Brief follows preflight in the next message, so Step 1 comes with Step 0
-  if (picked === null && now === 0) { console.log(''); show(r, 1, 'read with Step 0: the Brief follows preflight', print); }
+  if (forSub) showSub(r, now);
+  else {
+    show(r, now, why, print);
+    // a new film: the Brief follows preflight in the next message, so Step 1 comes with Step 0; Express Step 5 brings
+    // Step 6 (the planner and the builders start back to back; the voice job's approval printed them in its own context)
+    if (picked === null && now === 0) { console.log(''); show(r, 1, 'read with Step 0: the Brief follows preflight', print); }
+    if (picked === null && now === 5 && express) { console.log(''); show(r, 6, 'read with Step 5 (express)', print); }
+  }
 } else {
   for (const g of [1, 2, 3, 4]) console.log(`Gate ${g} ${GATES[g].name.padEnd(7)} ${status(g)}`);
   const next = [1, 2, 3, 4].find(g => !status(g).startsWith('approved'));

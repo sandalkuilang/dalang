@@ -74,8 +74,8 @@ Anything with no input from another job starts in the same message; only heavy j
 | Step | Together |
 |---|---|
 | 0–1 | `preflight.mjs` in the background, with the first Brief question |
-| 2–3 | reference measurement, and fact research split into strands, one agent each |
-| after Gate 1 | the voice take, `SPEC.md` + `storyboard.md` (from Gate 2, by the planner, both modes), assets, music, OBJECTS stills |
+| 2–3 | reference measurement, and one fact-research job for every strand (each job's reply wakes the main agent) |
+| after Gate 1 | the voice job (sample, take, retakes in its own context), `SPEC.md` + `storyboard.md` (from Gate 2, by the planner, both modes), assets, music, OBJECTS stills |
 | 6 | Studio: pilot, then every group at once. Express: one builder under 45 s, 2 at once from 45 s, 3 above 75 s |
 | 7 | the read-only scripts on the draft; then the reviewer, the sound-off quiz and the second Set / Reality check |
 | 8 | `POST.md` while the final render runs |

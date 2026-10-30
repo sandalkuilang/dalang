@@ -22,6 +22,7 @@ fs.writeFileSync(path.join(tmp, "review/fixes-close.md"), "P1 | t=9 | Clarity | 
 r = run("fixes", tmp);
 assert.match(r.out, /fixer close: 0 P0, 1 P1/); assert.match(r.out, /fixer open: 1 P0, 2 P1/);
 assert.match(r.out, /review\/reports\/fix-open\.md/, "the fixer reports to a file");
+assert.match(r.out, /wait\.mjs \. --expect 2 \(timeout 600000\)/, "the round ends with the barrier: one turn for both replies");
 fs.writeFileSync(path.join(tmp, "QC-REVIEW.md"), "# round 1\n");
 r = run("qc", tmp, "--dry-run");
 assert.match(r.out, /FAILED no assets\/music\.mp3/, "a film without a bed fails QC");

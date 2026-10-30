@@ -105,6 +105,13 @@ assert.match(c.stdout, / · Tokens: not checked/);
   fs.mkdirSync(mp2, { recursive: true }); put(path.join(mp2, "BRIEF.md"), "- mode: express\n");
   put(path.join(enc(mp2), "s7.jsonl"), Array.from({ length: 45 }, (_, k) => turn(`m${k}`, 60000)).join(""));
   assert.match(run(mp2).out, /WARN: the main agent took 45 turns/, "an Express main agent over 30 turns is named");
+  // Studio: the main agent's turns are in the Result line, and over 100 they are named
+  const sp = path.join(tmp, "videos5", "how-a-pump-lifts");
+  fs.mkdirSync(sp, { recursive: true });
+  put(path.join(enc(sp), "s8.jsonl"), Array.from({ length: 101 }, (_, k) => turn(`s${k}`, 60000)).join(""));
+  const st = run(sp);
+  assert.match(st.out, /Result: main [\d.]+M in 101 turns/, "the Result line names the main agent's turns");
+  assert.match(st.out, /WARN: the main agent took 101 turns \(Studio: 100 at most\)/, "a Studio main agent over 100 turns is named");
 }
 
 // state.mjs metrics: start, end, total and per-step minutes from PRODUCTION.md; per subagent the model and the effort it

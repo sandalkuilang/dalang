@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Studio's mechanical steps as one call each, so the main session only decides, spawns and reads short verdicts. Every
 // main-session turn re-reads the whole session: hand-written chains, polling loops and retyped verdicts are what grew it.
-// Run each step with run_in_background (never nohup/&, never polled); it prints one line per step, only failing lines
-// under it, and a `next:` line. Express's runner is express.mjs; the two share after-voice and final.
+// after-voice, frames and fixes run in the foreground (timeout 600000), so the result is in the same turn; qc and final
+// with run_in_background (never nohup/&, never polled): a background run costs a wake-up turn and a turn to read it.
+// Each prints one line per step, only failing lines under it, and a `next:` line. Express's runner is express.mjs; the
+// two share after-voice and final.
 //
 // Usage: node studio.mjs after-voice [dir]          express.mjs after-voice: the take's WARNINGs, pad, captions, gates 1–2
 //        node studio.mjs frames [dir] --at a,b,…     style-frame stills at those seconds (style-frames/) on one sheet:
@@ -110,7 +112,7 @@ if (cmd === 'fixes') {
     const g = f.replace(/^fixes-|\.md$/g, '');
     console.log(`fixer ${g}: ${n('P0')} P0, ${n('P1')} P1 — prompt: "Fix round for group ${g}: do review/fixes-${g}.md (only its files); report to review/reports/fix-${g}.md, reply ≤ 15 lines."`);
   }
-  if (files.length) console.log('next: every fixer above in one message (dalang-builder, model from state.mjs next), then studio.mjs qc for the next round');
+  if (files.length) console.log(`next: every fixer above in one message (dalang-builder, model from state.mjs next), last in it node ${path.join(HERE, 'wait.mjs')} . --expect ${files.length} (timeout 600000); then studio.mjs qc for the next round`);
 }
 console.log(failed ? `Result: ${failed} step(s) FAILED` : 'Result: OK');
 process.exit(failed ? 1 : 0);

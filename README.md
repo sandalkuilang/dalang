@@ -66,8 +66,8 @@ The Brief asks once; both run hands-off after it.
 
 **Express workflow**
 1. Preflight and every Brief question at once.
-2. Facts, then the script; Gate 1 runs the lints itself.
-3. The voice take; a clean take is padded and captioned (Gate 2).
+2. Facts, then the script, each a subagent job; Gate 1 runs the lints itself.
+3. The voice take, one subagent job; a clean take is padded and captioned (Gate 2).
 4. One planner writes `SPEC.md` and the storyboard, then scaffolds the shot groups.
 5. Builders fill the groups in parallel; one assemble check (Gate 3).
 6. One render, Gate 4, the film.
