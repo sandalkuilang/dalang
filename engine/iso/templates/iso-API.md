@@ -70,7 +70,7 @@ solid is inked for you: detail comes from parts, never extra outlines.
 
 ## Overlays (`editorial.js`)
 `makeOverlay(root, { prefix, G0, accent, ink })`, per frame
-`ov.update(tLocal, project)`. `ov.headline({ kicker, text: "Sentence [accent]", from, to })` · `ov.card({ label,
+`ov.update(tLocal, project)`. `ov.headline({ kicker, text: "Sentence [accent]", from, to })` (over the top glass: a frosted band, the top 27 %, fading down; a bottom one, 17 %, fading up, is always on) · `ov.card({ label,
 rows: [{ k, v, hi }], source, from, to, top, left, width })` · `ov.tags([{ title, value, sub, x }], { from, to })` ·
 `ov.pill({ text, at, offset: [dx, dy], from, to })` · `ov.big({ text, at, offset, from, to })`.
 Cues: `b("beat")`, `w("word", n)` (0-based occurrence), `we(...)` its end. A chart the overlays lack: inline SVG in the

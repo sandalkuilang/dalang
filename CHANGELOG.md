@@ -40,6 +40,12 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   while the repo moves. Preflight reports a plugin copy's version and WARNs when a clone and the plugin are both
   installed; `release.sh` sets `plugin.json`'s version, and the release workflow refuses a tag that differs.
 
+### Added
+- **Gradient glass bands at the top and bottom** (`engine/three/editorial.js` `makeOverlay`, both looks): the picture,
+  then a frosted band (backdrop blur, white fading to clear) across the top 27 % of the frame, fading downward, and one
+  across the bottom 17 %, fading upward, then the text. The top band fades in and out with the headline, the bottom one
+  is always on; nothing above them is semi-transparent, so the blur sees the frame.
+
 ## [4.5.3] - 2026-10-30
 
 ### Fixed
