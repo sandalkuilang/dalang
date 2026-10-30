@@ -44,3 +44,5 @@ Subject and its action between y 345 and 1150; headline from y ~110; cards besid
 - the hero touching a frame edge without filling the frame (a close-up fills 90 % of both axes): frame it whole;
 - a headline, card, tag, pill or caption covering more than 10 % of its own box over the hero box: move the text;
 - the hero under 12 ΔL* against the ground around it: a `backdrop()` behind a pale hero, or a darker material.
+
+Express measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero is the visible meshes under `S.world`; `attend:false` things such as `backdrop()` are excluded. Name a different subject with `loop({ hero })`.

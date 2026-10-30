@@ -4,7 +4,8 @@
 // font size in px) and the hero's box; this lint reads those records and flags, each line carrying its time `t=…s`:
 //   - a box outside the format's safe area (type.js safeArea: a caption may use the caption band to its bottom edge);
 //   - a text box covering more than 10 % of its own area of the hero box (--hero-overlap; clipped hero = lower bound);
-//   - a label or card under 36 px, a caption under 54 px (at 1080 px on the short side, scaled with the canvas);
+//   - a label or card under 36 px, a caption under 54 px (--min-label, --min-caption; at 1080 px on the short side, scaled
+//     with the canvas; the object-studio kit draws captions at 46 and its smallest label at 22, so express.mjs passes those);
 //   - a caption box overlapping a label or card box;
 //   - the hero box under 1/3 of the frame on both axes (--min-hero), or touching an edge without filling the frame
 //     (a close-up fills 90 % of both axes; a clipped box is a lower bound and is not judged for either);
@@ -13,7 +14,7 @@
 // A hero key that is absent is INFO (overlap not checked); null (the hero is off the frame) has nothing to overlap.
 // Records: [{ t, W, H, format, hero?: { x0, y0, x1, y1, clipped? } | null, contrast?: number | null, boxes: [{ kind, text, x0, y0, x1, y1, size }] }],
 // or { frames: [...] }. strips.mjs writes them to review/strips/layout.json and lints them into review/strips/index.md.
-// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--min-contrast 12] [--no-safe-area]   (default: .; a project = its
+// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--min-contrast 12] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
 // review/strips/layout.json). Exit 1 on a problem, 2 when the records cannot be read or a frame cannot be checked
 // (rerun / fix), 0 when clean.
 import { readFileSync, statSync } from 'node:fs';
@@ -21,7 +22,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { safeArea } from '../engine/three/type.js';
 
-const MIN_CAPTION = 54, MIN_LABEL = 36, EDGE = 0.5; // px at 1080 on the short side; px of tolerance at an edge
+const EDGE = 0.5; // px of tolerance at an edge
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const rect = (b) => b && num(b.x0) && num(b.y0) && num(b.x1) && num(b.y1) && b.x1 > b.x0 && b.y1 > b.y0;
 const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0);
@@ -30,7 +31,7 @@ const r = Math.round;
 const show = (b) => `${r(b.x0)},${r(b.y0)}–${r(b.x1)},${r(b.y1)}`;
 const name = (b) => `${b.kind} "${String(b.text).replace(/[\r\n|]+/g, ' ').slice(0, 60)}"`;
 
-export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minContrast = 12, safe = true } = {}) {
+export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minContrast = 12, minCaption = 54, minLabel = 36, safe = true } = {}) {
   const problems = [], warns = [], infos = [];
   if (!Array.isArray(frames) || !frames.length) {
     warns.push('no layout recorded (the composition does not call layoutFrame)');
@@ -76,7 +77,7 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minCon
         const share = inter(b, hero) / area(b);
         if (share > heroOverlap) P(`${name(b)} ${show(b)} covers ${r(share * 100)} % of the hero box ${show(hero)}${hero.clipped ? ' (hero box clipped: a lower bound)' : ''}`);
       }
-      const min = (b.kind === 'caption' ? MIN_CAPTION : MIN_LABEL) * s;
+      const min = (b.kind === 'caption' ? minCaption : minLabel) * s;
       if (b.size < min - 1e-6) P(`${name(b)} is ${r(b.size * 10) / 10} px, under the ${r(min)} px minimum`);
     }
     for (const c of boxes.filter((b) => b.kind === 'caption'))
@@ -89,9 +90,10 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minCon
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const take = (k) => { const i = args.indexOf(k); return i >= 0 ? (args.splice(i, 2)[1] ?? '') : null; }; // no value: a usage WARN below, never a crash
-  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast');
+  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label');
   const safe = !(args.includes('--no-safe-area') && args.splice(args.indexOf('--no-safe-area'), 1));
   const mh = mhArg === null ? 1 / 3 : Number(mhArg), mc = mcArg === null ? 12 : Number(mcArg);
+  const cp = cpArg === null ? 54 : Number(cpArg), lb = lbArg === null ? 36 : Number(lbArg);
   const target = path.resolve(args.find((a) => !a.startsWith('--')) ?? '.');
   let frames = null, count = 0;
   const warns = [], problems = [], infos = [];
@@ -99,6 +101,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (hoArg !== null && !(hoArg.trim() !== '' && ho >= 0 && ho <= 1)) warns.push(`--hero-overlap ${hoArg}: use a share between 0 and 1`);
   else if (mhArg !== null && !(mhArg.trim() !== '' && mh > 0 && mh <= 1)) warns.push(`--min-hero ${mhArg}: use a share between 0 and 1`);
   else if (mcArg !== null && !(mcArg.trim() !== '' && mc >= 0)) warns.push(`--min-contrast ${mcArg}: use a ΔL* of 0 or more`);
+  else if (cpArg !== null && !(cpArg.trim() !== '' && cp > 0)) warns.push(`--min-caption ${cpArg}: use a size in px above 0`);
+  else if (lbArg !== null && !(lbArg.trim() !== '' && lb > 0)) warns.push(`--min-label ${lbArg}: use a size in px above 0`);
   else {
     let file = target;
     try { if (statSync(target).isDirectory()) file = path.join(target, 'review', 'strips', 'layout.json'); } catch { /* read below */ }
@@ -109,7 +113,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       warns.push(e.code === 'ENOENT' ? `no layout.json: run strips.mjs (${file})` : e instanceof SyntaxError ? `${file}: not valid JSON (${e.message}) — rerun strips.mjs` : `${file}: cannot read (${e.code ?? e.message}) — rerun`);
     }
     if (!warns.length) {
-      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, minContrast: mc, safe });
+      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, minContrast: mc, minCaption: cp, minLabel: lb, safe });
       problems.push(...res.problems); warns.push(...res.warns); infos.push(...res.infos);
       count = Array.isArray(frames) ? frames.length : 0;
     }

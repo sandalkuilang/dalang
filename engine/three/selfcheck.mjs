@@ -574,6 +574,24 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     assert.equal(hb(50, 0), null, "off the frame: null");
     assert.equal(hb(0, 4.8).clipped, true, "a corner behind the camera: clipped (a lower bound)");
     assert.equal(heroBox(cam, new THREE.Group(), W, H), null, "an empty object: null");
+    // Only visible meshes that attend count: a hidden mesh, a hidden subtree and an attend:false pool far away leave the box as it was; a visible one far away grows it.
+    {
+      const g = new THREE.Group(), core = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+      g.add(core);
+      const far = (mk) => { const m = mk(); m.position.set(40, 0, 0); g.add(m); return m; };
+      const mesh = () => new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+      g.updateMatrixWorld(true);
+      const base = heroBox(cam, g, W, H);
+      far(() => { const m = mesh(); m.visible = false; return m; });
+      far(() => { const grp = new THREE.Group(); grp.visible = false; grp.add(mesh()); return grp; });
+      far(() => new THREE.PointLight());
+      far(() => { const m = mesh(); m.userData.attend = false; return m; });
+      g.updateMatrixWorld(true);
+      assert.deepEqual(heroBox(cam, g, W, H), base, "hidden meshes, hidden groups, lights and attend:false meshes do not count in the hero box");
+      const vis = mesh(); vis.position.set(1.5, 0, 0); g.add(vis); g.updateMatrixWorld(true);
+      const grown = heroBox(cam, g, W, H);
+      assert.ok(grown && grown.x1 > base.x1 + 1, "a visible mesh grows the box: " + JSON.stringify([base, grown]));
+    }
   }
 }
 // Camera stations, attention by ghosting, loop end: one world, one camera, no cut. A small set in metres (a kept base,
