@@ -25,6 +25,7 @@ const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
 const ED = await use("editorial.js");
+const { heroContrast } = await use("measure.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1913,4 +1914,18 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   ov.update(5, null); // t = 15: no headline
   assert.equal(ov.glass.style.opacity, "0.000", "top glass: gone with the headline");
 }
-console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top and bottom glass), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
+// heroContrast: ΔL* between the hero's pixels (the mask) and the ring of ground around it; null with no hero or no ground.
+{
+  const w = 10, h = 10, frame = new Uint8ClampedArray(w * h * 4), mask = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = 4 * (y * w + x), on = x >= 3 && x < 7 && y >= 3 && y < 7;
+    frame.fill(on ? 60 : 230, i, i + 3); frame[i + 3] = 255;
+    mask[4 * ((h - 1 - y) * w + x)] = on ? 255 : 0; // WebGL rows run bottom-up
+  }
+  const dL = heroContrast(frame, mask, w, h, { ring: 2 });
+  assert.ok(dL > 60 && dL < 70, "a dark hero on a pale ground: ΔL* about 66, got " + dL);
+  frame.fill(230);
+  assert.equal(heroContrast(frame, mask, w, h, { ring: 2 }), 0, "same grey as the ground: 0");
+  assert.equal(heroContrast(frame, new Uint8Array(w * h * 4), w, h), null, "no hero pixel: null");
+}
+console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top and bottom glass), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔL* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
