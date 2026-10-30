@@ -31,4 +31,15 @@ r = run("qc", tmp, "--dry-run");
 assert.match(r.out, /round 1 put aside in review\/round-1\/ \(3 item/, "QC-REVIEW.md and both fix lists are put aside");
 assert.match(r.out, /strips --crops: .*--against .*round-1/);
 assert.ok(fs.existsSync(path.join(tmp, "QC-REVIEW.md")), "a dry run moves nothing");
+const { newestStills } = await import(new URL("../scripts/snapshots.mjs", import.meta.url));
+const snaps = path.join(tmp, "snaps");
+for (const [d, ago] of [["ffff-old", 60], ["0000-new", 0]]) {
+  fs.mkdirSync(path.join(snaps, d), { recursive: true });
+  for (const f of ["frame-1.png", "frame-2.png", "frame-10.png", "frame-11.png"]) fs.writeFileSync(path.join(snaps, d, f), "x");
+  const t = new Date(Date.now() - ago * 1000); fs.utimesSync(path.join(snaps, d), t, t);
+}
+const got = newestStills(snaps, 3);
+assert.equal(path.basename(got.dir), "0000-new", "the newest dir by mtime, not by name");
+assert.deepEqual(got.pngs, ["frame-1.png", "frame-2.png", "frame-10.png"], "numeric order, the extra tail frame dropped");
+assert.equal(newestStills(path.join(tmp, "none"), 2).dir, null);
 console.log("studio: OK");
