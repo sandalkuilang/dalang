@@ -20,7 +20,7 @@ const block = /const HERO = \{([\s\S]*?)\n\};/.exec(tpl)?.[1];
 assert.ok(block, "the template opens with one HERO data block");
 for (const k of ["glb", "duration", "shell", "front", "quarters", "context", "rotors", "hot", "cold", "stations", "beats", "detail", "pins"])
   assert.match(block, new RegExp(`^\\s*${k}:`, "m"), `HERO.${k}`);
-for (const k of ["renderer.clear(); composer.render()", "isoFrame", "isoLook", "inkLines", "detailFocus", 'window.__timelines["main"]', "paused: true"])
+for (const k of ["renderer.clear(); composer.render()", "isoFrame", "isoLook", "inkLines", "DepthOfFieldEffect", 'window.__timelines["main"]', "paused: true"])
   assert.ok(tpl.includes(k), `template keeps ${k}`);
 // subject words of a removed sample asset, split so a repo grep for them stays clean
 const subject = new RegExp(["cond" + "ens", "refri" + "gera", "compres" + "sor", "kompre" + "sor", "konden" + "sor", "kip" + "as", "evapo" + "rat", "\\bHV" + "AC\\b", "\\bA" + "C\\b"].join("|"), "i").exec(tpl);

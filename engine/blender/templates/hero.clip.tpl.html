@@ -22,11 +22,10 @@
   <canvas id="out" width="1080" height="1920" data-layout-ignore></canvas>
 </div>
 <script type="module">
-import { THREE, GLTFLoader, EffectComposer, RenderPass, EffectPass, SMAAEffect, N8AOPostPass } from "./assets/three-vendor.js";
+import { THREE, GLTFLoader, EffectComposer, RenderPass, EffectPass, SMAAEffect, N8AOPostPass, DepthOfFieldEffect } from "./assets/three-vendor.js";
 import { isoLook, inkLines } from "./assets/studio.js";
 import { isoCamera, isoFrame, place } from "./assets/camera.js";
 import { font } from "./assets/font.js";
-import { detailFocus } from "./assets/bokeh.js";
 
 // ---- HERO: the only block a film fills. Node patterns match the GLB's node names (the Blender object names).
 const HERO = {
@@ -48,9 +47,10 @@ const HERO = {
   ],
   beats: { shellOut: [2.0, 2.8], cut: [4.2, 5.0], calm: [4.0, 4.8] },
   // detail focus: the part sharp, the rest blurred, for a beat that shows one detail (never the wide); from/to in seconds,
-  // eased in/out over 0.35 s; blur = the largest blur as a fraction of the frame width (<= 0.015); range (optional) = the depth in world units at which
-  // it is reached: the detail's own depth (default: a quarter of the frame); none: no blur at all
-  detail: [{ from: 5.2, to: 6.8, node: "fan.motor", blur: 0.012, range: 0.08 }],
+  // eased in/out over 0.35 s; bokeh = the blur's scale (the depth-of-field effect's bokehScale, 1 soft ... 3 hard); range
+  // (optional) = the depth in world units kept sharp around the part: the detail's own depth, never less (default: a
+  // quarter of the frame height); none: no blur at all
+  detail: [{ from: 5.2, to: 6.8, node: "fan.motor", bokeh: 2, range: 0.08 }],
   // where: "top" | "bottom" | null (centre); until: the pin leaves then; labels short, in the film's language
   pins: [
     { node: "fan.blade", label: "Fan", at: 0.6, until: 4.4 },
@@ -144,8 +144,9 @@ composer.addPass(new RenderPass(scene, camera));
 const ao = new N8AOPostPass(scene, camera, W, H);
 Object.assign(ao.configuration, { aoRadius: 0.04, distanceFalloff: 0.6, intensity: 1.6, halfRes: false, color: new THREE.Color("#2A2926") });
 composer.addPass(ao);
-const detail = detailFocus(scene, camera), DETAIL = (HERO.detail ?? []).map((d) => ({ ...d, o: named(exact(d.node))[0] }));
-composer.addPass(detail.pass);                                                          // after the AO; SMAA last, as studio.js
+const dof = new DepthOfFieldEffect(camera, { focusDistance: 0, focusRange: 1, bokehScale: 0 }), dofPass = new EffectPass(camera, dof);
+const DETAIL = (HERO.detail ?? []).map((d) => ({ ...d, o: named(exact(d.node))[0] }));
+composer.addPass(dofPass);                                                              // after the AO; SMAA last, as studio.js
 composer.addPass(new EffectPass(camera, new SMAAEffect()));
 const out = document.getElementById("out"), g = out.getContext("2d");
 
@@ -159,10 +160,11 @@ function frame(t) {
   pivot.updateMatrixWorld(); cutPlane.set(cutDir, -(cutS[0] + (cutS[1] - cutS[0]) * cut)); cutPlane.applyMatrix4(pivot.matrixWorld);
   context.forEach((m, i) => m.material.color.copy(ctxFrom[i]).lerp(calm, seg(t, ...B.calm)));
   place(camera, poseAt(t));
-  let blur = 0, on = null;                                                               // the detail window with the most blur now
-  for (const d of DETAIL) { const w = d.blur * ease(seg(t, d.from, d.from + 0.35)) * (1 - ease(seg(t, d.to - 0.35, d.to))); if (d.o && w > blur) { blur = w; on = d; } }
-  if (on) detail.focusOn(new THREE.Box3().setFromObject(on.o).getCenter(new THREE.Vector3()));
-  detail.set({ blur, range: on?.range });
+  let bokeh = 0, on = null;                                                              // the detail window with the most blur now
+  for (const d of DETAIL) { const w = d.bokeh * ease(seg(t, d.from, d.from + 0.35)) * (1 - ease(seg(t, d.to - 0.35, d.to))); if (d.o && w > bokeh) { bokeh = w; on = d; } }
+  dofPass.enabled = bokeh > 0;                                                           // off on every other frame: wides stay sharp
+  if (on) { dof.target = new THREE.Box3().setFromObject(on.o).getCenter(new THREE.Vector3()); dof.cocMaterial.focusRange = on.range ?? 0.25 * (camera.top - camera.bottom) / camera.zoom; }
+  dof.bokehScale = bokeh;
   renderer.clear(); composer.render();                                                   // the composer turns autoClear off: clear by hand or the last frame shows through
   // the frame: grid paper, the render, the pins, crop marks
   g.fillStyle = "#F3F2EE"; g.fillRect(0, 0, W, H); g.strokeStyle = "#E1E0DA"; g.lineWidth = 1;

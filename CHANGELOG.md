@@ -34,6 +34,17 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 
 ## [Unreleased]
 
+### Fixed
+- **Depth of field was 1000 x too shallow** (`engine/three/camera.js` `dofFor`): `focusRange` was divided by 1000 twice,
+  so 50 mm f/1.8 at 3 m kept 0.4 mm sharp instead of 0.39 m and a close-up blurred whole, the part named included. The
+  range is now the lens chart's depth of field in metres; the self-check holds two lens values.
+
+### Removed
+- **three.js `BokehPass`** (`engine/three/bokeh.js`, `detailFocus`): it failed too often (private fields and patched
+  shader text that break on a three.js update, a second scene render per frame, halos at sharp edges). The iso hero
+  clip's `detail` block now drives postprocessing's `DepthOfFieldEffect`, the one depth of field `studio()` already uses
+  (`detail: [{ from, to, node, bokeh, range }]`, `hero-asset.md` §4).
+
 ### Changed
 - **The size of a change sets the version** (`scripts/next_version.mjs`, the table above): `### Redesign` (a very large
   overhaul of the design or the algorithms) is a MAJOR, only with `scripts/release.sh --major`; `### Rework` (medium to
