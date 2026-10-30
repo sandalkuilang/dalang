@@ -231,6 +231,8 @@ const skillCases = [
   // A .git git skips (a corrupt HEAD) inside a repo higher up (a versioned ~/.claude): git answers the parent's
   // toplevel, and the .git here still makes it a clone whose state is unknown, never "not a clone".
   ["skill .git unreadable inside a parent repo", () => { const f = fixture(); git(path.dirname(f.skill), "init", "-q"); fs.writeFileSync(path.join(f.skill, ".git", "HEAD"), "garbage\n"); return f.skill; }, "WARN", /could not check.*rerun/, /not a git clone|clone the repo again/],
+  // a plugin copy: no .git, .claude-plugin/plugin.json beside SKILL.md — its version, and the update command; never "not a git clone"
+  ["skill plugin copy", () => { const d = path.join(tmp, "plugin-copy"); fs.mkdirSync(path.join(d, ".claude-plugin"), { recursive: true }); fs.writeFileSync(path.join(d, ".claude-plugin", "plugin.json"), '{"name":"dalang","version":"9.9.9"}'); return d; }, "INFO", /^plugin v9\.9\.9 .*claude plugin update dalang/, /not a git clone|pull/],
 ];
 // The class "unknown read as missing", for every git read the check makes: a git that fails that one read (any exit
 // or a timeout, here exit 128 from a PATH shim) is "could not check", never a known state (up to date, behind,
@@ -261,6 +263,20 @@ for (const [name, setup, status, note, not] of skillCases) {
     if (not) assert.doesNotMatch(row.note, not, "note must not say");
     if (f.head) assert.equal(git(dir, "rev-parse", "HEAD"), f.head, "the check never pulls");
   } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
+}
+// Two copies at once (a clone and the plugin): one WARN row that names both paths, from either side; it removes nothing.
+{
+  const home = path.join(tmp, "home-two"), clone = path.join(home, ".claude", "skills", "dalang"), cache = path.join(home, ".claude", "plugins", "cache", "dalang", "dalang", "9.9.9");
+  for (const d of [clone, cache]) { fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "SKILL.md"), "---\nname: dalang\n---\n"); }
+  const { out } = await run(["--check-skill", "--skill-dir", cache], undefined, { HOME: home });
+  try {
+    const row = parse(out).rows["DALANG copies"];
+    assert.equal(row?.status, "WARN", "status");
+    assert.match(row.note, /two copies.*skills\/dalang.*plugins\/cache\/dalang/, "names both");
+    assert.ok(fs.existsSync(path.join(clone, "SKILL.md")), "nothing removed");
+  } catch (e) { failures.push(`✗ two copies: ${e.message}\n${out}`); }
+  const one = await run(["--check-skill", "--skill-dir", cache], undefined, { HOME: path.join(tmp, "home-none") });
+  if (parse(one.out).rows["DALANG copies"]) failures.push("✗ one copy: a DALANG copies row appeared");
 }
 // The Blender row (--check-blender): BLENDER names a fake binary that answers `--version` per DALANG_TEST_BLENDER.
 const fakeBlender = path.join(tmp, "fake-blender");
@@ -348,4 +364,4 @@ for (const [name, bin, mode, status, note] of blenderCases) {
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }
-console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + blenderCases.length + skillCases.length + 3 + 3} cases`);
+console.log(`preflight mock ok: ${cases.length + 2 + kokoroCases.length + blenderCases.length + skillCases.length + 3 + 3 + 2} cases`);
