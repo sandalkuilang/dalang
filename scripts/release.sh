@@ -4,7 +4,7 @@
 # MAJOR (only with --major), ### Rework a MINOR, everything else (fixes, improvements, features) a PATCH; a given x.y.z
 # must be that one. Releases batch weekly: within 7 days of the last it refuses, unless --urgent, which is a PATCH only.
 # Cuts the release from origin/main: a release/vx.y.z branch that moves CHANGELOG's Unreleased into ## [x.y.z] - today
-# and pins the README's clone example, a PR merged at once (main asks for no status check), then the tag on the merged
+# and sets .claude-plugin/plugin.json's version, a PR merged at once (main asks for no status check), then the tag on the merged
 # commit. The tag starts the `release` workflow, whose own checks refuse a broken tag; CI runs on main as usual, in the
 # background. No local gate.
 # GitHub writes go through GH_USER's token only (default: the repo owner's account).
@@ -33,12 +33,12 @@ c = c.replace("## [Unreleased]\n", `## [Unreleased]\n\n## [${V}] - ${DAY}\n`)
      .replace(`[Unreleased]: ${url}${PREV}...HEAD\n`, `[Unreleased]: ${url}v${V}...HEAD\n[${V}]: ${url}${PREV}...v${V}\n`);
 if (!c.includes(`[${V}]: ${url}`)) { console.error("CHANGELOG.md: the [Unreleased] link does not compare from " + PREV); process.exit(1); }
 fs.writeFileSync("CHANGELOG.md", c);
-const r = fs.readFileSync("README.md", "utf8"), r2 = r.replace(/--branch v\d+\.\d+\.\d+ /, `--branch v${V} `);
-if (r2 === r) { console.error("README.md: no clone example to pin"); process.exit(1); }
-fs.writeFileSync("README.md", r2);'
-git commit -q -am "chore(release): v$v - Unreleased moved into $v, README clone example pinned"
+const pf = ".claude-plugin/plugin.json", p = JSON.parse(fs.readFileSync(pf, "utf8"));
+p.version = V;
+fs.writeFileSync(pf, JSON.stringify(p, null, 2) + "\n");'
+git commit -q -am "chore(release): v$v - Unreleased moved into $v, plugin.json version set"
 git push -q -u origin "release/v$v"
-gh pr create --base main --title "Release v$v" --body "Release v$v: CHANGELOG's Unreleased moved into $v, the README clone example pinned. Cut by scripts/release.sh." >/dev/null
+gh pr create --base main --title "Release v$v" --body "Release v$v: CHANGELOG's Unreleased moved into $v, plugin.json version set. Cut by scripts/release.sh." >/dev/null
 gh pr merge "release/v$v" --rebase --delete-branch >/dev/null
 git fetch -q origin main # tag the merged commit on origin/main; never switch to main, which another worktree may hold
 git tag -a "v$v" -m "v$v" origin/main && git push -q origin "v$v"

@@ -27,6 +27,11 @@ jobs:
           grep -q '^name: dalang$' SKILL.md
           grep -q '^description: ' SKILL.md
 
+      - name: Verify plugin.json version
+        run: |
+          v=$(node -p 'require("./.claude-plugin/plugin.json").version')
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::.claude-plugin/plugin.json is $v, the tag is $GITHUB_REF_NAME"; exit 1; }
+
       # The hand-written section becomes the body; GitHub appends the commit/PR list.
       - name: Take this version's section out of CHANGELOG.md
         run: |
