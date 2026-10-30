@@ -85,14 +85,15 @@ if (cmd === 'after-voice') {
   const sb = step('storyboard_lint', ...node('storyboard_lint.mjs', '.'), { quiet: true, keep: 12, filter: l => /PROBLEM|WARN|Result/.test(l) });
   const spec = existsSync(path.join(dir, 'SPEC.md')) ? readFileSync(path.join(dir, 'SPEC.md'), 'utf8') : null;
   const lines = (spec ?? '').split('\n').filter(l => /^\W*SCAFFOLD\W*:/.test(l));
+  const hero = /hero:\s*true/.test(spec ?? ''), af = path.join(dir, 'research/anatomy.md'), anatomy = existsSync(af) ? readFileSync(af, 'utf8') : '';
   if (spec === null) { failed++; console.log('FAILED SPEC.md not found: the planner writes it first'); }
   else if (lines.length !== 1) { failed++; console.log(`FAILED SPEC.md needs exactly one \`SCAFFOLD: --look <look> --groups <name>:<first beat>,… --music <calm|bright|tense>\` line (found ${lines.length})`); }
-  // the hero's inside comes from research/anatomy.md (express.md, the anatomy strand), never from the model's memory
-  else if (/hero:\s*true/.test(spec) && !existsSync(path.join(dir, 'research/anatomy.md'))) { failed++; console.log('FAILED SPEC.md has a `hero: true` object but no research/anatomy.md: run the anatomy strand (express.md Steps 3–4, job 1), then scaffold again'); }
+  // the hero's inside comes from research/anatomy.md's parts table (express.md, the anatomy strand), never from memory
+  else if (hero && !/^\|\s*\d+\s*\|/m.test(anatomy)) { failed++; console.log('FAILED SPEC.md has a `hero: true` object but research/anatomy.md has no parts table row: run the anatomy strand (express.md Steps 3–4, job 1), then scaffold again'); }
   else if (sb.ok) {
     // the line's arguments, quotes kept together ("a label", 'a label'); backticks around the line are dropped
     const argv = [...lines[0].replace(/^\W*SCAFFOLD\W*:/, '').replace(/`/g, ' ').matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3]);
-    if (/hero:\s*true/.test(spec)) console.log('OK     anatomy: research/anatomy.md');
+    if (hero) console.log('OK     anatomy: research/anatomy.md');
     step('scaffold', ...node('scaffold.mjs', '.', ...argv), { keep: 4 });
   }
 } else if (cmd === 'assemble') {

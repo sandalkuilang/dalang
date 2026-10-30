@@ -54,10 +54,10 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   the newest by mtime and its first stills in numeric order, without HyperFrames' extra tail frame (`scripts/snapshots.mjs`).
 
 ### Changed
-- **Express researches the inside of a made thing** (`express.md` Steps 3–4, the anatomy strand): the facts job also
+- **Express researches the inside of the object a film explains** (`express.md` Steps 3–4, the anatomy strand): the facts job also
   reads the user's documents, the maker's manual or datasheet, a patent or a teardown, saves 2–3 pictures to `refs/`
-  and writes `research/anatomy.md`, a sourced parts table. `express.mjs scaffold` refuses a `hero: true` object without
-  it, the planner and the world builder build the hero from it row for row, and an anatomy check beside `assemble`
+  and writes `research/anatomy.md`, a sourced parts table down to fasteners (15 rows or more, generic structure rows
+  allowed). `express.mjs scaffold` refuses a `hero: true` object without a row in it, the planner and the world builder build the hero from it row for row, and an anatomy check beside `assemble`
   sends its P0 rows to the fix round. The Brief also asks for the exact model name and takes documents (`brief.md`
   Call 4; `model:`, `docs:`).
 - **Anatomy explainer arc** (`script-voice.md` "Arc templates"): "how does X work inside" in eight beats, from a hook
