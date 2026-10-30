@@ -1,0 +1,8 @@
+{
+  "name": "dalang",
+  "owner": { "name": "Yudha" },
+  "description": "Marketplace for DALANG: topic to animated video with HyperFrames and free local tools.",
+  "plugins": [
+    { "name": "dalang", "source": "./", "description": "Topic to a finished animated video (narration, free local AI voice, music, sound effects, HyperFrames visuals)." }
+  ]
+}
