@@ -85,7 +85,7 @@ if (cmd === 'after-voice') {
   const sb = step('storyboard_lint', ...node('storyboard_lint.mjs', '.'), { quiet: true, keep: 12, filter: l => /PROBLEM|WARN|Result/.test(l) });
   const spec = existsSync(path.join(dir, 'SPEC.md')) ? readFileSync(path.join(dir, 'SPEC.md'), 'utf8') : null;
   const lines = (spec ?? '').split('\n').filter(l => /^\W*SCAFFOLD\W*:/.test(l));
-  const hero = /hero:\s*true/.test(spec ?? ''), af = path.join(dir, 'research/anatomy.md'), anatomy = existsSync(af) ? readFileSync(af, 'utf8') : '';
+  const hero = /hero["'`]?\s*:\s*true/i.test(spec ?? ''), af = path.join(dir, 'research/anatomy.md'), anatomy = existsSync(af) ? readFileSync(af, 'utf8') : '';
   if (spec === null) { failed++; console.log('FAILED SPEC.md not found: the planner writes it first'); }
   else if (lines.length !== 1) { failed++; console.log(`FAILED SPEC.md needs exactly one \`SCAFFOLD: --look <look> --groups <name>:<first beat>,… --music <calm|bright|tense>\` line (found ${lines.length})`); }
   // the hero's inside comes from research/anatomy.md's parts table (express.md, the anatomy strand), never from memory

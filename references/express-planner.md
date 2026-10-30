@@ -34,7 +34,7 @@ README or another film's folder.
   body, impeller housing, flanges, bolts; a laptop: lid, hinge, keys, ports); each person with height, clothes that
   stand off the ground, and what they hold. **The hero object** (the one the film explains) is marked `hero: true`
   and lists its parts by group, base, structure, mechanism, controls, the subject: 15 or more, each resting on a named
-  part. Its parts, counts, sizes and contacts are `research/anatomy.md`'s parts table, row for row (its numbers are the
+  part. Its parts, counts, sizes and contacts are `research/anatomy.md`'s parts table, row for row (its `#` is a row id; callout numbers come only from the
   script's parts table when the arc has one), and its inside comes from the same object, under its skin; a part the
   table marks "generic" is drawn plain, never invented, and a part not in the table is not added. **PINS:** every part an overlay labels, by its unique part name. Each object names the
   template or kits it is built from (`iso-API.md`: an open container is `pan`, a wheel is `tyre`, a person is `figure`
