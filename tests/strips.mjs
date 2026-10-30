@@ -59,7 +59,7 @@ try {
   const text = () => fs.readFileSync(path.join(stripsDir, "index.md"), "utf8");
   const clean = { t: 0.16, W: 1080, H: 1920, format: "shorts", hero: { x0: 100, y0: 400, x1: 550, y1: 1100 },
     boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }, { kind: "label", text: "valve", x0: 600, y0: 300, x1: 800, y1: 356, size: 40 }] };
-  const covered = { ...clean, t: 2.8, hero: { x0: 100, y0: 400, x1: 900, y1: 1300, clipped: true } };
+  const covered = { ...clean, t: 2.8, hero: { x0: 100, y0: 400, x1: 700, y1: 1300, clipped: true } };
   assert.match(text(), /No layout recorded/,"no layout.json: say so, never 'no faults'");
   assert.doesNotMatch(text(), /no faults|Lint \(layout_lint\.mjs\): OK/i);
   fs.writeFileSync(path.join(stripsDir, "layout.json"), JSON.stringify({ frames: [clean, covered, { ...clean, t: 9 }] }));
@@ -68,7 +68,7 @@ try {
   assert.match(text(), /## Layout/);
   assert.match(text(), /^- frame 1 · 0\.16 s · caption "the hero" · 200,1180–880,1330 · 60 px$/m);
   assert.match(text(), /^- frame 1 · 0\.16 s · hero · 100,400–550,1100$/m);
-  assert.match(text(), /^- frame 5 · 2\.8 s · hero · 100,400–900,1300 \(clipped\)$/m);
+  assert.match(text(), /^- frame 5 · 2\.8 s · hero · 100,400–700,1300 \(clipped\)$/m);
   assert.match(text(), /^- FLAG frame 5 · .*covers/m);
   assert.equal(text().split("\n").filter((l) => /^- FLAG frame/.test(l)).length, 1, "only the covered frame is flagged");
   assert.doesNotMatch(text(), /Lint \(layout_lint\.mjs\): OK/);
@@ -286,7 +286,7 @@ for (const t of at) spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavf
 const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }] });
 (async () => {
   if (process.env.NPX_SILENT) return; // the page posts nothing (no layoutFrame call, or its first post failed)
-  for (const t of [...at, 0.5]) await fetch("http://127.0.0.1:47614/layout", { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 900, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
+  for (const t of [...at, 0.5]) await fetch("http://127.0.0.1:47614/layout", { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 700, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
   await fetch("http://127.0.0.1:47614/layout", { method: "POST", body: "{not json" });
 })().catch((e) => { console.error(String(e)); process.exit(1); });
 `, { mode: 0o755 });
