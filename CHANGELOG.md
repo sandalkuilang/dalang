@@ -49,10 +49,12 @@ Published versions are never re-tagged.
   is always on; nothing above them is semi-transparent, so the blur sees the frame.
 - **object-studio frames are measured before the render** (`scripts/express.mjs` assemble and final,
   `engine/three/objectStudio.js`, `engine/three/measure.js`, `scripts/layout_lint.mjs`): each shot is captured and the
-  page records the hero's box, every overlay and caption box and the hero's contrast against its ground. Assemble fails,
-  under the group that owns the shot: a hero under a third of the frame, a hero cut by a frame edge (a close-up that fills
-  the frame is fine), text covering the hero, a hero under 12 ΔL* against its ground. The lines go to the one fix round;
-  final measures again and prints what is still open for the hand-off, so no polish round follows the render.
+  page records the hero's box, every overlay and caption box and the hero's contrast against its ground. Assemble
+  reports, as OPEN lines under the group that owns the shot (report only, never a stop, until the checks are calibrated on
+  real films): a hero under a third of the frame, a hero cut by a frame edge (a close-up that fills
+  the frame is fine), text covering the hero, a hero under 12 ΔL* against its ground. A line that is clearly real goes to
+  the one fix round; final measures again and prints what is still open for the hand-off, so no polish round follows the
+  render.
   `layout_lint.mjs` gains `--min-hero`, `--min-contrast`, `--min-caption`, `--min-label` and `--no-safe-area`; Express
   measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero box is taken from the visible
   meshes only: hidden objects, lights and `attend:false` things such as `backdrop()` never count, in the box or in the

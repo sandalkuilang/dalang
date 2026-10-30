@@ -39,7 +39,7 @@ metres; the frame is 1080 × 1920.
 
 ## The frame (9:16)
 Subject and its action between y 345 and 1150; headline from y ~110; cards beside the subject; captions below 1180.
-`express.mjs assemble` measures every shot and fails, under your group:
+`express.mjs assemble` measures every shot and reports (OPEN lines, not a stop), under your group:
 - the hero box under 1/3 of the frame on both axes: move in or take a longer lens;
 - the hero touching a frame edge without filling the frame (a close-up fills 90 % of both axes): frame it whole;
 - a headline, card, tag, pill or caption covering more than 10 % of its own box over the hero box: move the text;
