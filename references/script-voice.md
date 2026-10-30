@@ -115,7 +115,7 @@ Each beat is a named `{text|name}` beat on the Hook → … → Aftermath map; n
   7. `decide` = Aftermath: the rule as conditions ("X and Y → A is enough; Z → B").
   8. `reframe`: "what you are buying is not <misread unit> but <real quantity>"; the last frame returns to the first.
   Gate 1 checks: `payoff` answers the loop; `reframe` names both units; every number in `ladder`, `rule`, `payoff` has its comparison and tag; both failure modes name a physical cause; `decide` is conditions, not a verdict.
-- **Anatomy explainer** — "how does X work inside", opening one thing (a device, an organ, a machine, a building, a process) to show the chain of parts that makes the everyday effect. Fits 30–60 s on 9:16 (95–150 words); 16:9 adds cause links, never padding. Eight beats, no dead second:
+- **Anatomy explainer** — "how does X work inside", opening one thing (a device, an organ, a machine, a building, a process) to show the chain of parts that makes the everyday effect. Fits 30–60 s on 9:16 (95–150 words); 16:9 adds cause links, never padding. Eight beats, no dead second; Express (at most 8 beats) merges `still` into `firstmove` and keeps N ≤ 2:
   1. `hook` (≤ 2 s): the moment the viewer knows, with its signature sound as an onomatopoeia the mix plays (a click, a hiss, a roar), then the "how?" question and the promise to open it up.
   2. `still` = Context: the thing at rest, outside view, one tagged number that makes the question sharper.
   3. `firstmove` = Context: the first part that moves and what moves it (a press, a turn, a flow, a signal); the outside cuts open here.
