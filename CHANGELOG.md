@@ -34,6 +34,21 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Changed
+- **Measured frames are calibrated on a real Express object-studio film, and assemble fails on them again** (`scripts/express.mjs`,
+  `scripts/layout_lint.mjs`, `engine/three/{camera,measure,objectStudio}.js`): the lines that were mostly false are now
+  close to zero on that film.
+  - The hero box and mask leave out whatever is marked `userData.attend = false` or the new `userData.subject = false` on
+    the mesh **or any parent** (before, only the mesh itself: a group never took effect). `subject = false` is for a mount,
+    board, wall or floor the film shows whose size is not the hero's. The record carries `hero.parts` (the largest meshes,
+    parent chain and projected px) and a flagged hero line names the largest, so a box that is too large is traceable.
+  - Contrast is ΔE*ab (hue and chroma count, not lightness alone: a green board on brown wood of one lightness is two
+    things); the floor stays 12.
+  - A caption's overlap is the share on the hero's own pixels (`over`), not its box; a hero is cut where its pixels reach an
+    edge (`edges`), not where its box is clamped by a part off the frame. A hero filling 65 % of one axis is a close-up: it may
+    be cut and the caption may sit over it. Labels and cards pinned to a part are not judged against the hero.
+  - Assemble's measured-frames lines fail the step and go to their group's fixer again; final still prints open lines for the hand-off.
+
 ## [4.5.4] - 2026-10-31
 
 ### Changed

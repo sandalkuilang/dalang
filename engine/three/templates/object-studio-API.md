@@ -39,10 +39,10 @@ metres; the frame is 1080 × 1920.
 
 ## The frame (9:16)
 Subject and its action between y 345 and 1150; headline from y ~110; cards beside the subject; captions below 1180.
-`express.mjs assemble` measures every shot and reports (OPEN lines, not a stop), under your group:
+`express.mjs assemble` measures every shot and fails on these, under your group:
 - the hero box under 1/3 of the frame on both axes: move in or take a longer lens;
-- the hero touching a frame edge without filling the frame (a close-up fills 90 % of both axes): frame it whole;
-- a headline, card, tag, pill or caption covering more than 10 % of its own box over the hero box: move the text;
-- the hero under 12 ΔL* against the ground around it: a `backdrop()` behind a pale hero, or a darker material.
+- the hero's pixels reaching a frame edge while it fills less than 65 % of both axes (a close-up fills 65 % of one): frame it whole;
+- a caption covering more than 10 % of its own box with the hero's pixels, on a hero that is not a close-up (labels and cards pinned to a part sit on it by design): move the text;
+- the hero under 12 ΔE* against the ground around it: a `backdrop()` behind a pale hero, or a darker material.
 
-Express measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero is the visible meshes under `S.world`; `attend:false` things such as `backdrop()` are excluded. Name a different subject with `loop({ hero })`.
+Express measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero is the visible meshes under `S.world`, minus anything with `userData.attend = false` or `userData.subject = false` on it or a parent. Mark what the film shows but is not its subject (a mounting board, wall pieces, a floor) `subject = false`: it stays in the picture, ghosts and cuts like any part, but leaves the measured box and contrast. Or name the subject with `loop({ hero })`. When a line says the box is too large, `review/measure/layout.json` names the parts that drive it (`hero.parts`: parent chain and projected size), and the lint line names the largest.

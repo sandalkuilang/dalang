@@ -25,7 +25,7 @@ const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
 const ED = await use("editorial.js");
-const { heroContrast } = await use("measure.js");
+const { heroContrast, maskShare, edgeShare } = await use("measure.js");
 
 const scene = new THREE.Scene();
 const kit = K.makeKit(scene, { mpu: 2 });
@@ -1948,7 +1948,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   ov.update(5, null); // t = 15: no headline
   assert.equal(ov.glass.style.opacity, "0.000", "top glass: gone with the headline");
 }
-// heroContrast: ΔL* between the hero's pixels (the mask) and the ring of ground around it; null with no hero or no ground.
+// heroContrast: ΔE* between the hero's pixels (the mask) and the ring of ground around it; null with no hero or no ground.
 {
   const w = 10, h = 10, frame = new Uint8ClampedArray(w * h * 4), mask = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -1957,9 +1957,33 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     mask[4 * ((h - 1 - y) * w + x)] = on ? 255 : 0; // WebGL rows run bottom-up
   }
   const dL = heroContrast(frame, mask, w, h, { ring: 2 });
-  assert.ok(dL > 60 && dL < 70, "a dark hero on a pale ground: ΔL* about 66, got " + dL);
+  assert.ok(dL > 60 && dL < 70, "a dark hero on a pale ground: ΔE* about 66, got " + dL);
   frame.fill(230);
   assert.equal(heroContrast(frame, mask, w, h, { ring: 2 }), 0, "same grey as the ground: 0");
   assert.equal(heroContrast(frame, new Uint8Array(w * h * 4), w, h), null, "no hero pixel: null");
+  // hue counts: two greys of one lightness read 0, a green on a brown of one lightness do not
+  const hue = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = 4 * (y * w + x), on = x >= 3 && x < 7 && y >= 3 && y < 7; hue.set(on ? [60, 130, 70, 255] : [130, 100, 70, 255], i); }
+  assert.ok(heroContrast(hue, mask, w, h, { ring: 2 }) > 25, "green on brown of like lightness is two things");
+  // maskShare: the hero's pixels cover a 4 x 4 block of 10 x 10 (a 100 x 100 frame): a box on it 1, beside it 0, half on it 0.5
+  assert.equal(maskShare(mask, w, h, { x0: 30, y0: 30, x1: 70, y1: 70 }, 100, 100), 1);
+  assert.equal(maskShare(mask, w, h, { x0: 70, y0: 30, x1: 100, y1: 70 }, 100, 100), 0);
+  assert.equal(maskShare(mask, w, h, { x0: 30, y0: 30, x1: 70, y1: 90 }, 100, 100), 0.67);
+  assert.deepEqual(edgeShare(mask, w, h), { left: 0, top: 0, right: 0, bottom: 0 }, "a hero clear of the edges");
+  mask[4 * ((h - 1 - 5) * w + 9)] = 255; // one pixel on the right edge
+  assert.equal(edgeShare(mask, w, h).right, 0.1);
+  mask[4 * ((h - 1 - 5) * w + 9)] = 0;
 }
-console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top and bottom glass), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔL* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
+// heroBox: a mesh under a parent marked subject=false (or attend=false) is not part of the box; explain names the largest part
+{
+  const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 50); cam.position.set(0, 0, 4); cam.updateMatrixWorld();
+  const root = new THREE.Group(), mk = (name, w) => Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, w, w), new THREE.MeshBasicMaterial()), { name });
+  const body = mk("body", 0.5), mount = new THREE.Group(), board = mk("board", 2);
+  mount.userData.subject = false; mount.add(board); root.add(body, mount);
+  const b = heroBox(cam, root, 1000, 1000, { explain: true });
+  assert.ok(b.x1 - b.x0 < 200, "the mounted board is not part of the hero box: " + JSON.stringify(b));
+  assert.equal(b.parts[0].name, "body", "explain names the largest part");
+  mount.userData.subject = true;
+  assert.ok(heroBox(cam, root, 1000, 1000).x1 - heroBox(cam, root, 1000, 1000).x0 > 400, "marked back in, the board counts");
+}
+console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top and bottom glass), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");

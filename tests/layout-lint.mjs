@@ -33,12 +33,12 @@ try {
   // One fault alone: exactly one PROBLEM, with its time and its kind.
   const faults = [
     ["safe area", frame({ t: 2.5, boxes: [{ ...caption }, { ...label, x1: 1000 }] }), /label "valve".*safe area/],
-    ["hero cover", frame({ t: 2.5, hero: { x0: 100, y0: 400, x1: 900, y1: 1300 } }), /caption .*covers \d+ % of the hero box/],
+    ["hero cover", frame({ t: 2.5, hero: { x0: 100, y0: 400, x1: 700, y1: 1300 } }), /caption .*covers \d+ % of the hero box/],
     ["minimum size", frame({ t: 2.5, boxes: [{ ...caption }, { ...label, size: 30 }] }), /label "valve".*30 px.*36 px minimum/],
     ["caption over label", frame({ t: 2.5, boxes: [{ ...caption }, { ...label }, { kind: "label", text: "pipe", x0: 300, y0: 1120, x1: 500, y1: 1200, size: 40 }] }), /caption .*overlaps label "pipe"/],
     ["small hero", frame({ t: 2.5, hero: { x0: 300, y0: 500, x1: 600, y1: 900 } }), /hero box .*fills 21 % of the frame height and 28 % of its width, under 33 %/],
     ["hero cut", frame({ t: 2.5, hero: { x0: 0, y0: 400, x1: 500, y1: 1100 } }), /hero box .*is cut by the frame's left edge/],
-    ["pale hero", frame({ t: 2.5, contrast: 6.5 }), /hero reads at ΔL\* 6\.5 .*under 12/],
+    ["pale hero", frame({ t: 2.5, contrast: 6.5 }), /hero reads at ΔE\* 6\.5 .*under 12/],
   ];
   for (const [name, fr, re] of faults) {
     r = run(put([fr]));
@@ -96,12 +96,24 @@ try {
   assert.match(lines(r.out, "PROBLEM")[0], /card "valve".*36 px minimum/);
 
   // Edges. Hero covering 5 % of the caption box: OK; --hero-overlap 0.01 flags it; 80 %: flagged (above).
-  const five = frame({ hero: { x0: 100, y0: 400, x1: 900, y1: 1187.5 } }); // 7.5 px of the 150 px caption height = 5 %
+  const five = frame({ hero: { x0: 200, y0: 400, x1: 880, y1: 1187.5 } }); // 7.5 px of the 150 px caption height = 5 %
   r = run(put([five]));
   assert.equal(r.code, 0, r.out);
   r = run(put([five]), "--hero-overlap", "0.01");
   assert.equal(r.code, 1);
   assert.match(lines(r.out, "PROBLEM")[0], /covers 5 %/);
+  // A box's `over` (its share on the hero's own pixels) replaces the share of the hero's box; the largest part is named.
+  const gap = { ...caption, over: 0.02 }, solid = { ...caption, over: 0.6 };
+  r = run(put([frame({ boxes: [gap] , hero: { ...hero, y0: 1000, y1: 1400, parts: [{ name: "set>board", w: 900, h: 400 }] } })]));
+  assert.equal(r.code, 0, "text in a gap of the hero's box, off its pixels: " + r.out);
+  r = run(put([frame({ boxes: [solid], hero: { ...hero, y0: 1000, y1: 1400, parts: [{ name: "set>board", w: 900, h: 400 }] } })]));
+  assert.match(lines(r.out, "PROBLEM")[0], /covers 60 % of the hero pixels .*largest part set>board, 900 x 400 px/);
+  // Edges from the hero's pixels: a box clamped at an edge by an off-frame part is not cut; pixels at the edge are.
+  const edgeBox = (edges) => frame({ hero: { x0: 540, y0: 300, x1: 1080, y1: 1100, edges: { left: 0, top: 0, right: 0, bottom: 0, ...edges } } });
+  r = run(put([edgeBox({})]));
+  assert.equal(r.code, 0, "box at the edge, no hero pixel there: " + r.out);
+  r = run(put([edgeBox({ right: 0.4 })]));
+  assert.match(lines(r.out, "PROBLEM")[0], /cut by the frame's right edge/);
   // A flag with no value, or a bad one, is a usage WARN (exit 2, a message), never a crash and never exit 1 (= a layout problem).
   for (const bad of [[], ["x"], ["2"], ["-0.1"], [""]]) {
     r = run(put([frame()]), "--hero-overlap", ...bad);
@@ -135,7 +147,7 @@ try {
   assert.equal(r.code, 0, r.out);
   assert.equal(lines(r.out, "INFO").length, 0);
   // A clipped hero box is named as a lower bound.
-  r = run(put([frame({ hero: { x0: 100, y0: 400, x1: 900, y1: 1300, clipped: true } })]));
+  r = run(put([frame({ hero: { x0: 100, y0: 400, x1: 700, y1: 1300, clipped: true } })]));
   assert.match(lines(r.out, "PROBLEM")[0], /clipped/);
 
   // WARN, exit 2, never OK: not JSON; no frames; an unknown format; a box with a NaN (null in JSON); a missing file.
@@ -160,7 +172,7 @@ try {
   assert.equal(r.code, 0, r.out);
   const proj = path.join(tmp, "proj");
   fs.mkdirSync(path.join(proj, "review", "strips"), { recursive: true });
-  fs.writeFileSync(path.join(proj, "review", "strips", "layout.json"), JSON.stringify([frame({ t: 2.5, hero: { x0: 100, y0: 400, x1: 900, y1: 1300 } })]));
+  fs.writeFileSync(path.join(proj, "review", "strips", "layout.json"), JSON.stringify([frame({ t: 2.5, hero: { x0: 100, y0: 400, x1: 700, y1: 1300 } })]));
   r = run(proj);
   assert.equal(r.code, 1);
   assert.match(r.out, /t=2\.5s/);
