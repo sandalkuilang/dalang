@@ -20,6 +20,7 @@
 // Exit 0 all passed, 1 a step failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { newestStills } from './snapshots.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,8 +66,7 @@ if (cmd === 'frames') {
   const snap = step('snapshot', 'npx', ['hyperframes', 'snapshot', '--at', at, '--describe', 'false'], { cwd: sf });
   if (snap.ok && !dry) {
     const root = path.join(sf, 'src', '.hyperframes', 'artifacts', 'snapshots');
-    const last = existsSync(root) ? readdirSync(root).map(d => path.join(root, d)).sort().pop() : null;
-    const pngs = last ? readdirSync(last).filter(f => f.endsWith('.png')).sort() : [];
+    const { dir: last, pngs } = newestStills(root, at.split(',').filter(Boolean).length);
     if (!pngs.length) { failed++; console.log(`FAILED no stills under ${root}`); }
     pngs.forEach((f, i) => renameSync(path.join(last, f), path.join(out, `frame-${String(i).padStart(2, '0')}.png`)));
     if (pngs.length) step('sheet', 'ffmpeg', ['-y', '-v', 'error', '-i', path.join(out, 'frame-%02d.png'), '-vf', `scale=540:-2,tile=${Math.min(pngs.length, 4)}x${Math.ceil(pngs.length / 4)}`, '-frames:v', '1', path.join(out, 'sheet.jpg')]);
