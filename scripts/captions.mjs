@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { phrases } from '../engine/three/type.js';
+import { loadSay, writtenPhrases } from './say.mjs';
 
 const usage = 'Usage: node captions.mjs <narration.txt> <words.json> [--out <dir>] [--format shorts|reels|feed|landscape]';
 const argv = process.argv.slice(2);
@@ -23,7 +24,8 @@ if (!narrationFile || !wordsFile || argv.length !== 2 || !['shorts', 'reels', 'f
 let caps;
 try {
   const words = JSON.parse(readFileSync(wordsFile, 'utf8'));
-  caps = phrases(readFileSync(narrationFile, 'utf8'), Array.isArray(words) ? words : words.words);
+  // the screen shows the written form of every say.txt pair; the timing stays the spoken words'
+  caps = writtenPhrases(phrases(readFileSync(narrationFile, 'utf8'), Array.isArray(words) ? words : words.words), loadSay(path.dirname(narrationFile)));
   const out = outArg ?? path.dirname(wordsFile);
   mkdirSync(out, { recursive: true });
   writeFileSync(path.join(out, 'captions.json'), JSON.stringify({ format, phrases: caps }, null, 2) + '\n');

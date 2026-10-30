@@ -60,5 +60,27 @@ try {
     assert.match(r.out, /script\.md not found/);
     console.log("ok  a missing script.md fails");
   }
+  { // 7. commas the ear cannot follow: three clauses in a row, an aside between commas, an open list; a list closed by
+    //    "and"/"then" and one comma pass
+    const r = run([
+      "The oven heats, the dough rises, the crust browns.",
+      "The starch, a long sugar, hardens overnight.",
+      "Flour, water, salt, yeast.",
+      "Flour, water, salt and yeast.",
+      "Knead it, rest it, then bake it.",
+      "Once it cools, the starch hardens.",
+    ]);
+    assert.equal(r.code, 1, r.out);
+    assert.deepEqual(found(r.out), ["narration.txt:1", "narration.txt:2", "narration.txt:3"]);
+    assert.match(r.out, /has 2 commas: heard as a list/);
+    console.log("ok  two commas or more fail unless a list is closed by and/then");
+  }
+  { // 8. a sentence cut by "…" or a line break goes on in lower case: the voice restarts its intonation there
+    const r = run(["The weights fly out… then they push the halves together.", "As it spins faster", "the belt climbs."]);
+    assert.equal(r.code, 1, r.out);
+    assert.deepEqual(found(r.out), ["narration.txt:1", "narration.txt:3"]);
+    assert.match(r.out, /starts in lower case: the voice says it as a new sentence/);
+    console.log("ok  a sentence that goes on in lower case after … or a line break fails");
+  }
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 console.log("narration-lint: all checks passed");

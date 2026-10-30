@@ -75,8 +75,17 @@ try {
     }
     assert.ok(Math.abs(sumKb - json.express) < 600, `the Express path (${json.express} B) is what express \`next\` prints at Steps 0–8 (${Math.round(sumKb)} B)`);
     const s3 = run("next", p, "--step", "3").out, s4 = run("next", p, "--step", "4").out;
-    assert.equal(s4.split("\n").slice(1).join("\n"), s3.split("\n").slice(1).join("\n").replace(/^Optional Step 2.*\n/m, ""), "Express Step 4 (a resume) prints Step 3's reading: one reading for both");
-    for (const h of ["## Step 3 — Script → GATE 1", "## Express Steps 3–4 — Script and voice", "## Step 4 — Voice + per-word timing → GATE 2", "## Use (Step 4)"]) assert.ok(run("next", p, "--step", "3", "--print").out.includes(`\n${h}\n`), `Express Step 3 prints ${h}`);
+    const main = (s) => s.split("\n").slice(1).filter((l) => !l.startsWith("For the subagent")).join("\n").replace(/^Optional Step 2.*\n/m, "");
+    assert.equal(main(s4), main(s3), "Express Step 4 (a resume) prints Step 3's reading: one reading for both");
+    // Steps 3–4 are jobs: the main agent reads its part only; the writer and the voice job read the step with --sub
+    const p3 = run("next", p, "--step", "3", "--print").out;
+    assert.ok(p3.includes("\n## Express Steps 3–4 — Script and voice\n"), "Express Step 3 prints the main agent's part");
+    for (const h of ["## Step 3 — Script → GATE 1", "## Step 4 — Voice + per-word timing → GATE 2"]) assert.ok(!p3.includes(`\n${h}\n`), `the main agent never reads ${h}`);
+    assert.match(s3, /^For the subagent .*--step 3 --sub$/m); assert.match(s4, /^For the subagent .*--step 4 --sub$/m);
+    const w = run("next", p, "--step", "3", "--sub").out, v = run("next", p, "--step", "4", "--sub").out;
+    assert.ok(w.includes("\n## Step 3 — Script → GATE 1\n") && !w.includes("\n## Step 4 — Voice"), "the writer reads Step 3 only");
+    assert.ok(v.includes("\n## Step 4 — Voice + per-word timing → GATE 2\n") && v.includes("\n## Use (Step 4)\n") && !v.includes("\n## Step 3 —"), "the voice job reads Step 4 only");
+    assert.equal(run("next", p, "--step", "0", "--sub").code, 1, "a step without a subagent reading fails, never prints nothing");
   }
   assert.equal(run("reading", "--json", "--skill", mk("no-skill")).code, 1, "a skill copy without references fails, never passes");
 
@@ -297,7 +306,7 @@ try {
   const ex = skillCopy("s-express");
   {
     let need = EXPRESS_MAX - json.express + 300;
-    for (const h of ["## Express Step 5 — Look in one frame", "## Express Step 6 — Build", "## Express Step 7 — Render → GATE 4", "## Express Steps 3–4 — Script and voice"]) {
+    for (const h of ["## Express Step 5 — Look in one frame", "## Express Step 6 — Build", "## Express Step 7 — Render → GATE 4", "## Express Steps 3–4 — Script and voice", "# Express mode (the default)"]) {
       if (need <= 0) break;
       const cur = fs.readFileSync(path.join(ex, "references", "express.md"), "utf8");
       const i = cur.indexOf(h + "\n"); const rest = cur.slice(i + h.length + 1); const j = rest.search(/^#{1,6} /m);
@@ -453,7 +462,8 @@ try {
       assert.match(r.out, /express\.md/);
       assert.doesNotMatch(r.out, /look-build\.md|qc\.md|Look up when needed/, `express Step ${st} lists no Studio section`);
     }
-    assert.match(run("next", p, "--step", "3").out, /script-voice\.md[\s\S]*express\.md/, "express Step 3 keeps its own sections and adds express.md");
+    const ex3 = run("next", p, "--step", "3").out;
+    assert.match(ex3, /express\.md/, "express Step 3 reads express.md's part"); assert.match(ex3, /--step 3 --sub$/m, "and hands script-voice.md to the writer");
     for (const f of ["SPEC.md", "storyboard.md"]) fs.writeFileSync(path.join(p, f), "x\n");
     gate12(p);
     fs.mkdirSync(path.join(p, "style-frames"), { recursive: true }); fs.writeFileSync(path.join(p, "style-frames", "a.png"), "x");
@@ -493,7 +503,8 @@ try {
     const r1b = run("approve", "1", f, "--by", "agent");
     assert.equal(r1b.code, 0, r1b.err);
     assert.match(r1b.out, /^Step 4 Voice — next after gate 1$/m, "a first approval prints the next step");
-    assert.ok(r1b.out.includes("\n## Step 4 — Voice + per-word timing → GATE 2\n"), "as text, as next --print");
+    assert.ok(r1b.out.includes("\n### Step 4, the main agent's part: one voice job\n"), "as text, as next --print: the main agent's part");
+    assert.ok(!r1b.out.includes("\n## Step 4 — Voice + per-word timing → GATE 2\n"), "the voice job's sections stay with the voice job");
     const again = run("approve", "1", f, "--by", "agent");
     assert.equal(again.code, 0); assert.doesNotMatch(again.out, /Read now/, "a re-approval prints no reading: it was read");
     put(f, "audio/beats.json", JSON.stringify({ duration: 2, beats: [] }));

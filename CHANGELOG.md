@@ -6,20 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). For a skill,
 that reads as:
 
-| Bump | When |
-|---|---|
-| **MAJOR** | what the user sees breaks: a video project started on the previous version cannot be continued, or the way to ask for a video changes |
-| **MINOR** | anything new, and internal removals (an engine module, a script flag, an example, a reference section) |
-| **PATCH** | a fix, a clarification, a tightened rule |
+| Bump | When | Section in Unreleased |
+|---|---|---|
+| **MAJOR** | rare: a video project started on the previous version cannot be continued, or the way to ask for a video changes; the entry says how to move | `### Breaking` |
+| **MINOR** | a new capability the user can ask for or sees: a mode, a look, a platform, a voice engine, a command the user runs | `### Added` |
+| **PATCH** | everything else, most releases: fixes, new or tightened rules, the agent's workflow and token use, internal scripts and engine modules, docs, removals the user never sees | `### Changed`, `### Fixed`, `### Removed` |
 
-Releases batch what landed: at most one a week, sooner only for an urgent fix.
+The bump is never picked by hand: `scripts/release.sh` reads it from the sections above (`next_version.mjs`), so an
+internal change goes under Changed, never Added. Releases batch what landed: at most one a week (the script refuses
+sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Published versions are never re-tagged.
 
 <details>
 <summary><b>How a release is cut</b></summary>
 
 <br/>
 
-1. `scripts/release.sh x.y.z` cuts it in one go: a `release/vx.y.z` branch from `origin/main` with `Unreleased`
+1. `scripts/release.sh` (`--urgent` for a PATCH within the week) cuts it in one go, its version from `Unreleased`: a `release/vx.y.z` branch from `origin/main` with `Unreleased`
    moved into `## [x.y.z] - YYYY-MM-DD`, its link at the bottom and the README's clone example pinned, a PR merged at
    once, and the tag on the merged commit. Nothing waits on CI; it still runs on `main`.
 2. When the release changes how films look, first run `node scripts/golden.mjs --version x.y.z` and commit
@@ -31,6 +33,58 @@ Releases batch what landed: at most one a week, sooner only for an urgent fix.
 </details>
 
 ## [Unreleased]
+
+### Changed
+- **Versioning follows usual practice** (the table at the top): MAJOR only with a `### Breaking` entry, MINOR only
+  for a capability the user sees (`### Added`), everything else PATCH; `scripts/release.sh` reads the bump from
+  Unreleased (`next_version.mjs`), refuses a given version that differs, and refuses a second release within a week
+  unless `--urgent` (a PATCH only). 33 releases and 4 majors in the first week are what this ends.
+- **The version is said at the start**: preflight's DALANG row names the release the clone is on and the newest one
+  (`DALANG v4.5.0`, `newest release v4.6.0`, `+n` commits after a release), and the agent's first line to the user
+  says it (`brief.md` Step 0).
+- `state.mjs next --step <n> --sub`: a subagent reads its step's sections with its own call, as text; the main agent's
+  view carries one command line instead of the sections or their `sed` ranges.
+- **`wait.mjs`, the barrier after a fan-out**: sent last in the message that starts N subagents (`--expect N`,
+  foreground), it returns when the N newest have finished (`finished` in their transcripts' meta), so their replies
+  arrive in that one turn instead of waking the main agent N times; one line to the user for the round. A job started
+  earlier is never waited for; still running at the timeout: exit 3, run it again. `studio.mjs fixes` and
+  `scaffold.mjs` print it with the right N. (A Studio QC round woke the main agent about 10 times at 400K+ context.)
+- **Written ≠ spoken (`say.txt`, `say.mjs`)**: one `written = spoken` line per word ("DNA = de en a"). `narration.txt` keeps
+  how the voice says it; captions and the SRT show the written form; the heard-vs-script check takes a transcript's
+  written form as the spoken words. `narration_lint` (Gate 1) refuses a letter code ("DNA", "USB-C", "3D", "CO2") with no
+  line, so how it is said is decided before the first take.
+- **Steps 3–4 are jobs, not main-session work** (both modes): one fact-research job for every strand, a script writer
+  (`dalang-builder`, top · high: writes from `BRIEF.md`, `research/` and `refs/`, runs the lints, never approves),
+  the read-through, then one voice job (`dalang-builder`, top · medium: sample, take, retakes and respells in its own
+  context, every call in the foreground). Same models as before, so no quality traded: the jobs know only the
+  files, so a wish said only in chat or held in memory goes into `BRIEF.md` (`notes:`) first. The main agent reads only its part (`script-voice.md` "Step 3/4, the main agent's part", `express.md`
+  Steps 3–4): Steps 3–4 now cost the main context 3.4 KB instead of 10.1 KB (the Studio path 41.1 → 34.5 KB, Express 32.7 →
+  24.7 KB), and the write ↔ lint and
+  take ↔ retake loops no longer re-read the whole session on every turn. Express `next` at Step 5 prints Step 6 too.
+- **Runners in the foreground when short**: `after-voice`, `frames` and `fixes` run with `timeout: 600000`, their
+  result in the same turn; only `qc` and `final` run in the background (a background run costs a wake-up turn and a
+  turn to read it).
+- `tokens.mjs`: the Result line (recorded at every gate) names the main agent's turns, and a Studio main agent over
+  100 turns is a WARN, like Express's 30.
+
+- **Punctuation for the ear** (`script-voice.md` "Write for the ear", `narration_lint` at Gate 1): at most one comma a
+  sentence unless a list is closed by "and"/"then" (two clauses joined by a comma, an aside between commas and a bare
+  list were heard as a flat list, the point lost), and no sentence in lower case (a "…" or a line break had split it:
+  the voice, and a retake, restarted the intonation mid-thought). Read against four finished films' narrations, the
+  check names exactly the sentences that confused by ear and none that did not. The odd rise and fall of the voice
+  comes from the commas: measured on four finished takes and an A/B of the same text (one voice, three seeds, two
+  speeds, with and without style instructions), the voice lifts its pitch 3–8 semitones at every comma (up to 13 in a
+  take), and 9 of 18 statements with two commas or more ended rising against 1 of 17 written with one comma at most;
+  speed and instructions made no steady difference.
+
+### Fixed
+- **A retake is spliced at its neighbours' level**: a sentence said again alone came back louder (measured on a
+  finished take: retaken sentences off by 1.6 dB on average against 0.8 dB, one +3.3 dB), heard as a jump in the
+  voice. `tts_timestamps.mjs` now brings each re-spoken piece to the active speech level of the kept speech beside it,
+  within ±6 dB.
+- A respelling made for the voice (a letter code spelled as it is said) reached the captions and the SRT, and from
+  there `script.md` and the storyboard; found only by the viewer at QC, it cost a new take, a retime and a redraft.
+  The screen now keeps the written word.
 
 ## [4.5.0] - 2026-10-30
 

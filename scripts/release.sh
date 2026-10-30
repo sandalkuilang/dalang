@@ -1,13 +1,17 @@
 #!/bin/sh
-# One command, no waiting: scripts/release.sh x.y.z
+# One command, no waiting: scripts/release.sh [--urgent] [x.y.z]
+# The version comes from CHANGELOG's Unreleased (scripts/next_version.mjs): ### Breaking is MAJOR, ### Added MINOR,
+# anything else PATCH; a given x.y.z must be that one. Releases batch weekly: within 7 days of the last it refuses,
+# unless --urgent, which is a PATCH only.
 # Cuts the release from origin/main: a release/vx.y.z branch that moves CHANGELOG's Unreleased into ## [x.y.z] - today
 # and pins the README's clone example, a PR merged at once (main asks for no status check), then the tag on the merged
 # commit. The tag starts the `release` workflow, whose own checks refuse a broken tag; CI runs on main as usual, in the
 # background. No local gate.
 # GitHub writes go through GH_USER's token only (default: the repo owner's account).
 set -e
-v=${1#v}
-echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "usage: scripts/release.sh x.y.z"; exit 1; }
+urgent=; [ "$1" = "--urgent" ] && { urgent=--urgent; shift; }
+want=${1#v}
+[ -z "$want" ] || echo "$want" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "usage: scripts/release.sh [--urgent] [x.y.z]"; exit 1; }
 cd "$(dirname "$0")/.."
 export GH_TOKEN="$(gh auth token -u "${GH_USER:-sandalkuilang}")"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "the working tree has uncommitted changes: commit or stash them first"; exit 1; }
@@ -15,6 +19,8 @@ export GH_TOKEN="$(gh auth token -u "${GH_USER:-sandalkuilang}")"
 node scripts/vendor_latest.mjs 2>/dev/null | grep -E "^(behind|capped)" || true
 git fetch -q --tags origin
 prev=$(git describe --tags --abbrev=0 origin/main)
+v=$(git show origin/main:CHANGELOG.md | node scripts/next_version.mjs "$prev" "$(git log -1 --format=%ct "$prev")" $urgent) || exit 1
+[ -z "$want" ] || [ "$want" = "$v" ] || { echo "Unreleased makes this v$v, not v$want: MAJOR needs ### Breaking, MINOR ### Added (CHANGELOG.md, the table at the top)"; exit 1; }
 git rev-parse -q --verify "refs/tags/v$v" >/dev/null && { echo "v$v already exists"; exit 1; }
 git switch -q -c "release/v$v" origin/main
 V="$v" PREV="$prev" DAY="$(date +%F)" node -e '

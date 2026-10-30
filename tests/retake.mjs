@@ -135,7 +135,7 @@ function mock({ model = "k2-fsa/OmniVoice", speak, transcribe, health } = {}) {
   });
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok({ srv, speech })));
 }
-const run = (args, env = {}) => new Promise((ok) => execFile(process.execPath, [tts, ...args], { timeout: 60000, env: { ...process.env, PATH: `${shim}${path.delimiter}${process.env.PATH}`, DALANG_VS_BUSY_WAIT_S: "0.1", DALANG_FREE_GB: "16", ...env } }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+const run = (args, env = {}) => new Promise((ok) => execFile(process.execPath, [tts, ...args], { timeout: 60000, env: { ...process.env, PATH: `${shim}${path.delimiter}${process.env.PATH}`, DALANG_VS_BUSY_WAIT_S: "0.1", DALANG_FREE_GB: "16", DALANG_RETAKE_LEVEL: "off", ...env } }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
 
 const failures = [];
 let count = 0;
@@ -585,6 +585,20 @@ await test("T6. --tempo 1 leaves the take as it is", async () => {
   assert.match(r.out, /unchanged/);
   assert.equal(metaOf(r).tempo, undefined);
   assert.ok(fs.readFileSync(path.join(r.audio, JSON.parse(fs.readFileSync(respOf(r), "utf8")).audio_file)).equals(audio));
+});
+
+// A re-spoken sentence is brought to the level of the kept speech around it (the mock's values are its words, so the
+// splices above run with DALANG_RETAKE_LEVEL=off; this checks the level match itself on real-shaped audio).
+await test("L1. a retake said 3 dB louder than its neighbours is spliced at their level, within ±6 dB", async () => {
+  const { levelOf, matchLevel } = await import(tts);
+  const tone = (amp, n = 24000, gap = 4800) => Int16Array.from({ length: n + gap }, (_, i) => i < n ? Math.round(amp * Math.sin(i / 7)) : 0);
+  const near = [tone(6000), tone(6000)], loud = tone(6000 * 10 ** (3 / 20));
+  assert.ok(Math.abs(levelOf(tone(6000)) - levelOf(tone(6000, 24000, 48000))) < 1, "pauses do not lower the level");
+  const g = matchLevel(loud, near);
+  assert.ok(Math.abs(20 * Math.log10(g) + 3) < 0.1, `gain ${g}`); assert.ok(Math.abs(levelOf(loud) - levelOf(near[0])) < levelOf(near[0]) * 0.01);
+  const soft = tone(500);
+  assert.ok(Math.abs(matchLevel(soft, near) - 2) < 1e-9, "never more than +6 dB");
+  assert.equal(matchLevel(tone(0), near), 1, "silence is left alone");
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });

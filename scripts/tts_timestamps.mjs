@@ -101,6 +101,8 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { existsSync, realpathSync } from 'node:fs';
 import { voiceModel, unknownVoice, vsModelName } from './voice_licences.mjs';
+import { loadSay, written, heardAs } from './say.mjs';
+const sayOf = a => a.input ? loadSay(path.dirname(path.resolve(a.input))) : [];
 
 let API = 'https://api.elevenlabs.io'; // --api-url replaces it (a mock in tests/voice-licence.mjs)
 const MAX_CHARS = { elevenlabs: 9500, voicestudio: 4000, kokoro: 4000 };
@@ -1049,7 +1051,9 @@ function regionsOf(sents, quiet, dur) {
 // Why a sentence is flagged (an empty list = fine).
 function flagsOf(a, sents, regions, transcriptWords, aligned, plainWords) {
   const heardOf = ws => (ws || []).map(w => ({ t: stripPunct(String(w.word).trim()).toLowerCase(), mid: (w.start + w.end) / 2 })).filter(w => w.t);
-  const heardAll = heardOf(transcriptWords), plainAll = heardOf(plainWords);
+  // a transcript that writes "DNA" for the spoken "de en a" (say.txt) heard what the script says
+  const alias = heardAs(sayOf(a)), asSaid = ws => ws.flatMap(w => (alias.get(w.t) ?? [w.t]).map(t => ({ t, mid: w.mid })));
+  const heardAll = asSaid(heardOf(transcriptWords)), plainAll = asSaid(heardOf(plainWords));
   return sents.map((s, k) => {
     const why = [];
     if (s.words.some(w => w.est)) why.push('untimed words');
@@ -1145,6 +1149,24 @@ async function changeTempo(a, response) {
 // The new take: `pieces` in order, each { keep: k } (the old take's region k) or { clip, r0, r1, lead, trail } (a re-spoken
 // sentence: its words run r0..r1 in the clip, and it gets the old region's pause before and after it, padded with silence).
 // Consecutive kept regions stay one stretch of the old audio; every other join is an equal-power crossfade of XFADE samples.
+// The active speech level of 16-bit samples: the RMS of the 20 ms frames above a tenth of the loudest one, so the pauses
+// around a sentence do not lower it. 0 for silence.
+export function levelOf(s) {
+  const F = 480, frames = [];
+  for (let i = 0; i + F <= s.length; i += F) { let e = 0; for (let k = i; k < i + F; k++) e += s[k] * s[k]; frames.push(e / F); }
+  const top = Math.max(0, ...frames), loud = frames.filter(e => e > top / 100); // a tenth of the RMS is a hundredth of the energy
+  return loud.length ? Math.sqrt(loud.reduce((a, e) => a + e, 0) / loud.length) : 0;
+}
+// A sentence said again alone comes back at its own level (measured: up to +3.3 dB over its neighbours, heard as a jump
+// in the middle of the voice). It is brought to the kept speech around it, within ±6 dB, in place; returns the gain.
+export function matchLevel(samples, refs) {
+  const own = levelOf(samples), near = refs.map(levelOf).filter(x => x > 0);
+  if (!own || !near.length) return 1;
+  const g = Math.min(2, Math.max(0.5, near.reduce((a, x) => a + x, 0) / near.length / own));
+  for (let k = 0; k < samples.length; k++) samples[k] = Math.max(-32768, Math.min(32767, Math.round(samples[k] * g)));
+  return g;
+}
+
 function assemble(take, regions, pieces) {
   const parts = [];
   for (const p of pieces) {
@@ -1159,6 +1181,14 @@ function assemble(take, regions, pieces) {
       parts.push({ samples: out });
     }
   }
+  // each re-spoken part at the level of the kept speech beside it (the whole take when both sides are re-spoken);
+  // DALANG_RETAKE_LEVEL=off only for the mock voice, whose sample values are its words
+  const kept = q => q && !q.samples ? take.subarray(q.from, Math.min(q.to, take.length)) : null;
+  if (process.env.DALANG_RETAKE_LEVEL !== 'off') parts.forEach((part, i) => {
+    if (!part.samples) return;
+    const near = [kept(parts[i - 1]), kept(parts[i + 1])].filter(Boolean);
+    matchLevel(part.samples, near.length ? near : [take]);
+  });
   let out = new Int16Array(0);
   for (const part of parts) {
     const B = part.samples || take.subarray(part.from, Math.min(part.to, take.length));
@@ -1519,7 +1549,7 @@ async function main() {
         `window.NARRATION_DURATION = ${duration};\n` +
         (lineList.length ? `// Dialogue: who speaks when — drives cuts, close-ups and mouth movement.\nwindow.LINES = ${JSON.stringify(lineList)};\n` : '');
       await writeFile(path.join(a.out, 'beats.js'), js);
-      await writeFile(path.join(a.out, 'narration.srt'), buildSrt(words, clean));
+      await writeFile(path.join(a.out, 'narration.srt'), written(buildSrt(words, clean), sayOf(a))); // say.txt: the written form on screen
     }
     return { beatList, sectionList, lineList, duration, publicWords };
   };

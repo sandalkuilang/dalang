@@ -163,4 +163,4 @@ groups.forEach((g, i) => {
   ].join('\n'));
 });
 console.log(`scaffold: wrote ${wrote.join(', ') || 'nothing'}${kept.length ? `; kept ${kept.join(', ')}` : ''}`);
-console.log(`next: one dalang-builder per group (${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(', ')}), all in one message, each prompt: Read ${dir}/review/builder-<group>.md and follow it.`);
+console.log(`next: one dalang-builder per group (${groups.map((g, i) => `${g.name} ${g.from}→${groups[i + 1]?.from ?? 'END'}`).join(', ')}), all in one message, each prompt: Read ${dir}/review/builder-<group>.md and follow it; last in that message: node ${path.join(path.dirname(fileURLToPath(import.meta.url)), 'wait.mjs')} ${dir} --expect ${groups.length} (timeout 600000).`);
