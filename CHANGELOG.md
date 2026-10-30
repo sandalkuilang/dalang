@@ -34,6 +34,8 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
 
 ## [Unreleased]
 
+## [4.5.3] - 2026-10-30
+
 ### Fixed
 - **Depth of field was 1000 x too shallow** (`engine/three/camera.js` `dofFor`): `focusRange` was divided by 1000 twice,
   so 50 mm f/1.8 at 3 m kept 0.4 mm sharp instead of 0.39 m and a close-up blurred whole, the part named included. The
@@ -1978,7 +1980,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.2...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.3...HEAD
+[4.5.3]: https://github.com/sandalkuilang/dalang/compare/v4.5.2...v4.5.3
 [4.5.2]: https://github.com/sandalkuilang/dalang/compare/v4.5.1...v4.5.2
 [4.5.1]: https://github.com/sandalkuilang/dalang/compare/v4.5.0...v4.5.1
 [4.5.0]: https://github.com/sandalkuilang/dalang/compare/v4.4.0...v4.5.0
