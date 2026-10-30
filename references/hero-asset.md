@@ -14,6 +14,9 @@ licence), never installed on its own; declined, the hero falls back to a CC0 mod
 
 - 3–5 pictures (the user's first, then `find_media.mjs --type image`): the outside from two sides, the inside (cutaway,
   exploded view, teardown), a part list when one exists.
+- Too few pictures of the outside or the inside: the same one-time ask as Express (`express.md` Anatomy strand: the prompt,
+  `refs/anatomy-gen-*.png`, the user runs it in their own tool). A generated picture is `fidelity: inspired` at most: never
+  traced as an outline (`silhouette_iou.mjs`), never the source of a part, never in the film.
 - Write `review/hero-<name>.md`: every part and its count, what is inside or touches what, materials and colours, real
   sizes. Sizes come from a stated dimension, a part standard or a cited spec, tagged like script numbers (`[src]`,
   `[calc]`, `[assume]`); a side no picture shows is built as such things are built, marked `[assume]`.
