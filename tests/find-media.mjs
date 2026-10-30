@@ -257,26 +257,21 @@ await test("12. --bundled applies the search path's filters: NC/ND dropped, CC B
   assert.equal(r.code, 1, r.out);
 });
 
-await test("13. the documented music flow passes the licence gate: take, fit over the taken path, check_assets exit 0; a fitted file under another name has no row", async () => withMock(audioRoutes, async (m) => {
+await test("13. the documented music flow passes the licence gate: take onto the bed's path, check_assets exit 0; a second file under another name has no row", async () => withMock(audioRoutes, async (m) => {
   const out = dir("flow"), proj = dir("proj");
   fs.writeFileSync(path.join(proj, "ASSETS.json"), "[]");
   await run(["--type", "music", "--query", "calm", "--out", out], env(m));
   const good = JSON.parse(fs.readFileSync(path.join(out, "results.json"), "utf8")).find((x) => x.title === "Calm Morning");
   assert.equal((await run(["--take", path.join(out, good.file), "--as", "assets/music.mp3", "--project", proj])).code, 0);
-  // the old flow: the fit is a second file named music.m4a, the row lists music.mp3 only
+  // a second file next to the bed (an old ffmpeg fit named music.m4a) is not in the row
   fs.writeFileSync(path.join(proj, "assets/music.m4a"), "FIT");
   const bad = await runCheck(proj);
   assert.equal(bad.code, 3, bad.out); assert.match(bad.out, /music\.m4a: not in ASSETS\.json/);
   fs.rmSync(path.join(proj, "assets/music.m4a"));
-  // §7 as written: pull the take's --as and the ffmpeg destination from look-build.md and follow them
+  // the documented flow (look-build.md): the take lands on the bed's own path, the row it writes covers it
   const doc = fs.readFileSync(fileURLToPath(new URL("../references/look-build.md", import.meta.url)), "utf8").split("\n").find((l) => l.includes("--type music"));
-  const as = doc.match(/--take review\/music\/<file> --as (assets\/[\w.\-]+)/)?.[1];
-  assert.ok(as, "§7 names the take's --as");
-  assert.doesNotMatch(doc, /assets\/music\.m4a/, "the fit must not write a file the row does not list");
-  const mv = doc.match(/&& mv (assets\/[\w.\-]+) (assets\/[\w.\-]+)/);
-  assert.ok(mv, "§7 moves the fitted file over the taken path"); assert.equal(mv[2], as);
-  assert.ok(doc.includes(`-i ${as}`) && doc.includes(` ${mv[1]} &&`), "the fit reads the taken file and writes the temp name");
-  fs.writeFileSync(path.join(proj, mv[1]), "FIT"); fs.renameSync(path.join(proj, mv[1]), path.join(proj, mv[2]));
+  assert.equal(doc.match(/--take review\/music\/<file> --as (assets\/[\w.\-]+)/)?.[1], "assets/music.mp3", "the take's --as is the bed the assembler mounts");
+  assert.doesNotMatch(doc, /assets\/music\.m4a/, "no second music file the row does not list");
   assert.equal((await runCheck(proj)).code, 0);
   assert.deepEqual(fs.readdirSync(path.join(proj, "assets")), ["music.mp3"], "nothing else is left in assets/");
 }));

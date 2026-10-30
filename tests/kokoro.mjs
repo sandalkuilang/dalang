@@ -387,7 +387,7 @@ await test("D2. voice.md Use (Step 4) keeps the audition-tags rule and the 503 r
   const use = section(doc("references/voice.md"), "## Use (Step 4)");
   assert.match(use, /Accent or style tags change the pace: audition with the exact tags you will use/);
   const rest = doc("references/voice.md");
-  const five = rest.split("\n").find((l) => l.startsWith("- **`503` from VoiceStudio:**"));
+  const five = rest.split("\n").find((l) => /^- \*\*`503`( or `429`)? from VoiceStudio/.test(l));
   assert.ok(five, "503 bullet present");
   assert.match(five, /never `FAILED`/);
   assert.match(five, /Never restart the app or switch engines for it/);
