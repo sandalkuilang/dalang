@@ -45,6 +45,13 @@ sooner); an urgent fix may come sooner with `--urgent`, as a PATCH only. Publish
   then a frosted band (backdrop blur, white fading to clear) across the top 27 % of the frame, fading downward, and one
   across the bottom 17 %, fading upward, then the text. The top band fades in and out with the headline, the bottom one
   is always on; nothing above them is semi-transparent, so the blur sees the frame.
+- **object-studio frames are measured before the render** (`scripts/express.mjs` assemble and final,
+  `engine/three/objectStudio.js`, `engine/three/measure.js`, `scripts/layout_lint.mjs`): each shot is captured and the
+  page records the hero's box, every overlay and caption box and the hero's contrast against its ground. Assemble fails,
+  under the group that owns the shot: a hero under a third of the frame, a hero cut by a frame edge (a close-up that fills
+  the frame is fine), text covering the hero, a hero under 12 ΔL* against its ground. The lines go to the one fix round;
+  final measures again and prints what is still open for the hand-off, so no polish round follows the render.
+  `layout_lint.mjs` gains `--min-hero`, `--min-contrast` and `--no-safe-area`.
 
 ## [4.5.3] - 2026-10-30
 

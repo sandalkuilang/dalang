@@ -99,6 +99,7 @@ The `object-studio` look's shared set and overlay, imported unchanged by every g
 `templates/object-studio-API.md` (signatures and shot rows); extras not on the card: `makeSweep`, `lensFov`,
 `canvasTex`, `clamp`, `smooth`, `withMoves`, `LIGHT`; editorial `cues`, `envelope`, `accentHtml`, `tagSwing`,
 `captionAt`, `EASE`.
+`measure.js`: `heroContrast`, the hero's ΔL* against the ground ring; `objectStudio.js` runs it each frame while `strips.mjs`'s receiver answers (`express.mjs assemble`), with `heroBox` and the DOM overlay boxes, into `type.js` `layoutFrame`.
 
 ## Cinematic camera (object-studio only, `camera.js`)
 

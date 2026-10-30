@@ -68,7 +68,7 @@ if [ $fast -eq 0 ]; then
   step "scaffold (engine, host and group templates from narration beats; first from 0, last to END; music bed; refusals write nothing)" node tests/scaffold.mjs
   step "pad_voice (1.45 s before, 1.35 s after; every time moved; never twice; the raw take refused once padded)" node tests/pad-voice.mjs
   step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs
-  step "layout lint (canvas text: safe area, hero overlap, min size, caption over label)" node tests/layout-lint.mjs
+  step "layout lint (text: safe area, hero overlap, min size, caption over label; hero size, edges, contrast)" node tests/layout-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs
   step "score_run (sound-off quiz result -> score, timing_problems inside groups)" node tests/score-run.mjs
   step "timing lint (cuts and flash clips inside shot groups, unreadable group = exit 1)" node tests/timing-lint.mjs

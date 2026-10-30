@@ -5,7 +5,7 @@ metres; the frame is 1080 × 1920.
 
 ## objectStudio.js
 - `makeSet(canvas, { G0, G1 })` → `S`: `S.world.add(obj)` (subjects), `S.scene.add(obj)` (shadows, backdrop), `S.light()`
-  after the subjects are in, `S.shots(SHOTS, set, { moves })`, `S.loop({ overlay, key })` last, `S.project(anchor)` →
+  after the subjects are in, `S.shots(SHOTS, set, { moves })`, `S.loop({ overlay, key, hero })` last (hero: the object measured for framing and contrast, default `S.world`), `S.project(anchor)` →
   `{ x, y, ok }` px, `S.audit(tag)`.
 - `cam([x, y, z], [tx, ty, tz], mm, { dof: { fstop, focus } })` → a station. A wide: 35 mm f5.6; a zoom-in or macro:
   85 mm f1.2–2.8, focus = the camera-to-subject distance (m).
@@ -39,3 +39,8 @@ metres; the frame is 1080 × 1920.
 
 ## The frame (9:16)
 Subject and its action between y 345 and 1150; headline from y ~110; cards beside the subject; captions below 1180.
+`express.mjs assemble` measures every shot and fails, under your group:
+- the hero box under 1/3 of the frame on both axes: move in or take a longer lens;
+- the hero touching a frame edge without filling the frame (a close-up fills 90 % of both axes): frame it whole;
+- a headline, card, tag, pill or caption covering more than 10 % of its own box over the hero box: move the text;
+- the hero under 12 ΔL* against the ground around it: a `backdrop()` behind a pale hero, or a darker material.
