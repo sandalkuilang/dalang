@@ -4,7 +4,7 @@ You are the Express planner, a new subagent (top, high). The film is in the fold
 its take is final (`audio/beats.json`, `audio/words.json`). You design every shot; the builders only build. Write `SPEC.md` and `storyboard.md` in the film folder,
 run `express.mjs scaffold .` (below), then return at most 15 lines: the files, its `next:` line, the orbit direction, open questions.
 
-**Read, once each, nothing else:** `BRIEF.md`; `script.md`; `audio/beats.json`; the word cues
+**Read, once each, nothing else:** `BRIEF.md`; `script.md`; `research/anatomy.md` when it exists; `audio/beats.json`; the word cues
 (`node <skill-dir>/scripts/cues.mjs .`); `references/express.md` from "Express Step 5" to the end; each design language
 the film uses (`engine/epic/languages/<name>.md`); `references/camera-motion.md` §3 (cuts and seams);
 `references/visual-direction.md` §3 (the chosen energy's row), §7 and §12. The camera and the shot table are the card
@@ -34,8 +34,9 @@ README or another film's folder.
   body, impeller housing, flanges, bolts; a laptop: lid, hinge, keys, ports); each person with height, clothes that
   stand off the ground, and what they hold. **The hero object** (the one the film explains) is marked `hero: true`
   and lists its parts by group, base, structure, mechanism, controls, the subject: 15 or more, each resting on a named
-  part. Its inside comes from the same object, under its skin; an inner part no source shows is named "generic" and
-  drawn plain, never invented. **PINS:** every part an overlay labels, by its unique part name. Each object names the
+  part. Its parts, counts, sizes and contacts are `research/anatomy.md`'s parts table, row for row (its numbers are the
+  script's parts table when the arc has one), and its inside comes from the same object, under its skin; a part the
+  table marks "generic" is drawn plain, never invented, and a part not in the table is not added. **PINS:** every part an overlay labels, by its unique part name. Each object names the
   template or kits it is built from (`iso-API.md`: an open container is `pan`, a wheel is `tyre`, a person is `figure`
   with a pose); bare boxes only for what truly is a block. A shot's zoom stops where its subject
   is still many parts: one part over half the frame fails `film_gate` (detail). When the user brought photos of their

@@ -13,7 +13,7 @@ Write in the narration language from `BRIEF.md`:
 
 Rules:
 - **Length** — starting pace, calibrated in Step 4: English 2.4–2.7 words/s; Indonesian/Malay 2.2–2.5; Spanish/Portuguese/Italian 2.5–2.9; French 2.4–2.8; German/Dutch 2.0–2.4; Japanese 6–8 characters/s; Mandarin 4–5 characters/s. Other languages: write the opening section, audition it in Step 4, measure, then write the rest. Count words; never guess.
-- **Arc and beat map** — name the arc in `script.md`: causal chain, turn without conflict ("it turns out…"), one peak, conflict, **two beliefs, tested**, **failure explainer**, **choice explainer** (the last three: "Arc templates" below), or hook + open end. Never invent an antagonist. Beats follow Hook → Context → Pressure → **Crack** (the surprising fact) → Acceleration → **Impact** (the answer) → Aftermath, each caused by the one before ("A, so B", not "A, then B"), named as beats (`hook`, `crack`, `impact`, …). Crack and Impact are never skipped.
+- **Arc and beat map** — name the arc in `script.md`: causal chain, turn without conflict ("it turns out…"), one peak, conflict, **two beliefs, tested**, **failure explainer**, **choice explainer**, **anatomy explainer** (the last four: "Arc templates" below), or hook + open end. Never invent an antagonist. Beats follow Hook → Context → Pressure → **Crack** (the surprising fact) → Acceleration → **Impact** (the answer) → Aftermath, each caused by the one before ("A, so B", not "A, then B"), named as beats (`hook`, `crack`, `impact`, …). Crack and Impact are never skipped.
 - **Hook** — a question, surprise or confession, landing in 1–2 s on 9:16, 5 s on 16:9. It says the promise in its first beat. Before the first Pressure beat, one sentence names the parts in order. `impact` says the takeaway; the last beat repeats it.
 - **One beat every 2–4 s**, each with a visual partner later. A beat is not a cut: at Calm energy several beats share one shot.
 - **Facts must be right.** Verify against original sources and list them. Different methods or a tiny gap → "about the same", never a "winner".
@@ -115,6 +115,17 @@ Each beat is a named `{text|name}` beat on the Hook → … → Aftermath map; n
   7. `decide` = Aftermath: the rule as conditions ("X and Y → A is enough; Z → B").
   8. `reframe`: "what you are buying is not <misread unit> but <real quantity>"; the last frame returns to the first.
   Gate 1 checks: `payoff` answers the loop; `reframe` names both units; every number in `ladder`, `rule`, `payoff` has its comparison and tag; both failure modes name a physical cause; `decide` is conditions, not a verdict.
+- **Anatomy explainer** — "how does X work inside", opening one thing (a device, an organ, a machine, a building, a process) to show the chain of parts that makes the everyday effect. Fits 30–60 s on 9:16 (95–150 words); 16:9 adds cause links, never padding. Eight beats, no dead second:
+  1. `hook` (≤ 2 s): the moment the viewer knows, with its signature sound as an onomatopoeia the mix plays (a click, a hiss, a roar), then the "how?" question and the promise to open it up.
+  2. `still` = Context: the thing at rest, outside view, one tagged number that makes the question sharper.
+  3. `firstmove` = Context: the first part that moves and what moves it (a press, a turn, a flow, a signal); the outside cuts open here.
+  4. `twist` = Crack: the part the answer hinges on, hidden in the outside view, named and shown working.
+  5. `cause_1` … `cause_N` = Acceleration: one link of the chain each, "this moves, so that…", with its visible motion and a tagged number where one is stated; N as the subject has.
+  6. `climax` = Impact: the chain completes and answers the hook in one sentence.
+  7. `yourlife` = Aftermath: what it means for the viewer (a check, a use, a buying or care cue), tagged where it carries a number.
+  8. `loop`: the last sentence runs into the hook's first words so a replay reads as one sentence; the last frame is the first.
+  **Parts table** in `script.md`: every part the narration names gets a number 1…N in order of first mention (≤ 7; more is two films): `# → part → beat → what it does`. The number is the part's callout on the cutaway (`looks.md`), its label everywhere in the film, and its line in `POST.md`; one part, one number, one colour role (`visual-direction.md` §5).
+  Gate 1 adds the parts table and checks: each `cause_` follows from the one before ("so", never "then"); `twist` names a part the outside view hides; `climax` answers the hook; `loop` leads into the hook's first words; every named part is in the table, and no part in the table goes unnamed.
 
 ## Step 4 — Voice + per-word timing → GATE 2
 

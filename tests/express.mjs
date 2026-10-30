@@ -49,6 +49,14 @@ assert.equal(r.code, 0, r.out);
 assert.match(r.out, /OK     storyboard_lint/); assert.match(r.out, /OK     scaffold/);
 assert.match(r.out, /next: one dalang-builder per group \(a hook→middle, b middle→END\)/, "the builders' prompt line is printed for the main agent");
 assert.doesNotMatch(fs.readFileSync(path.join(sp, "src/compositions/b.tpl.html"), "utf8"), /illustration/, "no illustration label in a group");
+// a hero with no researched inside: refused, named, nothing scaffolded on top
+fs.appendFileSync(path.join(sp, "SPEC.md"), "- OBJECTS: the pump `hero: true`\n");
+r = run("scaffold", sp);
+assert.equal(r.code, 1); assert.match(r.out, /^FAILED SPEC\.md has a `hero: true` object but no research\/anatomy\.md/m, "a hero is built from its anatomy, never from memory");
+fs.mkdirSync(path.join(sp, "research"), { recursive: true });
+fs.writeFileSync(path.join(sp, "research/anatomy.md"), "Thing: a pump\n| # | Part | Count | Inside or touches | Material | Size | Moves, and what moves it | Tag |\n");
+r = run("scaffold", sp);
+assert.equal(r.code, 0, r.out); assert.match(r.out, /OK     anatomy: research\/anatomy\.md/);
 fs.writeFileSync(path.join(sp, "storyboard.md"), "| # | Time | Size | Camera | Subject action |\n|---|---|---|---|---|\n| 1 | 0–6 | wide |  |  |\n");
 r = run("scaffold", sp);
 assert.equal(r.code, 1); assert.match(r.out, /FAILED storyboard_lint/, "a storyboard that fails its lint is never scaffolded");
