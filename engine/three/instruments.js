@@ -19,13 +19,13 @@ const MIN_TEXT = 36;
 // The palette every widget reads at draw time: dark (a dark set) or light (the pale studio of the visual thesis,
 // looks.md object-studio): ink on a white panel, the film's one accent for the value that moves.
 const THEMES = {
-  dark: { INK: "#e8f1ff", PANEL: "rgba(8, 12, 18, 0.72)", GRID: "rgba(232, 241, 255, 0.22)", ACC: "#ffb347", ALARM: "#ff6b57", TRACE: "#58c4ff" },
+  dark: { INK: "#e8f1ff", PANEL: "rgba(8, 12, 18, 0.72)", GRID: "rgba(232, 241, 255, 0.22)", ACC: "#ffb347", ALARM: "#ff6b57", TRACE: "#58c4ff", BAR: "#58c4ff" },
   light: { INK: "#1b1c1f", PANEL: "rgba(255, 255, 255, 0.86)", GRID: "rgba(27, 28, 31, 0.14)", ACC: "#E8502A", ALARM: "#B3261E", TRACE: "#1b1c1f" },
 };
-let { INK, PANEL, GRID, ACC, ALARM, TRACE } = THEMES.dark;
+let { INK, PANEL, GRID, ACC, ALARM, TRACE, BAR } = THEMES.dark; // BAR: the dark theme's blue fill; the light theme has none, so the bar uses ACC
 export function instrumentTheme(name, { accent } = {}) {
   if (!THEMES[name]) throw new Error(`instrumentTheme: theme must be one of ${Object.keys(THEMES).join(", ")}, got ${name}`);
-  ({ INK, PANEL, GRID, ACC, ALARM, TRACE } = THEMES[name]);
+  ({ INK, PANEL, GRID, ACC, ALARM, TRACE, BAR } = THEMES[name]);
   if (accent) ACC = accent;
 }
 const finite = (v) => typeof v === "number" && Number.isFinite(v);
@@ -137,7 +137,7 @@ export function bar(ctx, o = {}) {
   const out = ok ? `${num(value, digits)} / ${num(max, digits)} ${units}` : `-- / ${num(max, digits)} ${units}`;
   ctx.save();
   ctx.fillStyle = PANEL; ctx.fillRect(x, y, w, h);
-  if (ok) { ctx.fillStyle = fill >= 1 ? ALARM : ACC; ctx.fillRect(x, y, w * fill, h); }
+  if (ok) { ctx.fillStyle = fill >= 1 ? ALARM : BAR ?? ACC; ctx.fillRect(x, y, w * fill, h); }
   ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h);
   text(ctx, label, x, y - 12, { px, base: "alphabetic" });
   text(ctx, out, x + w, y - 12, { px, align: "right", base: "alphabetic" });

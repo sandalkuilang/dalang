@@ -9,7 +9,9 @@
 //   - a label or card under 36 px, a caption under 54 px (--min-label, --min-caption; at 1080 px on the short side, scaled
 //     with the canvas; the object-studio kit draws captions at 46 and its smallest label at 22, so express.mjs passes those);
 //   - a caption box overlapping a label or card box;
-//   - the hero box under 1/3 of the frame on both axes (--min-hero), or its pixels reaching an edge (`edges`, objectStudio.js;
+//   - the hero box under 1/3 of the frame on both axes (--min-hero; with --hero-band <top>,<bottom>, fractions of the height such as
+//     0.18,0.60, a portrait frame (H > W) measures the hero's height against the band's height, (bottom - top) * H, not H: object-studio's
+//     subject box is only that band of a 9:16 frame; a landscape frame ignores the band), or its pixels reaching an edge (`edges`, objectStudio.js;
 //     else the box touching one) without filling 65 % of an axis (a clipped box is a lower bound and is not judged for either);
 //     a flagged hero line names the largest part of the box (`parts`), so a too-large box can be traced;
 //   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js) under 8 (--min-contrast; a hero at 8–12 read plainly on real films, under 6 it washed out).
@@ -17,7 +19,7 @@
 // A hero key that is absent is INFO (overlap not checked); null (the hero is off the frame) has nothing to overlap.
 // Records: [{ t, W, H, format, hero?: { x0, y0, x1, y1, clipped?, parts?, edges? } | null, contrast?: number | null, boxes: [{ kind, text, x0, y0, x1, y1, size, over? }] }],
 // or { frames: [...] }. strips.mjs writes them to review/strips/layout.json and lints them into review/strips/index.md.
-// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--min-contrast 8] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
+// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--hero-band 0.18,0.60] [--min-contrast 8] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
 // review/strips/layout.json). Exit 1 on a problem, 2 when the records cannot be read or a frame cannot be checked
 // (rerun / fix), 0 when clean.
 import { readFileSync, statSync } from 'node:fs';
@@ -38,7 +40,7 @@ const show = (b) => `${r(b.x0)},${r(b.y0)}–${r(b.x1)},${r(b.y1)}`;
 const driver = (h) => (h.parts?.[0] ? ` (largest part ${h.parts[0].name}, ${h.parts[0].w} x ${h.parts[0].h} px)` : '');
 const name = (b) => `${b.kind} "${String(b.text).replace(/[\r\n|]+/g, ' ').slice(0, 60)}"`;
 
-export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minContrast = 8, minCaption = 54, minLabel = 36, safe = true } = {}) {
+export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBand = null, minContrast = 8, minCaption = 54, minLabel = 36, safe = true } = {}) {
   const problems = [], warns = [], infos = [];
   if (!Array.isArray(frames) || !frames.length) {
     warns.push('no layout recorded (the composition does not call layoutFrame)');
@@ -65,8 +67,10 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minCon
     if (!hasHero && boxes.length) infos.push(`${at} no hero box given: overlap not checked`);
     if (hero && !hero.clipped) {
       const hh = (hero.y1 - hero.y0) / f.H, hw = (hero.x1 - hero.x0) / f.W;
+      const band = heroBand && f.H > f.W ? (heroBand[1] - heroBand[0]) * f.H : f.H; // the subject box's height on a portrait frame
+      const hb = (hero.y1 - hero.y0) / band; // the size test only: the close-up and cut tests below keep the frame's share
       // ponytail: the larger share decides, so a wide subject in a tall frame passes on its width
-      if (Math.max(hh, hw) < minHero) P(`hero box ${show(hero)}${driver(hero)} fills ${r(hh * 100)} % of the frame height and ${r(hw * 100)} % of its width, under ${r(minHero * 100)} %: move the camera in or take a longer lens`);
+      if (Math.max(hb, hw) < minHero) P(`hero box ${show(hero)}${driver(hero)} fills ${r(hb * 100)} % of the ${band === f.H ? 'frame' : 'subject band'} height and ${r(hw * 100)} % of its width, under ${r(minHero * 100)} %: move the camera in or take a longer lens`);
       // the hero's pixels at an edge (`edges`, objectStudio.js; at least EDGE_SHARE of its length) say where it is cut; without them, its box
       const cut = hero.edges ? ['left', 'top', 'right', 'bottom'].filter((k) => hero.edges[k] >= EDGE_SHARE)
         : [['left', hero.x0 <= EDGE], ['top', hero.y0 <= EDGE], ['right', hero.x1 >= f.W - EDGE], ['bottom', hero.y1 >= f.H - EDGE]].filter(([, on]) => on).map(([s]) => s);
@@ -101,7 +105,7 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minCon
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const take = (k) => { const i = args.indexOf(k); return i >= 0 ? (args.splice(i, 2)[1] ?? '') : null; }; // no value: a usage WARN below, never a crash
-  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label');
+  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label'), hbArg = take('--hero-band');
   const safe = !(args.includes('--no-safe-area') && args.splice(args.indexOf('--no-safe-area'), 1));
   const mh = mhArg === null ? 1 / 3 : Number(mhArg), mc = mcArg === null ? 8 : Number(mcArg);
   const cp = cpArg === null ? 54 : Number(cpArg), lb = lbArg === null ? 36 : Number(lbArg);
@@ -109,8 +113,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   let frames = null, count = 0;
   const warns = [], problems = [], infos = [];
   const ho = hoArg === null ? 0.10 : Number(hoArg);
+  const hb = hbArg === null ? null : hbArg.split(',').map((v) => (v.trim() === '' ? NaN : Number(v)));
   if (hoArg !== null && !(hoArg.trim() !== '' && ho >= 0 && ho <= 1)) warns.push(`--hero-overlap ${hoArg}: use a share between 0 and 1`);
   else if (mhArg !== null && !(mhArg.trim() !== '' && mh > 0 && mh <= 1)) warns.push(`--min-hero ${mhArg}: use a share between 0 and 1`);
+  else if (hb && !(hb.length === 2 && hb[0] >= 0 && hb[1] <= 1 && hb[0] < hb[1])) warns.push(`--hero-band ${hbArg}: use <top>,<bottom> as fractions of the height, top under bottom (0.18,0.60)`);
   else if (mcArg !== null && !(mcArg.trim() !== '' && mc >= 0)) warns.push(`--min-contrast ${mcArg}: use a ΔE* of 0 or more`);
   else if (cpArg !== null && !(cpArg.trim() !== '' && cp > 0)) warns.push(`--min-caption ${cpArg}: use a size in px above 0`);
   else if (lbArg !== null && !(lbArg.trim() !== '' && lb > 0)) warns.push(`--min-label ${lbArg}: use a size in px above 0`);
@@ -124,7 +130,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       warns.push(e.code === 'ENOENT' ? `no layout.json: run strips.mjs (${file})` : e instanceof SyntaxError ? `${file}: not valid JSON (${e.message}) — rerun strips.mjs` : `${file}: cannot read (${e.code ?? e.message}) — rerun`);
     }
     if (!warns.length) {
-      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, minContrast: mc, minCaption: cp, minLabel: lb, safe });
+      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, heroBand: hb, minContrast: mc, minCaption: cp, minLabel: lb, safe });
       problems.push(...res.problems); warns.push(...res.warns); infos.push(...res.infos);
       count = Array.isArray(frames) ? frames.length : 0;
     }

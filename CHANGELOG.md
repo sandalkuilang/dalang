@@ -50,7 +50,8 @@ Published versions are never re-tagged.
 - **Live instruments on a pale studio:** `instrumentTheme("light")` and `chart()` with a cursor that moves with the machine.
 - **How to move:** a film in flight keeps its SPEC; a new object-studio film needs `## MODEL` (Input:, Check:) in
   `SPEC.md`, plans its hero at 60–70 % and no shot under 2 s after the hook; old films that set `SWEEP` colours by hand
-  keep them.
+  keep them; films started before this change (no `assets/machine.js`) keep the old 1/3 hero measure and get no
+  palette line.
 
 ## [4.5.9] - 2026-10-31
 

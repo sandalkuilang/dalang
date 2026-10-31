@@ -42,6 +42,9 @@ if (!['after-voice', 'scaffold', 'assemble', 'final'].includes(cmd)) { console.e
 
 if (!existsSync(path.join(dir, 'audio/beats.json'))) { console.log('FAILED no take yet: audio/beats.json is missing (tts_timestamps.mjs first)\nResult: 1 step(s) FAILED'); process.exit(1); }
 const brief = existsSync(path.join(dir, 'BRIEF.md')) ? readFileSync(path.join(dir, 'BRIEF.md'), 'utf8') : '';
+// the visual thesis (looks.md object-studio) applies to object-studio films built with the machine; a Studio iso film, or one
+// started before the machine existed (no assets/machine.js), keeps its old measure and gets no palette line
+const thesis = /^\W*look\W*:\W*object-studio/im.test(brief) && existsSync(path.join(dir, 'assets/machine.js'));
 let failed = 0;
 // one step: its name, OK or FAILED with the last lines of its output
 const step = (name, bin, argv, { keep = 6, quiet = false, filter } = {}) => {
@@ -75,11 +78,11 @@ const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
   const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
   const cap = run('strips.mjs', '.', '--out', 'review/measure');
-  // --min-hero 0.6: the visual thesis, one whole hero filling 60-70 % of the frame on its larger axis (looks.md object-studio)
-  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', '--min-hero', '0.6') : null;
+  // thesis: one whole hero filling 60-70 % of its larger axis, its height measured in the subject box (y 18-60 % of the frame, looks.md)
+  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', ...(thesis ? ['--min-hero', '0.6', '--hero-band', '0.18,0.60'] : [])) : null;
   if (!lint || lint.status === 2) { if (block) failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
   const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
-  if (!probs.length) return console.log('OK     measured frames (hero at 60 % or more, edges, text over the hero, contrast)');
+  if (!probs.length) return console.log(`OK     measured frames (${thesis ? 'hero at 60 % or more of the subject box, ' : 'hero size, '}edges, text over the hero, contrast)`);
   if (block) failed++;
   console.log(`${block ? 'FAILED' : 'OPEN  '} measured frames: ${probs.length} line(s)${block ? ', for the fix round' : ', name them in the hand-off'}`);
   const html = existsSync(path.join(dir, 'index.html')) ? readFileSync(path.join(dir, 'index.html'), 'utf8') : '';
@@ -171,7 +174,7 @@ if (cmd === 'after-voice') {
   step('check_assets', ...node('check_assets.mjs', '.'), { quiet: true, keep: 6 });
   if (!failed) step(`render (${fps} fps, ${quality})`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', quality, '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
   // the visual thesis (looks.md object-studio): neutrals, the one accent, at most one mechanism hue on its beat
-  if (!failed && existsSync(path.join(dir, 'assets/objectStudio.js'))) {
+  if (!failed && thesis) {
     const h = spawnSync(process.execPath, [path.join(HERE, 'palette.mjs'), 'final.mp4', '--hues', '2'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
     const lines = (h.stdout ?? '').split('\n').filter((l) => l.startsWith('  OVER'));
     if (h.status === 0) console.log('OK     palette: neutrals plus at most 2 hue families per frame');
