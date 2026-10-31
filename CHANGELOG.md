@@ -66,9 +66,9 @@ Published versions are never re-tagged.
 - The token report says "not counted" when the main transcript made Agent calls whose subagent transcripts are missing,
   instead of printing 0 subagents; the metrics Total tokens line says "at least" then. A film with no Agent call keeps
   its true 0.
-
 - **scaffold.mjs without markers:** a narration with no {text|name} markers (written by hand or imported) takes its
   beat names and order from audio/beats.json instead of failing; Gate 1 stays untouched.
+
 ### Changed
 - **Films under 10 s:** `pad_voice.mjs` pads 0.2 s before and after when `BRIEF.md`'s duration is under 10 s (minutes
   are never read as seconds, and a note on the line such as "(Other, under the 30 s floor)" or a ratio is not a
