@@ -56,9 +56,12 @@ Published versions are never re-tagged.
   hard 2 px stripe) and the corner where its mask and tint started to fade (a slope jump reads as a line, and the blur
   followed it) are gone. The band is solid to 50 % and then fades out in one smooth curve, with the tint one plain
   gradient. `engine/three/selfcheck.mjs` reads the band row by row and fails on a hard stop, a jump or a corner, and
-  `tests/glass-band-render.mjs` renders it in a headless Chromium (when one is installed) over a light sky, paper, a
-  pale sweep and a dark blueprint at the opacities the headline envelope gives it, and fails on any row that stands
-  out of its neighbours; it also checks that it sees a 2 px lip.
+  `tests/glass-band-render.mjs` renders it in a headless Chromium over a light sky, paper, a pale sweep and a dark
+  blueprint at the opacities the headline envelope gives it, and fails on a row that stands out of its neighbours (a
+  line) or on a jump of the fitted fade (a step, such as the blur's box edge); it also checks that it sees a 2 px lip
+  and a 4.5-level step, sharp and softened. On a developer machine without a browser it says so and exits 0; the CI
+  merge gate fetches one and sets `DALANG_REQUIRE_CHROME=1`, so there a missing or broken browser fails the gate
+  (`tests/glass-band-policy.mjs`).
 - **Measured frames no longer lose their records to another capture** (`scripts/strips.mjs`, new
   `scripts/layout_flag.mjs`, `engine/three/layout_on.js`, `engine/three/type.js`). The cause of "not measured" on one
   run and OK on the next: the layout receiver sat on one fixed port, 127.0.0.1:47614, for every capture on the machine,

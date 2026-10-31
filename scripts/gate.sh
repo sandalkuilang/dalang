@@ -50,6 +50,7 @@ if [ $fast -eq 0 ]; then
   step "save-profile cut vs mock VoiceStudio" node tests/save-profile.mjs
   step "scopes (signalstats per cut: bands, flagged cuts, PNGs only when flagged)" node tests/scopes.mjs
   step "palette (dominant colours, OKLCH L, figure-ground compare)" node tests/palette.mjs
+  step "glass band policy (a required browser that is missing fails; CI requires it)" node tests/glass-band-policy.mjs
   step "glass band render (a headless Chromium frame: no line on four grounds, at the headline's fractional opacities)" node tests/glass-band-render.mjs
   step "retake, busy retry, resume, chunk limit vs mock VoiceStudio" node tests/retake.mjs
   step "Kokoro take, alignment, retake vs a mock Python" node tests/kokoro.mjs
