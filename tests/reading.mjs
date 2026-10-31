@@ -75,6 +75,7 @@ try {
     }
     assert.ok(Math.abs(sumKb - json.express) < 600, `the Express path (${json.express} B) is what express \`next\` prints at Steps 0–8 (${Math.round(sumKb)} B)`);
     const s3 = run("next", p, "--step", "3").out, s4 = run("next", p, "--step", "4").out;
+    assert.match(s3.split("\n")[0], / · DALANG v\d+\.\d+\.\d+$/, "next names the DALANG version on its first line");
     const main = (s) => s.split("\n").slice(1).filter((l) => !l.startsWith("For the subagent")).join("\n").replace(/^Optional Step 2.*\n/m, "");
     assert.equal(main(s4), main(s3), "Express Step 4 (a resume) prints Step 3's reading: one reading for both");
     // Steps 3–4 are jobs: the main agent reads its part only; the writer and the voice job read the step with --sub

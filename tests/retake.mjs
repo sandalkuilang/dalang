@@ -135,7 +135,7 @@ function mock({ model = "k2-fsa/OmniVoice", speak, transcribe, health } = {}) {
   });
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok({ srv, speech })));
 }
-const run = (args, env = {}) => new Promise((ok) => execFile(process.execPath, [tts, ...args], { timeout: 60000, env: { ...process.env, PATH: `${shim}${path.delimiter}${process.env.PATH}`, DALANG_VS_BUSY_WAIT_S: "0.1", DALANG_FREE_GB: "16", DALANG_RETAKE_LEVEL: "off", ...env } }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+const run = (args, env = {}) => new Promise((ok) => execFile(process.execPath, [tts, ...args], { timeout: 60000, env: { ...process.env, PATH: `${shim}${path.delimiter}${process.env.PATH}`, DALANG_VS_BUSY_WAIT_S: "0.1", DALANG_PACE_FILE: path.join(tmp, "pace.json"), DALANG_FREE_GB: "16", DALANG_RETAKE_LEVEL: "off", ...env } }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
 
 const failures = [];
 let count = 0;
@@ -168,6 +168,17 @@ await test("B1. a 503 on the speech route waits, retries once, and the take goes
   assert.match(r.out, /retrying once/);
   assert.ok(fs.existsSync(path.join(r.audio, "words.json")), "words.json written");
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(r.audio, "words.json"), "utf8")).map((w) => norm(w.text)), tokensOf(NARRATION));
+});
+await test("B1b. a take records its words/s, and --pace prints it with the word budget", async () => {
+  fs.rmSync(path.join(tmp, "pace.json"), { force: true });
+  const r = await take(NARRATION);
+  assert.equal(r.code, 0, r.out);
+  const rec = JSON.parse(fs.readFileSync(path.join(tmp, "pace.json"), "utf8"))["voicestudio|va|en"];
+  assert.ok(rec?.[0]?.wps > 0 && rec[0].speed === 1, JSON.stringify(rec));
+  const p = await run(["--pace", "--voice", "va", "--language", "en", "--length", "60"]);
+  assert.match(p.out, new RegExp(`Pace: ${rec[0].wps.toFixed(2)} words/s`));
+  assert.match(p.out, new RegExp(`Budget: ${Math.round(60 * rec[0].wps * 0.85)} spoken words`));
+  assert.match((await run(["--pace", "--voice", "other", "--language", "en"])).out, /none recorded/);
 });
 await test("B2. a second 503 is a WARN with 'rerun', exit 3, never FAILED, never a restart", async () => {
   const r = await take(NARRATION, { speak: () => [503, BUSY] });

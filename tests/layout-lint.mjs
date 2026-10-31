@@ -38,7 +38,7 @@ try {
     ["caption over label", frame({ t: 2.5, boxes: [{ ...caption }, { ...label }, { kind: "label", text: "pipe", x0: 300, y0: 1120, x1: 500, y1: 1200, size: 40 }] }), /caption .*overlaps label "pipe"/],
     ["small hero", frame({ t: 2.5, hero: { x0: 300, y0: 500, x1: 600, y1: 900 } }), /hero box .*fills 21 % of the frame height and 28 % of its width, under 33 %/],
     ["hero cut", frame({ t: 2.5, hero: { x0: 0, y0: 400, x1: 500, y1: 1100 } }), /hero box .*is cut by the frame's left edge/],
-    ["pale hero", frame({ t: 2.5, contrast: 6.5 }), /hero reads at ΔE\* 6\.5 .*under 12/],
+    ["pale hero", frame({ t: 2.5, contrast: 6.5 }), /hero reads at ΔE\* 6\.5 .*under 8/],
   ];
   for (const [name, fr, re] of faults) {
     r = run(put([fr]));

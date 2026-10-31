@@ -175,7 +175,11 @@ if (!dry) {
       srv = await listen(recs);
       if (!srv) layoutWarns.push(`layout not recorded: port ${LAYOUT_PORT} is busy (another strips.mjs?); rerun for layout numbers`);
     }
-    const r = await snapshot(args);
+    // the page posts only while assets/layout_on.js says true (type.js): on for this capture, back to false after
+    const flag = path.join(dir, 'assets', 'layout_on.js'), off = srv && existsSync(flag) ? readFileSync(flag, 'utf8') : null;
+    if (off !== null) writeFileSync(flag, off.replace(/export default false;/, 'export default true;'));
+    let r;
+    try { r = await snapshot(args); } finally { if (off !== null) writeFileSync(flag, off); }
     if (srv) { srv.closeAllConnections?.(); srv.close(); }
     if (r.error || r.status !== 0) {
       console.error(`snapshot failed (${r.error?.message ?? `exit ${r.status}`}):\n${(r.stderr || '').trim().split('\n').slice(-12).join('\n')}`);

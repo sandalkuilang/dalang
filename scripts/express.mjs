@@ -157,6 +157,9 @@ if (cmd === 'after-voice') {
     for (const f of gone) console.log(`CHANGED since assemble: ${f} removed`);
   }
   measure({ block: false });
+  // a capture killed mid-way leaves the page posting (strips.mjs puts false back after it): off before check and render
+  const flag = path.join(dir, 'assets', 'layout_on.js');
+  if (existsSync(flag) && /export default true;/.test(readFileSync(flag, 'utf8'))) { writeFileSync(flag, readFileSync(flag, 'utf8').replace('export default true;', 'export default false;')); console.log('OK     assets/layout_on.js was left on by a killed capture: off again'); }
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
   // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress

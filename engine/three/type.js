@@ -17,6 +17,7 @@
 // Not covered: scripts without spaces that are not Han/Kana (Thai, Lao, Khmer): a long run is one word.
 
 import { FAMILY, WEIGHT } from "./font.js";
+import layoutOn from "./layout_on.js";
 
 const S = (W, H) => Math.min(W, H) / 1080;
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -336,12 +337,13 @@ export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {})
 // The layout of the frame just drawn, for review (scripts/strips.mjs, scripts/layout_lint.mjs): every caption, label
 // and range card drawn since the last call, in px at the canvas size, and the hero's box (camera.js heroBox) when
 // given. Call it last in the frame function; it empties the list. It sets globalThis.__dalangLayout and posts the
-// record to strips.mjs's receiver while one answers (the first failed post stops the posting for this page).
+// record to strips.mjs's receiver during its capture (layout_on.js; the first failed post stops the posting).
 // opts: format, hero ({ x0, y0, x1, y1 } | null), contrast (ΔE*, measure.js | null), boxes (text drawn outside this file,
 // DOM overlays: added after the drawn ones), receiver, send (a function given the JSON instead of the post).
 // -> { t, W, H, format, hero?, contrast?, boxes: [{ kind: "caption" | "label" | "card", text, x0, y0, x1, y1, size }] }
-// layoutLive(): false once a post failed (no receiver: a final render), so a page can skip work only the review reads.
-let live = true;
+// layoutLive(): true only while strips.mjs captures (layout_on.js) and no post failed, so a page can skip work only the
+// review reads; outside a capture nothing is posted at all.
+let live = layoutOn;
 export const layoutLive = () => live;
 export function layoutFrame(ctx, t, { format = "shorts", hero, contrast, boxes = [], receiver = "http://127.0.0.1:47614", send } = {}) {
   const rec = { t: ms(t), W: ctx.canvas.width, H: ctx.canvas.height, format, ...(hero === undefined ? {} : { hero }), ...(contrast === undefined ? {} : { contrast }), boxes: [...drawn, ...boxes] };

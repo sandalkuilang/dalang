@@ -12,12 +12,12 @@
 //   - the hero box under 1/3 of the frame on both axes (--min-hero), or its pixels reaching an edge (`edges`, objectStudio.js;
 //     else the box touching one) without filling 65 % of an axis (a clipped box is a lower bound and is not judged for either);
 //     a flagged hero line names the largest part of the box (`parts`), so a too-large box can be traced;
-//   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js) under 12 (--min-contrast).
+//   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js) under 8 (--min-contrast; a hero at 8–12 read plainly on real films, under 6 it washed out).
 // --no-safe-area skips the safe-area check (object-studio keeps its own frame zones, object-studio-API.md).
 // A hero key that is absent is INFO (overlap not checked); null (the hero is off the frame) has nothing to overlap.
 // Records: [{ t, W, H, format, hero?: { x0, y0, x1, y1, clipped?, parts?, edges? } | null, contrast?: number | null, boxes: [{ kind, text, x0, y0, x1, y1, size, over? }] }],
 // or { frames: [...] }. strips.mjs writes them to review/strips/layout.json and lints them into review/strips/index.md.
-// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--min-contrast 12] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
+// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--min-contrast 8] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
 // review/strips/layout.json). Exit 1 on a problem, 2 when the records cannot be read or a frame cannot be checked
 // (rerun / fix), 0 when clean.
 import { readFileSync, statSync } from 'node:fs';
@@ -38,7 +38,7 @@ const show = (b) => `${r(b.x0)},${r(b.y0)}–${r(b.x1)},${r(b.y1)}`;
 const driver = (h) => (h.parts?.[0] ? ` (largest part ${h.parts[0].name}, ${h.parts[0].w} x ${h.parts[0].h} px)` : '');
 const name = (b) => `${b.kind} "${String(b.text).replace(/[\r\n|]+/g, ' ').slice(0, 60)}"`;
 
-export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minContrast = 12, minCaption = 54, minLabel = 36, safe = true } = {}) {
+export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minContrast = 8, minCaption = 54, minLabel = 36, safe = true } = {}) {
   const problems = [], warns = [], infos = [];
   if (!Array.isArray(frames) || !frames.length) {
     warns.push('no layout recorded (the composition does not call layoutFrame)');
@@ -73,7 +73,7 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, minCon
       // a close-up fills the frame on one axis at least; touching an edge otherwise, the frame cuts the subject
       if (cut.length && Math.max(hh, hw) < CLOSEUP) P(`hero box ${show(hero)}${driver(hero)} is cut by the frame's ${cut.join(' and ')} edge: frame the whole subject, or go in until it fills the frame`);
     }
-    if (num(f.contrast) && f.contrast < minContrast) P(`hero reads at ΔE* ${f.contrast} against the ground around it, under ${minContrast}: a darker backdrop() behind a pale hero, or a darker material`);
+    if (num(f.contrast) && f.contrast < minContrast) P(`hero reads at ΔE* ${f.contrast} against the ground around it, under ${minContrast}: a darker material on the hero first (a darkened floor reads as a vignette), else a backdrop() behind it`);
 
     for (const b of boxes) {
       if (safe) {
@@ -103,7 +103,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const take = (k) => { const i = args.indexOf(k); return i >= 0 ? (args.splice(i, 2)[1] ?? '') : null; }; // no value: a usage WARN below, never a crash
   const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label');
   const safe = !(args.includes('--no-safe-area') && args.splice(args.indexOf('--no-safe-area'), 1));
-  const mh = mhArg === null ? 1 / 3 : Number(mhArg), mc = mcArg === null ? 12 : Number(mcArg);
+  const mh = mhArg === null ? 1 / 3 : Number(mhArg), mc = mcArg === null ? 8 : Number(mcArg);
   const cp = cpArg === null ? 54 : Number(cpArg), lb = lbArg === null ? 36 : Number(lbArg);
   const target = path.resolve(args.find((a) => !a.startsWith('--')) ?? '.');
   let frames = null, count = 0;

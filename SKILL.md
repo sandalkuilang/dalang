@@ -28,7 +28,7 @@ description: Dalang — turn any topic into a finished animated video (narration
 
 - **One video = one session**; state lives in the files. Resume: `node <skill-dir>/scripts/state.mjs next`, `BRIEF.md`, the end of `PRODUCTION.md`.
 - **Subagent types**, when listed: builders (fix rounds, script writer, voice job) `dalang-builder`, every verdict `dalang-checker`, facts `dalang-research`; else general-purpose.
-- **Skill version**: preflight's DALANG row, never your own `git`.
+- **Skill version**: say `next`'s `DALANG v…` first; never `git`.
 - **Read lazily**: each step, only what `state.mjs next --print` prints, whole, in one call (Step 0 prints Step 1 too; a first `approve <n>` prints the next step itself: no `next` turn, never `--step` ahead); "Look up when needed" only when sent there. Never read a reference, engine README or `lessons.md` whole, or a section twice; of `/hyperframes`, only the guides needed.
 - **Small output**: filter `--json`; never print `words.json`, `*.response.json` or full logs; background output by bytes (`tail -c 1500`). Scene changes are `Edit` calls, never `sed -i` or a whole-file Write.
 - **Scene code stays in builder subagents.** The main agent never writes or reads `src/` or `assets/*.js` (generated data aside; style frames too go to a builder). Pilot, each group, assembly and each QC fix round go to a **new** builder (last report + paths, its budget in `look-build.md` / `express.md`), logged with `state.mjs log`. The reviewer is never a builder.
