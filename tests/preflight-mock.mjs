@@ -32,6 +32,12 @@ const dalang = { voice_id: "p3", name: "Dalang", type: "profile", language: "id"
 const withDalang = { voices: [...voices.voices, dalang] };
 const cfg = (name, text) => { const f = path.join(tmp, name); fs.writeFileSync(f, text); return f; };
 const cfgMock = cfg("voice-mock.json", JSON.stringify({ default: "mock one" })), cfgBad = cfg("voice-bad.json", "{not json");
+const cfgComma = cfg("voice-comma.json", '{"default": "Dalang",}'), cfgEmpty = cfg("voice-empty.json", JSON.stringify({ default: "  " })), cfgNoKey = cfg("voice-nokey.json", "{}"), cfgEvil = cfg("voice-evil.json", JSON.stringify({ default: "Evil" }));
+const cfgArray = cfg("voice-array.json", "[]"), cfgNum = cfg("voice-num.json", JSON.stringify({ default: 7 })), cfgDir = tmp; // a directory: EISDIR, a read error
+// A profile whose name holds the default suffix itself: the quoted name can never fake the real one.
+const fake = { voice_id: "p5", name: 'x — default: "Evil" = p9', type: "profile" };
+const fakeOnly = { voices: [...voices.voices, fake] }, fakeAndDalang = { voices: [...voices.voices, fake, dalang] };
+const suffix = /— default: "/g; // an unescaped suffix opener: a JSON-quoted name only ever holds it as \"
 const vox = (installed, model = "voxcpm2") => ({ models: [...models, { repo_id: "openbmb/VoxCPM2", installed, incomplete: false }], profile: { selections: { ...prof.selections, tts: { engine: "voxcpm2", model } } } });
 
 // A mock VoiceStudio: o overrides one route's reply; "hang" never answers, "reset" drops the socket.
@@ -78,7 +84,17 @@ const cases = [
   ["voice no default without Dalang", {}, { Voices: ["INFO", /= p2$/] }, ready],
   ["voice default, case aside", { "/v1/audio/voices": [200, { voices: [...voices.voices, { ...dalang, name: "dalang" }] }] }, { Voices: ["INFO", /— default: "dalang" = p3$/] }, ready],
   ["voice default from voice.json wins over Dalang", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default: "Mock One" = p1$/] }, ready, { env: { DALANG_VOICE_FILE: cfgMock } }],
-  ["voice.json unreadable names none", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default voice: none \(.*unreadable.*\)/] }, ready, { env: { DALANG_VOICE_FILE: cfgBad } }],
+  // A voice.json that exists but cannot be read or parsed is an unknown state: WARN, fix it and rerun, never "none".
+  ...[["bad JSON", cfgBad, /not valid JSON/], ["trailing comma", cfgComma, /not valid JSON/], ["a directory", cfgDir, /unreadable \(EISDIR\)/], ["an array", cfgArray, /not a JSON object/], ["a non-string default", cfgNum, /"default" is not a string/]]
+    .map(([n, f, re]) => [`voice.json ${n} is a WARN, not none`, { "/v1/audio/voices": [200, withDalang] }, { Voices: ["WARN", re] }, ready, { env: { DALANG_VOICE_FILE: f }, warnNote: f }]),
+  // The legitimate side: a deliberate empty default (or no "default" key) opts out, INFO none; a missing file falls back to Dalang (above).
+  ["voice.json empty default names none", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default voice: none \(.*no "default" name.*\) — ask Call 3$/] }, ready, { env: { DALANG_VOICE_FILE: cfgEmpty } }],
+  ["voice.json without a default key names none", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default voice: none \(.*no "default" name.*\)/] }, ready, { env: { DALANG_VOICE_FILE: cfgNoKey } }],
+  ["voice.json unreadable, no saved profile: nothing to name a default for", { "/v1/audio/voices": [200, { voices: [voices.voices[0]] }] }, { Voices: ["INFO", /^no saved profile/] }, ready, { env: { DALANG_VOICE_FILE: cfgBad } }],
+  // Attack: a profile name that holds the suffix text must not make the row end in, or hold, a real-looking default.
+  ["a profile name cannot fake the default suffix", { "/v1/audio/voices": [200, fakeOnly] }, { Voices: ["INFO", /= p5$/] }, ready, { noSuffix: true }],
+  ["a profile name cannot fake the suffix, the real default still last", { "/v1/audio/voices": [200, fakeAndDalang] }, { Voices: ["INFO", /— default: "Dalang" = p3$/] }, ready, { oneSuffix: true }],
+  ["voice.json naming Evil does not match a name that only holds it", { "/v1/audio/voices": [200, fakeOnly] }, { Voices: ["INFO", /= p5$/] }, ready, { env: { DALANG_VOICE_FILE: cfgEvil }, noSuffix: true }],
   ["voice two Dalang profiles name none", { "/v1/audio/voices": [200, { voices: [...withDalang.voices, { ...dalang, voice_id: "p4" }] }] }, { Voices: ["INFO", /— default: none \(2 profiles match "Dalang"\)/] }, ready],
   ["voices 500 never a default", { "/v1/audio/voices": [500, {}] }, { Voices: ["WARN", /^(?!.*default).*rerun preflight/] }, ready, { env: { DALANG_VOICE_FILE: cfgMock } }],
   ["asr missing", { "/models": [200, [models[0]]] }, { "ASR (word timing)": "MISSING", "TTS model": "OK" }, /^VoiceStudio not ready — fix ASR \(word timing\)/],
@@ -108,6 +124,11 @@ await Promise.all(cases.map(async ([name, routes, want, voice, o = {}]) => {
     }
     assert.match(got.voice, voice, "Voice: line");
     assert.ok(!got.lines.some((l) => l.startsWith("INJECT")), "a profile name cannot inject a line");
+    const note = got.rows.Voices?.note ?? "";
+    if (o.noSuffix) assert.equal((note.match(suffix) || []).length, 0, "no unescaped default suffix in the row");
+    if (o.oneSuffix) assert.equal((note.match(suffix) || []).length, 1, "exactly one default suffix, the real one");
+    // An unreadable voice.json: the row never says "none" or names a default, and tells the agent to fix the file and rerun.
+    if (o.warnNote) { assert.ok(!/none|— default: "/.test(note.replaceAll(o.warnNote, "")), "unknown is not none"); assert.ok(note.includes(o.warnNote) && /fix .*rerun preflight/.test(note), "names the file, fix and rerun"); }
   } catch (e) { failures.push(`✗ ${name}: ${e.message}\n${out.trim().split("\n").map((l) => "    " + l).join("\n")}`); }
 }));
 for (const [args, why] of [[["--vs-url"], "missing URL"], [["--vs-url=foo"], "invalid URL"]]) {
