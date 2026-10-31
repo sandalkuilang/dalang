@@ -5,7 +5,7 @@ import { THREE } from "./three-vendor.js";
 // a spring's tube is open at its ends: mark its mesh userData.cut = { shell: wire }) and keeps the numbers that size
 // it in geometry.userData, so the film's MODEL check reads the same numbers the picture was built from.
 //
-//   import { gear, spring, lathe, rod } from "./parts.js";
+//   import { gear, bevel, bevelPair, spring, lathe, rod } from "./parts.js";
 //   const pinion = new THREE.Mesh(gear(32, 0.004, 0.02, { bore: 0.01 }), mat.steel());   // pitch r 64 mm
 //   const coil = new THREE.Mesh(spring({ r: 0.01, wire: 0.001, turns: 8, len: 0.04 }), mat.steel());
 //   const piston = new THREE.Mesh(lathe([[0, 0], [0.05, 0], [0.05, 0.06], [0, 0.06]]), mat.steel());
@@ -13,15 +13,11 @@ import { THREE } from "./three-vendor.js";
 
 const finite = (v) => typeof v === "number" && Number.isFinite(v);
 
-// gear(teeth, module, width, { helix, bore, seg }): a spur gear on +z, centred on its width. Pitch radius
-// module·teeth/2, tip = pitch + module, root = pitch − 1.25·module (ISO 53 proportions). helix: the twist across the
-// width in radians (a helical gear). bore: the shaft hole's radius.
-export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}) {
-  if (!Number.isInteger(teeth) || teeth < 6) throw new Error(`gear: teeth must be an integer >= 6, got ${teeth}`);
-  if (!(finite(module) && module > 0) || !(finite(width) && width > 0)) throw new Error("gear: module and width are lengths > 0 in metres");
-  if (!finite(helix)) throw new Error(`gear: helix must be a finite angle in radians, got ${helix}`);
+// The tooth outline both gears share: ISO 53 proportions on a module, a bore hole inside the root.
+function outline(who, teeth, module, width, bore) {
+  if (!Number.isInteger(teeth) || teeth < 6) throw new Error(`${who}: teeth must be an integer >= 6, got ${teeth}`);
+  if (!(finite(module) && module > 0) || !(finite(width) && width > 0)) throw new Error(`${who}: module and width are lengths > 0 in metres`);
   const rp = (module * teeth) / 2, ro = rp + module, rr = rp - 1.25 * module;
-  if (!(finite(bore) && bore >= 0 && bore < rr)) throw new Error(`gear: bore must be 0 or under the root radius ${rr} m, got ${bore}`);
   const sh = new THREE.Shape(), da = (2 * Math.PI) / teeth;
   for (let i = 0; i < teeth; i++)
     [[rr, 0], [rr, 0.2], [ro, 0.35], [ro, 0.6], [rr, 0.75]].forEach(([r, f], k) => {
@@ -29,7 +25,20 @@ export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}
       if (i === 0 && k === 0) sh.moveTo(x, y); else sh.lineTo(x, y);
     });
   sh.closePath();
-  if (bore) { const h = new THREE.Path(); h.absarc(0, 0, bore, 0, 2 * Math.PI, true); sh.holes.push(h); }
+  const hole = (max) => {
+    if (!(finite(bore) && bore >= 0 && bore < max)) throw new Error(`${who}: bore must be 0 or under the root radius ${max} m, got ${bore}`);
+    if (bore) { const h = new THREE.Path(); h.absarc(0, 0, bore, 0, 2 * Math.PI, true); sh.holes.push(h); }
+  };
+  return { sh, rp, ro, rr, hole };
+}
+
+// gear(teeth, module, width, { helix, bore, seg }): a spur gear on +z, centred on its width. Pitch radius
+// module·teeth/2, tip = pitch + module, root = pitch − 1.25·module (ISO 53 proportions). helix: the twist across the
+// width in radians (a helical gear). bore: the shaft hole's radius.
+export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}) {
+  const { sh, rp, ro, rr, hole } = outline("gear", teeth, module, width, bore);
+  if (!finite(helix)) throw new Error(`gear: helix must be a finite angle in radians, got ${helix}`);
+  hole(rr);
   const g = new THREE.ExtrudeGeometry(sh, { depth: width, bevelEnabled: false, curveSegments: seg, steps: helix ? 8 : 1 });
   g.translate(0, 0, -width / 2);
   if (helix) {
@@ -42,6 +51,39 @@ export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}
   g.computeVertexNormals();
   g.userData.gear = { teeth, module, width, helix, bore, rp, ro, rr };
   return g;
+}
+
+// bevel(teeth, module, width, { pitchAngle, bore, seg }): a straight bevel gear on +z. The back face lies at z = 0 and
+// carries gear()'s outline (pitch radius rp = module·teeth/2, tip ro, root rr); the teeth run toward the pitch cone's
+// apex on the axis at z = apex = rp / tan(pitchAngle), the pitch angle δ being the pitch cone's half angle. Every
+// radius scales toward that apex by k(z) = 1 − z / apex, so along the axis the pitch radius shrinks by tan(δ) per
+// metre (rp − z·tan δ) and the tip by ro/rp·tan(δ); width is the axial face width and must stop short of the apex.
+// The back face is flat (square to the axis), a study model's stand-in for the back cone; the bore stays straight
+// and must clear the front root radius rr·k(width). Mesh a pair from bevelPair(z1, z2) with the apices on one point.
+export function bevel(teeth, module, width, { pitchAngle, bore = 0, seg = 4 } = {}) {
+  const { sh, rp, ro, rr, hole } = outline("bevel", teeth, module, width, bore);
+  if (!(finite(pitchAngle) && pitchAngle > 0 && pitchAngle < Math.PI / 2)) throw new Error(`bevel: pitchAngle is the pitch cone's half angle in radians, over 0 and under π/2 (from bevelPair), got ${pitchAngle}`);
+  const apex = rp / Math.tan(pitchAngle), kf = 1 - width / apex;
+  if (!(kf > 0)) throw new Error(`bevel: width ${width} m reaches the cone apex ${apex} m from the back face; keep it shorter`);
+  hole(rr * kf);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: width, bevelEnabled: false, curveSegments: seg, steps: 1 });
+  const p = g.attributes.position, cut = (bore + rr * kf) / 2; // the bore's vertices sit inside cut: they stay put
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i);
+    if (Math.hypot(x, y) < cut) continue;
+    const k = 1 - p.getZ(i) / apex;
+    p.setXY(i, x * k, y * k);
+  }
+  g.computeVertexNormals();
+  g.userData.bevel = { teeth, module, width, pitchAngle, bore, rp, ro, rr, apex };
+  return g;
+}
+
+// bevelPair(z1, z2): the pitch angles of two bevel gears meshing at a right angle: tan δ1 = z1 / z2, δ1 + δ2 = 90°.
+export function bevelPair(z1, z2) {
+  if (![z1, z2].every((z) => Number.isInteger(z) && z > 0)) throw new Error(`bevelPair: teeth are whole counts > 0, got ${z1}, ${z2}`);
+  const pitchAngle1 = Math.atan2(z1, z2);
+  return { pitchAngle1, pitchAngle2: Math.PI / 2 - pitchAngle1 };
 }
 
 // spring({ r, wire, turns, len, seg }): a coil spring standing on y = 0 along +y; r is the coil radius to the wire's
