@@ -64,6 +64,13 @@ try {
   assert.equal(r.code, 0, "--min-contrast lowers the floor: " + r.out);
   r = run(put([frame({ hero: { x0: 300, y0: 500, x1: 600, y1: 900 } })]), "--min-hero", "0.2");
   assert.equal(r.code, 0, "--min-hero lowers the share: " + r.out);
+  // object-studio measures the thesis: the hero fills >= 60 % of the frame on its larger axis (express.mjs passes 0.6).
+  r = run(put([frame({ hero: { x0: 100, y0: 500, x1: 586, y1: 1100 } })]), "--min-hero", "0.6");
+  assert.equal(r.code, 1, "a hero at 45 % of the width is under the thesis: " + r.out);
+  r = run(put([frame({ hero: { x0: 100, y0: 500, x1: 800, y1: 1100 } })]), "--min-hero", "0.6");
+  assert.equal(lines(r.out, "PROBLEM").filter((l) => /hero box/.test(l)).length, 0, "a hero at 65 % of the width passes: " + r.out);
+  const ex = fs.readFileSync(fileURLToPath(new URL("../scripts/express.mjs", import.meta.url)), "utf8");
+  assert.match(ex, /layout_lint\.mjs'[^\n]*'--min-hero', '0\.6'/, "express.mjs measures object-studio at the thesis share");
   // --no-safe-area: the label outside the safe area is not flagged; everything else still is.
   r = run(put([frame({ boxes: [{ ...caption }, { ...label, x1: 1000 }] })]), "--no-safe-area");
   assert.equal(r.code, 0, "--no-safe-area skips the safe area: " + r.out);
