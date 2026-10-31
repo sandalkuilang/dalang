@@ -2044,6 +2044,25 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(Math.abs(rd.boundingBox.min.z) < 1e-9 && Math.abs(rd.boundingBox.max.z - 1) < 1e-9, "rod runs end to end");
   assert.throws(() => PT.rod([0, 0, 0], [0, 0, 0], 0.01), /length/);
   assert.throws(() => PT.rod([0, 0], [0, 0, 1], 0.01), /a and b/, "a point is 3 finite numbers");
+  // bevel: gear()'s outline on a cone. Back face at z = 0 with the pitch radius module·teeth/2; every radius shrinks
+  // toward the apex on +z, so the pitch radius loses tan(δ) per metre of z and the tip ro/rp·tan(δ).
+  const { pitchAngle1: d1, pitchAngle2: d2 } = PT.bevelPair(11, 41);
+  assert.ok(Math.abs(d1 + d2 - Math.PI / 2) < 1e-12 && Math.abs(d1 - Math.atan(11 / 41)) < 1e-12, "bevelPair: δ1 = atan(z1/z2), δ1 + δ2 = 90°");
+  const bw = 0.006, bv = PT.bevel(20, 0.002, bw, { pitchAngle: d1, bore: 0.004 }), bu = bv.userData.bevel, bp = bv.attributes.position;
+  assert.ok(Math.abs(bu.rp - 0.02) < 1e-12 && Math.abs(bu.ro - 0.022) < 1e-12 && bu.teeth === 20 && bu.width === bw && bu.pitchAngle === d1, "bevel keeps its numbers: " + JSON.stringify(bu));
+  const tipAt = (z) => { let r = 0; for (let i = 0; i < bp.count; i++) if (Math.abs(bp.getZ(i) - z) < 1e-7) r = Math.max(r, Math.hypot(bp.getX(i), bp.getY(i))); return r; };
+  const shrink = bw * Math.tan(d1) * (bu.ro / bu.rp);
+  assert.ok(Math.abs(tipAt(0) - bu.ro) < 1e-6, "bevel: the back tip radius is ro: " + tipAt(0));
+  assert.ok(Math.abs(tipAt(bw) - (bu.ro - shrink)) < 1e-6, "bevel: the front tip is smaller by ro/rp·w·tan(δ): " + tipAt(bw) + " vs " + (bu.ro - shrink));
+  assert.ok(Math.abs(bu.apex - bu.rp / Math.tan(d1)) < 1e-12, "bevel: the cone apex sits rp/tan(δ) in front of the back face");
+  let boreR = Infinity; for (let i = 0; i < bp.count; i++) boreR = Math.min(boreR, Math.hypot(bp.getX(i), bp.getY(i)));
+  assert.ok(Math.abs(boreR - 0.004) < 1e-6, "bevel: the bore stays a straight hole: " + boreR);
+  assert.throws(() => PT.bevel(20, 0.002, bw), /pitchAngle/, "a bevel needs its pitch angle");
+  assert.throws(() => PT.bevel(20, 0.002, bw, { pitchAngle: Math.PI / 2 }), /pitchAngle/, "a pitch angle of 90° or more is refused");
+  assert.throws(() => PT.bevel(20, 0.002, 0.08, { pitchAngle: d1 }), /width/, "a face width that reaches the apex is refused");
+  assert.throws(() => PT.bevel(20, 0.002, bw, { pitchAngle: d1, bore: 0.0165 }), /bore/, "a bore through the front teeth is refused");
+  assert.throws(() => PT.bevel(5, 0.002, bw, { pitchAngle: d1 }), /teeth/, "a bevel needs >= 6 teeth");
+  assert.throws(() => PT.bevelPair(11.5, 41), /teeth/, "bevelPair takes whole tooth counts");
 }
 { // drive.js: one input u(t) poses every part and gives every readout; the SPEC's hand checks run at load.
   const rp = 0.064; // a rack and pinion: stroke s (m) turns the pinion s / rp radians
