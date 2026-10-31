@@ -1989,7 +1989,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.equal(ov.layer.style["--ov-glass"], "210,214,216", "overlay: the default ground (#E8EDEF) sets the glass tint");
   assert.equal(ED.makeOverlay(root, { prefix: "i", ink: "#223" }).layer.style["--ov-glass"], "210,214,216", "overlay: an ink that is not #rrggbb (any CSS colour) still renders, glass pulled toward the default ink");
   assert.equal(ED.makeOverlay(root, { prefix: "d", ground: "#123A66" }).layer.style["--ov-glass"], "255,255,255", "overlay: a dark ground gets white glass");
-  { // The top glass band shows no horizontal line: no hard stop (a lip, a px or calc stop), no jump and no corner in its
+  { // (the same band on a rendered frame, over four grounds and at fractional opacities: tests/glass-band-render.mjs)
+    // The top glass band shows no horizontal line: no hard stop (a lip, a px or calc stop), no jump and no corner in its
     // fade, read row by row over the band's own height for the mask (the blur follows it) and mask x each tint layer.
     const cssText = doc.head.children.find((c) => c.id === "ov-style").textContent;
     const rule = /\.ov-glass\{([^}]*)\}/.exec(cssText)[1];
