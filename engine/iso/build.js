@@ -7,7 +7,8 @@
 //
 // spec  = { at: [x, y, z], rot: quarter turns, scale, color: base hex, focus, cut, parts: [part, …] }
 // spec  … shadow: false (no contact shadow); an array of specs is one WORLD, ordered together
-// part  = { name, form, at: [x, y, z] (base centre), color, bevel (box: the top edges chamfered, default 8 % of its least side), turn (rad about z), skin: [dx, dy, dz] | true (slides out with
+// part  = { name, form, at: [x, y, z] (base centre), color, finish (iso.js FINISH: brushed, knurl, wood, cast, rubber, concrete, tile …; a board's
+//          top, each board layer its own), bevel (box: the top edges chamfered, default 8 % of its least side), turn (rad about z), skin: [dx, dy, dz] | true (slides out with
 //          cut), group (focus key), array: { count, step: [dx, dy, dz] }, …the form's own fields }
 // forms = box { w, d, h } · cyl { r, h, axis 'z'|'x'|'y' } · cone { r, h } · sphere { r } · roof { w, d, h, ridge }
 //         lathe { profile: [[r, z], …] } · extrude { outline: [[u, v], …], h, plane } · sweep { path, r }
@@ -101,33 +102,33 @@ function one(iso, p, c, k, off, many) {
 // Each form draws at the part's frame and returns [pin height, local box [x0, y0, z0, x1, y1, z1]].
 function draw(iso, p, c, R, col) {
   const num = (f, d) => { const v = R(p[f]); if (v === undefined) { if (d !== undefined) return d; throw new Error(`build: part ${p.name || p.form} needs ${f}`); } if (!Number.isFinite(v)) throw new Error(`build: part ${p.name || p.form}: ${f} is not a number (${JSON.stringify(p[f])})`); return v; };
-  const span = (pts, i) => [Math.min(...pts.map((q) => q[i])), Math.max(...pts.map((q) => q[i]))];
+  const span = (pts, i) => [Math.min(...pts.map((q) => q[i])), Math.max(...pts.map((q) => q[i]))], fin = p.finish;
   switch (p.form) {
-    case "box": { const w = num("w"), d = num("d"), h = num("h"); if (h > 0) iso.box(-w / 2, -d / 2, 0, w, d, h, col, { cull: false, bevel: R(p.bevel) ?? Math.min(w, d, h * 0.5, 0.5) * 0.08 }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
+    case "box": { const w = num("w"), d = num("d"), h = num("h"); if (h > 0) iso.box(-w / 2, -d / 2, 0, w, d, h, col, { cull: false, bevel: R(p.bevel) ?? Math.min(w, d, h * 0.5, 0.5) * 0.08, finish: fin }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
     case "cyl": {
       const r = num("r"), h = num("h"), axis = p.axis || "z"; if (h <= 0) return [0, [0, 0, 0, 0, 0, 0]];
-      if (axis === "z") { iso.cyl(0, 0, 0, r, h, col, { cull: false, n: p.n }); return [h, [-r, -r, 0, r, r, h]]; }
-      iso.cyl(axis === "x" ? -h / 2 : 0, axis === "y" ? -h / 2 : 0, r, r, h, col, { axis, cull: false, n: p.n });
+      if (axis === "z") { iso.cyl(0, 0, 0, r, h, col, { cull: false, n: p.n, finish: fin }); return [h, [-r, -r, 0, r, r, h]]; }
+      iso.cyl(axis === "x" ? -h / 2 : 0, axis === "y" ? -h / 2 : 0, r, r, h, col, { axis, cull: false, n: p.n, finish: fin });
       return [2 * r, axis === "x" ? [-h / 2, -r, 0, h / 2, r, 2 * r] : [-r, -h / 2, 0, r, h / 2, 2 * r]];
     }
-    case "cone": { const r = num("r"), h = num("h"); iso.cone(0, 0, 0, r, h, col, { cull: false }); return [h, [-r, -r, 0, r, r, h]]; }
+    case "cone": { const r = num("r"), h = num("h"); iso.cone(0, 0, 0, r, h, col, { cull: false, finish: fin }); return [h, [-r, -r, 0, r, r, h]]; }
     case "sphere": { const r = num("r"); iso.sphere(0, 0, r, r, col, { cull: false }); return [2 * r, [-r, -r, 0, r, r, 2 * r]]; }
     case "roof": { const w = num("w"), d = num("d"), h = num("h"); iso.roof(-w / 2, -d / 2, 0, w, d, h, col, { ridge: p.ridge || "x", over: R(p.over) || 0 }); return [h, [-w / 2, -d / 2, 0, w / 2, d / 2, h]]; }
     case "lathe": {
       const pr = p.profile.map(([r, z]) => [R(r), R(z)]), r = Math.max(...pr.map((q) => q[0])), [z0, z1] = span(pr, 1);
-      solid(iso, lathe(pr, { n: p.n || 24 }), col, { smooth: true }); return [z1, [-r, -r, z0, r, r, z1]];
+      solid(iso, lathe(pr, { n: p.n || 24 }), col, { smooth: true, finish: fin }); return [z1, [-r, -r, z0, r, r, z1]];
     }
     case "extrude": {
       const h = num("h"), plane = p.plane || "xy", F = extrude(p.outline, { h, plane }), all = F.flat();
-      solid(iso, F, col); const [x0, x1] = span(all, 0), [y0, y1] = span(all, 1), [z0, z1] = span(all, 2); return [z1, [x0, y0, z0, x1, y1, z1]];
+      solid(iso, F, col, { finish: fin }); const [x0, x1] = span(all, 0), [y0, y1] = span(all, 1), [z0, z1] = span(all, 2); return [z1, [x0, y0, z0, x1, y1, z1]];
     }
     case "sweep": {
-      const path = p.path.map((q) => q.map(R)), r = num("r", 0.05); solid(iso, sweep(path, { r, n: p.n || 8, closed: !!p.closed }), col, { smooth: true });
+      const path = p.path.map((q) => q.map(R)), r = num("r", 0.05); solid(iso, sweep(path, { r, n: p.n || 8, closed: !!p.closed }), col, { smooth: true, finish: fin });
       const [x0, x1] = span(path, 0), [y0, y1] = span(path, 1), [z0, z1] = span(path, 2); return [path[path.length >> 1][2], [x0 - r, y0 - r, z0 - r, x1 + r, y1 + r, z1 + r]];
     }
     case "gear": {
       const w = num("width", 0.01), m = num("module"), ra = (m * num("teeth")) / 2 + m;
-      solid(iso, extrude(gearOutline(num("teeth"), m), { h: w }), col); return [w, [-ra, -ra, 0, ra, ra, w]];
+      solid(iso, extrude(gearOutline(num("teeth"), m), { h: w }), col, { finish: fin }); return [w, [-ra, -ra, 0, ra, ra, w]];
     }
     case "wheel": {
       const r = num("r"), w = num("width"), axis = p.axis || "y", hub = p.hub ? R(p.hub) : "#CFCABF";
@@ -138,8 +139,10 @@ function draw(iso, p, c, R, col) {
     }
     case "board": {
       const w = num("w"), d = num("d"); let z = 0;
-      for (const L of p.layers || [{ h: 0.2, color: col }]) { const h = R(L.h); iso.box(-w / 2, -d / 2, z - h, w, d, h, R(L.color) || col, { cull: false }); z -= h; }
-      if (p.top) iso.flat([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]], 0.001, R(p.top));
+      for (const L of p.layers || [{ h: 0.2, color: col }]) { const h = R(L.h); iso.box(-w / 2, -d / 2, z - h, w, d, h, R(L.color) || col, { cull: false, finish: L.finish }); z -= h; }
+      // the top over the first layer's own top face (a ground decal under layer 0 would sit under the board and never show)
+      const W0 = iso.w(0, 0, -R((p.layers || [{ h: 0.2 }])[0].h) / 2);
+      if (p.top) iso.flat([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]], 0.001, R(p.top), { finish: fin, layer: 1, depth: W0[0] + W0[1] + W0[2] + 1e-6 });
       return [0, [-w / 2, -d / 2, z, w / 2, d / 2, 0]];
     }
     case "figure": {

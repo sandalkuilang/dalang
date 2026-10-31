@@ -32,7 +32,15 @@ engine in `assets/`, the host, each group's template and `assets/world.js`: neve
   `handle { w }` `label { w, h }` `hinge { h }` · `pipe { path, r, flanges }` `hose { path, r }` `cable { path }` ·
   `tyre { r, width, axis, spokes, tread, spin }` `spring { r, h, turns }` `fins { w, d, h, count, round }` · `bottle`
   `drum` `pan { fill, level }` `can` `crate` `carton` · `window` `door` `table` `chair` `shelf` `plant` `lamp` ·
-  `wrench` `screwdriver` `funnel` `cone`. Sizes and colours are fields.
+  `wrench` `screwdriver` `funnel` `cone` · electronics at datasheet size on a board top: `pcb { w, d, traces: [[[x, y], …]],
+  pads: [[x, y, "round"|"smd"]], mask }` `resistor { ohms }` (its colour bands) `diode` `elco { r, h, sleeve }` `ceramic`
+  `smd { size: 0402|0603|0805|1206, kind: resistor|capacitor }` `ic { pins, pkg: dip|soic }` `transformer { w, h, d }`.
+  Sizes and colours are fields.
+- **Finishes** (`finish` on any part or kit part, its parts that carry none take it; `iso.js` `FINISH`): the surface's real
+  texture in each face's plane. Every mechanical part carries one: `brushed` (drawn metal), `knurl` (a grip), `cast`
+  (sand-cast iron, aluminium), `rubber`, `plastic`, `wood`, `weave` (cloth, mesh, belts), `copper` (a winding). Ground:
+  a `board`'s `top` takes `finish` (`tile`, `planks`, `concrete`, `asphalt`, `soil`, `grass`) and each layer its own
+  (`layers: [{ h, color, finish: "soil" }]`). Painted, glazed and glossy plastic surfaces stay plain.
 - **Templates** (`form: "kit"`, facing +x, one rigid assembly: place, never rebuild): `car { style: sedan|hatch|van, color,
   spin, lit }` · `room { w, d, h, window, door }` (`shadow: false`) · `appliance { kind: fridge|washer|server }` ·
   `tree { h, kind: round|pine }`. Anything else is assembled from kits and forms, part by part.

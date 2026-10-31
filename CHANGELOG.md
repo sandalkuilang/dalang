@@ -34,6 +34,21 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Added
+- **Electronics that read as the real parts** (`engine/iso/kit.js`): `pcb` (copper traces, round and SMD pads), `resistor`
+  (its colour bands from `ohms`), `diode`, `elco`, `ceramic`, `smd` (0402–1206), `ic` (DIP, SOIC) and `transformer` (EI core,
+  copper winding), each at its datasheet size and standing proven on the board.
+- **Surface finishes** (`engine/iso/iso.js` `FINISH`, `finish` on any part): brushed, knurl, cast, rubber, plastic, wood,
+  weave and copper on made things; tile, planks, concrete, asphalt, soil and grass on the ground. Each is laid in the face's
+  own plane at a real spacing, doubled until its marks stand 3 px apart, and fixed frame to frame. A kit part's finish
+  goes to its parts; tyres, wooden table tops and shelves and screwdriver shafts carry theirs by default.
+- **Rules** (`references/looks.md`, `references/express.md`, `references/express-planner.md`): electronics from their kits,
+  never a coloured block; every mechanical part names its finish; an `isometric-world` slab is the subject's real
+  surroundings with its ground finish.
+
+### Fixed
+- **A `board`'s `top` colour shows** (`engine/iso/build.js`): it was drawn under the board's first layer and never seen.
+
 ## [4.5.8] - 2026-10-31
 
 ### Removed

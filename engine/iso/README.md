@@ -13,7 +13,8 @@ Canvas 2D, no dependency. Builders read `templates/iso-API.md`, not this file. E
 - `build.js`: `build(iso, spec | WORLD, { values, cut, focus, models, plates })` → `{ at }` (pin points): objects as
   data (forms, kits, templates, `figure`, `model`, `plate`), `array`, `skin`, `focus`, gears by tooth ratio, numbers
   named as `values` keys; paint order from part boxes, contact shadow unless `shadow: false`. (`iso-build.mjs`)
-- `kit.js`: `KIT`, `expandKit`: components (fasteners, faces, pipes, tyres, containers, furniture, tools) as plain parts.
+- `kit.js`: `KIT`, `expandKit`: components (fasteners, faces, pipes, tyres, containers, furniture, tools, electronics at datasheet size) as plain parts.
+- `iso.js` `FINISH`: surface finishes (`finish` on a part: brushed, knurl, cast, rubber, wood, … and ground tile, planks, concrete, grass), drawn in each face's plane.
 - `templates.js`: `TEMPLATES` (`car`, `room`, `appliance`, `tree`), used as `form: "kit"`.
 - `figure.js`: `figureSolids`: a jointed person, presets or joint angles, two-bone IK reach, feet on the ground.
 - `plate.js`: `loadPlates(WORLD)`, `drawPlate`, `plateMarks`: the user's photo traced by `scripts/trace.mjs`, stood upright at real size.
