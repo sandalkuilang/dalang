@@ -9,7 +9,7 @@
 // Energy: --energy calm|balanced|punchy|hype, else the Energy line of BRIEF.md, else balanced (INFO).
 // A short film (a Time column spanning under 10 s, the hook plus one held shot: 2 rows): its average-shot check is
 // skipped (INFO) and the hook row is not counted in the text-only share.
-// object-studio (BRIEF look): a row after the hook under 2 s, and SPEC.md's ## MODEL section with Input: and Check: lines.
+// object-studio (BRIEF look): a row after the hook under 2 s, and SPEC.md's ## MODEL section with Input: and Check: lines, and every instrument (gauge, meter, chart, scope, readout) in the Overlay cell states a reading that moves: its first value after its name (a time span skipped) is `from → to` with different ends.
 // Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy|hype]   (default: .)
 // Exit 1 on a problem, 2 when the storyboard cannot be read or a check cannot run (rerun / fix), 0 when clean.
 import { readFileSync } from 'node:fs';
@@ -57,7 +57,7 @@ const hi = L.findIndex(l => l.trim().startsWith('|') && /subject action/i.test(l
 if (hi < 0) { warns.push("no shot table (a header with 'Subject action')"); done(); }
 const head = cells(L[hi]);
 const col = re => head.findIndex(h => re.test(h));
-const C = { size: col(/size/i), see: col(/what we see|focal/i), cam: col(/^camera/i), act: col(/subject action/i), time: col(/^time/i), out: col(/^transition/i) };
+const C = { size: col(/size/i), see: col(/what we see|focal/i), cam: col(/^camera/i), act: col(/subject action/i), time: col(/^time/i), out: col(/^transition/i), ovl: col(/^overlay/i) };
 for (let i = hi + 2; i < L.length && L[i].trim().startsWith('|'); i++) {
   const c = cells(L[i]);
   rows.push({ line: i + 1, n: /^\d+$/.test(c[0] ?? '') ? c[0] : String(rows.length + 1), c });
@@ -143,6 +143,51 @@ if (look === 'object-studio') {
     const sec = spec.split(/^## /m).find(s => /^MODEL\b/.test(s));
     if (!sec) problems.push('SPEC.md has no ## MODEL section: name the one input and one hand check (express-planner.md)');
     else for (const k of ['Input:', 'Check:']) if (!sec.includes(k)) problems.push(`SPEC.md ## MODEL has no ${k} line (express-planner.md)`);
+  }
+  // (h) a live instrument moves in its shot (looks.md rule 6): each instrument the Overlay cell names states its reading as from → to
+  if (need('ovl', 'Overlay', 'instrument check')) {
+    // a compound name (speedometer, voltmeter) counts; "diameter" does not; a name counts only as an instrument's head ("gauge:", "gauge 0 → 9"), never in "12-gauge wire" or "3 meters of cable"
+    const NAMES = '(?:gauge|(?:speedo|tacho|thermo|volt|amm?e|mano|baro|alti|odo|flow|anemo|hygro|ohm|watt)?meter|dial|chart|scope|oscilloscope|readout|instrument)s?';
+    const STATIC = /\b(constant|steady|fixed|static|unchanging|stays?|holds?|remains?)\b/i;
+    // a number: 1,200 and 1.200,5 are one number; a lone separator before exactly 3 digits groups thousands, else it is
+    // the decimal mark (0,5 = 0.5, as many languages write it)
+    const NUM = '-?\\d+(?:[.,]\\d+)*', UNIT = '(?!to\\b)[a-zA-Zµ%°/]{1,7}'; // "to" is the range's word
+    const VALUE = new RegExp(`(?<![\\w.,])(${NUM})(?:\\s*(${UNIT}))?(?:\\s*(?:→|->|\\.\\.\\.?|…|–|—|-|\\bto\\b)\\s*(${NUM})(?:\\s*(${UNIT}))?)?`, 'g');
+    const num = x => {
+      const s = x.replace(/^-/, ''), sign = x.startsWith('-') ? -1 : 1, seps = s.match(/[.,]/g) ?? [];
+      if (!seps.length) return sign * Number(s);
+      const dec = new Set(seps).size > 1 ? seps.at(-1) : seps.length === 1 && !/^[1-9]\d{0,2}[.,]\d{3}$/.test(s) ? seps[0] : null;
+      return sign * Number((dec ? s.slice(0, s.lastIndexOf(dec)).replace(/[.,]/g, '') + '.' + s.slice(s.lastIndexOf(dec) + 1) : s.replace(/[.,]/g, '')));
+    };
+    const TIME = /^(?:s|secs?|seconds?|ms|min|mins|minutes?|frames?)$/i; // the shot's clock, never a reading
+    // The one place an instrument meets its reading. A cell part holds instruments, each a name (adjacent names, "dial
+    // gauge", are one) followed by its own text up to the next name; its reading is the FIRST value in that text, a
+    // time span and a "1:" label skipped. Nothing else in the clause (a shot time, another part's range) counts.
+    const instruments = part => {
+      const ns = [...part.matchAll(new RegExp('\\b' + NAMES + '\\b(?=\\s*[:=(,]|\\s+(?:[-+~]?\\d|(?:reads?|constant|steady|fixed|static|unchanging|stays?|holds?|remains?|shows?)\\b))', 'gi'))], out = [];
+      for (let i = 0; i < ns.length; i++) {
+        const first = ns[i];
+        while (i + 1 < ns.length && /^[\s/-]*$/.test(part.slice(ns[i].index + ns[i][0].length, ns[i + 1].index))) i++;
+        const end = ns[i].index + ns[i][0].length, text = part.slice(end, ns[i + 1]?.index ?? part.length);
+        let reading = null;
+        for (const m of text.matchAll(VALUE)) {
+          if (TIME.test(m[2] ?? '') || TIME.test(m[4] ?? '')) continue;
+          if (m[3] === undefined && !m[2] && /^\s*:/.test(text.slice(m.index + m[0].length))) continue;
+          reading = m[3] === undefined ? { at: num(m[1]) } : { from: num(m[1]), to: num(m[3]) };
+          break;
+        }
+        out.push({ label: part.slice(first.index, end + text.length).trim().slice(0, 40), text, reading });
+      }
+      return out;
+    };
+    for (const r of rows) for (const part of (r.c[C.ovl] ?? '').replace(/`/g, '').replace(/\u2212/g, '-').split(/[;·]|<br\s*\/?>|\s\+\s/)) for (const ins of instruments(part)) {
+      const { reading: v } = ins, name = `instrument "${ins.label}"`;
+      if (v && 'from' in v && v.from !== v.to) continue; // its own reading moves ("0 → 1800, then holds at 1800" is a ramp)
+      if ((v && 'from' in v) || STATIC.test(ins.text))
+        problems.push(`${at(r)}: ${name} holds one value in its shot: the model's input ramps while it is on screen, so the reading moves (looks.md object-studio rule 6)`);
+      else
+        problems.push(`${at(r)}: ${name} states no reading that moves: write its range over the shot as "from → to units" right after its name (e.g. "gauge: 0 → 1800 rpm"), or drop it for a card (looks.md object-studio rule 6)`);
+    }
   }
 }
 done();

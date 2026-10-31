@@ -4,7 +4,8 @@
 // action or Camera cell; 3+ consecutive rows with the same size and angle; the share of rows whose focal point is
 // text only, over the energy's limit; an average shot over the energy's limit (limits: visual-direction.md §3); a hard cut
 // that keeps the view (the angle cell) or turns it under 60°; a camera cell that closes in with no orbit. A film under
-// 10 s (the Time column's span) with two rows is the hook plus one held shot: the average-shot check is skipped, the hook is not text.
+// 10 s (the Time column's span) with two rows is the hook plus one held shot: the average-shot check is skipped, the hook is not text;
+// an object-studio Overlay instrument (gauge, meter, chart, scope, readout) whose reading does not move (no from → to, or equal ends).
 // Other tables are ignored. A storyboard it cannot read or parse is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -34,7 +35,7 @@ const build = (rows, { nocam = false, step = 2.5 } = {}) => {
     const k = i + 1;
     const d = { time: `${i * step}–${(i + 1) * step}`, size: SIZES[i % SIZES.length], see: "a valve opening in the pipe; water in the mid", cam: "slow orbit right, the valve fills the frame", act: "water flows out of the valve (3D, physics)", ...r };
     at[k] = lines.length + 1;
-    const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, d.out ?? "dissolve", "-", "-"];
+    const cells = [k, d.time, "b", "j", d.size, d.see, ...(nocam ? [] : [d.cam]), d.act, d.out ?? "dissolve", "-", d.ovl ?? "-"];
     lines.push(`| ${cells.join(" | ")} |`);
   });
   return { text: lines.join("\n") + "\n", at };
@@ -178,5 +179,56 @@ const check = (rows, args = [], opts, brief) => {
   put(p, "SPEC.md", "## MODEL\nInput: stroke 0..1 over the beat\nCheck: 32 teeth x module 4 mm = 128 mm pitch\n");
   r = run(p, "--energy", "calm"); assert.equal(r.code, 0, "an object-studio 3 s film (hook 0–1, shot 1–3): " + r.out);
 }
-fs.rmSync(tmp, { recursive: true, force: true });
+// 12. object-studio, a live instrument moves in its shot (looks.md rule 6): every instrument the Overlay cell names states
+// its reading as `from → to` with different ends; a constant, a static word or no range is flagged.
+{
+  const OS = "- look: object-studio\n";
+  const SPEC = "## MODEL\nInput: stroke 0..1 over the beat\nCheck: 32 teeth x module 4 mm = 128 mm pitch\n";
+  const ovl = (o, brief = OS) => { const b = build(clean(3, { 2: { ovl: o } }), { step: 3 }), p = mk(); put(p, "storyboard.md", b.text); put(p, "BRIEF.md", brief); put(p, "SPEC.md", SPEC); return { ...run(p, "--energy", "calm"), at: b.at }; };
+  for (const o of ["headline: how it turns · gauge: speed 0 → 1800 rpm", "chart: temperature 20..95 °C", "meter 0.2 to 0.9 bar", "scope -400 → 400 V", "gauge: stroke 0–1", "kicker + headline: how a valve opens", "headline: 3 → 3 steps · gauge 0 → 9 bar"]) {
+    const r = ovl(o); assert.equal(r.code, 0, `${o}: ${r.out}`);
+  }
+  let r = ovl("gauge: 5 → 5 rpm"); assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), [r.at[2]], r.out); assert.match(msg(r.out, r.at[2]), /holds one value/);
+  r = ovl("gauge: speed, steady at 1200 rpm"); assert.equal(r.code, 1, r.out); assert.match(msg(r.out, r.at[2]), /holds one value/);
+  r = ovl("meter reads 1200 rpm"); assert.equal(r.code, 1, r.out); assert.match(msg(r.out, r.at[2]), /states no reading that moves/);
+  // constants that used to slip through: thousands separator, compound names, dial, a second instrument after a comma
+  for (const o of ["gauge: 1,200 → 1,200 rpm", "speedometer: 60 → 60 km/h", "tachometer reads 1200 rpm", "pressure dial: 4 → 4 bar", "thermometer: 20 → 20 °C", "voltmeter 5 to 5 V", "gauge: 0 → 1800 rpm, chart: 5 → 5 °C"]) {
+    const r = ovl(o); assert.equal(r.code, 1, `${o}: ${r.out}`); assert.deepEqual(found(r.out), [r.at[2]], r.out);
+  }
+  // movers that used to be refused: a ramp then a hold, an ASCII hyphen, a thousands separator, two moving instruments, "diameter" is no instrument
+  for (const o of ["gauge: 0 → 1800 rpm, then holds at 1800", "gauge 0-1", "gauge: 0 → 1,800 rpm", "speedometer: 0 → 60 km/h, chart: 5 → 9 °C", "tachometer 0 - 1200 rpm", "headline: diameter 5 → 5 mm"]) {
+    const r = ovl(o); assert.equal(r.code, 0, `${o}: ${r.out}`);
+  }
+  // the class, by construction: an instrument's reading is the first value after its name (a time span skipped), so
+  // no other range in its clause (a shot time, a second part) can make a constant one pass, a decimal comma is one
+  // number, and a name of two words (dial gauge) is one instrument; one row per case, every row judged on its own
+  const many = (list) => { const b = build(clean(list.length, Object.fromEntries(list.map((o, i) => [i + 1, { ovl: o }]))), { step: 3 }), p = mk(); put(p, "storyboard.md", b.text); put(p, "BRIEF.md", OS); put(p, "SPEC.md", SPEC); return { ...run(p, "--energy", "calm"), lines: list.map((_, i) => b.at[i + 1]) }; };
+  const NAMES = ["gauge", "dial gauge", "pressure gauge readout", "gauge dial", "chart readout", "speedometer"];
+  const HOLD = ["5 → 5 rpm", "1,200 → 1,200 rpm", "0,5 → 0,5 bar", "steady at 1200 rpm", "holds 1200 rpm"];
+  const MOVE = ["0 → 1800 rpm", "0,5 → 2,5 bar", "1,200 → 1,800 rpm", "0-1", "2 → 0,5 bar"];
+  const ALSO = ["", " over 0–4 s", ", 2-6 s", " · headline: 0 → 9 steps"];
+  const held = NAMES.flatMap((n) => HOLD.flatMap((h) => ALSO.map((a) => `${n}: ${h}${a}`)));
+  r = many(held); assert.equal(r.code, 1, r.out); assert.deepEqual(found(r.out), r.lines, "every constant instrument flagged once: " + r.out);
+  const moving = NAMES.flatMap((n) => MOVE.flatMap((m) => [...ALSO, ", then holds at 1800"].map((a) => `${n}: ${m}${a}`)));
+  r = many(moving); assert.equal(r.code, 0, "every moving instrument passes: " + r.out);
+  // the findings: a shot-time range does not rescue a steady gauge, a decimal comma is one number, a two-word name is one instrument
+  for (const o of ["gauge: steady at 1200 rpm over 0–4 s", "gauge holds 1200 rpm, 2-6 s", "gauge: 0,5 → 0,5 bar", "gauge, 0–4 s: steady at 1200 rpm", "gauge: steady at 1200 rpm while the valve opens 0 → 90°"]) {
+    const r = ovl(o); assert.equal(r.code, 1, `${o}: ${r.out}`); assert.deepEqual(found(r.out), [r.at[2]], r.out);
+  }
+  for (const o of ["dial gauge: 0 → 1 mm", "pressure gauge readout: 0 → 4 bar", "gauge dial: 0 → 9 bar", "chart readout: 20 → 95 °C", "gauge over 0–4 s: 0 → 1800 rpm", "gauge: 0,5 → 2,5 bar", "chart 1: 20 → 95 °C"]) {
+    const r = ovl(o); assert.equal(r.code, 0, `${o}: ${r.out}`);
+  }
+  // a digit inside a quantity's own name is no reading: it is skipped, the value after it is the reading
+  for (const o of ["label: pressure gauge", "label: 12-gauge wire", "headline: a 2 meter shaft", "label: 3 meters of cable", "headline: the scope of the repair", "label: instrument cluster", "gauge: \u22125 \u2192 5 V"]) {
+  const r = ovl(o); assert.equal(r.code, 0, `${o}: ${r.out}`);
+}
+for (const o of ["gauge: CO2 280 → 420 ppm", "meter: M8 bolt torque 0 → 25 N·m", "chart: PM2.5 12 → 40 µg/m3", "gauge: H2O level 0 → 9 cm"]) {
+    const r = ovl(o); assert.equal(r.code, 0, `${o}: ${r.out}`);
+  }
+  for (const o of ["gauge: CO2 420 → 420 ppm", "meter: M8 bolt torque 25 → 25 N·m"]) {
+    const r = ovl(o); assert.equal(r.code, 1, `${o}: ${r.out}`); assert.deepEqual(found(r.out), [r.at[2]], r.out);
+  }
+  r = ovl("gauge: 5 → 5 rpm", "- look: isometric-world\n"); assert.equal(r.code, 0, "other looks are untouched: " + r.out);
+}
+fs.rmSync(tmp,{ recursive: true, force: true });
 console.log("storyboard-lint: ok");

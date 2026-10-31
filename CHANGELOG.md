@@ -112,6 +112,10 @@ Published versions are never re-tagged.
   fit the teeth, each in its own unit (`bevelTol`: metres and degrees, never the ratio's `tol`). `offset` (m) checks a
   hypoid instead: the axes pass that far apart and each pitch cone apex sits on their common normal, so a gear slid
   along its axis is named (drawn as bevel cones, a documented approximation). `machine_audit.mjs` runs it as is.
+- `storyboard_lint.mjs` (object-studio) flags an Overlay instrument (gauge, meter, chart, scope, readout) whose value
+  is constant across its shot: it must state its reading as `from → to` with different ends (looks.md rule 6). The
+  reading is the first value after the instrument's name (a two-word name such as "dial gauge" is one instrument; a time
+  span in s, ms, min or frames is skipped), so no other range in the cell can pass a constant one; `0,5` is one number; a digit inside a quantity's name (`CO2`, `M8`, `PM2.5`) is no reading; a name counts only as an instrument head (`gauge:`, `gauge 0 → 9`), never in `12-gauge wire` or `3 meters of cable`; a typographic minus reads as `-`.
 
 ### Fixed
 - Measured frames: the hero's contrast is the lower of its silhouette's and its outline's ΔE*, so a ghosted (x-ray) hero
