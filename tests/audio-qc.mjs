@@ -535,6 +535,24 @@ try {
       console.log("ok  CLI: bed 30 dB under -> exit 3 'bed inaudible'; 15 dB under, clean voice -> exit 0 OK");
     }
 
+    // 10b. voice: none (audio/beats.json says silent): a silent narration under a bed is not "bed masks words"; the same
+    // silent track in a voiced film (no silent marker) is still caught.
+    {
+      const silentP = (name, marker) => {
+        const dir = project(name, { narr: silence(4.2, RATE), bedDb: 15 });
+        if (marker) fs.writeFileSync(path.join(dir, "audio", "beats.json"), JSON.stringify({ duration: 4.2, silent: true, beats: [] }));
+        return dir;
+      };
+      let r = run(silentP("silent-bed", true));
+      assert.equal(r.status, 0, "voice none with a bed: " + r.stdout + r.stderr);
+      assert.doesNotMatch(r.stdout, /bed masks words|NOT CHECKED/);
+      assert.match(r.stdout, /voice: none/);
+      r = run(silentP("silent-nomarker", false));
+      assert.equal(r.status, 3, "a voiced film with a dead narration track still fails: " + r.stdout + r.stderr);
+      assert.match(r.stdout, /bed masks words/);
+      console.log("ok  CLI: voice none + bed -> exit 0; silent narration without the marker -> exit 3");
+    }
+
     // 11. A single-sample spike at 1.234 s and a 20 ms hole inside a word are reported at their times.
     {
       const spike = voice(steady, (x) => { x[Math.round(1.234 * RATE)] = 0.95; return x; });
