@@ -111,6 +111,18 @@ try {
     assert.doesNotMatch(brief, /examples|kit and template lists/, `${g}: object-studio names no examples and no iso kit lists`);
     assert.match(brief, /object-studio-API\.md/, `${g}: object-studio reads its own card`);
   }
+  // object-studio's one machine: a stub the first group replaces before any shot, the others wait for it, every check audits it
+  assert.match(read(os3, "assets/machine.js"), /^export const STUB/, "the machine starts as a stub the other groups can wait on");
+  assert.ok(!fs.existsSync(path.join(os3, "assets/world.js")), "object-studio has no iso world");
+  assert.match(read(os3, "review/builder-a.md"), /Machine first/, "the first group builds the machine");
+  assert.match(read(os3, "review/builder-a.md"), /Edit only `src\/compositions\/a\.tpl\.html` and `assets\/machine\.js`/, "the machine is the first group's file");
+  assert.doesNotMatch(read(os3, "review/builder-b.md"), /Machine first|and `assets\/machine\.js`/, "the others never edit it");
+  assert.match(read(os3, "review/builder-b.md"), /never a part's motion/, "the others pose parts only through the machine");
+  const sA = read(os3, "review/check-a.sh"), sB = read(os3, "review/check-b.sh");
+  assert.match(sB, /grep -q '\^export const STUB' assets\/machine\.js/, "another group waits for the machine before its checks");
+  assert.doesNotMatch(sA, /STUB/, "the machine's owner does not wait for itself");
+  for (const s of [sA, sB]) { assert.match(s, /machine_audit\.mjs/, "every check round audits the machine"); assert.doesNotMatch(s, /world\.js|film_gate/, "no iso checks in object-studio"); }
+  for (const g of ["a", "b"]) assert.equal(spawnSync("sh", ["-n", path.join(os3, "review", `check-${g}.sh`)]).status, 0, `${g}: the check script parses`);
   console.log("scaffold: ok");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
