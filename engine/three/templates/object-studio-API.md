@@ -50,7 +50,7 @@ metres; the frame is 1080 × 1920.
 - `ov.tags([{ title, value, sub, x }], { from, to, len })` hanging A-vs-B tags
 - `ov.pill({ text, at: () => anchorObject3D, offset: [dx, dy], from, to })` a label with a leader line
 - `ov.big({ text, at, offset, from, to })` a number by a part
-- Host captions: `captions(el, window.CAPTIONS, { prefix: "cap" })` → `{ update(tAbs) }`.
+- Host captions: `captions(el, window.CAPTIONS, { prefix: "cap" })` → `{ update(tAbs) }`; an empty or missing list draws nothing.
 
 ## The frame (9:16)
 Subject and its action between y 345 and 1150; headline from y ~110; cards beside the subject; captions below 1180.

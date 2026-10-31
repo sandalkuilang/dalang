@@ -293,10 +293,12 @@ const capCss = `
 .cap-w.on{background:var(--ov-acc);color:var(--ov-ink)}
 `;
 // captions(root, CAPS, { prefix, accent, ink, bottom, W, H }): CAPS is audio/captions.js's window.CAPTIONS
-// ([{ start, end, words: [{ text, start }] }]); bottom: px from the frame's bottom edge to the pill's bottom.
+// ([{ start, end, words: [{ text, start }] }]); bottom: px from the frame's bottom edge to the pill's bottom. An empty
+// or missing list (a film with no captions) builds nothing and update() draws nothing.
 export function captions(root, CAPS, { prefix = "cap", accent = "#FFD400", ink = "#0B0B0B", bottom = 570, W: fw = W, H: fh = H } = {}) {
   if (!root) throw new Error("captions(root, CAPS): pass the composition root element");
-  if (!Array.isArray(CAPS) || !CAPS.length) throw new Error("captions(): pass window.CAPTIONS (audio/captions.js)");
+  if (CAPS == null || (Array.isArray(CAPS) && !CAPS.length)) return { box: null, update() {} }; // a film with no captions
+  if (!Array.isArray(CAPS)) throw new Error("captions(): pass window.CAPTIONS (audio/captions.js), an array");
   const doc = docOf(root);
   style(doc, "cap-style", capCss);
   const box = el(doc, "div", "cap-box", root); box.id = prefix + "-box";
