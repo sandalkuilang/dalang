@@ -25,7 +25,7 @@ const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
 const PT = await use("parts.js");
-const { drive } = await use("drive.js");
+const { drive, audit } = await use("drive.js");
 const ED = await use("editorial.js");
 const { heroContrast, maskShare, edgeShare } = await use("measure.js");
 
@@ -2055,5 +2055,18 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.throws(() => drive({ input: () => NaN, state: (s) => ({ s }) }).at(1), /not a finite number/, "an input that is not a number is never posed");
   let n = 0; assert.throws(() => drive({ input: (t) => t, state: (s) => ({ s, n: n++ }), checks: [{ name: "x", u: 0, got: (st) => st.s, want: 0 }] }), /pure/, "a state that carries memory between calls is refused");
   assert.throws(() => drive({ input: 1, state: () => ({}) }), /functions/);
+}
+{ // audit(model, spec): the machine proved to run over its whole input, not just looked at
+  const r = 0.04, L = 0.12; // a slider-crank: crank pin on a circle, piston pin on the axis, rod L between them
+  const sc = (th) => { const a = (th * Math.PI) / 180, px = r * Math.sin(a), py = r * Math.cos(a); return { pin: [px, py, 0], piston: [0, py + Math.sqrt(L * L - px * px), 0], g1: th, g2: -th / 2 }; };
+  const m = drive({ input: (t) => t * 360, state: sc });
+  const ok = audit(m, { u: [0, 360], samples: 73, rigid: [{ name: "rod", a: (s) => s.pin, b: (s) => s.piston, len: L }], mesh: [{ name: "pinion-wheel", a: { angle: (s) => s.g1, z: 12 }, b: { angle: (s) => s.g2, z: 24 } }], gaps: [{ name: "piston on axis", gap: (s) => Math.abs(s.piston[0]), max: 1e-9 }] });
+  assert.deepEqual(ok.problems, [], "a true slider-crank and a 1:2 gear pair pass: " + ok.problems);
+  assert.equal(ok.checked, 3 * 73, "every joint at every sample");
+  const bad = drive({ input: (t) => t, state: (th) => ({ ...sc(th), piston: [0, sc(th).piston[1] * 1.01, 0], g2: -th / 3 }) });
+  const b = audit(bad, { u: [0, 360], rigid: [{ name: "rod", a: (s) => s.pin, b: (s) => s.piston, len: L }], mesh: [{ name: "pinion-wheel", a: { angle: (s) => s.g1, z: 12 }, b: { angle: (s) => s.g2, z: 24 } }] });
+  assert.ok(b.problems.some((p) => /rod/.test(p) && /length/.test(p)), "a rod that stretches is named: " + b.problems);
+  assert.ok(b.problems.some((p) => /pinion-wheel/.test(p) && /ratio/.test(p)), "gears that slip are named: " + b.problems);
+  assert.throws(() => audit(m, { u: [0, 360] }), /nothing to audit/, "a machine with no audited joint proves nothing");
 }
 console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top glass only), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
