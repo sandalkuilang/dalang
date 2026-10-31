@@ -2117,8 +2117,8 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.deepEqual(run(), [], "a true 90° bevel pair passes: " + run());
   assert.ok(run({ b: { at: [0, B.apex + 0.001, 0] } }).some((p) => /pinion-crown: apex/.test(p)), "pitch cones whose apices miss are named");
   assert.ok(run({ b: { at: [0, B.apex + 0.001, 0] } }, { tol: 1 }).some((p) => /pinion-crown: apex/.test(p)), "the ratio's loose tol (degrees·teeth) never loosens the apex check (metres)");
-  assert.ok(run({ b: { axis: [0, -1, 0.1] } }).some((p) => /shaft angle/.test(p)), "axes off the shaft angle are named");
-  assert.ok(run({ b: { axis: [0, -1, 0.001] } }, { tol: 1 }).some((p) => /shaft angle/.test(p)), "the ratio's loose tol never loosens the shaft angle check (degrees)");
+  assert.ok(run({ b: { axis: [-0.1, -1, 0] } }).some((p) => /shaft angle/.test(p)), "axes off the shaft angle are named");
+  assert.ok(run({ b: { axis: [-0.001, -1, 0] } }, { tol: 1 }).some((p) => /shaft angle/.test(p)), "the ratio's loose tol never loosens the shaft angle check (degrees)");
   assert.ok(run({ b: { angle: (s) => -s.a / 3 } }).some((p) => /ratio/.test(p)), "a bevel pair that slips is named");
   assert.ok(run({ b: { z: 25 } }).some((p) => /cone has 24 teeth/.test(p)), "a cone with other teeth than the mesh is named");
   const steep = PT.bevel(24, 0.002, 0.006, { pitchAngle: Math.PI / 3 }).userData.bevel;
