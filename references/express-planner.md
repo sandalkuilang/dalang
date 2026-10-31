@@ -115,7 +115,7 @@ cut, the last image the payoff frame rhyming with the first. On top of that:
   pipes and boxes with no focal point.
 - **Focus greys the context, never the whole frame:** the subject stays in full colour in every row.
 - Every row's Subject action is drawn by the iso engine (`build()` specs, `values` the timeline drives, a figure's
-  pose), and the Overlay column names text and size from SPEC OVERLAYS.
+  pose), and the Overlay column names text and size from SPEC OVERLAYS. object-studio: an instrument in the Overlay cell writes its range over the shot right after its name (`gauge: 0 → 1800 rpm`; a shot time such as `0–4 s` is not its reading); the lint fails a constant one.
 
 Then `node <skill-dir>/scripts/storyboard_lint.mjs .` until it is clean.
 
