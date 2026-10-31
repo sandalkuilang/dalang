@@ -186,8 +186,12 @@ try {
   assert.match(ap.out, /Storyboard lint: /);
   assert.match(ap.out, /WARN Silhouette: not checked/, "fidelity exact with no measured views warns, never blocks");
   assert.equal(JSON.parse(fs.readFileSync(path.join(bl, "state.json"), "utf8")).approvals[3].silhouette, "not checked");
+  // the Step 6 rows warned before the approval are not a build from the approved storyboard: next still says Step 6
+  put(bl, "index.html", "<html></html>\n");
+  assert.match(run("next", bl).out.split("\n")[0], /^Step 6 /, "warned Step 6 rows are not 'build logged'");
   ok(bl, "log", "6 Build | index.html | -");
   assert.doesNotMatch(rows().at(-1), /WARN/, "an approved gate 3 logs without a WARN");
+  assert.match(run("next", bl).out.split("\n")[0], /^Step 7 /, "an unwarned Step 6 row after the approval is 'build logged'");
   put(bl, "storyboard.md", "edited after the approval\n"); // gate 3 STALE
   warned("Step 6 | index.html | -", /gate 3 is STALE/, "gate 3 stale");
   const sbhead = "| # | Time | Beat | Job | Size · angle · lens | What we see | Camera | Subject action | Transition | SFX | Overlay |\n|---|---|---|---|---|---|---|---|---|---|---|\n";
