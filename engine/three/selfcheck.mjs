@@ -1979,6 +1979,14 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.equal(ov.layer.style["--ov-glass"], "210,214,216", "overlay: the default ground (#E8EDEF) sets the glass tint");
   assert.equal(ED.makeOverlay(root, { prefix: "i", ink: "#223" }).layer.style["--ov-glass"], "210,214,216", "overlay: an ink that is not #rrggbb (any CSS colour) still renders, glass pulled toward the default ink");
   assert.equal(ED.makeOverlay(root, { prefix: "d", ground: "#123A66" }).layer.style["--ov-glass"], "255,255,255", "overlay: a dark ground gets white glass");
+  // A film with no captions: the host still calls captions(); an empty or missing list builds nothing and draws nothing.
+  for (const none of [[], undefined]) {
+    const host = fake(); host.ownerDocument = doc;
+    const cp = ED.captions(host, none, { prefix: "cap" });
+    cp.update(0); cp.update(3.2);
+    assert.equal(host.children.length, 0, "captions(): " + JSON.stringify(none) + " is a no-op, nothing drawn");
+  }
+  assert.throws(() => ED.captions(null, []), /root/, "captions(): the root is still required");
 }
 // heroContrast: ΔE* between the hero's pixels (the mask) and the ring of ground around it; null with no hero or no ground.
 {
