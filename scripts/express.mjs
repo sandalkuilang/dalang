@@ -10,7 +10,9 @@
 //          the planner's last call: storyboard_lint clean, then scaffold.mjs with the arguments of SPEC.md's one
 //          `SCAFFOLD:` line (--look … --groups … --music …); prints the builders' prompt line
 //        node express.mjs assemble [dir]
-//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
+//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), hyperframes check
+//          (a page error from the host or a group, printed under the part that threw: check names none itself, so a failed
+//          check is run again on the host alone and on the host with one group, in a temp folder of links), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
 //          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under 60 %
 //          of the frame or cut by an edge, text over the hero, the hero against its ground; a capture with no layout records is
@@ -26,7 +28,8 @@
 //          gate 4, the metrics table
 // Exit 0 all passed, 1 a check failed (named), 2 usage.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,6 +64,51 @@ const step = (name, bin, argv, { keep = 6, quiet = false, filter } = {}) => {
   return { ok, out };
 };
 const node = (script, ...a) => [process.execPath, [path.join(HERE, script), ...a]];
+// A failed `hyperframes check` names no file for a page error: its message is the error's own text, and the location
+// line under it is always index.html. So which part threw is found here, for the fix round to go to that builder only.
+// 1) a classic script in a group reports `composition script error: <group> …`: that id is the group.
+// 2) any other page error (a module script, the host's own) is found by running check on the film again with fewer
+//    parts loaded, in a temp folder of links to the project (the project itself is never touched): the host alone
+//    first, then the host with one group at a time; a part whose run has more runtime errors than the host alone threw.
+// A probe that could not be read is a WARN to rerun, never "no part found".
+const runtimeErrors = (cwd) => {
+  const r = spawnSync('npx', ['hyperframes', 'check', '--json'], { cwd, encoding: 'utf8', maxBuffer: 64 << 20 });
+  try { return JSON.parse(r.stdout.slice(r.stdout.indexOf('{'), r.stdout.lastIndexOf('}') + 1)).runtime.findings.filter(f => f.severity === 'error').length; } catch { return null; }
+};
+const blamePageErrors = (lines, groups) => {
+  const named = new Map();
+  let unnamed = 0;
+  for (const l of lines.filter(l => /✗ (page_error|console_error)/.test(l))) {
+    const g = l.match(/composition script error: (\S+)/)?.[1];
+    if (g && groups.includes(g)) named.set(g, (named.get(g) ?? 0) + 1); else unnamed++;
+  }
+  for (const [g, n] of named) console.log(`       → group ${g}: ${n} page error(s), for its builder`);
+  if (!unnamed) return;
+  const hostFile = path.join(dir, 'index.html');
+  const host = existsSync(hostFile) ? readFileSync(hostFile, 'utf8') : null;
+  // the host with only the listed groups kept: each group is one element carrying data-composition-src
+  const keep = (only) => groups.reduce((h, g) => h.replace(new RegExp(`<div\\b[^>]*data-composition-src="compositions/${g}\\.html"[^>]*>\\s*</div>`), m => only.includes(g) ? m : ''), host);
+  if (host === null || groups.some(g => keep(groups.filter(x => x !== g)) === host)) {
+    return console.log('WARN   page error(s) not tied to a part: index.html does not load each group as one `<div … data-composition-src="compositions/<group>.html" …></div>`; read the message above, or run npx hyperframes check on each part');
+  }
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'dalang-probe-'));
+  try {
+    for (const f of readdirSync(dir)) if (f !== 'index.html' && f !== '.hyperframes') symlinkSync(path.join(dir, f), path.join(tmp, f));
+    const probe = (only) => { writeFileSync(path.join(tmp, 'index.html'), keep(only)); return runtimeErrors(tmp); };
+    const base = probe([]);
+    if (base === null) return console.log('WARN   page error(s) not tied to a part: the probe of the host alone could not be read (npx hyperframes check --json); rerun');
+    if (base > 0) console.log(`       → host: ${base} page error(s), for the host's builder`);
+    let tied = base > 0;
+    for (const g of groups) {
+      const n = probe([g]);
+      if (n === null) { tied = true; console.log(`WARN   group ${g}: the probe could not be read (npx hyperframes check --json); rerun`); continue; }
+      const extra = n - base - (named.get(g) ?? 0);   // the classic-script errors above are already printed
+      if (extra > 0) { tied = true; console.log(`       → group ${g}: ${extra} page error(s), for its builder`); }
+      else if (named.has(g)) tied = true;
+    }
+    if (!tied) console.log('WARN   page error(s) not tied to a part: each part loaded alone ran clean (an error that needs two parts together?); read the message above');
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+};
 // the work a fix round may touch: the world (or the machine) and every built group, each by its sha256
 const LOCK = path.join(dir, 'review', 'assembled.json');
 const sha = f => createHash('sha256').update(readFileSync(path.join(dir, f))).digest('hex');
@@ -144,6 +192,10 @@ if (cmd === 'after-voice') {
   step('timing_lint', ...node('timing_lint.mjs', 'index.html'), { quiet: true, keep: 10 });
   const hf = step('hyperframes lint (errors)', 'npx', ['hyperframes', 'lint'], { quiet: true, keep: 20, filter: l => /✗|error/i.test(l) });
   for (const g of groups) { const mine = hf.out.filter(l => l.includes(`compositions/${g}.html`)); if (mine.length) console.log(`       → group ${g}: ${mine.length} error(s), for its builder`); }
+  // check loads the composition in the browser, as final does: a page error (a host or group that throws on load and
+  // draws nothing) fails here, for the fix round, not first at final
+  const hc = step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 12, filter: l => /✗|error:|Error/.test(l) && !/\b0 error/.test(l) });
+  if (!hc.ok) blamePageErrors(hc.out, groups);
   // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
   // the reading time of every overlay, dead stretches
   if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 24, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });

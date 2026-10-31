@@ -89,6 +89,14 @@ Published versions are never re-tagged.
   duration; a line with no value and unit warns and keeps the normal pads); the shape is a hook of ≤ 1 s and one held shot (`brief.md`, `express.md`,
   `express-planner.md`); `storyboard_lint.mjs` skips its average-shot check and leaves the hook out of the text-only
   share on a two-row film whose Time column spans under 10 s.
+- **`express.mjs assemble` runs `hyperframes check`** (`scripts/express.mjs`): a page error from the host or a group
+  (a composition that throws on load and draws nothing) fails assemble, for the fix round; before, only `final` ran
+  the check, after the fix round. `hyperframes check` names no file for a page error (its location line is always
+  `index.html`), so assemble finds the part itself: a classic script's `composition script error: <group>` names the
+  group; any other page error is run again on the host alone, then on the host with one group, in a temp folder of
+  links (the project is untouched), and printed `→ host:` or `→ group <g>:`. A probe it cannot read is a WARN to rerun.
+  `tests/express.mjs` runs assemble against a stand-in `npx` that prints `hyperframes check`'s real formats: a clean
+  film passes, a host that throws, a module-script group, a classic-script group and two groups at once are each named.
 
 ## [4.5.9] - 2026-10-31
 

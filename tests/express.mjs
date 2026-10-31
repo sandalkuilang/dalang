@@ -10,7 +10,33 @@ import { fileURLToPath } from "node:url";
 
 const script = fileURLToPath(new URL("../scripts/express.mjs", import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-express-"));
-const run = (...a) => { const r = spawnSync(process.execPath, [script, ...a], { encoding: "utf8" }); return { code: r.status, out: r.stdout + r.stderr }; };
+// a stand-in `npx` first on PATH: what `hyperframes check` / `lint` print (the real v0.8 formats, read from a real run:
+// `✗ page_error: <message>` then `index.html [data-composition-id] t=0s`, never a group's file; a classic script that
+// throws in a group is `✗ console_error: [HyperFrames] composition script error: <group> Error: <message>`), decided by
+// what index.html and the compositions it loads contain. No browser: the test runs the same everywhere.
+const bin = path.join(tmp, "bin"), probes = path.join(tmp, "probes"); fs.mkdirSync(bin); fs.mkdirSync(probes);
+const calls = path.join(tmp, "npx-calls.log");
+fs.writeFileSync(path.join(bin, "npx"), `#!${process.execPath}
+const fs = require("node:fs"), path = require("node:path");
+const a = process.argv.slice(2); fs.appendFileSync(${JSON.stringify(calls)}, a.join(" ") + " @" + process.cwd() + "\\n");
+const read = f => { try { return fs.readFileSync(path.join(process.cwd(), f), "utf8"); } catch { return null; } };
+if (a[0] !== "hyperframes") process.exit(1);
+if (a[1] === "lint") { console.log("0 errors, 0 warnings"); process.exit(0); }
+if (a[1] !== "check") { console.error("unknown command"); process.exit(1); }
+const host = read("index.html");
+if (host === null) { console.error("No index.html in this project"); process.exit(1); }
+const found = [];
+const scan = (file, id) => { const t = read(file) ?? ""; for (const m of t.matchAll(/<script( type="module")?>\\s*throw new Error\\('([^']*)'\\)/g)) found.push({ id, module: !!m[1], msg: m[2] }); };
+scan("index.html", null);
+for (const m of host.matchAll(/data-composition-src="([^"]+)"/g)) scan(m[1], path.basename(m[1], ".html"));
+const finds = found.map(f => f.id && !f.module ? { code: "console_error", message: "[HyperFrames] composition script error: " + f.id + " Error: " + f.msg } : { code: "page_error", message: f.msg });
+if (a.includes("--json")) { console.log(JSON.stringify({ ok: !finds.length, runtime: { findings: finds.map(f => ({ ...f, severity: "error", sourceFile: "index.html" })) } })); process.exit(finds.length ? 1 : 0); }
+console.log("Runtime");
+for (const f of finds) console.log("  ✗ " + f.code + ": " + f.message + "\\n    index.html [data-composition-id] t=0s");
+console.log(finds.length ? "  " + finds.length + " error(s), 0 warning(s), 0 info(s)\\n\\n◇  Check failed" : "  0 error(s), 0 warning(s), 0 info(s)\\n\\n◇  Check passed");
+process.exit(finds.length ? 1 : 0);
+`, { mode: 0o755 });
+const run = (...a) => { const r = spawnSync(process.execPath, [script, ...a], { encoding: "utf8", env: { ...process.env, PATH: bin + path.delimiter + process.env.PATH, TMPDIR: probes } }); return { code: r.status, out: r.stdout + r.stderr }; };
 
 assert.equal(run("nope", tmp).code, 2, "an unknown command is a usage error");
 let r = run("assemble", tmp);
@@ -71,6 +97,7 @@ r = run("assemble", tmp);
 assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never filled fails assemble");
 assert.doesNotMatch(r.out, /machine_audit/, "no machine: no machine audit");
 assert.match(r.out, /^(WARN   tokens not read|SKIP   fix round|OK     tokens)/m, "assemble says whether a fix round fits the budget");
+assert.match(r.out, /^FAILED hyperframes check/m, "a project the check cannot load (no index.html) fails the check step; the page error cases follow below");
 r = run("final", tmp);
 assert.match(r.out, /FAILED hyperframes check/, "a film that fails check fails final");
 // assemble records the world and every group by sha256; final lists what the fix round changed
@@ -90,4 +117,51 @@ r = run("assemble", tmp);
 assert.match(r.out, /FAILED assets\/machine\.js is still the stub: the first group never built the machine/, "a machine never built fails assemble");
 assert.match(r.out, /FAILED machine_audit\n\s+PROBLEM  : assets\/machine\.js is still the stub/, "the machine audit runs in assemble and names the stub");
 assert.ok(JSON.parse(fs.readFileSync(path.join(tmp, "review/assembled.json"), "utf8"))["assets/machine.js"], "assemble records the machine");
+// assemble's hyperframes check, both ways: a clean host passes; a host that throws, a group that throws (module script:
+// page_error names no file) and a group whose classic script throws (the id is in the message) each fail it, and the
+// failure is printed under the part that threw, so the fix round goes to that builder only
+const film = (name, { host = "", groups = {} }) => {
+  const d = path.join(tmp, name); fs.mkdirSync(path.join(d, "audio"), { recursive: true }); fs.mkdirSync(path.join(d, "src/compositions"), { recursive: true }); fs.mkdirSync(path.join(d, "compositions"));
+  fs.writeFileSync(path.join(d, "audio/beats.json"), JSON.stringify({ duration: 4, beats: [{ name: "hook", start: 0 }] }));
+  fs.writeFileSync(path.join(d, "audio/words.json"), "[]");
+  const lines = Object.keys(groups).map((g, i) => `  <div id="${g}" data-composition-id="${g}" data-composition-src="compositions/${g}.html" data-start="${i}" data-duration="1" data-track-index="1"></div>`);
+  fs.writeFileSync(path.join(d, "src/index.tpl.html"), `<div id="root" data-composition-id="main" data-start="0" data-duration="4">\n${lines.join("\n")}\n</div>\n<script>${host}</script>\n`);
+  for (const [g, body] of Object.entries(groups)) fs.writeFileSync(path.join(d, `src/compositions/${g}.tpl.html`), `<template id="${g}-template"><div data-composition-id="${g}"></div>\n<script${body.module ? ' type="module"' : ""}>${body.code ?? ""}</script></template>\n`);
+  return d;
+};
+const boom = (module) => ({ module, code: "throw new Error('boom')" });
+const checks = () => fs.readFileSync(calls, "utf8").split("\n").filter(l => / check /.test(l));
+fs.writeFileSync(calls, "");
+let d = film("clean", { groups: { a: {}, b: { module: true } } });
+r = run("assemble", d);
+assert.match(r.out, /^OK     hyperframes check/m, "a clean host and groups pass the check at assemble");
+assert.doesNotMatch(r.out, /→ (group|host)/, "a clean film names no one");
+assert.equal(checks().length, 1, "a passing check is one browser run: no probe");
+fs.writeFileSync(calls, "");
+d = film("hostboom", { host: "throw new Error('boom')", groups: { a: {}, b: { module: true } } });
+r = run("assemble", d);
+assert.match(r.out, /^FAILED hyperframes check\n\s+✗ page_error: boom/m, "a host that throws fails assemble with the error");
+assert.match(r.out, /→ host: 1 page error\(s\), for the host's builder/, "the host's error is printed under the host");
+assert.doesNotMatch(r.out, /→ group/, "no group is blamed for the host's error");
+fs.writeFileSync(calls, "");
+d = film("groupboom", { groups: { a: {}, b: boom(true), c: {} } });
+r = run("assemble", d);
+assert.match(r.out, /^FAILED hyperframes check\n\s+✗ page_error: boom/m, "a group that throws on load fails assemble with the error");
+assert.match(r.out, /→ group b: 1 page error\(s\), for its builder/, "the error is printed under the group that threw");
+assert.doesNotMatch(r.out, /→ group [ac]:/, "the groups that did not throw are not blamed");
+assert.doesNotMatch(r.out, /→ host/, "the host is not blamed for a group's error");
+fs.writeFileSync(calls, "");
+d = film("classicboom", { groups: { a: boom(false), b: {} } });
+r = run("assemble", d);
+assert.match(r.out, /^FAILED hyperframes check/m);
+assert.match(r.out, /→ group a: 1 page error\(s\), for its builder/, "a classic script's error carries the group id: printed under it");
+assert.doesNotMatch(r.out, /→ group b:/);
+assert.equal(checks().length, 1, "an error that names its group needs no probe");
+fs.writeFileSync(calls, "");
+d = film("twoboom", { groups: { a: boom(true), b: boom(true), c: {} } });
+r = run("assemble", d);
+assert.match(r.out, /→ group a: 1 page error\(s\)/); assert.match(r.out, /→ group b: 1 page error\(s\)/, "two groups that throw are both named");
+assert.doesNotMatch(r.out, /→ group c:/);
+// the probe never leaves its copy behind
+assert.deepEqual(fs.readdirSync(probes), [], "the probe's temp folder is removed");
 console.log("express: OK");
