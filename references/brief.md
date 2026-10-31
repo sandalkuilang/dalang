@@ -67,7 +67,7 @@ Order: Call 0 only when setup left a choice, Calls 1 and 2 (≤ 4 questions each
 ### Call 2 (its options follow the platform)
 **fps** (not asked; saved): 30, or 24 only through item 6's film-look option (`camera-motion.md` §8).
 
-4. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Above 3 min, one composition per section.
+4. **Duration** — 9:16 → 30–45 s, 60 s, 90–120 s, 2.5–3 min; 16:9 → 60–90 s, 2–3 min, 5 min; 4:5 → 15–30 s, 45–60 s. Above 3 min, one composition per section. Under 10 s ("Other", e.g. 3–8 s) is accepted; say what it costs: almost no room around the voice (0.2 s pads), a hook of ≤ 1 s, then one held shot, one idea and no second beat.
 5. **Visual style** — answered by 0b. A look outside the two: say so in one line; only its palette, type and overlays carry over. The camera is never asked. A kit's older look letter reads as `isometric-world`.
 6. **Energy** — "Modern balanced", "Calm cinematic", "Punchy social" (`visual-direction.md` §3); "(Recommended)" on Punchy for 9:16 under 60 s, else Modern balanced. 9:16 and 4:5 add "Hype edit — beat-cut: 0.4–1 s shots on the stressed words, speed ramps into a held pose, punch-ins, whip smears" (saved `energy: hype`). YouTube landscape adds "Calm cinematic, film look (24 fps)", the only option that saves fps 24.
 7. **Audience** — General public, one main idea "(Recommended)"; Students; Professionals/enthusiasts.

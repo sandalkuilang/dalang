@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Room around the voice: the film opens on its first picture before anyone speaks and holds its last one after. Writes
-// audio/voice.wav (the take with `lead` = 1.45 s of silence before and `tail` = 1.35 s after, fixed by SKILL.md) and
+// audio/voice.wav (the take with `lead` = 1.45 s of silence before and `tail` = 1.35 s after, fixed by SKILL.md; 0.2 s
+// each when BRIEF.md's duration is under 10 s, a short film with no room to fill) and
 // moves every time the take's files hold by `lead`: words.json, beats.json (+ duration, audio_file, a `pad` record),
 // beats.js, narration.srt and, when they exist, captions.json and captions.js. The take itself (the file beats.json
 // names) is never touched, so a retake still works on it; a retake rewrites the timing files unpadded, and this is run
@@ -15,8 +16,24 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 const args = process.argv.slice(2);
-const lead = 1.45, tail = 1.35;
 const dir = path.resolve(args[0] ?? '.'), A = path.join(dir, 'audio');
+const SHORT_S = 10, SHORT_PAD = 0.2;   // a film under SHORT_S seconds (BRIEF.md duration) has no room to fill: SHORT_PAD each side
+// BRIEF.md "duration:" → the first value that carries its unit, at its upper end, in seconds ("3–8 s" → 8, "2.5–3 min" → 180).
+// Notes in parentheses ("8 s (Other, under the 30 s floor)") and other numbers ("5 s, 9:16") are not the duration.
+// null when there is no BRIEF.md or no duration line; a line with no value-and-unit, or a BRIEF.md that cannot be read, is a
+// WARN (unknown is never "short" or "missing": the normal pads are used, rerun after fixing it).
+const briefSeconds = () => {
+  let t;
+  try { t = readFileSync(path.join(dir, 'BRIEF.md'), 'utf8'); }
+  catch (e) { if (e.code !== 'ENOENT') console.log(`WARN: BRIEF.md cannot be read (${e.code}): normal pads used; rerun to read it`); return null; }
+  const m = t.match(/^\W*duration\W*:\s*(.+)$/im);
+  if (!m) return null;
+  const v = m[1].replace(/\([^)]*(\)|$)/g, ' ').match(/(\d+(?:\.\d+)?)(?:\s*[–—-]\s*(\d+(?:\.\d+)?))?\s*(min(?:ute)?s?|sec(?:ond)?s?|s)\b/i);
+  if (!v) { console.log(`WARN: BRIEF.md's duration line ("${m[1].trim().slice(0, 60)}") has no value with a unit (s or min): normal pads used; write it as "3–8 s" and rerun`); return null; }
+  return Math.max(Number(v[1]), Number(v[2] ?? 0)) *(/^m/i.test(v[3]) ? 60 : 1);
+};
+const secs = briefSeconds(), short = secs !== null && secs < SHORT_S;
+const lead = short ? SHORT_PAD : 1.45, tail = short ? SHORT_PAD : 1.35;
 const die = m => { console.error(`FAILED: ${m}`); process.exit(1); };
 const read = f => { try { return readFileSync(path.join(A, f), 'utf8'); } catch { return null; } };
 const r3 = x => Math.round(x * 1000) / 1000;
@@ -57,4 +74,4 @@ const cj = read('captions.json');
 if (cj) writeFileSync(path.join(A, 'captions.json'), JSON.stringify(shift(JSON.parse(cj)), null, 2));
 const cjs = read('captions.js');
 if (cjs) { const win = {}; vm.runInNewContext(cjs, { window: win }); writeFileSync(path.join(A, 'captions.js'), `// padded by pad_voice.mjs (lead ${lead} s)\nwindow.CAPTIONS = ${JSON.stringify(shift(win.CAPTIONS))};\n`); }
-console.log(`padded: audio/voice.wav = ${lead} s + take + ${tail} s (${duration} s); words, beats, srt${cj || cjs ? ', captions' : ''} moved by ${lead} s`);
+console.log(`padded: audio/voice.wav = ${lead} s + take + ${tail} s (${duration} s); words, beats, srt${cj || cjs ? ', captions' : ''} moved by ${lead} s${short ? ` (BRIEF.md duration ${secs} s is under ${SHORT_S} s: short pads)` : ''}`);

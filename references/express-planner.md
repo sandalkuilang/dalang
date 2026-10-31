@@ -107,7 +107,8 @@ cut, the last image the payoff frame rhyming with the first. On top of that:
 - **Shot 1 hooks:** a close or medium shot of the subject mid-action, the hook's words on screen within its first
   second; never a wide establishing shot first.
 - **Shots 2–3 s on average** (`storyboard_lint.mjs` reads the Time column); sizes vary: never 3 rows in a row at the
-  same size, a close-up or insert at every mechanism, wide only to establish a place or for the payoff.
+  same size, a close-up or insert at every mechanism, wide only to establish a place or for the payoff. Under 10 s
+  (`BRIEF.md` duration): a hook of ≤ 1 s, then one held shot; the lint skips the average-shot check for those two rows.
 - **The subject fills a third of the frame height or more** on every row but a wide; a wide still shows it at once. object-studio: the whole hero at 60–70 % of the frame on its larger axis on its wide and medium rows; no shot under 2 s after the hook.
 - **Every section opens readable:** its first shot shows the whole place (the world on its slab with its edges, the subject
   at once), then the close shots; a close shot frames one focal part with clear ground around it, never a crop of
