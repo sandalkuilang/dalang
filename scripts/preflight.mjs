@@ -5,7 +5,7 @@
 // plus the DALANG row and one "OK: <n> items (…)" line, so the agent reads a few lines instead of running a dozen
 // commands. --all prints every row (OK and SKIP too). Never prints secrets.
 // The `Voices` row ends `— default: "<name>" = <id>` for the default voice: the saved profile ~/.config/dalang/voice.json
-// `default` names (DALANG_VOICE_FILE overrides), else one named `Dalang`. An unreadable list never names one.
+// `default` names (DALANG_VOICE_FILE overrides), else one named `Dalang`. An unreadable list or voice.json never names one: WARN.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--all] [--start] [--check-skill] [--skill-dir PATH]
 //                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
@@ -120,20 +120,26 @@ function vsDown(h, opened, appRunning) {
 
 // The default voice (references/brief.md Call 3): the saved profile ~/.config/dalang/voice.json's "default" names
 // (DALANG_VOICE_FILE overrides), else one named after the skill, "Dalang". Name or id, case aside; quoted like the
-// list, so a profile name cannot fake it. Two matches or an unreadable file name none: the Brief asks instead.
+// list, so a profile name cannot fake it. Two matches or an empty "default" name none: the Brief asks. A voice.json that exists but cannot be read or parsed is a WARN (fix it, rerun), never none.
 function defaultVoice(profiles) {
   const f = process.env.DALANG_VOICE_FILE || path.join(homedir(), '.config', 'dalang', 'voice.json');
-  let want = 'Dalang';
-  if (existsSync(f)) {
-    let d;
-    try { d = JSON.parse(readFileSync(f, 'utf8'))?.default; } catch (e) { d = undefined; }
-    if (typeof d !== 'string' || !d.trim()) return `default voice: none (${path.basename(f)} unreadable or no "default" name) — ask Call 3`;
-    want = d.trim();
+  // A file that is absent falls back to Dalang; one that exists but cannot be read or parsed is unknown, never "none".
+  const unread = why => ({ warn: `default voice unread: ${f} ${why} — fix it and rerun preflight; never assume no default` });
+  let want = 'Dalang', text = null;
+  try { text = readFileSync(f, 'utf8'); } catch (e) { if (e?.code !== 'ENOENT' && e?.code !== 'ENOTDIR') return unread(`unreadable (${e?.code || 'read error'})`); }
+  if (text !== null) {
+    let j;
+    try { j = JSON.parse(text); } catch { return unread('is not valid JSON'); }
+    if (!j || typeof j !== 'object' || Array.isArray(j)) return unread('is not a JSON object');
+    if (j.default !== undefined && typeof j.default !== 'string') return unread('"default" is not a string');
+    // A deliberate empty or missing "default" opts out: no default, the Brief asks.
+    if (!(j.default || '').trim()) return { note: `default voice: none (${path.basename(f)} has no "default" name) — ask Call 3` };
+    want = j.default.trim();
   }
   const w = want.toLowerCase();
   const hits = profiles.filter(v => String(v.name).trim().toLowerCase() === w || String(v.voice_id).toLowerCase() === w);
-  if (hits.length > 1) return `default: none (${hits.length} profiles match ${JSON.stringify(want)}) — ask Call 3`;
-  return hits.length ? `default: ${JSON.stringify(String(hits[0].name))} = ${hits[0].voice_id}` : '';
+  if (hits.length > 1) return { note: `default: none (${hits.length} profiles match ${JSON.stringify(want)}) — ask Call 3` };
+  return { note: hits.length ? `default: ${JSON.stringify(String(hits[0].name))} = ${hits[0].voice_id}` : '' };
 }
 
 async function voicestudio() {
@@ -157,12 +163,13 @@ async function voicestudio() {
   // Names are quoted: a name holding "; " or a newline can't fake another entry or row.
   const vlist = voices.status === 200 && Array.isArray(voices.body?.voices) ? voices.body.voices : null;
   const saved = (vlist || []).filter(v => v.type === 'profile').map(v => `${JSON.stringify(String(v.name))} = ${v.voice_id}${v.language ? ` (${v.language})` : ''}`);
-  const dv = vlist ? defaultVoice(vlist.filter(v => v.type === 'profile')) : '';
+  const dv = vlist && saved.length ? defaultVoice(vlist.filter(v => v.type === 'profile')) : {};
   // A real list always carries the built-in aliases: an empty or unknown-shaped one is unreadable, not "none".
   const oddTypes = !vlist?.length || vlist.some(v => !['profile', 'openai_alias', 'default'].includes(v.type));
   const voicesRow = denied(voices) ? ['  Voices', 'WARN', deniedNote(voices)]
     : !vlist ? ['  Voices', 'WARN', `could not list saved profiles (${why(voices)}) — rerun preflight; never assume none exist`]
-    : saved.length ? ['  Voices', 'INFO', `saved profiles: ${saved.join('; ')}${dv ? ` — ${dv}` : ''}`]
+    : saved.length && dv.warn ? ['  Voices', 'WARN', `saved profiles: ${saved.join('; ')} — ${dv.warn}`]
+    : saved.length ? ['  Voices', 'INFO', `saved profiles: ${saved.join('; ')}${dv.note ? ` — ${dv.note}` : ''}`]
     : oddTypes ? ['  Voices', 'WARN', 'voice list empty or of unknown shape — check `tts_timestamps.mjs --list-voices`; never assume none exist']
     : ['  Voices', 'INFO', 'no saved profile — design or clone one in Step 4 (references/voice.md)'];
   const vsOk = ['VoiceStudio', 'OK', `v${health.body.version} on ${health.body?.device ?? '?'}`];
