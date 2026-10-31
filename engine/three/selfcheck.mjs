@@ -24,6 +24,7 @@ const { shots, cueTime } = await use("shots.js");
 const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
+const PT = await use("parts.js");
 const ED = await use("editorial.js");
 const { heroContrast, maskShare, edgeShare } = await use("measure.js");
 
@@ -1992,5 +1993,26 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.equal(b.parts[0].name, "body", "explain names the largest part");
   mount.userData.subject = true;
   assert.ok(heroBox(cam, root, 1000, 1000).x1 - heroBox(cam, root, 1000, 1000).x0 > 400, "marked back in, the board counts");
+}
+{ // parts.js: code-first hero parts in metres. The numbers that size a part are the ones a reviewer checks by hand.
+  const radius = (g) => { const p = g.attributes.position; let r = 0; for (let i = 0; i < p.count; i++) r = Math.max(r, Math.hypot(p.getX(i), p.getY(i))); return r; };
+  const g = PT.gear(32, 0.004, 0.02, { bore: 0.01 });
+  assert.ok(Math.abs(g.userData.gear.rp - 0.064) < 1e-12, "pitch radius = module * teeth / 2");
+  assert.ok(Math.abs(radius(g) - 0.068) < 1e-6, "tip radius = pitch + module: " + radius(g));
+  assert.ok(Math.abs(Math.PI * g.userData.gear.rp - 0.20106) < 1e-4, "half a turn of a 32-tooth module-4 pinion moves a rack 201 mm");
+  g.computeBoundingBox(); assert.ok(Math.abs(g.boundingBox.max.z - 0.01) < 1e-9 && Math.abs(g.boundingBox.min.z + 0.01) < 1e-9, "centred on its width");
+  const hx = PT.gear(20, 0.002, 0.01, { helix: 0.3 }); assert.equal(hx.userData.gear.helix, 0.3, "helix kept");
+  assert.throws(() => PT.gear(5, 0.004, 0.02), /teeth/, "a gear needs >= 6 teeth");
+  assert.throws(() => PT.gear(32, 0.004, 0.02, { bore: 0.07 }), /bore/, "a bore through the teeth is refused");
+  assert.throws(() => PT.gear(32, -1, 0.02), /module/);
+  const s = PT.spring({ r: 0.01, wire: 0.001, turns: 8, len: 0.04 }); s.computeBoundingBox();
+  assert.ok(Math.abs(s.boundingBox.max.y - s.boundingBox.min.y - 0.04) < 1e-3, "spring height = its free length");
+  assert.throws(() => PT.spring({ r: 0.01, wire: 0.003, turns: 8, len: 0.04 }), /coils/, "coils that pass through each other are refused");
+  const l = PT.lathe([[0, 0], [0.02, 0], [0.02, 0.05], [0, 0.05]]); l.computeBoundingBox();
+  assert.ok(Math.abs(l.boundingBox.max.y - 0.05) < 1e-9 && Math.abs(l.boundingBox.max.x - 0.02) < 1e-3, "lathe keeps the profile's size");
+  assert.throws(() => PT.lathe([[0, 0], [0.02, 0]]), /profile/);
+  const rd = PT.rod([0, 0, 0], [0, 0, 1], 0.01); rd.computeBoundingBox();
+  assert.ok(Math.abs(rd.boundingBox.min.z) < 1e-9 && Math.abs(rd.boundingBox.max.z - 1) < 1e-9, "rod runs end to end");
+  assert.throws(() => PT.rod([0, 0, 0], [0, 0, 0], 0.01), /length/);
 }
 console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top glass only), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
