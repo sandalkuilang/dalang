@@ -15,11 +15,13 @@
 //     else the box touching one) without filling 65 % of an axis (a clipped box is a lower bound and is not judged for either);
 //     a flagged hero line names the largest part of the box (`parts`), so a too-large box can be traced;
 //   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js) under 8 (--min-contrast; a hero at 8–12 read plainly on real films, under 6 it washed out).
+//   - more kinds of text on screen at once than --max-text-layers n (off by default; caption, label and card are the three
+//     kinds, two labels are one layer): the visual thesis allows two (looks.md object-studio), so express.mjs passes 2 for it.
 // --no-safe-area skips the safe-area check (object-studio keeps its own frame zones, object-studio-API.md).
 // A hero key that is absent is INFO (overlap not checked); null (the hero is off the frame) has nothing to overlap.
 // Records: [{ t, W, H, format, hero?: { x0, y0, x1, y1, clipped?, parts?, edges? } | null, contrast?: number | null, boxes: [{ kind, text, x0, y0, x1, y1, size, over? }] }],
 // or { frames: [...] }. strips.mjs writes them to review/strips/layout.json and lints them into review/strips/index.md.
-// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--hero-band 0.18,0.60] [--min-contrast 8] [--min-caption 54] [--min-label 36] [--no-safe-area]   (default: .; a project = its
+// Usage: node layout_lint.mjs [layout.json | project] [--hero-overlap 0.10] [--min-hero 0.33] [--hero-band 0.18,0.60] [--min-contrast 8] [--min-caption 54] [--min-label 36] [--max-text-layers n] [--no-safe-area]   (default: .; a project = its
 // review/strips/layout.json). Exit 1 on a problem, 2 when the records cannot be read or a frame cannot be checked
 // (rerun / fix), 0 when clean.
 import { readFileSync, statSync } from 'node:fs';
@@ -40,7 +42,7 @@ const show = (b) => `${r(b.x0)},${r(b.y0)}–${r(b.x1)},${r(b.y1)}`;
 const driver = (h) => (h.parts?.[0] ? ` (largest part ${h.parts[0].name}, ${h.parts[0].w} x ${h.parts[0].h} px)` : '');
 const name = (b) => `${b.kind} "${String(b.text).replace(/[\r\n|]+/g, ' ').slice(0, 60)}"`;
 
-export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBand = null, minContrast = 8, minCaption = 54, minLabel = 36, safe = true } = {}) {
+export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBand = null, minContrast = 8, minCaption = 54, minLabel = 36, maxTextLayers = null, safe = true } = {}) {
   const problems = [], warns = [], infos = [];
   if (!Array.isArray(frames) || !frames.length) {
     warns.push('no layout recorded (the composition does not call layoutFrame)');
@@ -95,6 +97,8 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBa
       const min = (b.kind === 'caption' ? minCaption : minLabel) * s;
       if (b.size < min - 1e-6) P(`${name(b)} is ${r(b.size * 10) / 10} px, under the ${r(min)} px minimum`);
     }
+    const kinds = ['caption', 'label', 'card'].filter((k) => boxes.some((b) => b.kind === k));
+    if (maxTextLayers != null && kinds.length > maxTextLayers) P(`${kinds.length} text layers at once (${kinds.join(', ')}), over ${maxTextLayers}: drop one (a label into the caption's words, a card to its own beat)`);
     for (const c of boxes.filter((b) => b.kind === 'caption'))
       for (const l of boxes.filter((b) => b.kind !== 'caption'))
         if (inter(c, l) > 0) P(`${name(c)} ${show(c)} overlaps ${name(l)} ${show(l)}`);
@@ -105,10 +109,10 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBa
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const take = (k) => { const i = args.indexOf(k); return i >= 0 ? (args.splice(i, 2)[1] ?? '') : null; }; // no value: a usage WARN below, never a crash
-  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label'), hbArg = take('--hero-band');
+  const hoArg = take('--hero-overlap'), mhArg = take('--min-hero'), mcArg = take('--min-contrast'), cpArg = take('--min-caption'), lbArg = take('--min-label'), hbArg = take('--hero-band'), tlArg = take('--max-text-layers');
   const safe = !(args.includes('--no-safe-area') && args.splice(args.indexOf('--no-safe-area'), 1));
   const mh = mhArg === null ? 1 / 3 : Number(mhArg), mc = mcArg === null ? 8 : Number(mcArg);
-  const cp = cpArg === null ? 54 : Number(cpArg), lb = lbArg === null ? 36 : Number(lbArg);
+  const cp = cpArg === null ? 54 : Number(cpArg), lb = lbArg === null ? 36 : Number(lbArg), tl = tlArg === null ? null : Number(tlArg);
   const target = path.resolve(args.find((a) => !a.startsWith('--')) ?? '.');
   let frames = null, count = 0;
   const warns = [], problems = [], infos = [];
@@ -120,6 +124,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   else if (mcArg !== null && !(mcArg.trim() !== '' && mc >= 0)) warns.push(`--min-contrast ${mcArg}: use a ΔE* of 0 or more`);
   else if (cpArg !== null && !(cpArg.trim() !== '' && cp > 0)) warns.push(`--min-caption ${cpArg}: use a size in px above 0`);
   else if (lbArg !== null && !(lbArg.trim() !== '' && lb > 0)) warns.push(`--min-label ${lbArg}: use a size in px above 0`);
+  else if (tlArg !== null && !(tlArg.trim() !== '' && Number.isInteger(tl) && tl >= 1)) warns.push(`--max-text-layers ${tlArg}: use a whole number of 1 or more`);
   else {
     let file = target;
     try { if (statSync(target).isDirectory()) file = path.join(target, 'review', 'strips', 'layout.json'); } catch { /* read below */ }
@@ -130,7 +135,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       warns.push(e.code === 'ENOENT' ? `no layout.json: run strips.mjs (${file})` : e instanceof SyntaxError ? `${file}: not valid JSON (${e.message}) — rerun strips.mjs` : `${file}: cannot read (${e.code ?? e.message}) — rerun`);
     }
     if (!warns.length) {
-      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, heroBand: hb, minContrast: mc, minCaption: cp, minLabel: lb, safe });
+      const res = lintLayout(frames, { heroOverlap: ho, minHero: mh, heroBand: hb, minContrast: mc, minCaption: cp, minLabel: lb, maxTextLayers: tl, safe });
       problems.push(...res.problems); warns.push(...res.warns); infos.push(...res.infos);
       count = Array.isArray(frames) ? frames.length : 0;
     }
