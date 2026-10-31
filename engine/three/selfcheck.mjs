@@ -25,6 +25,7 @@ const FLD = await use("fields.js");
 const O = await use("optics.js");
 const OS = await use("objectStudio.js");
 const PT = await use("parts.js");
+const { drive } = await use("drive.js");
 const ED = await use("editorial.js");
 const { heroContrast, maskShare, edgeShare } = await use("measure.js");
 
@@ -2020,5 +2021,16 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(Math.abs(rd.boundingBox.min.z) < 1e-9 && Math.abs(rd.boundingBox.max.z - 1) < 1e-9, "rod runs end to end");
   assert.throws(() => PT.rod([0, 0, 0], [0, 0, 0], 0.01), /length/);
   assert.throws(() => PT.rod([0, 0], [0, 0, 1], 0.01), /a and b/, "a point is 3 finite numbers");
+}
+{ // drive.js: one input u(t) poses every part and gives every readout; the SPEC's hand checks run at load.
+  const rp = 0.064; // a rack and pinion: stroke s (m) turns the pinion s / rp radians
+  const m = drive({ input: (t) => Math.min(1, t / 4) * Math.PI * rp, state: (s) => ({ stroke: s, angle: s / rp }),
+    checks: [{ name: "half a turn at full stroke", u: Math.PI * rp, got: (st) => st.angle, want: Math.PI, tol: 1e-9 }] });
+  assert.ok(Math.abs(m.at(4).angle - Math.PI) < 1e-12 && m.at(0).angle === 0, "at(t) = state(input(t))");
+  assert.deepEqual(m.at(2), m.at(2), "the same t gives the same state");
+  assert.throws(() => drive({ input: (t) => t, state: (s) => ({ a: s }), checks: [{ name: "wrong", u: 1, got: (st) => st.a, want: 2, tol: 0.01 }] }), /check "wrong" got 1, want 2/, "a failed hand check stops the film at load");
+  assert.throws(() => drive({ input: () => NaN, state: (s) => ({ s }) }).at(1), /not a finite number/, "an input that is not a number is never posed");
+  let n = 0; assert.throws(() => drive({ input: (t) => t, state: (s) => ({ s, n: n++ }), checks: [{ name: "x", u: 0, got: (st) => st.s, want: 0 }] }), /pure/, "a state that carries memory between calls is refused");
+  assert.throws(() => drive({ input: 1, state: () => ({}) }), /functions/);
 }
 console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top glass only), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
