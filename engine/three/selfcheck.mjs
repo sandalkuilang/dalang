@@ -1916,6 +1916,12 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   for (const [n, m] of [["clearPlastic", OS.mat.clearPlastic()], ["glass", OS.mat.glass()]])
     assert.ok(m.blending === THREE.AdditiveBlending && m.depthWrite === false && m.transmission === 0 && m.color.getHex() === 0, "mat." + n + ": additive reflections only, no depth write");
   assert.ok(OS.mat.steel().metalness > 0.8 && OS.mat.haze(0.3).transparent && OS.mat.matte(0x888888).isMeshStandardMaterial && OS.mat.plastic(0x888888).isMeshPhysicalMaterial, "steel, haze, matte, plastic");
+  const gl = OS.mat.gloss();
+  assert.ok(gl.isMeshPhysicalMaterial && gl.clearcoat >= 0.6 && gl.roughness >= 0.45, "gloss: a clearcoat over a base rough enough never to streak white");
+  const ac = OS.mat.accent("#E8502A");
+  assert.ok(ac.color.getHexString() === "e8502a" && ac.roughness >= 0.45, "accent: the film's one accent colour");
+  assert.throws(() => OS.mat.accent(), /accent/, "the accent comes from the SPEC palette, never a default");
+  assert.equal(OS.SWEEP.top, "#F3F3F4", "the sweep is the pale study-model studio");
   // The lens: 36 mm on the long side; a wider lens sees more; dof from an f-stop goes through camera.js dofFor.
   const st = OS.cam([0, 0.3, 1], [0, 0.1, 0], 50), wide = OS.cam([0, 0.3, 1], [0, 0.1, 0], 24);
   assert.ok(Math.abs(st.fov - fovFromMm(50, 36)) < 1e-9 && wide.fov > st.fov && !st.dof, "cam(): portrait lens on the long side, sharp without dof");
