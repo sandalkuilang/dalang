@@ -58,6 +58,14 @@ Published versions are never re-tagged.
   keep them; films started before this change (no `assets/machine.js`) keep the old 1/3 hero measure and get no
   palette line.
 
+### Fixed
+- `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
+  with a `| WARN …` field and a WARN on stderr (a refusal stopped the step clock). `metrics` Start and End are the
+  earliest and latest log line by time.
+- The token report says "not counted" when the main transcript made Agent calls whose subagent transcripts are missing,
+  instead of printing 0 subagents; the metrics Total tokens line says "at least" then. A film with no Agent call keeps
+  its true 0.
+
 ## [4.5.9] - 2026-10-31
 
 ### Added

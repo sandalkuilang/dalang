@@ -50,7 +50,7 @@ if (!existsSync(path.join(base, session))) notChecked(`session ${session} not fo
 // One agent's transcript: a message is split over several lines with the same id and usage, so count each id once.
 const read = file => {
   let text; try { text = readFileSync(file, 'utf8'); } catch (e) { return { error: e.code || e.message }; }
-  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {}, longPrompts: 0, longBacks: 0 };
+  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {}, agentCalls: 0, longPrompts: 0, longBacks: 0 };
   for (const line of text.split('\n')) {
     if (!line) continue;
     let j; try { j = JSON.parse(line); r.parsed++; } catch { continue; }
@@ -59,7 +59,7 @@ const read = file => {
     // and what the main session pays for on every later turn: an Agent prompt with pasted content, a subagent's long reply
     const content = j.message?.content;
     for (const c of Array.isArray(content) ? content : []) {
-      if (c?.type === 'tool_use' && c.name === 'Agent') { r.asks[c.id] = { model: c.input?.model ?? null, effort: c.input?.effort ?? null }; if (String(c.input?.prompt ?? '').length > LONG) r.longPrompts++; }
+      if (c?.type === 'tool_use' && (c.name === 'Agent' || c.name === 'Task')) { r.agentCalls++; r.asks[c.id] = { model: c.input?.model ?? null, effort: c.input?.effort ?? null }; if (String(c.input?.prompt ?? '').length > LONG) r.longPrompts++; }
       if (c?.type === 'tool_result' && r.asks[c.tool_use_id] && JSON.stringify(c.content ?? '').length > LONG) r.longBacks++;
     }
     if (typeof content === 'string' && /<agent-message|<task-notification>/.test(content) && content.length > LONG) r.longBacks++;
@@ -89,25 +89,28 @@ for (const f of existsSync(subDir) ? readdirSync(subDir).filter(f => f.endsWith(
   agents.push({ agent: f.replace(/\.jsonl$/, ''), desc, builder, over, turns: r.turns, total: r.total, maxCtx: r.maxCtx, model: r.model, effort: ask.effort ?? 'inherited', start: r.start, end: r.end });
 }
 agents.sort((a, b) => b.total - a.total);
+// Agent calls without a transcript here (not found, unreadable): their tokens are unknown, shown as "not counted", never 0
+const uncounted = Math.max(0, main.agentCalls - agents.length - skipped);
 
 const M = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`;
 const sum = agents.reduce((s, a) => s + a.total, 0), over = agents.filter(a => a.over);
 const report = {
   at: new Date().toISOString(), session: session.replace(/\.jsonl$/, ''), sessionCwd, budget: { maxTurns, maxCtx },
-  main: { turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end, longPrompts: main.longPrompts, longBacks: main.longBacks },
-  subagents: agents, subagentTotal: sum, skippedOtherProjects: skipped, unreadable,
+  main: { agentCalls: main.agentCalls, turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end, longPrompts: main.longPrompts, longBacks: main.longBacks },
+  subagents: agents, subagentTotal: sum, uncounted, skippedOtherProjects: skipped, unreadable,
 };
 try { mkdirSync(path.join(project, 'review'), { recursive: true }); writeFileSync(path.join(project, 'review', 'tokens.json'), JSON.stringify(report, null, 2)); }
 catch (e) { console.error(`WARN: review/tokens.json not written (${e.code || e.message})`); }
 
 // the main agent's cost is its turns × its context: both in the summary, so a gate shows which one grew
-const summary = `main ${M(main.total)} in ${main.turns} turns${shared ? ' (whole session, shared)' : ''}, subagents ${M(sum)} (${agents.length}), ` +
+const summary = `main ${M(main.total)} in ${main.turns} turns${shared ? ' (whole session, shared)' : ''}, subagents ${uncounted && !agents.length ? 'not counted' : `${M(sum)} (${agents.length})${uncounted ? `, ${uncounted} more not counted` : ''}`}, ` +
   `main context ${M(main.lastCtx)}; ${over.length ? `${over.length} builder(s) over budget` : 'builders within budget'}`;
 if (json) console.log(JSON.stringify(report, null, 2));
 else {
   console.log(`Session ${report.session}${shared ? ` (ran in ${sessionCwd}; ${skipped} subagent(s) of other projects skipped)` : ''}`);
   console.log(`${'main'.padEnd(44)} ${String(main.turns).padStart(4)} turns  ${M(main.total).padStart(7)}  ctx max ${M(main.maxCtx)}`);
   for (const a of agents) console.log(`${a.over ? 'WARN' : '    '} ${a.desc.slice(0, 39).padEnd(39)} ${String(a.turns).padStart(4)} turns  ${M(a.total).padStart(7)}  ctx max ${M(a.maxCtx)}${a.model ? `  ${a.model}` : ''}  effort ${a.effort}`);
+  if (uncounted) console.log(`WARN: ${uncounted} Agent call(s) in the main transcript have no subagent transcript here (subagents not counted): rerun after the session writes them, or pass --session / --claude-dir`);
   if (unreadable) console.log(`WARN: ${unreadable} subagent transcript(s) could not be read: rerun`);
   if (express && !shared && main.turns > 30) console.log(`WARN: the main agent took ${main.turns} turns (Express: about 25, 30 at most): send calls that do not need each other in one message (express.md "The main agent's turns")`);
   if (!express && !shared && main.turns > STUDIO_MAIN_TURNS) console.log(`WARN: the main agent took ${main.turns} turns (Studio: ${STUDIO_MAIN_TURNS} at most): every turn and every subagent reply re-reads the whole session; a loop belongs in one job, a short runner in the foreground (SKILL.md "The main agent orchestrates")`);
