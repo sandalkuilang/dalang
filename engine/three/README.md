@@ -57,7 +57,7 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 - `gear(teeth, module, width, { helix, bore })`, `bevelGear({ teeth, module, pitchAngle, face, bore })` + `bevelAngles(z1, z2, shaft)` (radians), `spring({ r, wire, turns, len })`, `lathe(profile)`, `rod(a, b, r)`.
 
 **drive.js** (one input poses every part and readout)
-- `drive({ input, state, checks })` → `{ at(t), input, state }`; a failed hand check throws at load. `audit(model, { u, rigid, mesh, gaps })` proves a machine runs over its whole input (`scripts/machine_audit.mjs`; a bevel pair: `cone`, `axis`, `apex` on both gears, its shaft angle, apex and cone distance checked).
+- `drive({ input, state, checks })` → `{ at(t), input, state }`; a failed hand check throws at load. `audit(model, { u, rigid, mesh, gaps })` proves a machine runs over its whole input (`scripts/machine_audit.mjs`; a bevel pair: `cone`, `axis`, `apex` on both gears, its shaft angle, apex, module and cone distance checked in their own units, `bevelTol: { len, angle }` in m and rad, 1e-6 by default, never the ratio's `tol`).
 
 **fields.js** (SI units; a zero or non-finite strength is refused)
 - Sources: `charge(q, at)`, `dipole(p, at, { d })`, `straightWire(I, a, b)`, `loop(I, { at, normal, R })`, `barMagnet({ at, axis, length, width, depth, Br })` (`Br` has no default: cite it).

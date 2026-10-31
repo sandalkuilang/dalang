@@ -57,7 +57,8 @@ Published versions are never re-tagged.
 - **Bevel gears** (`engine/three/parts.js`): `bevelGear({ teeth, module, pitchAngle, face, bore })`, a straight bevel
   whose teeth converge on the cone apex, and `bevelAngles(z1, z2, shaft)`; a drive that turns a corner is no longer
   drawn with spur gears. `drive.js` `audit()` checks a bevel pair's contact (shaft angle, one apex, one module and
-  cone distance) as well as its ratio. A hypoid is drawn as a bevel pair (documented approximation).
+  cone distance) as well as its ratio, each in its own unit (`bevelTol: { len, angle }`, metres and radians, 1e-6 by
+  default), so a loose ratio `tol` never opens the contact checks. A hypoid is drawn as a bevel pair (documented approximation).
 
 ## [4.5.9] - 2026-10-31
 
