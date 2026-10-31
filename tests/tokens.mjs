@@ -192,5 +192,24 @@ assert.match(c.stdout, / · Tokens: not checked/);
   assert.equal(t.longPrompts, 1); assert.equal(t.longBacks, 1);
 }
 
+// A session run in the parent folder: the main agent is judged on the stretch that names this film, never skipped.
+{
+  const par = path.join(tmp, "videos7"), busy = path.join(par, "how-a-fan-spins"), brief = path.join(par, "how-a-dam-holds"), quiet = path.join(par, "how-a-clock-ticks");
+  for (const p of [busy, brief, quiet]) fs.mkdirSync(p, { recursive: true });
+  for (const p of [busy, brief]) put(path.join(p, "BRIEF.md"), "- mode: express\n");
+  // 40 turns, all naming how-a-fan-spins: over Express's 30 for that film. 50 turns where only 3 in the middle name how-a-dam-holds.
+  put(path.join(enc(par), "t1.jsonl"), Array.from({ length: 40 }, (_, k) => turn(`f${k}`, 20000, "film how-a-fan-spins")).join(""));
+  let x = run(busy);
+  assert.match(x.out, /^WARN: the main agent took up to 40 turns/m, x.out);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(busy, "review", "tokens.json"), "utf8")).main.span.turns, 40);
+  put(path.join(enc(par), "t1.jsonl"), Array.from({ length: 50 }, (_, k) => turn(`g${k}`, 20000, k >= 20 && k < 23 ? "film how-a-dam-holds" : "other work")).join(""));
+  x = run(brief);
+  assert.doesNotMatch(x.out, /the main agent took/, x.out);
+  assert.match(x.out, /main, this film in the shared session\s+3 turns/, x.out);
+  // no line names the film: said so, never "0 turns"
+  x = run(quiet, "--session", "t1");
+  assert.match(x.out, /^NOT CHECKED: the main agent in a shared session/m, x.out);
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("tokens: OK");
