@@ -35,6 +35,18 @@ Published versions are never re-tagged.
 ## [Unreleased]
 
 ### Added
+- **A fix loop that converges** (`scripts/fix_ledger.mjs`, `scripts/fixcheck.mjs`, `scripts/findings.mjs`, `scripts/studio.mjs`,
+  `scripts/express.mjs`, `agents/`, `references/review.md`, `qc.md`, `express.md`, `express-planner.md`, `SKILL.md`,
+  `tests/fix-ledger.mjs`, `tests/fixcheck.mjs`). Real runs spent most of their tokens in fix rounds that did not end: one
+  group fixed 13 times, fixers at 115–143 turns against a 10-turn budget, one fix report in eight "unverified", and
+  reviews that found new taste items every round. The planner now writes `SPEC.md` `## ACCEPT` (what done means, 3 rows
+  at least) and `express.mjs scaffold` refuses a hero without it; reviews grade it first and, from round 2, count a new
+  finding only as a P0. `fixcheck.mjs <group>` builds the group fresh, runs its checks and takes stills at the findings'
+  times, so each fix is PASS or FAIL on the build it made. `fix_ledger.mjs`, run by `studio.mjs fixes`, is the stop
+  rule: only a P0 or a Set / Reality / Clarity P1 starts a round, a round with no fewer of them than the last stops, a
+  finding open two rounds running is REROUTE, three rounds at most. `dalang-builder` and `dalang-checker` carry
+  `maxTurns` (45, 12), enforced by Claude Code. A fixer making progress is continued, not replaced. One
+  parser (`findings.mjs`) reads a fixes file for all three; a file it cannot read is a WARN, never a clean round.
 - **Visual-only films: Brief `voice: none`** (`scripts/silent_take.mjs`, `scripts/express.mjs`, `scripts/narration_lint.mjs`,
   `references/brief.md`, `express.md`, `script-voice.md`, `tests/silent-take.mjs`). A film with no narration had no route:
   every gate and tool assumed a voice take. Call 3 now offers "No voice (visuals only)" and `BRIEF.md` saves `voice: none`;
@@ -59,6 +71,10 @@ Published versions are never re-tagged.
   (fix the file and rerun), never "none".
 
 ### Fixed
+- **Token metrics read another film's session** (`scripts/tokens.mjs`, `tests/tokens.mjs`). In a folder shared by
+  several films the report took the folder's newest session, which could be another film's: no Agent calls, "0
+  subagents 0K". It now takes the newest session that names the film (not as the prefix of a longer folder name), else
+  the newest as before.
 - **No horizontal line across the top glass band** (`engine/three/editorial.js` `makeOverlay`): the band's light lip (a
   hard 2 px stripe) and the corner where its mask and tint started to fade (a slope jump reads as a line, and the blur
   followed it) are gone. The band is solid to 50 % and then fades out in one smooth curve, with the tint one plain

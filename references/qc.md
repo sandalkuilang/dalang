@@ -8,7 +8,7 @@ Review like someone else's code: find bugs.
 node <skill-dir>/scripts/studio.mjs qc . [--allow a-b] [--targets <shots>]   # run_in_background, never polled: check,
 #   the 10 fps draft, qc_all (one PASS / FAIL / WARN line per check), strips --crops, review/cuts.png; from round 2 the
 #   last round's verdicts and strips go to review/round-<n>/ first
-node <skill-dir>/scripts/studio.mjs fixes .   # after the reviewer: one fixer prompt per review/fixes-<group>.md
+node <skill-dir>/scripts/studio.mjs fixes .   # after the reviewer: the stop rule (fix_ledger.mjs), then one fixer prompt per group with a blocking finding
 ```
 
 `qc_all.mjs` runs, side by side, and prints only a failing check's own lines: `stillness.mjs` (≤ 10 %, no still stretch
@@ -29,6 +29,7 @@ or snapshot beside them (models: `SKILL.md`).
 - **Numbers keep their provenance form** (`script-voice.md` §3): a number in none of those forms is a Clarity P1, an invented one a Reality P0.
 - **User away (every run after the Brief), the ship rules:** a Set or Reality fail of the subject or a shot is a P0, never shipped. A Set, Reality or Clarity P1 (a detail off the real thing, the narrated cause shown only in part) blocks the final until a round fixes it or two rounds fail on it; then it ships named in the hand-off. So does an `audio_qc.mjs` flag (exit 3); its exit 2 (a page script beyond the engine library, GSAP's CDN too) is never a pass: fix what you can, else the hand-off's known bugs name "music bed level not checked". Other P1s may ship, listed in the hand-off.
 - **Fix check** between rounds: a subagent gets the `changed (targeted)` stills and the findings, returns pass/fail and one line per fix.
+- **Stop rule:** `fix_ledger.mjs` (run by `studio.mjs fixes`) ends the loop: clean, not converging, or the cap; P2s and P1s outside Set, Reality and Clarity never start a round, they ship listed.
 - Too quiet → raise the narration in the mix. Too still → add motion where the script points (`stillness.mjs` catches frozen frames, not slideshows).
 - Run `check`, snapshots and renders with no model job beside them. A render over 3× slower than the last → find the cause (`--debug`, other Chrome processes, a heavy filter). Log every problem in `PRODUCTION.md`.
 - **Strobing** (24 fps brief with 3D camera moves or fast bodies): snapshot two adjacent frames across the fastest move; sharp doubles instead of a smear = P1. The 10 fps draft cannot show it.
