@@ -2090,6 +2090,20 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(audit(m, { u: [0, 720], mesh: [pair({ axis: [1, 0, 0.1] })] }).problems.some((p) => /bevel: shaft angle/.test(p)), "a shaft off 90° is named");
   const wrong = { ...ub, pitchAngle: db - 0.01 };
   assert.ok(audit(m, { u: [0, 720], mesh: [{ ...pair(), b: { ...pair().b, cone: wrong } }] }).problems.some((p) => /cone distance/.test(p)), "a pitch angle wrong for the teeth is named");
+  { // the contact checks have their own units (m, rad): a loose ratio tol (degrees·teeth) never opens them
+    const loose = { u: [0, 720], tol: 0.05 }, bad = (o, re) => audit(m, { ...loose, mesh: [pair(o)] }).problems.some((p) => re.test(p));
+    assert.ok(bad({ apex: [0.04, 0, 0] }, /bevel: apex/), "apexes 40 mm apart are named although tol is 0.05");
+    assert.ok(bad({ axis: [Math.cos(0.0436), 0, Math.sin(0.0436)] }, /bevel: shaft angle/), "a shaft 2.5° off 90° is named although tol is 0.05");
+    const m2 = { ...ub, module: 0.0035 };
+    assert.ok(audit(m, { ...loose, mesh: [{ ...pair(), b: { ...pair().b, cone: m2 } }] }).problems.some((p) => /module/.test(p)), "a module 0.5 mm off is named although tol is 0.05");
+    const wrong2 = { ...ub, pitchAngle: db - 0.01 };
+    assert.ok(audit(m, { ...loose, mesh: [{ ...pair(), b: { ...pair().b, cone: wrong2 } }] }).problems.some((p) => /cone distance/.test(p)), "a cone distance off by mm is named although tol is 0.05");
+    assert.deepEqual(audit(m, { ...loose, mesh: [pair()] }).problems, [], "a true pair still passes under a loose ratio tol");
+    assert.deepEqual(audit(m, { u: [0, 720], mesh: [pair({ apex: [0.001, 0, 0] })], bevelTol: { len: 0.002 } }).problems, [], "bevelTol.len is the contact's own metre tolerance: 1 mm apart passes at 2 mm");
+    assert.ok(audit(m, { u: [0, 720], mesh: [pair({ apex: [0.003, 0, 0] })], bevelTol: { len: 0.002 } }).problems.some((p) => /bevel: apex/.test(p)), "3 mm apart fails at 2 mm");
+    assert.throws(() => audit(m, { u: [0, 720], mesh: [pair()], bevelTol: { len: -1 } }), /bevelTol/, "a negative or unreadable bevelTol is a wrong spec");
+    assert.throws(() => audit(m, { u: [0, 720], mesh: [pair()], bevelTol: { angle: NaN } }), /bevelTol/);
+  }
   assert.throws(() => audit(m, { u: [0, 720], mesh: [{ ...pair(), b: { ...pair().b, apex: undefined } }] }), /bevel mesh "bevel" needs/, "a bevel mesh without its apex is a wrong spec");
   assert.throws(() => PT.bevelGear({ teeth: 20, module: 0.003, pitchAngle: Math.PI / 2, face: 0.01 }), /pitchAngle/);
   assert.throws(() => PT.bevelGear({ teeth: 20, module: 0.003, pitchAngle: NaN, face: 0.01 }), /pitchAngle/);
