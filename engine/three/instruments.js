@@ -1,5 +1,5 @@
 // Live instruments for a film drawn on one 2D canvas as a function of t: an oscilloscope trace, a multimeter readout, a
-// needle gauge and a bar meter. Each reads a signal or value from the numbers model (volts, amperes, rpm, ...) and is
+// needle gauge, a bar meter and a live chart. Each reads a signal or value from the numbers model (volts, amperes, rpm, ...) and is
 // drawn with its units and a label; a widget without either is refused, because a bare number says nothing. Each
 // returns the numbers it drew (the self-check reads those, not pixels). A value it cannot read (NaN, a missing
 // sample) is shown as "--" or a gap and returned as null: never drawn as 0. Like type.js it imports nothing, so a
@@ -16,7 +16,18 @@
 // mesh's material `map` and `emissiveMap`, in the screen's own pixel size.
 
 const MIN_TEXT = 36;
-const INK = "#e8f1ff", PANEL = "rgba(8, 12, 18, 0.72)", GRID = "rgba(232, 241, 255, 0.22)";
+// The palette every widget reads at draw time: dark (a dark set) or light (the pale studio of the visual thesis,
+// looks.md object-studio): ink on a white panel, the film's one accent for the value that moves.
+const THEMES = {
+  dark: { INK: "#e8f1ff", PANEL: "rgba(8, 12, 18, 0.72)", GRID: "rgba(232, 241, 255, 0.22)", ACC: "#ffb347", ALARM: "#ff6b57", TRACE: "#58c4ff" },
+  light: { INK: "#1b1c1f", PANEL: "rgba(255, 255, 255, 0.86)", GRID: "rgba(27, 28, 31, 0.14)", ACC: "#E8502A", ALARM: "#B3261E", TRACE: "#1b1c1f" },
+};
+let { INK, PANEL, GRID, ACC, ALARM, TRACE } = THEMES.dark;
+export function instrumentTheme(name, { accent } = {}) {
+  if (!THEMES[name]) throw new Error(`instrumentTheme: theme must be one of ${Object.keys(THEMES).join(", ")}, got ${name}`);
+  ({ INK, PANEL, GRID, ACC, ALARM, TRACE } = THEMES[name]);
+  if (accent) ACC = accent;
+}
 const finite = (v) => typeof v === "number" && Number.isFinite(v);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const font = (px, weight = 600) => `${weight} ${px}px system-ui, sans-serif`;
@@ -40,7 +51,7 @@ const timeBase = (s) => (s >= 1 ? `${+s.toPrecision(3)} s/div` : s >= 1e-3 ? `${
 // `range = [lo, hi]` maps to the box's bottom and top. A sample the signal cannot give is a gap (null). Returns
 // { points: [[px, py] | null, ...], values, perDiv (s), text } with `text` the time-base line.
 export function scope(ctx, o = {}) {
-  const { signal, t, window: win = 0.04, range, x, y, w, h, divisions = 10, timeScale = 1, samples = 400, color = "#58c4ff", units, label } = o;
+  const { signal, t, window: win = 0.04, range, x, y, w, h, divisions = 10, timeScale = 1, samples = 400, color = TRACE, units, label } = o;
   check("scope", o, ["t", "x", "y", "w", "h"]);
   if (typeof signal !== "function") throw new Error("scope: signal(τ) is a function returning the model's value at signal time τ (s)");
   if (!Array.isArray(range) || !finite(range[0]) || !finite(range[1]) || !(range[1] > range[0])) throw new Error("scope: range is [lo, hi] with lo < hi, in the signal's units");
@@ -105,7 +116,7 @@ export function gauge(ctx, o = {}) {
   ctx.stroke();
   if (ok) {
     const a = top + angle;
-    ctx.strokeStyle = clamped ? "#ff6b57" : "#ffb347"; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath();
+    ctx.strokeStyle = clamped ? ALARM : ACC; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath();
     ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.86, y + Math.sin(a) * r * 0.86); ctx.stroke();
   }
   text(ctx, `${+min.toPrecision(4)}`, x - Math.sin(sweep / 2) * r, y + Math.cos(sweep / 2) * r + 12, { px, align: "center", base: "top" });
@@ -126,10 +137,44 @@ export function bar(ctx, o = {}) {
   const out = ok ? `${num(value, digits)} / ${num(max, digits)} ${units}` : `-- / ${num(max, digits)} ${units}`;
   ctx.save();
   ctx.fillStyle = PANEL; ctx.fillRect(x, y, w, h);
-  if (ok) { ctx.fillStyle = fill >= 1 ? "#ff6b57" : "#58c4ff"; ctx.fillRect(x, y, w * fill, h); }
+  if (ok) { ctx.fillStyle = fill >= 1 ? ALARM : ACC; ctx.fillRect(x, y, w * fill, h); }
   ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h);
   text(ctx, label, x, y - 12, { px, base: "alphabetic" });
   text(ctx, out, x + w, y - 12, { px, align: "right", base: "alphabetic" });
   ctx.restore();
   return { fill, text: out };
+}
+
+// A live chart: `curve(u)` drawn across `domain` = [u0, u1] of the model's input (a crank angle, a stroke), `range` =
+// [lo, hi] bottom to top, and a cursor dot in the accent at the current `u` — it moves with the machine, so the eye
+// ties the curve to the part. A curve value that is not a finite number is a gap; at the cursor it prints "--".
+// Returns { points, cursor: [px, py] | null, value, text }.
+export function chart(ctx, o = {}) {
+  const { curve, domain, range, u, x, y, w, h, units, uUnits = "", label, digits = 1, samples = 200 } = o;
+  check("chart", o, ["u", "x", "y", "w", "h"]);
+  if (typeof curve !== "function") throw new Error("chart: curve(u) is a function of the model's input");
+  for (const [k, v] of [["domain", domain], ["range", range]])
+    if (!Array.isArray(v) || !finite(v[0]) || !finite(v[1]) || !(v[1] > v[0])) throw new Error(`chart: ${k} is [lo, hi] with lo < hi`);
+  const [u0, u1] = domain, [lo, hi] = range, px = o.font ?? MIN_TEXT;
+  const X = (uu) => x + ((uu - u0) / (u1 - u0)) * w, Y = (v) => y + h - clamp((v - lo) / (hi - lo), 0, 1) * h;
+  const points = [];
+  for (let i = 0; i < samples; i++) { const uu = u0 + ((u1 - u0) * i) / (samples - 1), v = curve(uu); points.push(finite(v) ? [X(uu), Y(v)] : null); }
+  const v = curve(u), value = finite(v) ? v : null, out = value === null ? "--" : `${num(value, digits)} ${units}`;
+  const cursor = value === null || u < u0 || u > u1 ? null : [X(u), Y(value)];
+  ctx.save();
+  ctx.fillStyle = PANEL; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = GRID; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+  ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.beginPath();
+  let pen = false;
+  for (const p of points) { if (!p) { pen = false; continue; } if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); pen = true; }
+  ctx.stroke();
+  if (cursor) {
+    ctx.strokeStyle = ACC; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cursor[0], y); ctx.lineTo(cursor[0], y + h); ctx.stroke();
+    ctx.fillStyle = ACC; ctx.beginPath(); ctx.arc(cursor[0], cursor[1], 10, 0, 2 * Math.PI); ctx.fill();
+  }
+  text(ctx, label, x, y - 12, { px, base: "alphabetic" });
+  text(ctx, out, x + w, y - 12, { px, align: "right", base: "alphabetic", weight: 700 });
+  text(ctx, `${+u0.toPrecision(4)} to ${+u1.toPrecision(4)} ${uUnits}`.trim(), x, y + h + 12, { px, base: "top" });
+  ctx.restore();
+  return { points, cursor, value, text: out };
 }

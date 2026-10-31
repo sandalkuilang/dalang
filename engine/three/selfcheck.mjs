@@ -19,7 +19,7 @@ const { scaleAudit, zFight } = await use("audit.js");
 const { studio, aoFor, fitShadow, LOOKS, PRESETS, ISO_TONES, isoMatcap, isoTone, isoLook, isoStudio, blueprintLook, inkLines } = await use("studio.js");
 const { flowArrow, tileFill, dimension } = await use("quantity.js");
 const { wire, flow, glow, lamp, arc, blackbody, DRAPER, LAMPS } = await use("circuit.js");
-const { scope, meter, gauge, bar: barMeter } = await use("instruments.js");
+const { scope, meter, gauge, bar: barMeter, chart, instrumentTheme } = await use("instruments.js");
 const { shots, cueTime } = await use("shots.js");
 const FLD = await use("fields.js");
 const O = await use("optics.js");
@@ -1354,6 +1354,23 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
     assert.ok(mk(5).fill === 0.25 && mk(40).fill === 1 && mk(-1).fill === 0 && mk(NaN).fill === null, "fill = value / max, clamped, null when unreadable");
     assert.throws(() => barMeter(rec().ctx, { value: 1, max: 20, units: "A", x: 0, y: 0, w: 1, h: 1 }), /label/);
     assert.throws(() => barMeter(rec().ctx, { value: 1, max: 0, units: "A", label: "x", x: 0, y: 0, w: 1, h: 1 }), /max/); }
+  { // chart: a curve over the model's input with a cursor at the current u; the value it prints is curve(u).
+    const r = rec(), lift = (deg) => Math.max(0, Math.sin((deg * Math.PI) / 180));
+    const c = chart(r.ctx, { curve: lift, domain: [0, 720], range: [0, 1], u: 90, units: "mm", uUnits: "°", label: "valve lift", x: 0, y: 0, w: 600, h: 300 });
+    assert.equal(c.value, 1, "the value is curve(u)");
+    assert.ok(c.cursor[0] === 75 && c.cursor[1] === 0, "the cursor sits on the curve at u: " + c.cursor);
+    assert.ok(r.texts().some((s) => /valve lift/.test(s)) && r.texts().some((s) => /1\.0 mm/.test(s)), "label and value drawn");
+    const nan = chart(rec().ctx, { curve: () => NaN, domain: [0, 1], range: [0, 1], u: 0.5, units: "V", label: "x", x: 0, y: 0, w: 10, h: 10 });
+    assert.ok(nan.value === null && nan.text === "--", "an unreadable value is --, never 0");
+    assert.throws(() => chart(rec().ctx, { curve: lift, domain: [0, 720], range: [0, 1], u: 0, label: "x", x: 0, y: 0, w: 10, h: 10 }), /units/);
+    assert.throws(() => chart(rec().ctx, { curve: lift, domain: [1, 1], range: [0, 1], u: 0, units: "V", label: "x", x: 0, y: 0, w: 10, h: 10 }), /domain/);
+    instrumentTheme("light", { accent: "#E8502A" });
+    const fills = [], fctx = new Proxy({}, { get: (o, k) => (k === "measureText" ? (s) => ({ width: String(s).length * 20 }) : k in o ? o[k] : () => {}), set: (o, k, v) => { if (k === "fillStyle") fills.push(v); o[k] = v; return true; } });
+    barMeter(fctx, { value: 2, max: 4, units: "A", label: "load", x: 0, y: 0, w: 100, h: 10 });
+    assert.ok(fills.includes("#E8502A"), "the light theme fills the bar with the film's one accent: " + fills);
+    assert.throws(() => instrumentTheme("neon"), /theme/);
+    instrumentTheme("dark");
+  }
 }
 { // Fields (fields.js): a field is drawn by its law in real units. Lines are traced by RK4 from seeds spaced by FLUX, so
   // how close lines lie means how strong the field is; filings lie along B, a compass needle settles along it, and a
