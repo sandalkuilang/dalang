@@ -34,6 +34,8 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+## [4.5.9] - 2026-10-31
+
 ### Added
 - **Electronics that read as the real parts** (`engine/iso/kit.js`): `pcb` (copper traces, round and SMD pads), `resistor`
   (its colour bands from `ohms`), `diode`, `elco`, `ceramic`, `smd` (0402–1206), `ic` (DIP, SOIC) and `transformer` (EI core,
@@ -2083,7 +2085,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.8...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.9...HEAD
+[4.5.9]: https://github.com/sandalkuilang/dalang/compare/v4.5.8...v4.5.9
 [4.5.8]: https://github.com/sandalkuilang/dalang/compare/v4.5.7...v4.5.8
 [4.5.7]: https://github.com/sandalkuilang/dalang/compare/v4.5.6...v4.5.7
 [4.5.6]: https://github.com/sandalkuilang/dalang/compare/v4.5.5...v4.5.6
