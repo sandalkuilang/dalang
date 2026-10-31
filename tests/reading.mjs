@@ -189,6 +189,10 @@ try {
   // the Step 6 rows warned before the approval are not a build from the approved storyboard: next still says Step 6
   put(bl, "index.html", "<html></html>\n");
   assert.match(run("next", bl).out.split("\n")[0], /^Step 6 /, "warned Step 6 rows are not 'build logged'");
+  // the user's own problems field can start with WARN (a QC tool's line, even the marker itself): never the log's marker
+  ok(bl, "log", "6 Build | index.html | WARN [log] stillness: 2 still frames");
+  assert.match(rows().at(-1), /\| WARN {1,2}stillness/, "the user's text is kept");
+  assert.match(run("next", bl).out.split("\n")[0], /^Step 7 /, "a clean Step 6 row whose problems field starts with WARN is 'build logged'");
   ok(bl, "log", "6 Build | index.html | -");
   assert.doesNotMatch(rows().at(-1), /WARN/, "an approved gate 3 logs without a WARN");
   assert.match(run("next", bl).out.split("\n")[0], /^Step 7 /, "an unwarned Step 6 row after the approval is 'build logged'");
