@@ -18,8 +18,9 @@
 //        node state.mjs check <1-4> [dir]         -> exit 0 only if that gate is approved and fresh
 //        node state.mjs log "<step> | <output> | <problems or ->" [dir]
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
-//                                                    starts where the day's last logged line ended; refuses a
-//                                                    Step 6 line until storyboard.md exists and gate 3 is approved
+//                                                    starts where the day's last logged line ended; never
+//                                                    refuses: a Step 6 line written before storyboard.md exists or gate 3
+//                                                    is approved is recorded with "| WARN …" appended, and a WARN is printed
 //        node state.mjs next [dir] [--step 0-8] [--print] [--sub]
 //                                                 -> where the video stands, and the reading list of that step:
 //                                                    the exact sections to read, as ready commands (--print: their text),
@@ -30,7 +31,9 @@
 //                                                    (FAILED when the step has none)
 //        node state.mjs models                  -> every subagent job, its model and effort, per step and mode
 //        node state.mjs metrics [dir]           -> the run in numbers for the hand-off (review/metrics.md): start, end, output folder,
-//                                                 total, minutes per step, each subagent's model, effort and tokens
+//                                                 total, minutes per step, each subagent's model, effort and tokens;
+//                                                 Start and End are the first and last log line by time; subagent tokens come from the
+//                                                 session transcripts, else "not counted" (never 0)
 //        node state.mjs reading [--skill <dir>] [--json]
 //                                                 -> checks the reading table: every heading exists, each section
 //                                                    is ≤ 8 KB, SKILL.md (loaded every session) ≤ 9.5 KB, the
@@ -423,10 +426,13 @@ if (cmd === 'approve') {
   }
 } else if (cmd === 'log') {
   if (!gateArg?.includes('|')) { console.error('FAILED: log needs "<step> | <output> | <problems or ->"'); process.exit(1); }
-  // the build starts from an approved storyboard: Step 6 cannot be logged without it
+  // the build starts from an approved storyboard; a log that refused stopped the step clock, so Step 6 is recorded with the gate state
+  let warn = '';
   if (/^(step *)?(6\b|build)/i.test(gateArg.split('|')[0].trim())) {
-    if (!existsSync(path.join(dir, 'storyboard.md'))) { console.error('FAILED: Step 6 (build) cannot be logged: storyboard.md is missing — write it before the build (Step 5)'); process.exit(1); }
-    if (!approved(3)) { console.error(`FAILED: Step 6 (build) cannot be logged: gate 3 is ${status(3)} — approve it first`); process.exit(1); }
+    const why = [];
+    if (!existsSync(path.join(dir, 'storyboard.md'))) why.push('storyboard.md is missing');
+    if (!approved(3)) why.push(`gate 3 is ${status(3)}`);
+    if (why.length) warn = `WARN ${why.join('; ')}`;
   }
   const p = path.join(dir, 'PRODUCTION.md');
   const [day, now] = new Date().toLocaleString('sv').slice(0, 16).split(' ');
@@ -434,9 +440,10 @@ if (cmd === 'approve') {
   if (!text.includes(`## ${day}`)) text = text.trimEnd() + `\n\n## ${day}\n`;
   // Writing "$(date)–$(date)" at the end of a step logged zero minutes; the previous line's end is this step's start.
   const ends = text.slice(text.indexOf(`## ${day}`)).match(/^\d\d:\d\d[–-]\d\d:\d\d/gm) || [];
-  const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg}`;
+  const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg}${warn ? ` | ${warn}` : ''}`;
   writeFileSync(p, text.trimEnd() + '\n' + row + '\n');
   console.log(row);
+  if (warn) console.error(`WARN: Step 6 logged while ${warn.slice(5)} — write and approve it (Gate 3) before the build continues`);
 } else if (cmd === 'metrics') {
   // The run in numbers, for the hand-off: start, end and total from PRODUCTION.md's "HH:MM–HH:MM | step | …" lines (one
   // row per step), the output folder and its final files, and every subagent's job, model, effort, turns and tokens
@@ -451,20 +458,23 @@ if (cmd === 'approve') {
   if (!steps.length) { console.error('NOT CHECKED: no "HH:MM–HH:MM | step | …" lines in PRODUCTION.md (state.mjs log writes them): rerun after logging'); process.exit(2); }
   const at = (d, hm) => new Date(`${d ?? '1970-01-01'}T${hm}:00`).getTime();
   const mins = (a, b) => Math.round(((b - a) / 60000 + 1440 * 2) % 1440);
-  const t0 = at(steps[0].day, steps[0].from), t1 = at(steps.at(-1).day, steps.at(-1).to);
-  const total = steps[0].day && steps.at(-1).day ? Math.round((t1 - t0) / 60000) : mins(t0, t1);
+  // Start and End span the first and last log line by time, not by position in the file
+  const first = steps.reduce((a, x) => at(x.day, x.from) < at(a.day, a.from) ? x : a), last = steps.reduce((a, x) => at(x.day, x.to) > at(a.day, a.to) ? x : a);
+  const t0 = at(first.day, first.from), t1 = at(last.day, last.to);
+  const total = first.day && last.day ? Math.round((t1 - t0) / 60000) : mins(t0, t1);
   const r = spawnSync(process.execPath, [path.join(SKILL, 'scripts', 'tokens.mjs'), dir, '--json'], { encoding: 'utf8' });
   let tk = null; try { tk = JSON.parse(r.stdout.slice(r.stdout.indexOf('{'), r.stdout.lastIndexOf('}') + 1)); } catch { /* not checked */ }
   const M = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`, hm = iso => iso ? new Date(iso).toLocaleString('sv').slice(11, 16) : '?';
   const made = readdirSync(dir).filter(f => /^final.*\.mp4$|^POST\.md$|^CREDITS\.md$/.test(f)).sort();
-  const out = ['## Run metrics', '', `Start ${steps[0].from} · End ${steps.at(-1).to} · Total ${total} min`, '', `Output folder: ${path.resolve(dir)}${made.length ? ` (${made.join(', ')})` : ' (no final file yet)'}`, '', '| Step | Start | End | Min |', '|---|---|---|---|',
+  const out = ['## Run metrics', '', `Start ${first.from} · End ${last.to} · Total ${total} min`, '', `Output folder: ${path.resolve(dir)}${made.length ? ` (${made.join(', ')})` : ' (no final file yet)'}`, '', '| Step | Start | End | Min |', '|---|---|---|---|',
     ...steps.map(s => `| ${s.step} | ${s.from} | ${s.to} | ${mins(at(s.day, s.from), at(s.day, s.to))} |`), ''];
   if (!tk) out.push('Tokens: not checked (tokens.mjs could not read the transcripts: rerun)');
   else {
     out.push('| Agent (job) | Model | Effort | Turns | Tokens | Start | End |', '|---|---|---|---|---|---|---|',
       `| main${tk.main.shared ? ' (whole session, shared)' : ''} | ${tk.main.model ?? '?'} | the session's | ${tk.main.turns} | ${M(tk.main.total)} | ${hm(tk.main.start)} | ${hm(tk.main.end)} |`,
       ...[...tk.subagents].sort((a, b) => String(a.start).localeCompare(String(b.start))).map(a => `| ${a.desc} | ${a.model ?? '?'} | ${a.effort} | ${a.turns} | ${M(a.total)} | ${hm(a.start)} | ${hm(a.end)} |`),
-      '', `**Total tokens: ${M(tk.main.total + tk.subagentTotal)}** (main ${M(tk.main.total)}${tk.main.shared ? ', the whole session' : ''} + ${tk.subagents.length} subagents ${M(tk.subagentTotal)}) · main model ${tk.main.model ?? '?'} · effort "inherited" = the session's own`);
+      ...(tk.uncounted ? ['', tk.subagents.length ? `Subagents: ${tk.uncounted} more Agent call(s) have no subagent transcript here: not counted` : `Subagents: not counted (${tk.uncounted} Agent call(s) in the main transcript, no subagent transcript found: rerun after the session writes them, or pass --session to tokens.mjs)`] : []),
+      '', `**Total tokens: ${tk.uncounted ? 'at least ' : ''}${M(tk.main.total + tk.subagentTotal)}** (main ${M(tk.main.total)}${tk.main.shared ? ', the whole session' : ''} + ${tk.subagents.length ? `${tk.subagents.length} subagents ${M(tk.subagentTotal)}${tk.uncounted ? `, ${tk.uncounted} more not counted` : ''}` : tk.uncounted ? 'subagents not counted' : '0 subagents 0K'}) · main model ${tk.main.model ?? '?'} · effort "inherited" = the session's own`);
   }
   const md = out.join('\n') + '\n';
   try { mkdirSync(path.join(dir, 'review'), { recursive: true }); writeFileSync(path.join(dir, 'review', 'metrics.md'), md); } catch (e) { console.error(`WARN: review/metrics.md not written (${e.code || e.message})`); }
