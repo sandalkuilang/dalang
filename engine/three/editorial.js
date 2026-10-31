@@ -95,15 +95,20 @@ export function captionAt(CAPS, t) {
   return { phrase, word };
 }
 
+// the frosted grain on the glass bands: fixed grey speckle, dark and light (it is the glass, so it never moves); 18 % so it shows on light glass and compression keeps it
+const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 .18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+
 const css = `
 .ov{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:5;font-family:${FAMILY}}
 .ov *{box-sizing:border-box}
 .ov-el{position:absolute;opacity:0;will-change:transform,opacity}
 .ov-hl{left:60px;top:110px;width:900px;transform-origin:0 0}
 /* the glass bands: the picture, then a frosted band (the top 27 % fading downward, the bottom 17 % fading upward), then the
-   text. Their own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop backdrop-filter seeing the frame */
-.ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.34) 55%,rgba(255,255,255,0) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)}
-.ov-glass.b{top:auto;bottom:0;opacity:1;background:linear-gradient(0deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.34) 55%,rgba(255,255,255,0) 100%);-webkit-mask-image:linear-gradient(0deg,#000 0%,#000 55%,transparent 100%);mask-image:linear-gradient(0deg,#000 0%,#000 55%,transparent 100%)}
+   text. Glass shows by its tint (the ground's own, --ov-glass from glassTint), its grain and its lip: solid to 70 %, a light
+   line there, then a fade. Their own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop
+   backdrop-filter seeing the frame */
+.ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:linear-gradient(180deg,transparent calc(70% - 2px),rgba(255,255,255,.85) calc(70% - 2px),rgba(255,255,255,.85) 70%,transparent 70%),${GRAIN},linear-gradient(180deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 70%,rgba(var(--ov-glass),0) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%)}
+.ov-glass.b{top:auto;bottom:0;opacity:1;background:linear-gradient(0deg,transparent calc(70% - 2px),rgba(255,255,255,.85) calc(70% - 2px),rgba(255,255,255,.85) 70%,transparent 70%),${GRAIN},linear-gradient(0deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 70%,rgba(var(--ov-glass),0) 100%);-webkit-mask-image:linear-gradient(0deg,#000 0%,#000 70%,transparent 100%);mask-image:linear-gradient(0deg,#000 0%,#000 70%,transparent 100%)}
 .ov-k{font-weight:${W_.sub};font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
 .ov-h{font-weight:${W_.title};font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
 .ov-acc{background:var(--ov-acc);color:var(--ov-ink);padding:0 .14em;border-radius:10px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
@@ -146,18 +151,29 @@ function style(doc, id, text) {
   const s = el(doc, "style", null, doc.head); s.id = id; s.textContent = text;
 }
 
-// makeOverlay(root, { prefix, G0, accent, ink, W, H, safe }): prefix (the group id) keeps element ids
-// unique; safe = { x, top, bottom } px, the box a pinned pill stays in (bottom: above the caption band).
+// glassTint(ground, ink): the frosted bands' tint, from the colour they sit on. White glass over a light ground only
+// whitens it (an empty sky has nothing to blur), so a light ground gets its own colour pulled 10 % toward ink and a dark one white.
+export function glassTint(ground = "#E8EDEF", ink = "#0B0B0B") {
+  const rgb = (c) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) throw new Error(`glassTint: pass a #rrggbb colour (got ${c})`); const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const g = rgb(ground);
+  if ((0.2126 * g[0] + 0.7152 * g[1] + 0.0722 * g[2]) / 255 < 0.5) return { rgb: "255,255,255", light: false };
+  const k = rgb(/^#[0-9a-f]{6}$/i.test(ink) ? ink : "#0B0B0B"); // ink is any CSS colour elsewhere: one that is not #rrggbb pulls toward the default
+  return { rgb: g.map((v, i) => Math.round(v + (k[i] - v) * 0.1)).join(","), light: true };
+}
+
+// makeOverlay(root, { prefix, G0, accent, ink, ground, W, H, safe }): prefix (the group id) keeps element ids
+// unique; ground is the colour behind the glass bands (the sky or sweep, #rrggbb); safe = { x, top, bottom } px, the box a
+// pinned pill stays in (bottom: above the caption band).
 // Type: one family (font.js), weight by role: headline and big values Bold, pills and captions Semibold, kickers and labels
 // Medium, source lines Regular.
-export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
+export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#0B0B0B", ground = "#E8EDEF", W: fw = W, H: fh = H, safe = { x: 54, top: 96, bottom: 1180 } } = {}) {
   if (!root) throw new Error("makeOverlay(root): pass the composition root element");
   if (!prefix) throw new Error("makeOverlay: pass { prefix } (the group id, for unique element ids)");
   const doc = docOf(root);
   style(doc, "ov-style", css);
   const layer = el(doc, "div", "ov", root); layer.id = prefix + "-ov";
   layer.style.width = fw + "px"; layer.style.height = fh + "px";
-  layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink);
+  layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink); layer.style.setProperty?.("--ov-glass", glassTint(ground, ink).rgb);
   const glass = el(doc, "div", "ov-glass", layer); glass.style.height = Math.round(fh * 0.27) + "px"; // shown with a headline
   const glassB = el(doc, "div", "ov-glass b", layer); glassB.style.height = Math.round(fh * 0.17) + "px"; // always on
   const svgNS = "http://www.w3.org/2000/svg";
