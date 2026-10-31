@@ -20,7 +20,7 @@
 //                                                 -> appends "HH:MM–HH:MM | …" to PRODUCTION.md; the step
 //                                                    starts where the day's last logged line ended; never
 //                                                    refuses: a Step 6 line written before storyboard.md exists or gate 3
-//                                                    is approved is recorded with "| WARN …" appended, and a WARN is printed
+//                                                    is approved is recorded with "| WARN [log] …" appended, and a WARN is printed
 //        node state.mjs next [dir] [--step 0-8] [--print] [--sub]
 //                                                 -> where the video stands, and the reading list of that step:
 //                                                    the exact sections to read, as ready commands (--print: their text),
@@ -328,8 +328,8 @@ const standing = () => {
   if (!approved(3)) return [5, `gate 2 approved, gate 3 ${gateWord(3)}`];
   if (approved(4)) return [8, 'gate 4 approved'];
   const log = readFileSync(path.join(dir, 'PRODUCTION.md'), 'utf8');
-  // a Step 6 row that `log` wrote with a WARN field (gate 3 not approved then) is not a build from the approved storyboard
-  const built = log.split('\n').some(l => /^\d\d:\d\d[–-]\d\d:\d\d \| *(step *)?(6\b|build)/i.test(l) && !/\| WARN [^|]*$/.test(l)) || has('QC-REVIEW.md');
+  // a Step 6 row that `log` wrote with a "WARN [log]" field (gate 3 not approved then; `log` strips "[log]" from the user's text, so only it writes the marker) is not a build from the approved storyboard
+  const built = log.split('\n').some(l => /^\d\d:\d\d[–-]\d\d:\d\d \| *(step *)?(6\b|build)/i.test(l) && !/\| WARN \[log\] [^|]*$/.test(l)) || has('QC-REVIEW.md');
   return has('index.html') && built ? [7, `build logged, gate 4 ${gateWord(4)}`] : [6, 'gate 3 approved, no finished build logged'];
 };
 // One step as the main agent reads it: the sections (commands, or their text with --print), the mode's lesson
@@ -433,7 +433,7 @@ if (cmd === 'approve') {
     const why = [];
     if (!existsSync(path.join(dir, 'storyboard.md'))) why.push('storyboard.md is missing');
     if (!approved(3)) why.push(`gate 3 is ${status(3)}`);
-    if (why.length) warn = `WARN ${why.join('; ')}`;
+    if (why.length) warn = `WARN [log] ${why.join('; ')}`;
   }
   const p = path.join(dir, 'PRODUCTION.md');
   const [day, now] = new Date().toLocaleString('sv').slice(0, 16).split(' ');
@@ -441,10 +441,10 @@ if (cmd === 'approve') {
   if (!text.includes(`## ${day}`)) text = text.trimEnd() + `\n\n## ${day}\n`;
   // Writing "$(date)–$(date)" at the end of a step logged zero minutes; the previous line's end is this step's start.
   const ends = text.slice(text.indexOf(`## ${day}`)).match(/^\d\d:\d\d[–-]\d\d:\d\d/gm) || [];
-  const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg}${warn ? ` | ${warn}` : ''}`;
+  const row = `${ends.length ? ends.at(-1).slice(-5) : now}–${now} | ${gateArg.replaceAll('[log]', '')}${warn ? ` | ${warn}` : ''}`;
   writeFileSync(p, text.trimEnd() + '\n' + row + '\n');
   console.log(row);
-  if (warn) console.error(`WARN: Step 6 logged while ${warn.slice(5)} — write and approve it (Gate 3) before the build continues`);
+  if (warn) console.error(`WARN: Step 6 logged while ${warn.slice(11)} — write and approve it (Gate 3) before the build continues`);
 } else if (cmd === 'metrics') {
   // The run in numbers, for the hand-off: start, end and total from PRODUCTION.md's "HH:MM–HH:MM | step | …" lines (one
   // row per step), the output folder and its final files, and every subagent's job, model, effort, turns and tokens
