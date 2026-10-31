@@ -10,7 +10,8 @@
 //          the planner's last call: storyboard_lint clean, then scaffold.mjs with the arguments of SPEC.md's one
 //          `SCAFFOLD:` line (--look … --groups … --music …); prints the builders' prompt line
 //        node express.mjs assemble [dir]
-//          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), hyperframes check
+//          audio/beats.js and audio/captions.js checked for what after-voice writes (BEATS, WORDS, NARRATION_DURATION,
+//          CAPTIONS), fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), hyperframes check
 //          (a page error from the host or a group, printed under the part that threw: check names none itself, so a failed
 //          check is run again on the host alone and on the host with one group, in a temp folder of links), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
@@ -31,6 +32,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
+import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rerunHint } from './rerun_hint.mjs';
@@ -186,6 +188,32 @@ if (cmd === 'after-voice') {
   // a world still the stub means the first builder never wrote it: every group drew an empty slab
   if (existsSync(path.join(dir, 'assets/world.js')) && /^export const STUB/m.test(readFileSync(path.join(dir, 'assets/world.js'), 'utf8'))) { failed++; console.log('FAILED assets/world.js is still the stub: the first group\'s builder fills it, then every group snapshots again'); }
   if (existsSync(path.join(dir, 'assets/machine.js')) && /^export const STUB/m.test(readFileSync(path.join(dir, 'assets/machine.js'), 'utf8'))) { failed++; console.log('FAILED assets/machine.js is still the stub: the first group never built the machine'); }
+  // after-voice's files (express.md Step 4): a host that loads audio/beats.js and audio/captions.js with a missing global
+  // fails only in hyperframes, one render later. Each file and global named, with the step that writes it.
+  {
+    const probs = [];
+    const load = (f) => {
+      const p = path.join(dir, f);
+      if (!existsSync(p)) { probs.push(`${f} is missing`); return null; }
+      const win = {};
+      try { vm.runInNewContext(readFileSync(p, 'utf8'), { window: win }); } catch (e) { probs.push(`${f} does not run: ${String(e.message).slice(0, 120)}`); return null; }
+      return win;
+    };
+    const b = load('audio/beats.js');
+    if (b) {
+      if (!b.BEATS || typeof b.BEATS !== 'object' || Array.isArray(b.BEATS)) probs.push('audio/beats.js sets no window.BEATS');
+      if (!Array.isArray(b.WORDS)) probs.push('audio/beats.js sets no window.WORDS');
+      if (!Number.isFinite(b.NARRATION_DURATION) || b.NARRATION_DURATION <= 0) probs.push('audio/beats.js sets no window.NARRATION_DURATION');
+    }
+    const c = load('audio/captions.js');
+    if (c && !Array.isArray(c.CAPTIONS)) probs.push('audio/captions.js sets no window.CAPTIONS');
+    if (probs.length) {
+      failed++;
+      console.log(`FAILED voice files (what the take and after-voice write): ${probs.length} problem(s)`);
+      probs.forEach(l => console.log(`       ${l}`));
+      console.log('       fix: node <skill-dir>/scripts/express.mjs after-voice . (pad_voice, captions, Gates 1-2); beats.js is the take\'s own, so a take that left none is run again');
+    } else console.log('OK     voice files (audio/beats.js: BEATS, WORDS, NARRATION_DURATION; audio/captions.js: CAPTIONS)');
+  }
   step('fill_times host', ...node('fill_times.mjs', 'src/index.tpl.html', 'index.html'), { quiet: true });
   for (const g of groups) step(`fill_times ${g}`, ...node('fill_times.mjs', `src/compositions/${g}.tpl.html`, `compositions/${g}.html`), { quiet: true });
   step('lint_scene', ...node('lint_scene.mjs', '.'), { quiet: true, keep: 10 });
