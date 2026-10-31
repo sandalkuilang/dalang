@@ -69,6 +69,7 @@ if [ $fast -eq 0 ]; then
   step "token report (dedupe, builder budget WARN, shared session, not checked, recorded at approve)" node tests/tokens.mjs
   step "scaffold (engine, host and group templates from narration beats; first from 0, last to END; music bed; refusals write nothing)" node tests/scaffold.mjs
   step "pad_voice (1.45 s before, 1.35 s after, 0.2 s each under 10 s; every time moved; never twice; the raw take refused once padded)" node tests/pad-voice.mjs
+  step "voice none (silent take timed by reading time; after-voice and scaffold without a voice)" node tests/silent-take.mjs
   step "Gate 3 benchmark (approve 3 vs stub verdicts; reference board where ffmpeg runs)" node tests/benchmark.mjs
   step "layout lint (text: safe area, hero overlap, min size, caption over label; hero size, edges, contrast)" node tests/layout-lint.mjs
   step "series kit (save, list, apply; never a scene module)" node tests/series.mjs

@@ -8,6 +8,7 @@
 // split it: the voice restarts its intonation there), a sentence over 22 words (languages written without spaces: not
 // counted), script.md without a `Promise:` line and a `Takeaway:` line, a letter code ("DNA", "USB-C", "3D") with no
 // `written = spoken` line in say.txt (say.mjs). Dialogue files (most lines `name: text`) keep the colon.
+// BRIEF.md `voice: none` (a visuals-only film): the ear rules are skipped; narration.txt must exist, script.md is still checked.
 //
 // Usage: node narration_lint.mjs [project]   (default: .)
 // Exit 0 = clean; 1 = problems; 2 = a file could not be read: rerun, then lint again.
@@ -35,8 +36,14 @@ const read = file => {
   }
 };
 
+// BRIEF.md `voice: none`: nobody hears the script, so the ear rules do not apply
+let silent = false;
+try { silent = /^\W*voice\W*:\W*none\b/im.test(readFileSync(join(dir, 'BRIEF.md'), 'utf8')); }
+catch (e) { if (e.code !== 'ENOENT') warns.push(`BRIEF.md: cannot read (${e.code ?? e.message}) — rerun`); }
+if (silent) console.log('  Note     : voice: none — ear rules skipped (nobody hears the script)');
+
 const narration = read('narration.txt');
-if (narration !== null) {
+if (narration !== null && !silent) {
   const lines = narration.replace(/\r/g, '').split('\n');
   const speech = l => !l.trim().startsWith('#') && !/^\s*\(\d+(\.\d+)?\)\s*$/.test(l);
   const talk = lines.filter(l => l.trim() && speech(l));
