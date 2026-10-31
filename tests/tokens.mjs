@@ -135,7 +135,30 @@ assert.match(c.stdout, / · Tokens: not checked/);
   assert.match(x.stdout, /\| Builder A \| m \| high \| 1 \|/, "the effort the agent was asked for");
   assert.ok(fs.existsSync(path.join(mp, "review", "metrics.md")), "metrics.md written");
   assert.match(x.stdout, /Output folder: .*how-a-hinge-wears \(no final file yet\)/, "the output folder is named");
+  assert.doesNotMatch(x.stdout, /not counted/, "subagent transcripts found: counted");
+  // Start and End are the earliest and latest line by time, not the first and last in the file
+  put(path.join(mp, "PRODUCTION.md"), "# PRODUCTION\n\n## 2026-01-02\n09:00–09:05 | 1 Brief | BRIEF.md | -\n09:21–09:24 | 8 Final | final.mp4 | -\n09:03–09:10 | 7 QC | x | -\n");
+  x = m(mp); assert.match(x.stdout, /Start 09:00 · End 09:24 · Total 24 min/, "the latest end wins, not the last line's");
+  put(path.join(mp, "PRODUCTION.md"), "# PRODUCTION\n\n## 2026-01-02\n23:50–23:58 | 6 Build | x | -\n\n## 2026-01-03\n00:02–00:30 | 8 Final | y | -\n");
+  x = m(mp); assert.match(x.stdout, /Start 23:50 · End 00:30 · Total 40 min/, "a run over midnight");
   put(path.join(mp, "final.mp4"), "x"); assert.match(m(mp).stdout, /Output folder: .*\(final\.mp4\)/, "and its final files");
+}
+
+// Agent calls whose subagent transcripts are missing: "not counted", never 0; a film with no Agent call keeps a true 0.
+{
+  const vp = path.join(tmp, "videos2", "how-a-valve-seats");
+  fs.mkdirSync(vp, { recursive: true });
+  const ask = JSON.stringify({ type: "assistant", message: { id: "v0", content: [{ type: "tool_use", id: "toolu_9", name: "Agent", input: { description: "Builder B" } }] } });
+  put(path.join(enc(vp), "s11.jsonl"), ask + "\n" + turn("v1", 30000));
+  put(path.join(vp, "PRODUCTION.md"), "# PRODUCTION\n\n## 2026-01-02\n09:00–09:05 | 1 Brief | BRIEF.md | -\n09:05–09:21 | 6 Build | index.html | -\n");
+  const x = spawnSync(process.execPath, [state, "metrics", vp], { encoding: "utf8", env });
+  assert.equal(x.status, 0, x.stdout + x.stderr);
+  assert.match(x.stdout, /Subagents: not counted/); assert.match(x.stdout, /Total tokens: at least/);
+  assert.doesNotMatch(x.stdout, /0 subagents|subagents 0K/);
+  const t = run(vp);
+  assert.equal(t.code, 0, t.out + t.err); assert.match(t.out, /Result: .*subagents not counted/);
+  assert.match(t.out, /WARN: 1 Agent call/);
+  assert.match(run(path.join(tmp, "videos5", "how-a-pump-lifts")).out, /subagents 0K \(0\)/, "no Agent call: a true zero");
 }
 
 // The main session's carry: an Agent prompt with pasted content and a long subagent reply are counted and WARNed.
