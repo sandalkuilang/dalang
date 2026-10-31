@@ -63,7 +63,7 @@ export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}
 // Pose it so its +z points at the shared apex; audit() checks a pair from mesh { a: { cone: g.userData.bevel, axis, at } }.
 // A hypoid (the pinion's axis offset from the wheel's, as in a rear axle) is a documented approximation: draw it as this
 // bevel pair with the pinion moved along the common normal by the offset; its spiral teeth and longer pinion are not
-// modelled, its ratio is still the teeth ratio, and audit() checks the offset (mesh offset).
+// modelled, its ratio is still the teeth ratio, and audit() checks the offset and that each apex sits on the common normal (mesh offset).
 export function bevel(teeth, module, width, { pitchAngle, bore = 0, seg = 4 } = {}) {
   const { sh, rp, ro, rr, hole } = outline("bevel", teeth, module, width, bore);
   if (!(finite(pitchAngle) && pitchAngle > 0 && pitchAngle < Math.PI / 2)) throw new Error(`bevel: pitchAngle is the pitch cone's half angle in radians, over 0 and under π/2 (from bevelPair), got ${pitchAngle}`);

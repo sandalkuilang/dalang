@@ -37,7 +37,7 @@ const unit = (p) => { const n = Math.hypot(p[0], p[1], p[2]); return [p[0] / n, 
 // (parts.js bevel(), axes at an angle) gives each side also axis (its +z, toward the cone apex), at (its back face
 // centre, the part's origin, m), each a function of s or a constant [x, y, z], and cone (the geometry's userData.bevel):
 // the axes must stand at δa + δb (the shaft angle; 90° from bevelPair) and the pitch cones share one apex; one module,
-// cone teeth = z, sin δa / sin δb = a.z / b.z. offset (m, a hypoid): the axes pass offset apart instead of meeting.
+// cone teeth = z, sin δa / sin δb = a.z / b.z. offset (m, a hypoid): the axes pass offset apart instead of meeting, each pitch cone apex on their common normal.
 // tol: metres for rigid, degrees·teeth for mesh; bevelTol { len = 1e-6 (m: apex, offset, module), angle = 1e-6 (degrees:
 // shaft angle) } for a bevel pair, never the ratio's tol. Returns { problems: [line, ...] (the worst sample of each
 // failing joint), checked }.
@@ -70,7 +70,14 @@ export function audit(model, { u, samples = 181, rigid = [], mesh = [], gaps = [
     const oa = states.map((s) => fn(g.a.at)(s)), ob = states.map((s) => fn(g.b.at)(s));
     worst(g.name, `shaft angle (${shaft}°)`, ua.map((u, i) => Math.abs(Math.acos(Math.max(-1, Math.min(1, dot(u, ub[i])))) * DEG - shaft)), tolDeg);
     if (off) worst(g.name, `axis offset (${off} m)`, ua.map((u, i) => { const n = cross(u, ub[i]); return Math.abs(Math.abs(dot(sub(ob[i], oa[i]), n)) / Math.hypot(n[0], n[1], n[2]) - off); }), tolLen);
-    else worst(g.name, "apex (the pitch cones meet at one point, m)", ua.map((u, i) => d(oa[i].map((v, k) => v + u[k] * A.apex), ob[i].map((v, k) => v + ub[i][k] * B.apex))), tolLen);
+    // placement along the axes: each gear's apex sits at its foot of the common normal (for a plain bevel the normal is
+    // void: the two apexes are one point). The apex gap's part off the common normal is that miss, linear in a slide.
+    worst(g.name, off ? "apex (each pitch cone apex on the common normal of the axes, m)" : "apex (the pitch cones meet at one point, m)", ua.map((u, i) => {
+      const w = sub(ob[i].map((v, k) => v + ub[i][k] * B.apex), oa[i].map((v, k) => v + u[k] * A.apex));
+      if (!off) return Math.hypot(w[0], w[1], w[2]);
+      const n = cross(u, ub[i]), nn = Math.hypot(n[0], n[1], n[2]), p = dot(w, n) / nn;
+      return Math.sqrt(Math.max(0, dot(w, w) - p * p));
+    }), tolLen);
   }
   for (const c of gaps) { const errs = states.map((s) => c.gap(s) - c.max), k = worstAt(errs); if (!(errs[k] <= 0)) problems.push(`${c.name}: gap over ${c.max} m by ${errs[k]} at u = ${us[k]}`); }
   return { problems, checked: (rigid.length + mesh.length + gaps.length) * samples };

@@ -76,7 +76,8 @@ Published versions are never re-tagged.
 - `drive.js` `audit()` checks a bevel pair: each `mesh` side may give `axis`, `at` and `cone` (`bevel()`'s
   `userData.bevel`); the axes must stand at δa + δb, the pitch cones share one apex, one module and pitch angles that
   fit the teeth, each in its own unit (`bevelTol`: metres and degrees, never the ratio's `tol`). `offset` (m) checks a
-  hypoid's axis offset instead (drawn as bevel cones, a documented approximation). `machine_audit.mjs` runs it as is.
+  hypoid instead: the axes pass that far apart and each pitch cone apex sits on their common normal, so a gear slid
+  along its axis is named (drawn as bevel cones, a documented approximation). `machine_audit.mjs` runs it as is.
 
 ### Fixed
 - `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
