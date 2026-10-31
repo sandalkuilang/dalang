@@ -103,12 +103,11 @@ const css = `
 .ov *{box-sizing:border-box}
 .ov-el{position:absolute;opacity:0;will-change:transform,opacity}
 .ov-hl{left:60px;top:110px;width:900px;transform-origin:0 0}
-/* the glass bands: the picture, then a frosted band (the top 27 % fading downward, the bottom 17 % fading upward), then the
-   text. Glass shows by its tint (the ground's own, --ov-glass from glassTint), its grain and its lip: solid to 70 %, a light
-   line there, then a fade. Their own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop
+/* the glass band: the picture, then a frosted band (the top 27 % fading downward, shown with the headline), then the text.
+   Glass shows by its tint (the ground's own, --ov-glass from glassTint), its grain and its lip: solid to 70 %, a light line
+   there, then a fade. Its own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop
    backdrop-filter seeing the frame */
 .ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:linear-gradient(180deg,transparent calc(70% - 2px),rgba(255,255,255,.85) calc(70% - 2px),rgba(255,255,255,.85) 70%,transparent 70%),${GRAIN},linear-gradient(180deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 70%,rgba(var(--ov-glass),0) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%)}
-.ov-glass.b{top:auto;bottom:0;opacity:1;background:linear-gradient(0deg,transparent calc(70% - 2px),rgba(255,255,255,.85) calc(70% - 2px),rgba(255,255,255,.85) 70%,transparent 70%),${GRAIN},linear-gradient(0deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 70%,rgba(var(--ov-glass),0) 100%);-webkit-mask-image:linear-gradient(0deg,#000 0%,#000 70%,transparent 100%);mask-image:linear-gradient(0deg,#000 0%,#000 70%,transparent 100%)}
 .ov-k{font-weight:${W_.sub};font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
 .ov-h{font-weight:${W_.title};font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
 .ov-acc{background:var(--ov-acc);color:var(--ov-ink);padding:0 .14em;border-radius:10px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
@@ -175,7 +174,6 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
   layer.style.width = fw + "px"; layer.style.height = fh + "px";
   layer.style.setProperty?.("--ov-acc", accent); layer.style.setProperty?.("--ov-ink", ink); layer.style.setProperty?.("--ov-glass", glassTint(ground, ink).rgb);
   const glass = el(doc, "div", "ov-glass", layer); glass.style.height = Math.round(fh * 0.27) + "px"; // shown with a headline
-  const glassB = el(doc, "div", "ov-glass b", layer); glassB.style.height = Math.round(fh * 0.17) + "px"; // always on
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = doc.createElementNS(svgNS, "svg"); svg.setAttribute("class", "ov-lead"); svg.setAttribute("viewBox", `0 0 ${fw} ${fh}`); svg.setAttribute("width", fw); svg.setAttribute("height", fh); layer.appendChild(svg);
   const items = [];
@@ -185,7 +183,7 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
   const A = (s) => accentHtml(s);
 
   const api = {
-    layer, items, glass, glassB,
+    layer, items, glass,
     // headline block top-left, over the top glass: mono kicker + bold headline (<= 2 lines), one [accent] word on a chip
     headline({ kicker = "", text, from, to, top = 110, size = 68 }) {
       check({ from, to }, "headline");
@@ -247,7 +245,7 @@ export function makeOverlay(root, { prefix, G0 = 0, accent = "#FFD400", ink = "#
     // update(tLocal, project): everything at t. project(anchor) -> { x, y, ok } in px.
     update(tl, project) {
       const t = tl + G0;
-      // the top glass follows the headline on screen (the strongest one fading in or out); the bottom one stays
+      // the top glass follows the headline on screen (the strongest one fading in or out)
       glass.style.opacity = Math.max(0, ...items.filter((it) => it.kind === "hl").map((it) => envelope(t, it.from, it.to, { inDur: IN_DUR.hl ?? 0.25 }).a)).toFixed(3);
       for (const it of items) {
         const v = envelope(t, it.from, it.to, { inDur: IN_DUR[it.kind] ?? 0.25 });
