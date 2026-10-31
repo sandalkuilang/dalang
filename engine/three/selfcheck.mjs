@@ -2106,4 +2106,31 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(b.problems.some((p) => /pinion-wheel/.test(p) && /ratio/.test(p)), "gears that slip are named: " + b.problems);
   assert.throws(() => audit(m, { u: [0, 360] }), /nothing to audit/, "a machine with no audited joint proves nothing");
 }
+{ // a bevel pair at 90° in audit(): ratio by teeth, axes at δa + δb, pitch cones on one apex; a hypoid by its offset
+  const { pitchAngle1: da, pitchAngle2: db } = PT.bevelPair(12, 24);
+  const A = PT.bevel(12, 0.002, 0.006, { pitchAngle: da }).userData.bevel, B = PT.bevel(24, 0.002, 0.006, { pitchAngle: db }).userData.bevel;
+  const m = drive({ input: (t) => t, state: (th) => ({ a: th, b: -th / 2 }) }); // pinion +z = −x, crown +z = −y, apex at 0
+  const pair = (o = {}) => ({ name: "pinion-crown", ...o.m,
+    a: { angle: (s) => s.a, z: 12, cone: A, axis: [-1, 0, 0], at: [A.apex, 0, 0], ...o.a },
+    b: { angle: (s) => s.b, z: 24, cone: B, axis: [0, -1, 0], at: [0, B.apex, 0], ...o.b } });
+  const run = (o, extra) => audit(m, { u: [0, 360], samples: 37, mesh: [pair(o)], ...extra }).problems;
+  assert.deepEqual(run(), [], "a true 90° bevel pair passes: " + run());
+  assert.ok(run({ b: { at: [0, B.apex + 0.001, 0] } }).some((p) => /pinion-crown: apex/.test(p)), "pitch cones whose apices miss are named");
+  assert.ok(run({ b: { at: [0, B.apex + 0.001, 0] } }, { tol: 1 }).some((p) => /pinion-crown: apex/.test(p)), "the ratio's loose tol (degrees·teeth) never loosens the apex check (metres)");
+  assert.ok(run({ b: { axis: [0, -1, 0.1] } }).some((p) => /shaft angle/.test(p)), "axes off the shaft angle are named");
+  assert.ok(run({ b: { axis: [0, -1, 0.001] } }, { tol: 1 }).some((p) => /shaft angle/.test(p)), "the ratio's loose tol never loosens the shaft angle check (degrees)");
+  assert.ok(run({ b: { angle: (s) => -s.a / 3 } }).some((p) => /ratio/.test(p)), "a bevel pair that slips is named");
+  assert.ok(run({ b: { z: 25 } }).some((p) => /cone has 24 teeth/.test(p)), "a cone with other teeth than the mesh is named");
+  const steep = PT.bevel(24, 0.002, 0.006, { pitchAngle: Math.PI / 3 }).userData.bevel;
+  assert.ok(run({ b: { cone: steep } }).some((p) => /pitch angles do not fit/.test(p)), "pitch angles not from the teeth are named");
+  const coarse = PT.bevel(24, 0.0025, 0.006, { pitchAngle: db }).userData.bevel;
+  assert.ok(run({ b: { cone: coarse } }).some((p) => /modules differ/.test(p)), "two modules cannot mesh");
+  assert.deepEqual(run({ b: { at: [0, B.apex, 0.005] }, m: { offset: 0.005 } }), [], "a hypoid passes at its axis offset");
+  assert.ok(run({ b: { at: [0, B.apex, 0.005] } }).some((p) => /apex/.test(p)), "an offset pair without offset is named");
+  assert.ok(run({ b: { at: [0, B.apex, 0.004] }, m: { offset: 0.005 } }).some((p) => /axis offset/.test(p)), "a hypoid off its offset is named");
+  assert.throws(() => run({ b: { cone: undefined } }), /bevel pair/, "a bevel side without its cone is a wrong spec");
+  assert.throws(() => run({ m: { offset: -1 } }), /offset/, "a negative offset is refused");
+  assert.throws(() => audit(m, { u: [0, 1], mesh: [{ name: "spur", offset: 0.01, a: { angle: (s) => s.a, z: 12 }, b: { angle: (s) => s.b, z: 24 } }] }), /no bevel geometry/);
+  assert.throws(() => run({}, { bevelTol: { len: -1 } }), /bevelTol/, "a negative bevel tolerance is refused");
+}
 console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top glass only), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");
