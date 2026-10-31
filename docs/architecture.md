@@ -50,7 +50,7 @@ flowchart LR
 |---|---|---|
 | `SKILL.md` | order of work, gates, quality bar | build animations |
 | `references/` | craft knowledge, read one § at a time | get loaded wholesale |
-| `scripts/preflight.mjs` | environment check, only the rows that need action plus one OK line; `--start` opens an installed VoiceStudio; reports when the skill's own clone is behind `origin/main` (fetch only) | install anything, print secrets, pull or update on its own |
+| `scripts/preflight.mjs` | environment check, only the rows that need action plus one OK line; names the default voice among the saved profiles; `--start` opens an installed VoiceStudio; reports when the skill's own clone is behind `origin/main` (fetch only) | install anything, print secrets, pull or update on its own |
 | `scripts/workspace.mjs` | lean videos folder: lists the plugins and MCP servers that are on, proposes the video set; with `--yes` writes only `<folder>/.claude/settings.json` (backup, `undo`); `measure` reads the first-call tokens of a session; preflight's `Workspace` row reads it | touch user-level settings, write without `--yes`, print a server's env or headers |
 | `scripts/tts_timestamps.mjs` | narration audio, `words.json`, `beats.json/js` | decide the look |
 | `scripts/kokoro_tts.py` | optional Kokoro-82M speech (Apache-2.0), one sentence per call | reach the network or start a program without `--download` (one audit-hook guard refuses it, whatever library asks, by address and not by host name, a multiprocessing child included: weights, the spaCy English model); it speaks only en and en-gb and refuses any other language, or fetch without the user's consent |

@@ -66,7 +66,7 @@ At every step: gates go through `state.mjs approve <n> --by agent` (in order; it
 
 ## Autonomous mode
 
-If the user gives a topic and leaves, use what they said, else: Express; YouTube 16:9, 60–90 s (Shorts 9:16 for short or ≤ 60 s); their language; `object-studio` (Studio: `isometric-world`); "modern balanced"; general audience; VoiceStudio per `references/brief.md` Step 0 (not ready by Step 4: stop and say so). Write "defaults used" first in `PRODUCTION.md`, log each decision, finish the film. Ship rules: `references/qc.md` "User away" (an `audio_qc.mjs` exit 2 that stays is named in the hand-off, never a pass). Skip install offers (log them). Never edit the installed skill.
+If the user gives a topic and leaves, use what they said, else: Express; YouTube 16:9, 60–90 s (Shorts 9:16 for short or ≤ 60 s); their language; `object-studio` (Studio: `isometric-world`); "modern balanced"; general audience; VoiceStudio, default voice, per `brief.md` Step 0 (not ready by Step 4: stop and say so). Write "defaults used" first in `PRODUCTION.md`, log each decision, finish the film. Ship rules: `references/qc.md` "User away" (an `audio_qc.mjs` exit 2 that stays is named in the hand-off, never a pass). Skip install offers (log them). Never edit the installed skill.
 
 ## When something goes wrong
 

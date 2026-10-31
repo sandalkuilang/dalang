@@ -4,6 +4,8 @@
 // STOPPED / BUSY / DOWN / UNREACHABLE / CONFLICT, + the fix; VoiceStudio's own rows indented), then one "Voice:" line,
 // plus the DALANG row and one "OK: <n> items (…)" line, so the agent reads a few lines instead of running a dozen
 // commands. --all prints every row (OK and SKIP too). Never prints secrets.
+// The `Voices` row ends `— default: "<name>" = <id>` for the default voice: the saved profile ~/.config/dalang/voice.json
+// `default` names (DALANG_VOICE_FILE overrides), else one named `Dalang`. An unreadable list never names one.
 //
 // Usage: node preflight.mjs [--vs-url http://localhost:3900] [--json] [--all] [--start] [--check-skill] [--skill-dir PATH]
 //                           [--check-workspace] [--workspace-dir PATH] [--check-kokoro] [--check-blender]
@@ -116,6 +118,24 @@ function vsDown(h, opened, appRunning) {
     : `opened, but no backend within ${waitS} — rerun --start once; still down → ask the user to look at the app window`];
 }
 
+// The default voice (references/brief.md Call 3): the saved profile ~/.config/dalang/voice.json's "default" names
+// (DALANG_VOICE_FILE overrides), else one named after the skill, "Dalang". Name or id, case aside; quoted like the
+// list, so a profile name cannot fake it. Two matches or an unreadable file name none: the Brief asks instead.
+function defaultVoice(profiles) {
+  const f = process.env.DALANG_VOICE_FILE || path.join(homedir(), '.config', 'dalang', 'voice.json');
+  let want = 'Dalang';
+  if (existsSync(f)) {
+    let d;
+    try { d = JSON.parse(readFileSync(f, 'utf8'))?.default; } catch (e) { d = undefined; }
+    if (typeof d !== 'string' || !d.trim()) return `default voice: none (${path.basename(f)} unreadable or no "default" name) — ask Call 3`;
+    want = d.trim();
+  }
+  const w = want.toLowerCase();
+  const hits = profiles.filter(v => String(v.name).trim().toLowerCase() === w || String(v.voice_id).toLowerCase() === w);
+  if (hits.length > 1) return `default: none (${hits.length} profiles match ${JSON.stringify(want)}) — ask Call 3`;
+  return hits.length ? `default: ${JSON.stringify(String(hits[0].name))} = ${hits[0].voice_id}` : '';
+}
+
 async function voicestudio() {
   let health = await get(`${vsUrl}/health`);
   let opened = null, appRunning = false;
@@ -137,11 +157,12 @@ async function voicestudio() {
   // Names are quoted: a name holding "; " or a newline can't fake another entry or row.
   const vlist = voices.status === 200 && Array.isArray(voices.body?.voices) ? voices.body.voices : null;
   const saved = (vlist || []).filter(v => v.type === 'profile').map(v => `${JSON.stringify(String(v.name))} = ${v.voice_id}${v.language ? ` (${v.language})` : ''}`);
+  const dv = vlist ? defaultVoice(vlist.filter(v => v.type === 'profile')) : '';
   // A real list always carries the built-in aliases: an empty or unknown-shaped one is unreadable, not "none".
   const oddTypes = !vlist?.length || vlist.some(v => !['profile', 'openai_alias', 'default'].includes(v.type));
   const voicesRow = denied(voices) ? ['  Voices', 'WARN', deniedNote(voices)]
     : !vlist ? ['  Voices', 'WARN', `could not list saved profiles (${why(voices)}) — rerun preflight; never assume none exist`]
-    : saved.length ? ['  Voices', 'INFO', `saved profiles: ${saved.join('; ')}`]
+    : saved.length ? ['  Voices', 'INFO', `saved profiles: ${saved.join('; ')}${dv ? ` — ${dv}` : ''}`]
     : oddTypes ? ['  Voices', 'WARN', 'voice list empty or of unknown shape — check `tts_timestamps.mjs --list-voices`; never assume none exist']
     : ['  Voices', 'INFO', 'no saved profile — design or clone one in Step 4 (references/voice.md)'];
   const vsOk = ['VoiceStudio', 'OK', `v${health.body.version} on ${health.body?.device ?? '?'}`];
