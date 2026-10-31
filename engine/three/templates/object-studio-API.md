@@ -59,7 +59,7 @@ Subject and its action between y 345 and 1150; headline from y ~110; cards besid
 `express.mjs assemble` measures every shot and fails on these, under your group:
 - the hero box under 60 % of the frame on its larger axis: move in or take a longer lens;
 - the hero's pixels reaching a frame edge while it fills less than 65 % of both axes (a close-up fills 65 % of one): frame it whole;
-- a caption covering more than 10 % of its own box with the hero's pixels, on a hero that is not a close-up (labels and cards pinned to a part sit on it by design): move the text;
-- the hero under 12 ΔE* against the ground around it: a `backdrop()` behind a pale hero, or a darker material.
+- a caption covering more than 10 % of its own box with the hero's pixels, on a hero that is not a close-up (labels and cards pinned to a part sit on it by design); a label or card over the hero's lowest tenth (its base) is text over the hero too: move the text;
+- the hero under 12 ΔE* against the ground around it, measured on its outline too (an x-ray beat's ghosted shell on a pale sweep counts): a `backdrop()` behind a pale hero, or a darker material.
 
 Express measures with the kit's own text sizes (captions 46 px, smallest label 22 px). The hero is the visible meshes under `S.world`, minus anything with `userData.attend = false` or `userData.subject = false` on it or a parent. Mark what the film shows but is not its subject (a mounting board, wall pieces, a floor) `subject = false`: it stays in the picture, ghosts and cuts like any part, but leaves the measured box and contrast. Or name the subject with `loop({ hero })`. When a line says the box is too large, `review/measure/layout.json` names the parts that drive it (`hero.parts`: parent chain and projected size), and the lint line names the largest.

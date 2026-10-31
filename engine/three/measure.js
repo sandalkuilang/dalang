@@ -1,11 +1,12 @@
 // measure.js — numbers a frame can be checked by, read from its pixels (objectStudio.js measure(), layout_lint.mjs).
 //
-// heroContrast(frame, mask, w, h, { ring, flipMask }): the colour difference ΔE*ab (CIE76, 0–100+) between the mean of
-// the hero's pixels and the mean of the ground in a ring of `ring` px around them. Lightness alone would flag a green
-// board on brown wood (same L*, plainly two things); ΔE counts hue and chroma too. frame: RGBA of the finished frame at w x h;
-// mask: RGBA of a hero-only render at the same size (red > 127 = hero), its rows bottom-up as WebGL reads them unless
-// flipMask is false. null when the frame shows no hero pixel or no ground around it. One decimal.
-// ponytail: means over the whole silhouette; a hero half dark, half pale reads as its average. A per-part check if that misleads.
+// heroContrast(frame, mask, w, h, { ring, flipMask }): the colour difference ΔE*ab (CIE76, 0–100+) between the hero and
+// the mean of the ground in a ring of `ring` px around it: the LOWER of two numbers, the mean of all the hero's pixels and
+// the mean of its outline (its pixels within `ring` px of the ground). A hero whose outline fades into the ground (a ghosted
+// x-ray shell on a pale sweep, a pale casing with dark parts inside) reads low even when its inside is dark. Lightness alone
+// would flag a green board on brown wood (same L*, plainly two things); ΔE counts hue and chroma too. frame: RGBA of the
+// finished frame at w x h; mask: RGBA of a hero-only render at the same size (red > 127 = hero), its rows bottom-up as WebGL
+// reads them unless flipMask is false. null when the frame shows no hero pixel or no ground around it. One decimal.
 const lin = (c) => ((c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
 const lab = (r, g, b) => { // sRGB -> CIE Lab (D65)
@@ -17,19 +18,22 @@ const lab = (r, g, b) => { // sRGB -> CIE Lab (D65)
 export function heroContrast(frame, mask, w, h, { ring = 4, flipMask = true } = {}) {
   const on = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) on[y * w + x] = mask[4 * ((flipMask ? h - 1 - y : y) * w + x)] > 127 ? 1 : 0;
-  const hs = [0, 0, 0], gs = [0, 0, 0]; let hn = 0, gn = 0;
+  const hs = [0, 0, 0], es = [0, 0, 0], gs = [0, 0, 0]; let hn = 0, en = 0, gn = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = 4 * (y * w + x), c = lab(frame[i], frame[i + 1], frame[i + 2]);
-    if (on[y * w + x]) { for (let k = 0; k < 3; k++) hs[k] += c[k]; hn++; continue; }
+    const p = y * w + x, i = 4 * p, c = lab(frame[i], frame[i + 1], frame[i + 2]);
     // ponytail: a square search per pixel, O(w·h·ring²); fine at the 270 px wide mask objectStudio.js renders
+    // near: a pixel of the other kind within `ring` px (off the frame is neither): the ground beside the hero, or the hero's outline
     let near = false;
     for (let dy = -ring; dy <= ring && !near; dy++) for (let dx = -ring; dx <= ring && !near; dx++) {
       const yy = y + dy, xx = x + dx;
-      near = yy >= 0 && yy < h && xx >= 0 && xx < w && on[yy * w + xx] === 1;
+      near = yy >= 0 && yy < h && xx >= 0 && xx < w && on[yy * w + xx] !== on[p];
     }
-    if (near) { for (let k = 0; k < 3; k++) gs[k] += c[k]; gn++; }
+    if (on[p]) { for (let k = 0; k < 3; k++) hs[k] += c[k]; hn++; if (near) { for (let k = 0; k < 3; k++) es[k] += c[k]; en++; } }
+    else if (near) { for (let k = 0; k < 3; k++) gs[k] += c[k]; gn++; }
   }
-  return hn && gn ? Math.round(Math.hypot(...hs.map((v, k) => v / hn - gs[k] / gn)) * 10) / 10 : null;
+  if (!hn || !gn) return null;
+  const dE = (s, n) => Math.hypot(...s.map((v, k) => v / n - gs[k] / gn));
+  return Math.round(Math.min(dE(hs, hn), en ? dE(es, en) : Infinity) * 10) / 10;
 }
 
 // maskShare(mask, w, h, box, W, H, { flipMask }): the share (0–1) of a box (px at the W x H frame) that the hero's

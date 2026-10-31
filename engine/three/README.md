@@ -107,7 +107,7 @@ The `object-studio` look's shared set and overlay, imported unchanged by every g
 `templates/object-studio-API.md` (signatures and shot rows); extras not on the card: `makeSweep`, `lensFov`,
 `canvasTex`, `clamp`, `smooth`, `withMoves`, `LIGHT`; editorial `cues`, `envelope`, `accentHtml`, `tagSwing`,
 `captionAt`, `EASE`. The film's machine is its own `assets/machine.js` (template `templates/machine.tpl.js`: `MODEL`, `AUDIT`, `build`, `pose`), built once by the first group.
-`measure.js`: `heroContrast`, the hero's ΔE* against the ground ring; `objectStudio.js` runs it each frame while `strips.mjs`'s receiver answers (`express.mjs assemble`), with `heroBox` and the DOM overlay boxes, into `type.js` `layoutFrame`.
+`measure.js`: `heroContrast`, the hero's ΔE* against the ground ring (the lower of its silhouette's and its outline's, so a ghosted shell is measured as it reads); `objectStudio.js` runs it each frame while `strips.mjs`'s receiver answers (`express.mjs assemble`), with `heroBox` and the DOM overlay boxes, into `type.js` `layoutFrame`.
 
 ## Cinematic camera (object-studio only, `camera.js`)
 

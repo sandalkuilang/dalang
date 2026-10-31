@@ -280,7 +280,8 @@ export function makeSet(out, { G0 = 0, G1 = Infinity, W: fw = W, H: fh = H, fps 
   // measure(tg, hero): the frame's layout for express.mjs assemble (strips.mjs receiver -> layout_lint.mjs): the hero's
   // box, every overlay and caption box on screen (DOM, px at the frame size), and the hero's ΔE* against the ground
   // from a 270 px hero-only mask (layer HERO_LAYER, white on black). The mask ignores clipping planes: a cut-open hero
-  // is measured whole. ponytail: one extra small render a frame, only while a receiver answers (type.js layoutLive).
+  // is measured whole. The contrast is the lower of the silhouette's and its outline's ΔE* (measure.js), so an x-ray
+  // beat's ghosted shell is measured as it reads. ponytail: one extra small render a frame, only while a receiver answers (type.js layoutLive).
   const HERO_LAYER = 7, MW = 270, MH = Math.round((270 * fh) / fw);
   let mask = null, small = null;
   function measure(tg, hero) {
