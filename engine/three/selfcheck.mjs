@@ -1875,7 +1875,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
 // The object-studio kit (objectStudio.js + editorial.js): groups import it unchanged, so its traps are pinned here.
 {
   for (const k of ["makeSet", "cam", "mat", "halfLathe", "contact", "backdrop", "canvasTex", "makeSweep", "w", "we", "wc", "b"]) assert.ok(OS[k], "objectStudio exports " + k);
-  for (const k of ["makeOverlay", "captions", "envelope", "accentHtml", "tagSwing", "captionAt", "cues"]) assert.ok(ED[k], "editorial exports " + k);
+  for (const k of ["makeOverlay", "captions", "envelope", "accentHtml", "tagSwing", "captionAt", "cues", "glassTint"]) assert.ok(ED[k], "editorial exports " + k);
   assert.throws(() => OS.makeSet(), /canvas/, "makeSet refuses a missing canvas");
   { // shot-list camera moves: a move window overrides the station travel; outside it the base run is untouched
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1947,6 +1947,13 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(ov.layer.children[1] === ov.glassB && ov.glassB.className === "ov-glass b" && ov.glassB.style.height === "326px", "bottom glass: under every overlay, the bottom 17 % of the frame");
   ov.update(5, null); // t = 15: no headline
   assert.equal(ov.glass.style.opacity, "0.000", "top glass: gone with the headline");
+  // the glass tint comes from the ground it sits on: white glass on a light ground is only a white fade
+  assert.deepEqual(ED.glassTint("#E8EDEF", "#0B0B0B"), { rgb: "210,214,216", light: true }, "glass on a light ground: the ground pulled 10 % toward ink");
+  assert.deepEqual(ED.glassTint("#123A66"), { rgb: "255,255,255", light: false }, "glass on a dark ground (blueprint): white");
+  assert.throws(() => ED.glassTint("grey"), /#rrggbb/, "a ground that is not #rrggbb is refused");
+  assert.equal(ov.layer.style["--ov-glass"], "210,214,216", "overlay: the default ground (#E8EDEF) sets the glass tint");
+  assert.equal(ED.makeOverlay(root, { prefix: "i", ink: "#223" }).layer.style["--ov-glass"], "210,214,216", "overlay: an ink that is not #rrggbb (any CSS colour) still renders, glass pulled toward the default ink");
+  assert.equal(ED.makeOverlay(root, { prefix: "d", ground: "#123A66" }).layer.style["--ov-glass"], "255,255,255", "overlay: a dark ground gets white glass");
 }
 // heroContrast: ΔE* between the hero's pixels (the mask) and the ring of ground around it; null with no hero or no ground.
 {

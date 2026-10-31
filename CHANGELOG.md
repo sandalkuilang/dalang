@@ -34,6 +34,12 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Fixed
+- **The glass bands read as glass, not as a white fade** (`engine/three/editorial.js` `makeOverlay`, `glassTint`): over a
+  light, empty sky a white frosted band only whitened it (nothing to blur, white on near-white, no edge). The bands now take
+  their tint from the ground behind them (pulled 10 % toward ink; white on a dark ground), carry a fixed frosted grain that
+  survives the encode and a light lip where the solid glass starts to fade. `makeOverlay` takes `ground` (default `#E8EDEF`).
+
 ## [4.5.6] - 2026-10-31
 
 ### Fixed
