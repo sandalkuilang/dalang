@@ -2142,7 +2142,7 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.deepEqual(run(mm(0.001), { bevelTol: { len: 0.002 } }), [], "an explicit bevelTol.len of 2 mm passes an apex 1 mm apart");
   assert.ok(run({ ...hyp, b: { at: [0, B.apex + 0.003, 0.005] } }, { bevelTol: { len: 0.002 } }).some((p) => /apex/.test(p)), "bevelTol.len of 2 mm refuses a hypoid 3 mm off its place");
   assert.deepEqual(run({ ...hyp, b: { at: [0, B.apex + 0.001, 0.005] } }, { bevelTol: { len: 0.002 } }), [], "bevelTol.len of 2 mm passes a hypoid 1 mm off its place");
-  assert.deepEqual(run({ b: { axis: [-0.01, -1, 0] } }, { bevelTol: { angle: 1 } }), [], "an explicit bevelTol.angle of 1° passes an axis 0.57° off");
+  assert.deepEqual(run({ b: { axis: [-0.01, -1, 0] } }, { bevelTol: { angle: 1, len: 0.001 } }), [], "an explicit bevelTol.angle of 1° passes an axis 0.57° off");
   assert.ok(run({ b: { axis: [-0.05, -1, 0] } }, { bevelTol: { angle: 1 } }).some((p) => /shaft angle/.test(p)), "an explicit bevelTol.angle of 1° refuses an axis 2.9° off");
   assert.throws(() => run({}, { bevelTol: { len: NaN } }), /bevelTol/, "a NaN bevelTol.len is refused");
   assert.throws(() => run({}, { bevelTol: { angle: NaN } }), /bevelTol/, "a NaN bevelTol.angle is refused");
