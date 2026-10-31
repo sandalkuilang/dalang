@@ -5,19 +5,19 @@ description: Dalang — turn any topic into a finished animated video (narration
 
 # Dalang — from topic to video
 
-**Mode and look**, asked in the Brief, locked after it (`references/looks.md`). Mode: **Express** (default; 2.5D in Canvas 2D, `references/express.md`) or **Studio** (precision: three.js, a Blender hero, reference boards, benchmark, review). Look: the isometric family (`isometric-world` main, `cutaway`, `blueprint`) or `object-studio` (a study model on a pale sweep). A 3D look never moves a film to Studio. A look change after Step 6 starts: stop every builder, rewrite `SPEC.md`, restart every group in one message; narration and voice stay.
+**Mode and look**, asked in the Brief, locked after it (`references/looks.md`). Mode: **Express** (default; 2.5D in Canvas 2D, `references/express.md`) or **Studio** (precision: three.js, a code-first hero, reference boards, benchmark, review). Look: the isometric family (`isometric-world` main, `cutaway`, `blueprint`) or `object-studio` (a study model on a pale sweep). A 3D look never moves a film to Studio. A look change after Step 6 starts: stop every builder, rewrite `SPEC.md`, restart every group in one message; narration and voice stay.
 
 ## Principles
 
 7 is Studio's; the rest hold in both modes.
 
-0. **Visual thesis first** (`references/looks.md`): each look's numbered rules decide every frame; QC judges against them first. object-studio: pale studio, one accent, one whole hero at 60–70 %, one machine posed by one input, live instruments, few held shots.
+0. **Visual thesis first** (`references/looks.md`): the look's numbered rules decide every frame and QC. object-studio: pale studio, one accent, whole hero 60–70 %, one-input machine, live instruments, held shots.
 1. **Words first, pictures last**: script approved → voice → every word timed → visuals.
 2. **Every change on screen lands on a word**, from the timing data.
 3. **The subject acts in every shot**; a camera over a still is a slideshow.
 4. **Measure, don't guess**: every reported number comes from a log or a script.
 5. **Every question up front, no user gate.** All questions in Step 1; nothing later waits for the user. Pass each of the 4 gates yourself once its checks pass, say so in one line, run to the finished film. A later change is a new round. No final-quality render before the last (Gate 3's style frames and hook sample excepted).
-6. **Stylized, true to reality.** One look per film; no footage, photoreal render or generated image or clip. Parts, proportions, scale and behaviour match a real reference (`references/visual-direction.md` §1).
+6. **Stylized, true to reality.** One look per film; no footage, photoreal render, generated image or clip. Parts, proportions, scale and behaviour match a real reference (`references/visual-direction.md` §1).
 7. **Top studio, never overdone**: style frames, polish, review rubric. Drafts at 10 fps; the final `--quality high --fps <brief fps>` passes every check.
 8. **Free by default.** Paid or metered services (ElevenLabs, HeyGen) only when the user asks, labelled "paid". Prefer commercial-OK licences; say when one is not.
 
@@ -32,16 +32,16 @@ description: Dalang — turn any topic into a finished animated video (narration
 - **Skill version**: say `next`'s `DALANG v…` first; never `git`.
 - **Read lazily**: each step, only what `state.mjs next --print` prints, whole, in one call (Step 0 prints Step 1 too; a first `approve <n>` prints the next step: no `next` turn, no `--step` ahead); "Look up when needed" only when sent there. Never read a reference, engine README or `lessons.md` whole, or a section twice; of `/hyperframes`, only the needed guides.
 - **Small output**: filter `--json`; never print `words.json`, `*.response.json` or full logs; background output by bytes (`tail -c 1500`). Scene changes are `Edit` calls, never `sed -i` or a whole-file Write.
-- **Scene code stays in builder subagents.** The main agent never writes or reads `src/` or `assets/*.js` (style frames too go to a builder). Pilot, each group, assembly and each fix round go to a **new** builder (last report + paths, its budget in `look-build.md` / `express.md`). The reviewer is never a builder.
+- **Scene code stays in builder subagents.** The main agent never writes or reads `src/` or `assets/*.js` (generated data aside; style frames go to a builder). Pilot, each group, assembly and each fix round go to a **new** builder (last report + paths, its budget in `look-build.md` / `express.md`). The reviewer is never a builder.
 - **Images stay in subagents.** The main agent never `Read`s a still, strip, sheet, scope or style frame: a subagent gets the paths and `next`'s "For the subagent" command, returns a text verdict. Exception: the author of `style-frames/src/` opens each `review/refs-board-<frame>.jpg` once before its first write.
 - **Model per job, never asked**: `state.mjs next` prints each step's subagent jobs with model and effort (`state.mjs models`: all, and what top/mid/light mean).
   **Escalate, never repeat.** A failed job (red, unusable, a P0 left) goes to a new agent one notch up: effort (low → medium → high), then model (light → mid → top); top · high caps it: a P0 left is classified (`hero-asset.md` §3). Never down or twice; a clean job is never rerun. ≤ 3 copy or timing fixes: one notch down. Log each setting.
 
-- **The main agent orchestrates, never does the work.** Your turn re-reads the session (~10× a subagent's); a loop (write ↔ lint, take ↔ retake, fix ↔ check) runs inside one job (Steps 3–4 too); each reply wakes you: a job runs to its verdict; N jobs started together end that message with `wait.mjs . --expect N` (`timeout: 600000`): one turn, one line. A runner (`express.mjs` / `studio.mjs <step>`) is one foreground call (`timeout: 600000`) when it ends within ~9 min, never a chain or a poll. An Agent prompt is the job and paths (≤ 15 lines; it reads via `next --step <n> --sub`). Checkers write their verdict file, builders `review/reports/<job>.md`; both reply in a few lines, never retyped. `state.mjs log` rides on the step's command with `&&`, never its own turn.
+- **The main agent orchestrates, never does the work.** Your turn re-reads the session (~10× a subagent's); a loop (write ↔ lint, take ↔ retake, fix ↔ check) runs inside one job (Steps 3–4 too); each reply wakes you: a job runs to its verdict; N jobs started together end that message with `wait.mjs . --expect N` (`timeout: 600000`): one turn, one line. A runner (`express.mjs` / `studio.mjs <step>`) is one foreground call (`timeout: 600000`) when it ends within ~9 min, never a chain or a poll. An Agent prompt is the job and paths (≤ 15 lines; it reads via `next --step <n> --sub`). Checkers write their verdict file, builders `review/reports/<job>.md`; both reply briefly, never retyped. `state.mjs log` rides on the step's command with `&&`, never its own turn.
 - **Compact**: `workspace.mjs init` sets auto-compact (200K); at Gates 2–4 say once that `/compact` is safe.
-- **Parallel by default.** Independent jobs start in one message, each agent on its own files. Heavy jobs (VoxCPM, render, check, snapshot) run alone; queue with `while kill -0 <pid>`. Together: preflight ‖ the topic question; reference ‖ the research job; after Gate 1 the voice job ‖ assets, never scenes; at Gate 2 planner and music; Step 6 Studio: pilot, then all groups; Express: every group at once, no pilot (a clean take passes Gates 1–2 itself via `express.mjs after-voice`; the planner runs `express.mjs scaffold .`); Step 7 the draft checks, then reviewer ‖ quiz ‖ Set / Reality check; Step 8 `POST.md` while rendering.
+- **Parallel by default.** Independent jobs start in one message, each agent on its own files. Heavy jobs (VoxCPM, render, check, snapshot) run alone, never beside a model job; queue with `while kill -0 <pid>`. Together: preflight ‖ the topic question; reference ‖ the research job; after Gate 1 the voice job ‖ assets, never scenes; at Gate 2 planner and music; Step 6 Studio: pilot, then all groups; Express: every group at once, no pilot (a clean take passes Gates 1–2 itself via `express.mjs after-voice`; the planner runs `express.mjs scaffold .`); Step 7 the draft checks, then reviewer ‖ quiz ‖ Set / Reality check; Step 8 `POST.md` while rendering.
 - **Cheap before expensive**: `--sample` before a take; `--from-response` when only `{}` moves; snapshots while iterating; fixes batched per round; QC at `--fps 10 --quality draft`; one final render.
-- **The user's ask wins**: flag a rule that defeats it in one line.
+- **The user's ask wins**: flag a rule that defeats it in one line; never pass it on silently.
 - **Short messages**: what changed, what to decide, links; at a wait, the next gate's clock time; a step over ~2 min gets an estimate.
 
 ## Project files (`video/<topic-slug>/`)
@@ -62,7 +62,7 @@ Log with `state.mjs log "<step> | <output> | <problems or ->"`. The folder **is*
 | 7 QC | draft, checks, strips, reviewer, quiz, fix rounds | **Gate 4** | `qc.md` §7 |
 | 8 Final | assets check, high render, re-check | `final.mp4`, `POST.md`, report | `qc.md` §8 |
 
-At every step: gates go through `state.mjs approve <n> --by agent` (in order; it runs the gate's scripted checks itself and refuses with their errors; a gated file edited later is STALE until re-approved); `BRIEF.md` rules format and language; a recorded or cloned voice only with the speaker's permission; pages only in Claude's built-in browser, never the user's Chrome; log every step and problem in `PRODUCTION.md`; series feedback via `series.mjs note`, never memory.
+At every step: gates go through `state.mjs approve <n> --by agent` (in order; it runs the gate's checks and refuses with their errors; a gated file edited later is STALE until re-approved); `BRIEF.md` rules format and language; a recorded or cloned voice only with the speaker's permission; pages only in Claude's built-in browser, never the user's Chrome; log every step and problem in `PRODUCTION.md`; series feedback via `series.mjs note`, never memory.
 
 ## Autonomous mode
 
