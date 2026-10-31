@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(here, "..", "scripts", "palette.mjs");
 const measure = path.join(here, "..", "scripts", "measure_reference.sh");
-const { oklchL, dominant, spawnProblem, osProblem } = await import(script);
+const { oklchL, dominant, spawnProblem, osProblem, hueFamilies } = await import(script);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-palette-"));
 const cli = (args, env = process.env) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env });
 // A PATH holding only the given ffmpeg stand-in (a shell script body, or null for a file that cannot run).
@@ -187,6 +187,18 @@ try {
     assert.ok(fs.existsSync(path.join(tmp, "m3", "summary.txt")));
     assert.ok(!fs.existsSync(path.join(tmp, "m3", "palette.txt")));
     console.log("ok  measure_reference.sh: palette in the summary; a failing palette is reported and non-fatal; no Node still finishes");
+  }
+  // 9. hueFamilies: neutrals never count; a hue counts when it covers >= minShare of the frame.
+  {
+    const pix = (rgb, n) => Array.from({ length: n }, () => rgb).flat();
+    const grey = pix([235, 235, 236], 900), black = pix([20, 21, 24], 60), orange = pix([232, 80, 42], 30), blue = pix([40, 110, 230], 30), green = pix([40, 190, 80], 5);
+    assert.deepEqual(hueFamilies(Buffer.from([...grey, ...black])), [], "a neutral study model has no hue family");
+    assert.equal(hueFamilies(Buffer.from([...grey, ...black, ...orange])).length, 1, "one accent is one family");
+    assert.equal(hueFamilies(Buffer.from([...grey, ...orange, ...blue])).length, 2, "two hues, two families");
+    assert.equal(hueFamilies(Buffer.from([...grey, ...orange, ...green])).length, 1, "a speck under 1 % of the frame is not a family");
+    r = cli(["--hues"]);
+    assert.notEqual(r.status, 0, "--hues needs a video");
+    console.log("ok  hueFamilies: neutrals are none, one accent is one, two hues are two, a speck is not a family");
   }
   console.log("OK");
 } finally {

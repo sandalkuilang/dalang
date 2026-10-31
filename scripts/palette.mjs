@@ -4,7 +4,7 @@
 // lightness L (0..1). The colours steer your own palette: never a logo or a brand's colour scheme to copy.
 //
 // Usage:
-//   node palette.mjs <video> [--every 1] [--top 6] [--step 16]
+//   node palette.mjs <video> [--every 1] [--top 6] [--step 16] [--hues <max>]   --hues: exit 3 when a frame holds more hue families
 //   node palette.mjs --compare <#hex> <#hex>   lightness gap of two colours (figure-ground: ≥ 0.20 separates)
 import { spawnSync } from 'node:child_process';
 import { statSync } from 'node:fs';
@@ -12,14 +12,27 @@ import { pathToFileURL } from 'node:url';
 
 const SIDE = 64, FIGURE_GROUND = 0.2, MAX_BUFFER = 1024 ** 3;
 
-// OKLab L of an sRGB colour (Björn Ottosson, https://bottosson.github.io/posts/oklab/).
-export function oklchL([r, g, b]) {
+// OKLab of an sRGB colour: [L, a, b] (Björn Ottosson, https://bottosson.github.io/posts/oklab/).
+export function oklab([r, g, b]) {
   const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const [R, G, B] = [lin(r), lin(g), lin(b)];
   const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
   const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
   const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
-  return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+}
+export const oklchL = (rgb) => oklab(rgb)[0];
+// Hue families of rgb24 pixels (the visual thesis: neutrals plus one accent): pixels with OKLCH chroma >= minChroma
+// binned into 12 hue sectors of 30°; a family is a sector holding >= minShare of all pixels. [{ hue (sector centre,
+// degrees), share }], largest first.
+export function hueFamilies(buf, { minChroma = 0.06, minShare = 0.01 } = {}) {
+  const bins = new Array(12).fill(0), n = Math.floor(buf.length / 3);
+  for (let i = 0; i + 2 < buf.length; i += 3) {
+    const [, a, b] = oklab([buf[i], buf[i + 1], buf[i + 2]]);
+    if (Math.hypot(a, b) < minChroma) continue;
+    bins[Math.floor((((Math.atan2(b, a) * 180) / Math.PI + 360) % 360) / 30) % 12]++;
+  }
+  return bins.map((c, k) => ({ hue: k * 30 + 15, share: n ? c / n : 0 })).filter((f) => f.share >= minShare).sort((x, y) => y.share - x.share);
 }
 export const hex = (rgb) => '#' + rgb.map((v) => v.toString(16).padStart(2, '0')).join('');
 const parseHex = (h) => {
@@ -71,14 +84,15 @@ function main(argv) {
       + (ok ? `separates (≥ ${FIGURE_GROUND})` : `merges (< ${FIGURE_GROUND}): darken the hero's parts or its shadow`));
     process.exit(ok ? 0 : 3);
   }
-  const o = { every: 1, top: 6, step: 16 };
+  const o = { every: 1, top: 6, step: 16, hues: null };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
-    if (k === '--every' || k === '--top' || k === '--step') o[k.slice(2)] = Number(argv[++i]);
+    if (k === '--every' || k === '--top' || k === '--step' || k === '--hues') o[k.slice(2)] = Number(argv[++i]);
     else if (!o.file && !k.startsWith('--')) o.file = k;
     else fail(`unknown option: ${k}`);
   }
-  if (!o.file) fail('usage: node palette.mjs <video> [--every 1] [--top 6] [--step 16] | --compare <#hex> <#hex>');
+  if (!o.file) fail('usage: node palette.mjs <video> [--every 1] [--top 6] [--step 16] [--hues <max>] | --compare <#hex> <#hex>');
+  if (o.hues !== null && !(Number.isInteger(o.hues) && o.hues >= 0)) fail('--hues takes the most hue families a frame may hold (an integer >= 0)');
   if (!(o.every > 0 && o.top >= 1 && o.step >= 1 && o.step <= 128)) fail('--every, --top and --step must be positive numbers (--step ≤ 128)');
   try { statSync(o.file); } catch (e) {
     fail(osProblem(e, 'file', { where: `: ${o.file}`, rerun: 'check the permissions of the file and its folders, then rerun' }));
@@ -92,11 +106,18 @@ function main(argv) {
   const size = SIDE * SIDE * 3, frames = Math.floor(r.stdout.length / size);
   if (!frames) fail(`no frames decoded from ${o.file}; rerun, or check the file plays`);
   console.log(`Palette: ${o.file} (a frame every ${o.every} s, bins of ${o.step}, % of frame, OKLCH L)`);
-  const all = new Map();
+  const all = new Map(), over = [];
   for (let f = 0; f < frames; f++) {
     const buf = r.stdout.subarray(f * size, (f + 1) * size);
     count(buf, o.step, all);
-    console.log(`  ${String(f + 1).padStart(4, '0')}  ~${(f * o.every).toFixed(0)} s  ${line(dominant(buf, o))}`);
+    if (o.hues === null) { console.log(`  ${String(f + 1).padStart(4, '0')}  ~${(f * o.every).toFixed(0)} s  ${line(dominant(buf, o))}`); continue; }
+    const fam = hueFamilies(buf);
+    if (fam.length > o.hues) over.push(`~${(f * o.every).toFixed(0)} s: ${fam.length} hue families (${fam.map((x) => `${x.hue}° ${(x.share * 100).toFixed(1)} %`).join(', ')})`);
+  }
+  if (o.hues !== null) {
+    for (const l of over) console.log(`  OVER  ${l}`);
+    console.log(over.length ? `Hues: ${over.length} of ${frames} frames over ${o.hues} families` : `Hues: OK (every frame <= ${o.hues} families)`);
+    process.exit(over.length ? 3 : 0);
   }
   console.log(`Overall (${frames} frames):`);
   for (const c of top(all, o.top)) console.log(`  ${c.hex}  ${c.pct.toFixed(1).padStart(5)} %  L ${c.L.toFixed(2)}`);
