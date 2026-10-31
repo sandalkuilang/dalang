@@ -386,7 +386,8 @@ const objects = (s) => {
 //  edge: a fresnel rim on a lit ghost (0 is off; about 0.3 to 0.8 reads as an x-ray); keep: objects that never ghost
 //  (the floor or sweep: without it the world shows the void under the set).
 // Never ghosted: a mesh in `keep` or inside one, `userData.attend = false` (on it or a parent), and the cutaway's own
-// parts (`userData.cutaway`: caps and stencils keep their colour). A material without a `.color` (a ShaderMaterial:
+// parts (`userData.cutaway`: caps and stencils keep their colour), and the accent (a material with `userData.accent`,
+// objectStudio.js mat.accent: the working part keeps its full opacity and colour; in a material array only that slot). A material without a `.color` (a ShaderMaterial:
 // particles, water) is left as it is and listed once in `skipped`. Ghosted meshes still cast their shadow.
 // at(t): once per frame, AFTER every other at() (cut.at(t) included: the frame order is cut, then attention) and
 // before the render. It swaps each ghosted mesh's material for a ghost of it, made once per mesh and original material
@@ -405,8 +406,10 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
   const key = (k) => { const i = keys.findIndex((x) => x.t === k.t); if (i >= 0) keys[i] = k; else keys.push(k); keys.sort((a, b) => a.t - b.t); };
   const within = (o, set) => { for (let x = o; x; x = x.parent) if (set.has(x)) return true; return false; };
   const kept = (o) => { for (let x = o; x; x = x.parent) if (keepSet.has(x) || x.userData.attend === false || x.userData.cutaway) return true; return false; };
+  // the accent (objectStudio.js mat.accent marks userData.accent) is the working part: never ghosted, like keep
+  const accent = (m) => !!(origOf.get(m) || m)?.userData?.accent;
   const weight = (o, t) => {
-    if (kept(o)) return 0;
+    if (kept(o) || (o.material && [].concat(o.material).every(accent))) return 0;
     let w = 0;
     for (let i = 0; i < keys.length && keys[i].t <= t; i++) {
       const k = keys[i], e = i + 1 < keys.length && keys[i + 1].t <= t ? keys[i + 1].t : t, goal = k.subjects && !within(o, k.subjects) ? 1 : 0;
@@ -455,7 +458,7 @@ export function attend(root, { ghost = 0.25, desat = 0.85, light = 0.35, dur = 0
         if (!o.isMesh || !o.material) return;
         const w = weight(o, t), one = (cur) => {
           const orig = origOf.get(cur) || cur;
-          if (w === 0) return orig;
+          if (w === 0 || orig.userData?.accent) return orig;
           if (!orig.color) {
             if (!skippedSeen.has(orig)) { skippedSeen.add(orig); skipped.push((o.name || o.type) + ": " + (orig.name || orig.type) + " has no .color, left as it is"); }
             return orig;
