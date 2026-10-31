@@ -57,7 +57,7 @@ Order: Call 0 only when setup left a choice, Calls 1 and 2 (≤ 4 questions each
 
 ### Call 1
 0. **Mode** (first) — "Express — ready in ~20 minutes (Recommended)": no stop after the Brief, parallel builders, one `--quality looks` render (`express.md`); "Studio — the precision lane: a Blender hero, reference boards, style-frame check, benchmark and review (slower; also no stop after the Brief)". Save `mode: express` or `mode: studio`.
-0b. **Look** (second; a series kit answers it) — "Isometric 2.5D (Recommended)": `isometric-world` as the main language, flat drawing that reads as 3D through layers and colour, with `cutaway` and `blueprint` on the beats that need them (`engine/iso`); "3D object studio": `object-studio`, the real object as clean 3D on a light grey studio sweep, x-ray, editorial cards, karaoke captions (`engine/three`, `looks.md` "object-studio"). Save `look: isometric-world` or `look: object-studio`. A link or file under "Other" is a Step 2 reference, never a third look. Mode and look are locked after the Brief; only the user changes either.
+0b. **Look** (second; a series kit answers it) — "Isometric 2.5D": `isometric-world` as the main language, flat drawing that reads as 3D through layers and colour, with `cutaway` and `blueprint` on the beats that need them (`engine/iso`); "3D object studio": `object-studio`, the real object as clean 3D on a light grey studio sweep, x-ray, editorial cards, karaoke captions (`engine/three`, `looks.md` "object-studio"). The "(Recommended)" follows the Mode: Express marks "3D object studio (Recommended)" first, Studio marks "Isometric 2.5D (Recommended)" first; all four mode x look pairs stay selectable. Autonomous mode, and a user who names no look, get `object-studio` under Express and `isometric-world` under Studio. Save `look: isometric-world` or `look: object-studio`. A link or file under "Other" is a Step 2 reference, never a third look. Mode and look are locked after the Brief; only the user changes either.
 **Express** asks only Mode, Look, Platform, Language, Duration and Energy, skips Call 2's audience (general public) and Call 3 unless the voice is unclear (a request for visuals only saves `voice: none` without asking), asks Call 4's extras that apply, then goes to Step 3.
 1. **Platform** — YouTube Shorts (9:16, 1080×1920, ≤ 3 min, hook in 1–2 s) · Instagram Reels (9:16, ≤ 3 min, taller bottom overlay) · YouTube landscape (16:9, 1920×1080) · Instagram feed (4:5, 1080×1350, ≤ 60 s, often muted). TikTok and 1:1 via "Other".
 2. **Language** — the user's language "(Recommended)", English, one other likely language; the rest via "Other". Store the ISO 639-1 code.
@@ -83,7 +83,7 @@ Ask when preflight's `Voices` line lists two or more profiles, or one the audien
 - **Permission for a recording or cloned voice** (only when the user brings one) — "Yes, the speaker gave permission"; "No" (Step 4 generates the voice).
 - **Series**: only the kit's own questions.
 
-Autonomous mode: each call's recommended option or default, logged.
+Autonomous mode: each call's recommended option or default, logged. The look follows the Mode (item 0b).
 
 ### Save the brief
 

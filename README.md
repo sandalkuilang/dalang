@@ -45,7 +45,7 @@ Restart Claude Code, check your machine once (the agent runs `preflight.mjs` fro
 </picture>
 
 - **Words first.** The voice is recorded before any frame exists; every cut lands on a timed word, with room before the first word and after the last, and a free music bed under it.
-- **Two lanes, two looks.** Express or Studio (below); looks `isometric-world` (with `cutaway` and `blueprint` beats) or `object-studio` 3D, in either lane; the camera is a slow one-way orbit.
+- **Two lanes, two looks.** Express or Studio (below); looks `isometric-world` (with `cutaway` and `blueprint` beats) or `object-studio` 3D, in either lane (Express recommends `object-studio`, Studio `isometric-world`); the camera is a slow one-way orbit.
 - **Hands-off.** All questions up front; the agent passes its own gates and hands you the film with its metrics.
 - **Lean.** Parallel builders on a code-written frame, small subagents, measured tokens.
 
@@ -61,7 +61,7 @@ The Brief asks once; both run hands-off after it.
 | | **Express** (default, fast lane) | **Studio** (precision lane) |
 |---|---|---|
 | Pick it for | a 30–90 s explainer, ready in about 20 minutes of work | a subject that must look exactly like the real thing, opened up |
-| The subject | drawn as true shapes (isometric), or a model already in your library | modelled once from your 2D pictures as a Blender script, kept in your library for later films |
+| The subject | drawn as a clean 3D study model (`object-studio`, the default) or as true shapes (isometric), or a model already in your library | modelled once from your 2D pictures as a Blender script, kept in your library for later films |
 | Engines | voice: VoiceStudio or Kokoro · scene: **Canvas 2D** (`engine/iso`); `object-studio`: **three.js** · video: **HyperFrames** + ffmpeg | voice: VoiceStudio or Kokoro · subject: **Blender** (`engine/blender`) · scene: **three.js** (`engine/three`) · video: **HyperFrames** + ffmpeg |
 | You give | the topic (photos, a datasheet or manual, the model name: optional) | the topic and 3–5 pictures of the subject (photos, a cutaway diagram, a manual page) |
 | You get | `final.mp4` (one render), captions, `POST.md`, metrics | `final.mp4` (high render), captions, `POST.md`, metrics, the subject asset for reuse |
