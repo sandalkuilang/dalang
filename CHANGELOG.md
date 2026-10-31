@@ -61,7 +61,8 @@ Published versions are never re-tagged.
 ### Fixed
 - `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
   with a `| WARN …` field and a WARN on stderr (a refusal stopped the step clock). `metrics` Start and End are the
-  earliest and latest log line by time.
+  earliest and latest log line by time. `next` does not count a warned Step 6 row as a finished build, so Gate 3
+  approved afterwards still sends the agent to Step 6.
 - The token report says "not counted" when the main transcript made Agent calls whose subagent transcripts are missing,
   instead of printing 0 subagents; the metrics Total tokens line says "at least" then. A film with no Agent call keeps
   its true 0.

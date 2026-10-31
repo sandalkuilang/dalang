@@ -328,7 +328,8 @@ const standing = () => {
   if (!approved(3)) return [5, `gate 2 approved, gate 3 ${gateWord(3)}`];
   if (approved(4)) return [8, 'gate 4 approved'];
   const log = readFileSync(path.join(dir, 'PRODUCTION.md'), 'utf8');
-  const built = /^\d\d:\d\d[–-]\d\d:\d\d \| *(step *)?(6\b|build)/im.test(log) || has('QC-REVIEW.md');
+  // a Step 6 row that `log` wrote with a WARN field (gate 3 not approved then) is not a build from the approved storyboard
+  const built = log.split('\n').some(l => /^\d\d:\d\d[–-]\d\d:\d\d \| *(step *)?(6\b|build)/i.test(l) && !/\| WARN [^|]*$/.test(l)) || has('QC-REVIEW.md');
   return has('index.html') && built ? [7, `build logged, gate 4 ${gateWord(4)}`] : [6, 'gate 3 approved, no finished build logged'];
 };
 // One step as the main agent reads it: the sections (commands, or their text with --print), the mode's lesson
