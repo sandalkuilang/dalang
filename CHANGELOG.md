@@ -50,6 +50,12 @@ Published versions are never re-tagged.
   `README.md`, `docs/architecture.md`, `tests/build-docs.mjs`). Express recommends `object-studio` (and Autonomous mode
   and a Brief that names no look take it); Studio keeps `isometric-world` as its recommended look. All four mode x look
   combinations stay selectable; nothing is removed.
+- **Default voice: a saved profile named `Dalang`** (`scripts/preflight.mjs`, `references/brief.md` Call 3, `voice.md`,
+  `script-voice.md`, `SKILL.md`, `README.md`, `docs/architecture.md`, `tests/preflight-mock.mjs`). Preflight's `Voices`
+  line names the default (`— default: "<name>" = <id>`): the profile `~/.config/dalang/voice.json` `default` names
+  (`DALANG_VOICE_FILE` overrides), else one named `Dalang`. The Brief saves it as `voice` with no Call 3 question and no
+  audition; a voice named in the request wins; without a match, Call 3 or the audition as before. An unreadable list
+  never names a default (rerun preflight).
 
 ### Fixed
 - **No horizontal line across the top glass band** (`engine/three/editorial.js` `makeOverlay`): the band's light lip (a

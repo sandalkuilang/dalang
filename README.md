@@ -91,7 +91,7 @@ More: [workflow](docs/workflow.md) · [architecture](docs/architecture.md) · [c
 |---|---|---|
 | Node.js · ffmpeg | everything | `preflight.mjs` says what's missing |
 | HyperFrames skills | the build step | `npx hyperframes skills update` |
-| VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) only on request |
+| VoiceStudio | narration + word timing | free, local; ElevenLabs (paid) only on request; default voice: a saved profile named `Dalang`, or the one `~/.config/dalang/voice.json` names |
 | Kokoro-82M (`pip install kokoro soundfile torchaudio`, own Python via `DALANG_PYTHON`) | optional commercial-OK local voice (`--engine kokoro`) | the pip install pulls torch, transformers, spaCy and the rest: ~0.3 GB on macOS arm64, ~3 GB on Linux with CUDA wheels; then ~330 MB of weights (+ the ~13 MB spaCy English text model). Apache-2.0, en and en-gb only, asked first |
 | Blender (optional) | Studio's hero asset, modelled once by script (`engine/blender`) | GPL; runs on your machine, never shipped; asked first |
 | vtracer (optional) | tracing a photo of your own thing (`scripts/trace.mjs`) | MIT, ~2 MB in its own venv; asked first |
