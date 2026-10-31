@@ -57,15 +57,26 @@ Shape and material are real, palette and projection the language's. Each rule ap
 
 ## object-studio (3D, Express or Studio)
 
-The real object as a clean true-to-life CG render: stylized, never photoreal, real scale, `engine/three`, one look per film.
-- **Set:** one light grey sweep (floor `#D9D9D6` curving to wall `#ECECEA`), `studio()` light with AO and contact shadows. Perspective camera: 3/4 views, eye level and low, macro inserts with shallow focus (`camera-motion.md`).
+The real object as a clean study model: stylized, never photoreal, real scale, `engine/three`, one look per film.
+
+**Thesis (numbers first; the rubric's Thesis row checks each):**
+1. **Pale studio:** the sweep `SWEEP` (`#E3E4E6` floor to `#F3F3F4` wall), soft shadows, `studio()` light with AO.
+2. **One accent** (the SPEC palette's) for the part doing the work right now: `mat.accent(color)` on it, the same colour on the overlay chip and the instrument cursor. Everything else neutral: `mat.gloss()` for dark parts, `mat.steel()`, `mat.matte()` greys, glass. A mechanism hue (heat, cold, current) only on its own beat. Measured: `palette.mjs --hues 2` (in `express.mjs final`).
+3. **One whole hero, 60–70 % of the frame** on its larger axis, never cut by an edge except a close-up that goes inside. Measured: `--min-hero 0.6`.
+4. **One input drives everything; the machine is built once and proved to run:** `assets/machine.js` (the first group's, before any shot; the other groups wait for it) holds the parts, `MODEL = drive(...)` (the SPEC `## MODEL` input and its hand check) and `pose()`; every group poses it with `pose(parts, MODEL.at(t))` and never animates a part itself; `machine_audit.mjs` (in assemble and each group's check) proves rigid links, gear ratios and contact gaps hold over the whole input and that at least two parts move. Dense: every parts-table row a part, with the bolts, springs, seals and bearings that make it known.
+5. **The part doing the work opens up:** x-ray, cutaway, isolate; a camera that goes inside beats an orbit.
+6. **A live instrument** (`instruments.js` `chart`, `gauge`, `meter`, `instrumentTheme("light")`) where a number moves, in place of a card that repeats it.
+7. **Few held shots:** none under 2 s after the hook; the machine moves, not the edit. At most two text layers on screen at once (headline or caption, plus a label or instrument).
+8. **Built from code** (`parts.js`: gear, spring, lathe, rod) in real units from a 2D reference; Blender only for curved or organic casings (`hero-asset.md`).
+
+- **Set:** the pale sweep above. Perspective camera: 3/4 views, eye level and low, macro inserts with shallow focus (`camera-motion.md`); pick the view that keeps the mechanism readable (a planar linkage face-on collapses into a lattice: go 3/4).
 - **X-ray:** the shell turns semi-transparent cool grey (`attend` with `edge`, `cutaway.js`); the named part takes one highlight colour.
-- **Overlays:** a mono caps kicker and a bold headline with one accent word on a brand-colour chip, over a gradient glass band (the picture, then a frosted band over the top 27 % fading downward, shown with the headline, then the text; no band at the bottom; the glass tinted from the ground behind it, white only on a dark ground such as blueprint, with a fixed frosted grain and a light lip where it starts to fade); white data cards with a source line; pill labels with leaders; hanging tags for A vs B; karaoke captions, the active word on the accent chip. Key content out of the bottom 22 %, captions aside. One language and casing for every overlay.
+- **Overlays:** a mono caps kicker and a bold headline with one accent word on a brand-colour chip, over a gradient glass band (the picture, then a frosted band over the top 27 % fading downward, shown with the headline, then the text; no band at the bottom; the glass tinted from the ground behind it, white only on a dark ground such as blueprint, with a fixed frosted grain and a light lip where it starts to fade); white data cards with a source line; pill labels with leaders; hanging tags for A vs B; captions in one line under the subject box, the active word on the accent chip. Key content out of the bottom 22 %, captions aside. One language and casing for every overlay.
 - **Close and x-ray stay recognisable:** the object's silhouette (or an inset of it) stays in frame; the explained part fills ≤ half the frame and the mechanism's arrows land inside it. A mirror (`mat.chrome`) needs contrast in its view.
-- **Subject box (9:16):** the subject and all it does between 18 % and 60 % of the height (y 345–1150 on 1080×1920), above the caption band (`editorial.js` `safe.bottom`, 1180); a wide shows the object at ~40 % of the height; a fix never moves it below the box.
+- **Subject box (9:16):** the subject and all it does between 18 % and 60 % of the height (y 345–1150 on 1080×1920), above the caption band (`editorial.js` `safe.bottom`, 1180); a wide shows the whole hero at 60–70 % of the frame on its larger axis (thesis 3); a fix never moves it below the box.
 - **Aperture:** wide f5.6, zoom-in or macro f1.2–2.8 (`cam(..., { dof: { fstop, focus } })`).
 - **Material effects get two snapshot rounds;** one that still doesn't read is logged and left.
-- **Figure-ground:** ≥ 25 L* between the hero and what is right behind it (a dark rim, a contact shadow, a darker backdrop).
+- **Figure-ground:** ≥ 25 L* between the hero and what is right behind it (a darker material on the hero (`mat.gloss`), else a `backdrop()`).
 - **Shared modules, no pilot:** the object-studio kit (`engine/three/README.md` "object-studio kit") imported unchanged by every group.
 - **Clear things:** a liquid uses the kit's liquid material (plain alpha); clear plastic and glass its additive reflection-only materials.
 - **Banned:** isometric slabs, grid paper, title blocks, retro print; brands and logos; footage and generated images.

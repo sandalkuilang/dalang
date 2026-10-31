@@ -1,8 +1,9 @@
 # DALANG three.js engine
 
 Studio's generic 3D systems, one line per export. Inputs are parameters in real units (metres, SI), presets are passed
-in by the set, every motion is a pure function of t from its cause (no physics, no bake). The hero is a Blender asset
-(`engine/blender`), a CC0 model or simple primitives. Rules behind the numbers: `references/looks.md`,
+in by the set, every motion is a pure function of t from its cause (no physics, no bake). The hero is built in code
+(`parts.js`, `drive.js`, `assets/machine.js`), a Blender asset (`engine/blender`) only for curved or organic casings, a CC0 model
+or simple primitives. Rules behind the numbers: `references/looks.md`,
 `references/camera-motion.md` §5.
 
 ## Install
@@ -50,6 +51,13 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 
 **instruments.js** (2D canvas or a CanvasTexture; `units` and `label` required; unreadable values show `--`, never 0)
 - `scope(ctx, { signal, t, window, range, units, label, x, y, w, h, divisions, timeScale })`, `meter(ctx, { value, units, label, digits, x, y, size })`, `gauge(ctx, { value, min, max, units, label, sweep, x, y, r })`, `bar(ctx, { value, max, units, label, x, y, w, h })`.
+- `chart(ctx, { curve, domain, range, u, units, uUnits, label, x, y, w, h })`: a curve with a cursor that moves with `u`; `instrumentTheme("light", { accent })` for the pale studio (the default theme is dark).
+
+**parts.js** (object-studio's code-first hero, metres; closed geometry, numbers kept in `userData`)
+- `gear(teeth, module, width, { helix, bore })`, `spring({ r, wire, turns, len })`, `lathe(profile)`, `rod(a, b, r)`.
+
+**drive.js** (one input poses every part and readout)
+- `drive({ input, state, checks })` → `{ at(t), input, state }`; a failed hand check throws at load. `audit(model, { u, rigid, mesh, gaps })` proves a machine runs over its whole input (`scripts/machine_audit.mjs`).
 
 **fields.js** (SI units; a zero or non-finite strength is refused)
 - Sources: `charge(q, at)`, `dipole(p, at, { d })`, `straightWire(I, a, b)`, `loop(I, { at, normal, R })`, `barMagnet({ at, axis, length, width, depth, Br })` (`Br` has no default: cite it).
@@ -98,7 +106,7 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 The `object-studio` look's shared set and overlay, imported unchanged by every group. Builders read
 `templates/object-studio-API.md` (signatures and shot rows); extras not on the card: `makeSweep`, `lensFov`,
 `canvasTex`, `clamp`, `smooth`, `withMoves`, `LIGHT`; editorial `cues`, `envelope`, `accentHtml`, `tagSwing`,
-`captionAt`, `EASE`.
+`captionAt`, `EASE`. The film's machine is its own `assets/machine.js` (template `templates/machine.tpl.js`: `MODEL`, `AUDIT`, `build`, `pose`), built once by the first group.
 `measure.js`: `heroContrast`, the hero's ΔE* against the ground ring; `objectStudio.js` runs it each frame while `strips.mjs`'s receiver answers (`express.mjs assemble`), with `heroBox` and the DOM overlay boxes, into `type.js` `layoutFrame`.
 
 ## Cinematic camera (object-studio only, `camera.js`)

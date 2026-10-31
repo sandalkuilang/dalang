@@ -119,6 +119,7 @@ Studio: `look-build.md` §5.
 
 | Test | Pass when |
 |---|---|
+| Thesis | The look's thesis (`looks.md`) holds in the frame, rule by rule: object-studio pale studio, one accent on the working part (nothing else in that hue), one whole hero at 60–70 %, parts posed from the one input, a live instrument where a number moves, ≤ 2 text layers. A broken rule = P1; two or more in one frame = P0. |
 | Action | Muted and scrubbed, every shot has the subject doing something besides the camera (no drifting still over 1.5 s); every "why" beat shows its mechanism. A slideshow is a P0. |
 | Stranger | One sentence describes the frame; the hero reads as the real thing without its label. |
 | Set | The world is the one true to the subject at its real density (`looks.md` Set dressing); a bare place where the real one is full reads as a toy. A type-only or chart shot is judged on its design language. One style in every shot, silhouettes read at thumbnail size, contact shadows, consistent light and palette, believable scale, nothing clip-art or puppeted. |
@@ -137,7 +138,7 @@ Studio: `look-build.md` §5.
 | No repeat | One fact, one layer (caption, headline, card, label). A repeat is a P1. |
 | Phone | Every line meant to be read is readable at 360 px wide (`npx hyperframes snapshot --review`); captions clear the hero and the platform overlay. |
 
-Fix every failure before Gate 4; a Set, Reality or merged Figure-ground fail (P0) is never kept; a P1 follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (never `SPEC.md`: editing it makes Gate 3 stale). Judge on full-resolution `snapshot` stills (`--zoom` on the subject), never on draft frames or the contact sheet alone.
+Fix every failure before Gate 4; a Thesis (two rules), Set, Reality or merged Figure-ground fail (P0) is never kept; a P1 follows `qc.md` Step 7. Log each default the render fell into in `PRODUCTION.md` (never `SPEC.md`: editing it makes Gate 3 stale). Judge on full-resolution `snapshot` stills (`--zoom` on the subject), never on draft frames or the contact sheet alone.
 
 ## 12. Information layers: headline, cards, labels, captions
 

@@ -16,6 +16,7 @@ README or another film's folder.
 - **LOOK:** the main language and the beats that use `cutaway` or `blueprint`; the palette in hex, one base per
   material and role, the subject's hue reserved; weights by role; the energy in numbers (average shot length, zoom
   levels, grain).
+- **MODEL** (object-studio): `## MODEL` with `Input:` (the one input and its range over the film, e.g. a crank angle, a stroke 0..1, a flow) and `Check:` (one real number checked by hand from the parts table, e.g. teeth × module = pitch diameter, half its circumference = the rack's travel). `drive.js` `checks` carries the same line in code, in `assets/machine.js` (the first group builds it once; the others pose it). `storyboard_lint.mjs` fails without it.
 - **Figure-ground, the first rule of the palette:** the subject differs in lightness from what is right behind it by
   25 L* or more. Light objects (casings, paper, skin) sit on mid-dark grounds and walls (L* 40–50: slate, wood, earth,
   asphalt), dark objects on light ones; write each ground's and wall's L* beside its hex.
@@ -107,7 +108,7 @@ cut, the last image the payoff frame rhyming with the first. On top of that:
   second; never a wide establishing shot first.
 - **Shots 2–3 s on average** (`storyboard_lint.mjs` reads the Time column); sizes vary: never 3 rows in a row at the
   same size, a close-up or insert at every mechanism, wide only to establish a place or for the payoff.
-- **The subject fills a third of the frame height or more** on every row but a wide; a wide still shows it at once.
+- **The subject fills a third of the frame height or more** on every row but a wide; a wide still shows it at once. object-studio: the whole hero at 60–70 % of the frame on its larger axis on its wide and medium rows; no shot under 2 s after the hook.
 - **Every section opens readable:** its first shot shows the whole place (the world on its slab with its edges, the subject
   at once), then the close shots; a close shot frames one focal part with clear ground around it, never a crop of
   pipes and boxes with no focal point.

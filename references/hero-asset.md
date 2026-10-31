@@ -1,9 +1,6 @@
 # Hero asset: from 2D pictures to a 3D model, once
 
-The user brings pictures (photos, a cutaway diagram, a manual page, a sketch), never a 3D model. The hero (the thing the
-film is about, seen close and opened up: a pump, a hub, a lock, a valve) is modelled once as a Blender Python script
-built from `engine/blender/parts.py`, rendered stylized, and kept in the owner's library, `<videos folder>/library/hero/
-<name>/`, outside the skill. Look there first: an asset that exists is reused (its `.py`, its clip page), never
+The user brings pictures (photos, a cutaway diagram, a manual page, a sketch), never a 3D model. The hero (the thing the film is about, seen close and opened up: a pump, a hub, a lock, a valve) is built **code-first** by default: `engine/three/parts.js` (gear, spring, lathe, rod) and three.js primitives in real units, posed by the film's `drive.js` model, from 2–3 pictures (outside from two sides, the inside). **Blender** (a Python script from `engine/blender/parts.py`, kept in the owner's library `<videos folder>/library/hero/<name>/`, outside the skill) only when the hero's look depends on curved or organic surfaces three.js primitives cannot carry (a moulded casing with fillets, a boolean-cut shell, a soft body); the Brief logs which, in one line. For a Blender hero, look in the library first: an asset that exists is reused (its `.py`, its clip page), never
 modelled again; a missing part of it (a second unit, an inside) is added to it from new pictures. Supporting objects
 take the cheaper routes (`visual-direction.md` §1.1).
 
