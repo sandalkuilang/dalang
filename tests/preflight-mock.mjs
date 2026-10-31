@@ -10,6 +10,7 @@
 // a crash, odd reply or hang (those are "could not check", never MISSING, and never suggest an install).
 // `--check-blender` checks the Blender row against a fake binary: a version is OK, a binary that does not exist is
 // MISSING with the consent note, and a crash, odd reply or hang is "could not check", never MISSING, no install offer.
+// The `Voices` row names the default voice (a profile named Dalang, or the one voice.json names); an unreadable list never names one.
 // `--start` on a port other than 3900 checks VoiceStudio only and opens nothing, so no app or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -27,6 +28,10 @@ const w = path.join(seal, "audioseal", "generator.pth"); fs.writeFileSync(w, "")
 const models = [{ repo_id: "k2-fsa/OmniVoice", installed: true, incomplete: false }, { repo_id: "deepdml/faster-whisper-large-v3-turbo-ct2", installed: true, incomplete: false }];
 const prof = { selections: { tts: { model: "k2-fsa/OmniVoice" }, asr: { engine: "faster-whisper", model: "deepdml/faster-whisper-large-v3-turbo-ct2" } } };
 const voices = { voices: [{ voice_id: "alloy", name: "alloy", type: "openai_alias" }, { voice_id: "p1", name: "Mock One", type: "profile", language: "en" }, { voice_id: "p2", name: "A; B = C\nINJECT", type: "profile" }] };
+const dalang = { voice_id: "p3", name: "Dalang", type: "profile", language: "id" };
+const withDalang = { voices: [...voices.voices, dalang] };
+const cfg = (name, text) => { const f = path.join(tmp, name); fs.writeFileSync(f, text); return f; };
+const cfgMock = cfg("voice-mock.json", JSON.stringify({ default: "mock one" })), cfgBad = cfg("voice-bad.json", "{not json");
 const vox = (installed, model = "voxcpm2") => ({ models: [...models, { repo_id: "openbmb/VoxCPM2", installed, incomplete: false }], profile: { selections: { ...prof.selections, tts: { engine: "voxcpm2", model } } } });
 
 // A mock VoiceStudio: o overrides one route's reply; "hang" never answers, "reset" drops the socket.
@@ -43,7 +48,7 @@ function mock(o = {}) {
   return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv)));
 }
 const freePort = () => new Promise((ok) => { const s = http.createServer().listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => ok(p)); }); });
-const run = (args, sealDir = seal, env = {}) => new Promise((ok) => execFile(process.execPath, [preflight, ...args], { env: { ...process.env, AUDIOSEAL_CACHE_DIR: sealDir, ...env }, timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
+const run = (args, sealDir = seal, env = {}) => new Promise((ok) => execFile(process.execPath, [preflight, ...args], { env: { ...process.env, AUDIOSEAL_CACHE_DIR: sealDir, DALANG_VOICE_FILE: path.join(tmp, "no-voice.json"), ...env }, timeout: 60000 }, (e, out, err) => ok({ code: e ? e.code : 0, out: out + err })));
 // Text rows: "STATUS item: note" (no padding; VoiceStudio's own rows indented, the note optional).
 const parse = (out) => {
   const rows = {}, lines = out.split("\n");
@@ -69,6 +74,13 @@ const cases = [
   ["voices array", { "/v1/audio/voices": [200, voices.voices] }, { Voices: ["WARN", /unexpected reply/] }, ready],
   ["voices odd", { "/v1/audio/voices": [200, { voices: [{ voice_id: "x1", name: "X", type: "cloned_voice" }] }] }, { Voices: ["WARN", /unknown shape/] }, ready],
   ["voices none", { "/v1/audio/voices": [200, { voices: [voices.voices[0]] }] }, { Voices: ["INFO", /no saved profile/] }, ready],
+  ["voice default Dalang", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /"Dalang" = p3 \(id\) — default: "Dalang" = p3$/] }, ready],
+  ["voice no default without Dalang", {}, { Voices: ["INFO", /= p2$/] }, ready],
+  ["voice default, case aside", { "/v1/audio/voices": [200, { voices: [...voices.voices, { ...dalang, name: "dalang" }] }] }, { Voices: ["INFO", /— default: "dalang" = p3$/] }, ready],
+  ["voice default from voice.json wins over Dalang", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default: "Mock One" = p1$/] }, ready, { env: { DALANG_VOICE_FILE: cfgMock } }],
+  ["voice.json unreadable names none", { "/v1/audio/voices": [200, withDalang] }, { Voices: ["INFO", /— default voice: none \(.*unreadable.*\)/] }, ready, { env: { DALANG_VOICE_FILE: cfgBad } }],
+  ["voice two Dalang profiles name none", { "/v1/audio/voices": [200, { voices: [...withDalang.voices, { ...dalang, voice_id: "p4" }] }] }, { Voices: ["INFO", /— default: none \(2 profiles match "Dalang"\)/] }, ready],
+  ["voices 500 never a default", { "/v1/audio/voices": [500, {}] }, { Voices: ["WARN", /^(?!.*default).*rerun preflight/] }, ready, { env: { DALANG_VOICE_FILE: cfgMock } }],
   ["asr missing", { "/models": [200, [models[0]]] }, { "ASR (word timing)": "MISSING", "TTS model": "OK" }, /^VoiceStudio not ready — fix ASR \(word timing\)/],
   ["tts bare name", { "/models": [200, vox(true).models], "/api/settings/performance-profile": [200, vox(true).profile] }, { "TTS model": ["OK", /^openbmb\/VoxCPM2$/] }, /^ready \(free, VoiceStudio\)\.$/],
   ["tts bare name, case", { "/models": [200, vox(true, "VOXCPM2").models], "/api/settings/performance-profile": [200, vox(true, "VOXCPM2").profile] }, { "TTS model": ["OK", /openbmb\/VoxCPM2/] }, /^ready \(free, VoiceStudio\)\.$/],
@@ -85,7 +97,7 @@ const cases = [
 const failures = [];
 await Promise.all(cases.map(async ([name, routes, want, voice, o = {}]) => {
   const srv = routes && (await mock(routes)), port = srv ? srv.address().port : await freePort(), url = `http://${o.host || "localhost"}:${port}`;
-  const { out } = await run(["--start", ...(o.eq ? [`--vs-url=${url}`] : ["--vs-url", url])], o.seal);
+  const { out } = await run(["--start", ...(o.eq ? [`--vs-url=${url}`] : ["--vs-url", url])], o.seal, o.env);
   srv?.close(); srv?.closeAllConnections();
   try {
     const got = parse(out);
