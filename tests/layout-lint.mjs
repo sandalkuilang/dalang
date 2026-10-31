@@ -142,6 +142,22 @@ try {
   assert.equal(r.code, 0, "text in a gap of the hero's box, off its pixels: " + r.out);
   r = run(put([frame({ boxes: [solid], hero: { ...hero, y0: 1000, y1: 1400, parts: [{ name: "set>board", w: 900, h: 400 }] } })]));
   assert.match(lines(r.out, "PROBLEM")[0], /covers 60 % of the hero pixels .*largest part set>board, 900 x 400 px/);
+  // A card over the hero's base (its lowest tenth, y 1030-1100 of the box) is text over the hero; beside it, pinned higher on it,
+  // on a close-up or on a clipped box is not.
+  const baseCard = { kind: "card", text: "flow 12 l/min", x0: 300, y0: 1000, x1: 700, y1: 1090, size: 40 };
+  r = run(put([frame({ boxes: [{ ...label }, baseCard] })]));
+  assert.equal(r.code, 1, "a card over the hero's base: " + r.out);
+  assert.match(lines(r.out, "PROBLEM").join("\n"), /card "flow 12 l\/min" .*covers \d+ % of the hero's base/);
+  r = run(put([frame({ boxes: [{ ...label }, { ...baseCard, kind: "label" }] })]));
+  assert.equal(r.code, 1, "a label over the hero's base: " + r.out);
+  r = run(put([frame({ boxes: [{ ...label }, { ...baseCard, x0: 600, x1: 940 }] })]));
+  assert.equal(r.code, 0, "a card beside the hero's base: " + r.out);
+  r = run(put([frame({ boxes: [{ ...label }, { ...baseCard, y0: 600, y1: 690 }] })]));
+  assert.equal(r.code, 0, "a card pinned higher on the hero: " + r.out);
+  r = run(put([frame({ boxes: [{ ...label }, baseCard], hero: { ...hero, clipped: true } })]));
+  assert.equal(lines(r.out, "PROBLEM").filter((l) => /hero's base/.test(l)).length, 0, "a clipped hero box: base not judged");
+  r = run(put([frame({ boxes: [{ ...baseCard, y0: 1500, y1: 1590 }], hero: { x0: 0, y0: 300, x1: 1080, y1: 1700 } })]));
+  assert.equal(lines(r.out, "PROBLEM").filter((l) => /hero's base/.test(l)).length, 0, "a close-up: the base is not judged");
   // Edges from the hero's pixels: a box clamped at an edge by an off-frame part is not cut; pixels at the edge are.
   const edgeBox = (edges) => frame({ hero: { x0: 540, y0: 300, x1: 1080, y1: 1100, edges: { left: 0, top: 0, right: 0, bottom: 0, ...edges } } });
   r = run(put([edgeBox({})]));

@@ -2015,6 +2015,18 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const hue = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = 4 * (y * w + x), on = x >= 3 && x < 7 && y >= 3 && y < 7; hue.set(on ? [60, 130, 70, 255] : [130, 100, 70, 255], i); }
   assert.ok(heroContrast(hue, mask, w, h, { ring: 2 }) > 25, "green on brown of like lightness is two things");
+  // a ghosted (x-ray) hero: a pale shell around a dark core on a pale sweep. The silhouette's mean is far from the
+  // ground (about 34), its outline is not: the outline decides, and it is under the floor of 8 (layout_lint.mjs)
+  {
+    const W = 40, H = 40, gf = new Uint8ClampedArray(W * H * 4), gm = new Uint8Array(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = 4 * (y * W + x), d = Math.hypot(x - 20, y - 20), on = d < 14;
+      gf.fill(d < 9 ? 40 : on ? 222 : 235, i, i + 3); gf[i + 3] = 255;
+      gm[4 * ((H - 1 - y) * W + x)] = on ? 255 : 0;
+    }
+    const g = heroContrast(gf, gm, W, H);
+    assert.ok(g !== null && g < 8, "a ghosted hero on a pale ground fails the floor of 8: ΔE* " + g);
+  }
   // maskShare: the hero's pixels cover a 4 x 4 block of 10 x 10 (a 100 x 100 frame): a box on it 1, beside it 0, half on it 0.5
   assert.equal(maskShare(mask, w, h, { x0: 30, y0: 30, x1: 70, y1: 70 }, 100, 100), 1);
   assert.equal(maskShare(mask, w, h, { x0: 70, y0: 30, x1: 100, y1: 70 }, 100, 100), 0);
