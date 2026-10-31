@@ -78,11 +78,12 @@ const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
   const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
   const cap = run('strips.mjs', '.', '--out', 'review/measure');
-  // thesis: one whole hero filling 60-70 % of its larger axis, its height measured in the subject box (y 18-60 % of the frame, looks.md)
-  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', ...(thesis ? ['--min-hero', '0.6', '--hero-band', '0.18,0.60'] : [])) : null;
+  // thesis: one whole hero filling 60-70 % of its larger axis, its height measured in the subject box (y 18-60 % of the frame, looks.md),
+  // and at most two kinds of text on screen at once
+  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', ...(thesis ? ['--min-hero', '0.6', '--hero-band', '0.18,0.60', '--max-text-layers', '2'] : [])) : null;
   if (!lint || lint.status === 2) { if (block) failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
   const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
-  if (!probs.length) return console.log(`OK     measured frames (${thesis ? 'hero at 60 % or more of the subject box, ' : 'hero size, '}edges, text over the hero, contrast)`);
+  if (!probs.length) return console.log(`OK     measured frames (${thesis ? 'hero at 60 % or more of the subject box, at most two text layers, ' : 'hero size, '}edges, text over the hero, contrast)`);
   if (block) failed++;
   console.log(`${block ? 'FAILED' : 'OPEN  '} measured frames: ${probs.length} line(s)${block ? ', for the fix round' : ', name them in the hand-off'}`);
   const html = existsSync(path.join(dir, 'index.html')) ? readFileSync(path.join(dir, 'index.html'), 'utf8') : '';
