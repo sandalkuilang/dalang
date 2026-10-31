@@ -48,6 +48,11 @@ Published versions are never re-tagged.
   `scripts/machine_audit.mjs` (in assemble and each group's check) prove rigid links, gear ratios and contacts over the
   whole input and that the parts move.
 - **Live instruments on a pale studio:** `instrumentTheme("light")` and `chart()` with a cursor that moves with the machine.
+- **Trial-film fixes:** `parts.js` `bevel()` and `bevelPair()` (the gear outline on a cone, so a right-angle drive is
+  drawn with bevel gears, not spur gears); `captions()` with an empty or missing list is a no-op (a film without
+  captions passes `hyperframes check`); `attend()` never ghosts the `mat.accent` part, so the working part reads in an
+  x-ray beat; `layout_lint.mjs --max-text-layers n` (caption, label, card at once; `express.mjs` passes 2 for the
+  thesis). An instrument earns its place only when its value changes during its shot.
 - **How to move:** a film in flight keeps its SPEC; a new object-studio film needs `## MODEL` (Input:, Check:) in
   `SPEC.md`, plans its hero at 60–70 % and no shot under 2 s after the hook; old films that set `SWEEP` colours by hand
   keep them; films started before this change (no `assets/machine.js`) keep the old 1/3 hero measure and get no

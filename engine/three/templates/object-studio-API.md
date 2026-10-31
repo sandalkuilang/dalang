@@ -11,7 +11,7 @@ metres; the frame is 1080 × 1920.
   85 mm f1.2–2.8, focus = the camera-to-subject distance (m).
 - `mat.liquid(color)`, `mat.clearPlastic()`, `mat.glass()`, `mat.chrome()`, `mat.steel()`, `mat.plastic(color)`,
   `mat.matte(color)`, `mat.haze(opacity)`.
-- `mat.gloss(color = 0x141518)` dark parts (clearcoat, roughness ≥ 0.45); `mat.accent(color)` the working part, in the SPEC accent; `SWEEP` the pale studio.
+- `mat.gloss(color = 0x141518)` dark parts (clearcoat, roughness ≥ 0.45); `mat.accent(color)` the working part, in the SPEC accent (marked `userData.accent`: an x-ray / `highlight` beat never ghosts it, it keeps full opacity and colour); `SWEEP` the pale studio.
 - `contact([x, y, z], { w, d, opacity })` a contact shadow; `backdrop([x, y, z], { w, h, opacity })` a darker pool behind
   a pale hero; `halfLathe(profile)` the back half of a turned solid (cut-open vessels); `THREE`.
 - Cues (also from editorial.js): `b("beat")`, `w("word", n)` the start of that word's occurrence n (0-based, so `w("the", 1)` is the second "the"), `we(...)` its end,
@@ -19,6 +19,7 @@ metres; the frame is 1080 × 1920.
 
 ## parts.js (code-first hero, metres)
 - `gear(teeth, module, width, { helix, bore })` → geometry on +z; `userData.gear = { rp, ro, rr, … }` (pitch = module·teeth/2).
+- `bevel(teeth, module, width, { pitchAngle, bore })` → a straight bevel on +z: back face at z = 0 with gear()'s outline (pitch r = module·teeth/2), every radius shrinking toward the cone apex at z = rp / tan(pitchAngle), so the pitch radius loses tan(pitchAngle) per metre of z; `userData.bevel = { teeth, module, width, pitchAngle, rp, ro, apex, … }`. `bevelPair(z1, z2)` → `{ pitchAngle1, pitchAngle2 }` for a right-angle pair (tan δ1 = z1/z2, δ1 + δ2 = 90°): put both apices on one point.
 - `spring({ r, wire, turns, len })` on +y from 0; open tube: its mesh `userData.cut = { shell: wire }`.
 - `lathe([[r, y], ...])` about +y; `rod([x, y, z], [x, y, z], r)` end to end.
 
@@ -30,6 +31,7 @@ metres; the frame is 1080 × 1920.
 
 ## instruments.js (live panels, drawn after the finisher)
 - `instrumentTheme("light", { accent })` once; `chart(ctx, { curve, domain, range, u, units, uUnits, label, x, y, w, h })`, `gauge`, `meter`, `bar`, `scope`.
+- An instrument earns its place only when its value changes during its shot (read from `MODEL.at(t)`); a value that stays put is a card or nothing.
 
 ## A shot row (`S.shots(SHOTS, set, { moves })`)
 `{ name, beat, action, transition, camera, cut?, highlight? }`
