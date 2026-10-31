@@ -55,10 +55,10 @@ const step = (name, bin, argv, { keep = 6, quiet = false, filter } = {}) => {
   return { ok, out };
 };
 const node = (script, ...a) => [process.execPath, [path.join(HERE, script), ...a]];
-// the work a fix round may touch: the world and every built group, each by its sha256
+// the work a fix round may touch: the world (or the machine) and every built group, each by its sha256
 const LOCK = path.join(dir, 'review', 'assembled.json');
 const sha = f => createHash('sha256').update(readFileSync(path.join(dir, f))).digest('hex');
-const locked = () => ['assets/world.js', ...(existsSync(path.join(dir, 'compositions')) ? readdirSync(path.join(dir, 'compositions')).filter(f => f.endsWith('.html')).map(f => `compositions/${f}`) : [])].filter(f => existsSync(path.join(dir, f)));
+const locked = () => ['assets/world.js', 'assets/machine.js', ...(existsSync(path.join(dir, 'compositions')) ? readdirSync(path.join(dir, 'compositions')).filter(f => f.endsWith('.html')).map(f => `compositions/${f}`) : [])].filter(f => existsSync(path.join(dir, f)));
 const gate = n => {
   if (spawnSync(process.execPath, [path.join(HERE, 'state.mjs'), 'check', String(n), dir]).status === 0) return console.log(`OK     gate ${n} (approved, fresh)`);
   const r = spawnSync(process.execPath, [path.join(HERE, 'state.mjs'), 'approve', String(n), dir, '--by', 'agent'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
@@ -125,6 +125,7 @@ if (cmd === 'after-voice') {
   const groups = existsSync(path.join(dir, 'src/compositions')) ? readdirSync(path.join(dir, 'src/compositions')).filter(f => f.endsWith('.tpl.html')).map(f => f.replace('.tpl.html', '')) : [];
   // a world still the stub means the first builder never wrote it: every group drew an empty slab
   if (existsSync(path.join(dir, 'assets/world.js')) && /^export const STUB/m.test(readFileSync(path.join(dir, 'assets/world.js'), 'utf8'))) { failed++; console.log('FAILED assets/world.js is still the stub: the first group\'s builder fills it, then every group snapshots again'); }
+  if (existsSync(path.join(dir, 'assets/machine.js')) && /^export const STUB/m.test(readFileSync(path.join(dir, 'assets/machine.js'), 'utf8'))) { failed++; console.log('FAILED assets/machine.js is still the stub: the first group never built the machine'); }
   step('fill_times host', ...node('fill_times.mjs', 'src/index.tpl.html', 'index.html'), { quiet: true });
   for (const g of groups) step(`fill_times ${g}`, ...node('fill_times.mjs', `src/compositions/${g}.tpl.html`, `compositions/${g}.html`), { quiet: true });
   step('lint_scene', ...node('lint_scene.mjs', '.'), { quiet: true, keep: 10 });
@@ -134,6 +135,8 @@ if (cmd === 'after-voice') {
   // the film measured from each group's own module (no seam reviewer, no look at a frame): seams, the world in motion,
   // the reading time of every overlay, dead stretches
   if (existsSync(path.join(dir, 'assets/iso.js'))) step('film_gate', ...node('film_gate.mjs', '.'), { keep: 24, filter: l => /^(FAILED|NOTE|WARN)/.test(l) });
+  // object-studio's machine proved to run before a frame is measured: links keep length, gears ratio, contacts gap; parts move
+  if (existsSync(path.join(dir, 'assets/machine.js'))) step('machine_audit', ...node('machine_audit.mjs', '.'), { keep: 12, filter: l => /PROBLEM|WARN|INFO|Result/.test(l) });
   measure({ block: true });
   if (!failed) gate(3);
   mkdirSync(path.dirname(LOCK), { recursive: true });
@@ -154,7 +157,7 @@ if (cmd === 'after-voice') {
   if (was) {
     const now = locked(), changed = now.filter(f => was[f] !== sha(f)), gone = Object.keys(was).filter(f => !now.includes(f));
     if (!changed.length && !gone.length) console.log('OK     nothing changed since assemble');
-    for (const f of changed) console.log(`CHANGED since assemble: ${f}${f === 'assets/world.js' ? ' (the world: its owner only)' : ''}`);
+    for (const f of changed) console.log(`CHANGED since assemble: ${f}${f === 'assets/world.js' ? ' (the world: its owner only)' : f === 'assets/machine.js' ? ' (the machine: its owner only)' : ''}`);
     for (const f of gone) console.log(`CHANGED since assemble: ${f} removed`);
   }
   measure({ block: false });

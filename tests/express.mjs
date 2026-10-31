@@ -69,6 +69,7 @@ fs.mkdirSync(path.join(tmp, "assets"));
 fs.writeFileSync(path.join(tmp, "assets/world.js"), "export const STUB = true;\n");
 r = run("assemble", tmp);
 assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never filled fails assemble");
+assert.doesNotMatch(r.out, /machine_audit/, "no machine: no machine audit");
 assert.match(r.out, /^(WARN   tokens not read|SKIP   fix round|OK     tokens)/m, "assemble says whether a fix round fits the budget");
 r = run("final", tmp);
 assert.match(r.out, /FAILED hyperframes check/, "a film that fails check fails final");
@@ -83,4 +84,10 @@ fs.rmSync(path.join(tmp, "review/assembled.json"));
 r = run("final", tmp);
 assert.match(r.out, /WARN   no review\/assembled\.json/, "no record: a WARN, never 'nothing changed'");
 assert.doesNotMatch(r.out, /render \(/, "no render after a failed check: check reads the composition, not the mp4");
+// object-studio: a machine still the stub fails assemble, and its audit says why
+fs.writeFileSync(path.join(tmp, "assets/machine.js"), "export const STUB = true;\n");
+r = run("assemble", tmp);
+assert.match(r.out, /FAILED assets\/machine\.js is still the stub: the first group never built the machine/, "a machine never built fails assemble");
+assert.match(r.out, /FAILED machine_audit\n\s+PROBLEM  : assets\/machine\.js is still the stub/, "the machine audit runs in assemble and names the stub");
+assert.ok(JSON.parse(fs.readFileSync(path.join(tmp, "review/assembled.json"), "utf8"))["assets/machine.js"], "assemble records the machine");
 console.log("express: OK");

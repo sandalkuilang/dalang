@@ -45,6 +45,7 @@ if [ $fast -eq 0 ]; then
   step "asset licence gate (unknown file, wrong licence, engine manifest)" node tests/assets.mjs
   step "find_media vs mock Openverse / Commons" node tests/find-media.mjs
   step "review strips (storyboard -> sheets + index)" node tests/strips.mjs
+  step "machine audit (stub, true machine, stretching link, still parts)" node tests/machine-audit.mjs
   step "save-profile cut vs mock VoiceStudio" node tests/save-profile.mjs
   step "scopes (signalstats per cut: bands, flagged cuts, PNGs only when flagged)" node tests/scopes.mjs
   step "palette (dominant colours, OKLCH L, figure-ground compare)" node tests/palette.mjs
