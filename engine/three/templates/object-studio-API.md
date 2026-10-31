@@ -30,7 +30,7 @@ metres; the frame is 1080 × 1920.
 
 ## editorial.js
 `const ov = makeOverlay(hostEl, { prefix, G0 })`, then:
-- `ov.headline({ kicker, text: "Sentence [accent]", from, to })` over the top glass (a frosted gradient band, the top 27 % of the frame fading downward, shown with the headline); a bottom glass, the bottom 17 % fading upward, is always on
+- `ov.headline({ kicker, text: "Sentence [accent]", from, to })` over the top glass (a frosted gradient band, the top 27 % of the frame fading downward, shown with the headline)
 - `ov.card({ label, rows: [{ k, v, hi }], source, from, to, top, left, width })` (or `value` and `sub`; `source` required)
 - `ov.tags([{ title, value, sub, x }], { from, to, len })` hanging A-vs-B tags
 - `ov.pill({ text, at: () => anchorObject3D, offset: [dx, dy], from, to })` a label with a leader line

@@ -34,6 +34,10 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Removed
+- **The bottom glass band** (`engine/three/editorial.js` `makeOverlay`): the frosted band over the bottom 17 % is gone; only
+  the top band stays, shown with the headline. `ov.glassB` no longer exists.
+
 ## [4.5.7] - 2026-10-31
 
 ### Fixed
