@@ -3,8 +3,10 @@
 // luminance is read from a headless-Chromium screenshot, on every kind of ground (light sky, paper, pale sweep, dark
 // blueprint) and at the opacities the headline envelope gives while it fades in and out (the compositor may redraw the
 // blur's box edge there). The static CSS check in engine/three/selfcheck.mjs cannot see either. Runs only where a
-// headless Chromium is found (DALANG_CHROME, hyperframes' or Playwright's cache, or PATH): without one it says so and
-// exits 0 (not run is not failed). Optional argument: another editorial.js to test (to prove the check fails on a line).
+// headless Chromium is found (DALANG_CHROME, hyperframes' or Playwright's cache, or a chrome on PATH): without one it says
+// so and exits 0 on a developer machine (not run is not failed). Where the check must run (the CI merge gate sets
+// DALANG_REQUIRE_CHROME=1) a missing or broken browser FAILS, so a green gate means it really looked. Optional argument:
+// another editorial.js to test (to prove the check fails on a line or a step).
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -19,15 +21,25 @@ const editorial = path.resolve(process.argv[2] || path.join(here, "..", "engine"
 // ---- a headless Chromium, if there is one ----
 const home = os.homedir();
 const latest = (dir, sub) => { try { return fs.readdirSync(dir).sort().reverse().map((d) => path.join(dir, d, ...sub)).find((p) => fs.existsSync(p)); } catch { return undefined; } };
-const candidates = [
-  process.env.DALANG_CHROME,
+const onPath = (names) => (process.env.PATH || "").split(path.delimiter).filter(Boolean).flatMap((d) => names.map((n) => path.join(d, n))).find((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+const REQUIRE = !!process.env.DALANG_REQUIRE_CHROME;
+// not run is a WARN where the browser is optional and a failure where the gate requires it
+const notRun = (why) => {
+  if (REQUIRE) { console.error(`FAIL: ${why} (DALANG_REQUIRE_CHROME is set: the rendered glass-band check must run)`); process.exit(1); }
+  console.log(`WARN: ${why}: the rendered glass-band check was not run, rerun where one is installed`); process.exit(0);
+};
+// an explicit DALANG_CHROME is the only candidate (a wrong path is not silently replaced by another browser)
+const candidates = process.env.DALANG_CHROME ? [process.env.DALANG_CHROME] : [
   latest(path.join(home, ".cache", "hyperframes", "chrome", "chrome-headless-shell"), ["chrome-headless-shell-mac-arm64", "chrome-headless-shell"]),
   latest(path.join(home, ".cache", "hyperframes", "chrome", "chrome-headless-shell"), ["chrome-headless-shell-linux64", "chrome-headless-shell"]),
   latest(path.join(home, "Library", "Caches", "ms-playwright"), ["chrome-headless-shell-mac-arm64", "chrome-headless-shell"]),
   latest(path.join(home, ".cache", "ms-playwright"), ["chrome-linux", "headless_shell"]),
+  onPath(["chrome-headless-shell", "google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]),
 ].filter(Boolean);
 const chrome = candidates.find((p) => fs.existsSync(p));
-if (!chrome) { console.log("WARN: no headless Chromium found (set DALANG_CHROME): the rendered glass-band check was not run, rerun where one is installed"); process.exit(0); }
+if (!chrome) notRun("no headless Chromium found (set DALANG_CHROME)");
+// a full Chrome or Chromium needs --headless to run without a window; chrome-headless-shell is headless already
+const headlessFlag = /headless/i.test(path.basename(chrome)) ? [] : ["--headless=new"];
 
 // ---- the real CSS and the real envelope, through the overlay's own code ----
 const ED = await import(pathToFileURL(editorial).href);
@@ -82,20 +94,33 @@ const standout = (P) => {
   }
   return { w, at };
 };
-// a case = { name, ground, lip }: lip injects a 2 px light line at 70 % of the band (the old design), the control that
-// proves this check can see a line at all
-const CASES = [...Object.entries(GROUNDS).map(([name, ground]) => ({ name, ground })), { name: "control-lip", ground: GROUNDS.sky, lip: true }];
+// a case = { name, ground, ctl }: ctl injects a fault the check must see, so a green run proves the eyes work.
+//   lip       a 2 px light line at 70 % of the band (the old design)
+//   step      a sharp 4.5-level step at the box's bottom edge: the tint or blur ends there and the ground goes on (about 2 %,
+//             a seam on a flat light ground); constant at every opacity, as the lip is not
+//   soft-step the same step spread over 4 rows (the blur softens a real edge)
+const STEP = 4.5;
+const CASES = [...Object.entries(GROUNDS).map(([name, ground]) => ({ name, ground })),
+  { name: "control-lip", ground: GROUNDS.sky, ctl: "lip" },
+  { name: "control-step-sweep", ground: GROUNDS.sweep, ctl: "step" },
+  { name: "control-step-sky", ground: GROUNDS.sky, ctl: "step" },
+  { name: "control-soft-step-sweep", ground: GROUNDS.sweep, ctl: "soft-step" }];
 const worst = [], fails = [];
 try {
-  for (const { name, ground, lip } of CASES) {
+  for (const { name, ground, ctl } of CASES) {
+    const lip = ctl === "lip";
     const { css, tint, h } = cssText(ground), H = h + 140;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(ground.slice(i, i + 2), 16)), dk = `rgb(${r * 0.9 | 0},${g * 0.9 | 0},${b * 0.9 | 0})`, lt = `rgb(${Math.min(255, r * 1.06) | 0},${Math.min(255, g * 1.06) | 0},${Math.min(255, b * 1.06) | 0})`;
+    // the step is a black veil over the band's box that takes STEP levels off the ground's mean luminance
+    const alpha = (STEP / (0.2126 * r + 0.7152 * g + 0.0722 * b)).toFixed(4), soft = ctl === "soft-step" ? 4 : 0;
+    const veil = `<div style="position:absolute;left:0;top:0;width:100%;height:${h}px;background:linear-gradient(180deg,rgba(0,0,0,${alpha}) calc(100% - ${soft}px),rgba(0,0,0,0))"></div>`;
     const extra = lip ? `<div style="position:absolute;left:0;top:${Math.round(h * 0.7)}px;width:100%;height:2px;background:rgba(255,255,255,.85)"></div>` : "";
-    const cols = OPAC.map((o, k) => `<div style="position:absolute;left:${k * COL}px;top:0;width:${COL}px;height:${H}px;background:repeating-linear-gradient(90deg,${dk} 0 45px,${lt} 45px 90px)"><div class="ov" style="--ov-glass:${tint};width:${COL}px;height:${H}px"><div class="ov-glass" style="height:${h}px;opacity:${o}"></div>${extra.replace("top:", `opacity:${o};top:`)}</div></div>`).join("");
+    const veilOnly = ctl === "step" || ctl === "soft-step" ? veil : "";
+    const cols = OPAC.map((o, k) => `<div style="position:absolute;left:${k * COL}px;top:0;width:${COL}px;height:${H}px;background:repeating-linear-gradient(90deg,${dk} 0 45px,${lt} 45px 90px)"><div class="ov" style="--ov-glass:${tint};width:${COL}px;height:${H}px"><div class="ov-glass" style="height:${h}px;opacity:${o}"></div>${extra.replace("top:", `opacity:${o};top:`)}${veilOnly}</div></div>`).join("");
     const file = path.join(tmp, name + ".html"), png = path.join(tmp, name + ".png");
     fs.writeFileSync(file, `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000}${css}</style><div style="position:relative;width:${COL * OPAC.length}px;height:${H}px">${cols}</div>`);
-    const run = spawnSync(chrome, ["--no-sandbox", "--hide-scrollbars", "--force-device-scale-factor=1", `--window-size=${COL * OPAC.length},${H}`, `--screenshot=${png}`, "--virtual-time-budget=1000", pathToFileURL(file).href], { encoding: "utf8", timeout: 60000 });
-    if (run.error || !fs.existsSync(png)) { console.log(`WARN: the browser did not render ${name} (${run.error?.message || (run.stderr || "").slice(-200)}): rendered glass-band check not run, rerun`); process.exit(0); }
+    const run = spawnSync(chrome, [...headlessFlag, "--no-sandbox", "--hide-scrollbars", "--force-device-scale-factor=1", `--window-size=${COL * OPAC.length},${H}`, `--screenshot=${png}`, "--virtual-time-budget=1000", pathToFileURL(file).href], { encoding: "utf8", timeout: 60000 });
+    if (run.error || !fs.existsSync(png)) { fs.rmSync(tmp, { recursive: true, force: true }); notRun(`the browser did not render ${name} (${run.error?.message || (run.stderr || "").slice(-200)})`); }
     if (process.env.DALANG_KEEP) fs.copyFileSync(png, path.join(process.env.DALANG_KEEP, name + ".png")); // stills, on request
     const img = rowMeans(fs.readFileSync(png));
     assert.ok(img.w >= COL * OPAC.length && img.h >= H, `${name}: screenshot ${img.w}x${img.h}`);
@@ -105,7 +130,7 @@ try {
       assert.ok(Math.abs(P[4] - P[H - 4]) > (o > 0.3 ? 2 : 0.3), `${name} @${o}: the band is on the frame (top ${P[4].toFixed(1)} vs ground ${P[H - 4].toFixed(1)})`);
       const { w, at } = standout(P);
       worst.push(`${name} @${o}: worst row ${at} stands out by ${w.toFixed(2)}`);
-      if (lip) { assert.ok(w >= T, `control: a 2 px lip at opacity ${o} must be seen as a line (row ${at}, ${w.toFixed(2)})`); }
+      if (ctl) { assert.ok(w >= T, `control ${ctl}: ${name} at opacity ${o} must be seen as a line (row ${at}, ${w.toFixed(2)})`); }
       else if (w >= T) fails.push(`a horizontal line on the rendered glass band: ${name} at opacity ${o}, row ${at} stands out by ${w.toFixed(2)} levels (limit ${T})`);
     });
   }
