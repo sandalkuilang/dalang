@@ -165,16 +165,19 @@ try {
   // Step 6 (build) is logged only from an existing storyboard.md and a fresh Gate 3; approve 3 records the storyboard lint.
   const bl = mk("buildlog");
   const prod = () => (fs.existsSync(path.join(bl, "PRODUCTION.md")) ? fs.readFileSync(path.join(bl, "PRODUCTION.md"), "utf8") : "");
-  const refused = (line, re, why) => { const before = prod(); const r = run("log", line, bl); assert.equal(r.code, 1, `${why}: ${r.out}`); assert.match(r.err, re, why); assert.equal(prod(), before, `${why}: PRODUCTION.md unchanged`); };
+  const rows = () => prod().split("\n").filter((l) => /^\d\d:\d\d[–-]/.test(l));
+  // log never refuses: the line is recorded with a WARN field, the gate state is printed on stderr, exit 0
+  const warned = (line, re, why) => { const n = rows().length; const r = run("log", line, bl); assert.equal(r.code, 0, `${why}: ${r.err}`); assert.match(r.err, re, why); assert.equal(rows().length, n + 1, `${why}: one row recorded`); assert.match(rows().at(-1), /\| WARN /, `${why}: the row carries the WARN`); };
   gate12(bl);
   ok(bl, "approve", "1"); ok(bl, "approve", "2");
-  refused("6 Build | index.html | -", /storyboard\.md is missing/, "no storyboard");
+  warned("6 Build | index.html | -", /storyboard\.md is missing/, "no storyboard");
+  { const a = rows().at(-1).split("|")[0].trim().slice(-5); ok(bl, "log", "7 QC | x | -"); assert.equal(rows().at(-1).slice(0, 5), a, "the clock continues from the warned line"); }
   ok(bl, "log", "5 Look | x | -"); // other steps are never refused
   ok(bl, "log", "Step 7 | x | -");
   put(bl, "SPEC.md"); put(bl, "storyboard.md"); put(bl, "style-frames/a.png");
   put(bl, "review/benchmark.md", BENCH);
-  refused("6 Build | index.html | -", /gate 3 is waiting for approval/, "gate 3 unapproved");
-  refused("Build | index.html | -", /gate 3/, "a line that starts with Build counts as Step 6");
+  warned("6 Build | index.html | -", /gate 3 is waiting for approval/, "gate 3 unapproved");
+  warned("Build | index.html | -", /gate 3/, "a line that starts with Build counts as Step 6");
   fs.appendFileSync(path.join(bl, "BRIEF.md"), "fidelity: exact\n");
   const ap = ok(bl, "approve", "3"); // the storyboard is "x": unlintable, the approval still goes through
   const lintOf = () => JSON.parse(fs.readFileSync(path.join(bl, "state.json"), "utf8")).approvals[3].lint;
@@ -184,8 +187,9 @@ try {
   assert.match(ap.out, /WARN Silhouette: not checked/, "fidelity exact with no measured views warns, never blocks");
   assert.equal(JSON.parse(fs.readFileSync(path.join(bl, "state.json"), "utf8")).approvals[3].silhouette, "not checked");
   ok(bl, "log", "6 Build | index.html | -");
+  assert.doesNotMatch(rows().at(-1), /WARN/, "an approved gate 3 logs without a WARN");
   put(bl, "storyboard.md", "edited after the approval\n"); // gate 3 STALE
-  refused("Step 6 | index.html | -", /gate 3 is STALE/, "gate 3 stale");
+  warned("Step 6 | index.html | -", /gate 3 is STALE/, "gate 3 stale");
   const sbhead = "| # | Time | Beat | Job | Size · angle · lens | What we see | Camera | Subject action | Transition | SFX | Overlay |\n|---|---|---|---|---|---|---|---|---|---|---|\n";
   const sbrow = (i, size) => `| ${i} | ${i * 2 - 2}.00–${i * 2}.00 | b | A | ${size} | the hero mid-action | push 1.00→1.04 | the hero acts (3D) | cut | s | k |\n`;
   put(bl, "storyboard.md", sbhead + sbrow(1, "wide · high · 24 mm") + sbrow(2, "medium · eye-level · 50 mm") + sbrow(3, "close-up · low · 85 mm"));
