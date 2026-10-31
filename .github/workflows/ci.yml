@@ -8,10 +8,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The merge gate (scripts/gate.sh): the static checks, the engine's self-check and every tests/*.mjs. The same
-      # script runs locally (--fast for the static part).
       # ffmpeg is no longer on the runner image; the audio, trace and media tests need it.
       - name: ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      # The rendered glass-band check (tests/glass-band-render.mjs) needs a headless Chromium, and the runner has none the
+      # check knows: fetch Puppeteer's chrome-headless-shell and REQUIRE the check. With DALANG_REQUIRE_CHROME a missing or
+      # broken browser fails the gate instead of printing a WARN and passing (tests/glass-band-policy.mjs holds this).
+      - name: Headless Chromium for the rendered checks
+        run: |
+          out=$(npx --yes @puppeteer/browsers install chrome-headless-shell@stable --path "$RUNNER_TEMP/chrome")
+          echo "$out"
+          bin=$(echo "$out" | tail -1 | awk '{print $2}')
+          test -x "$bin"
+          echo "DALANG_CHROME=$bin" >> "$GITHUB_ENV"
+          echo "DALANG_REQUIRE_CHROME=1" >> "$GITHUB_ENV"
+      # The merge gate (scripts/gate.sh): the static checks, the engine's self-check and every tests/*.mjs. The same
+      # script runs locally (--fast for the static part).
       - name: Gate
         run: scripts/gate.sh

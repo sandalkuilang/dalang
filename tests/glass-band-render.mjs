@@ -84,6 +84,10 @@ const COL = 1080, tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-glass-"));
 // a line is a row that stands out of its neighbours (3 to 10 rows either side) by 3 or more of 255 levels. Measured on a
 // real render: the smooth band wobbles by up to 1.8 (8-bit gradient steps), the old 2 px lip stood out by 8.5 to 90
 const T = 3;
+// a step is a jump of the fitted fade (see stepAt). Measured: the smooth band's worst is 2.7, the 4.5-level sharp step reads
+// 4.3 to 5.4 and the same step spread over 4 rows 4.05 to 5.35; the limit sits between them (a step of about 1.3 % is the
+// least this render can tell from the gradient's own dither)
+const TS = 3.3;
 // a case's worst row: the one that stands out of its neighbours the most (from row 30: the blur's page-edge falloff is not the band's)
 const standout = (P) => {
   let w = 0, at = -1;
@@ -94,12 +98,39 @@ const standout = (P) => {
   }
   return { w, at };
 };
+// a step is a jump in an otherwise smooth run. At each boundary b (between rows b-1 and b) one smooth curve (a parabola: the
+// fade's slope and bend) plus a step term at b is fitted by least squares to the 20 rows before it (b-24..b-5) and the 20
+// after it (b+2..b+21), leaving out the 6 rows next to b (an edge the blur has softened); the step term is the jump. The
+// fade's slope and bend cancel (the curve carries them), a step of S levels reads as S whole (not S/2, as against the plain
+// mean of the neighbours), and the row-to-row wobble (gradient dither, up to 1 level) averages out over 40 rows.
+const solve = (m, v) => { // Gauss elimination with pivoting
+  const n = v.length;
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r;
+    [m[c], m[p]] = [m[p], m[c]]; [v[c], v[p]] = [v[p], v[c]];
+    for (let r = c + 1; r < n; r++) { const f = m[r][c] / m[c][c]; for (let k = c; k < n; k++) m[r][k] -= f * m[c][k]; v[r] -= f * v[c]; }
+  }
+  const s = Array(n).fill(0); for (let r = n - 1; r >= 0; r--) { let a = v[r]; for (let k = r + 1; k < n; k++) a -= m[r][k] * s[k]; s[r] = a / m[r][r]; }
+  return s;
+};
+const stepAt = (P, b) => {
+  const m = Array.from({ length: 4 }, () => Array(4).fill(0)), v = Array(4).fill(0);
+  const add = (i) => { const t = (i - b) / 10, q = [1, t, t * t, i >= b ? 1 : 0]; for (let r = 0; r < 4; r++) { v[r] += q[r] * P[i]; for (let c = 0; c < 4; c++) m[r][c] += q[r] * q[c]; } };
+  for (let i = b - 24; i <= b - 5; i++) add(i);
+  for (let i = b + 2; i <= b + 21; i++) add(i);
+  return solve(m, v)[3];
+};
+const jump = (P) => {
+  let w = 0, at = -1;
+  for (let b = 54; b + 21 < P.length; b++) { const d = Math.abs(stepAt(P, b)); if (d > w) { w = d; at = b; } }
+  return { w, at };
+};
 // a case = { name, ground, ctl }: ctl injects a fault the check must see, so a green run proves the eyes work.
 //   lip       a 2 px light line at 70 % of the band (the old design)
 //   step      a sharp 4.5-level step at the box's bottom edge: the tint or blur ends there and the ground goes on (about 2 %,
 //             a seam on a flat light ground); constant at every opacity, as the lip is not
 //   soft-step the same step spread over 4 rows (the blur softens a real edge)
-const STEP = 4.5;
+const STEP = 4.5; // levels of 255
 const CASES = [...Object.entries(GROUNDS).map(([name, ground]) => ({ name, ground })),
   { name: "control-lip", ground: GROUNDS.sky, ctl: "lip" },
   { name: "control-step-sweep", ground: GROUNDS.sweep, ctl: "step" },
@@ -128,13 +159,13 @@ try {
       const P = Array.from({ length: H }, (_, y) => img.lum(k * COL + 8, k * COL + COL - 8, y));
       // the band must show at all (else the check proves nothing): the top rows differ from the bare ground
       assert.ok(Math.abs(P[4] - P[H - 4]) > (o > 0.3 ? 2 : 0.3), `${name} @${o}: the band is on the frame (top ${P[4].toFixed(1)} vs ground ${P[H - 4].toFixed(1)})`);
-      const { w, at } = standout(P);
-      worst.push(`${name} @${o}: worst row ${at} stands out by ${w.toFixed(2)}`);
-      if (ctl) { assert.ok(w >= T, `control ${ctl}: ${name} at opacity ${o} must be seen as a line (row ${at}, ${w.toFixed(2)})`); }
-      else if (w >= T) fails.push(`a horizontal line on the rendered glass band: ${name} at opacity ${o}, row ${at} stands out by ${w.toFixed(2)} levels (limit ${T})`);
+      const ln = standout(P), st = jump(P), seen = ln.w >= T || st.w >= TS;
+      worst.push(`${name} @${o}: line ${ln.w.toFixed(2)} (row ${ln.at}), step ${st.w.toFixed(2)} (row ${st.at})`);
+      if (ctl) assert.ok(seen, `control ${ctl}: ${name} at opacity ${o} must be seen (line ${ln.w.toFixed(2)} of ${T}, step ${st.w.toFixed(2)} of ${TS})`);
+      else if (seen) fails.push(`a horizontal line or step on the rendered glass band: ${name} at opacity ${o}: ${ln.w >= T ? `row ${ln.at} stands out by ${ln.w.toFixed(2)} levels (limit ${T})` : `a ${st.w.toFixed(2)}-level step at row ${st.at} (limit ${TS})`}`);
     });
   }
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 if (process.env.DALANG_VERBOSE) console.log(worst.join("\n"));
 assert.deepEqual(fails, [], fails.join("; "));
-console.log(`glass band render: no line on ${Object.keys(GROUNDS).length} grounds x ${OPAC.length} opacities (${OPAC.join(", ")}); a 2 px lip control is seen`);
+console.log(`glass band render: no line on ${Object.keys(GROUNDS).length} grounds x ${OPAC.length} opacities (${OPAC.join(", ")}); a 2 px lip and a ${STEP}-level step (sharp and soft) are seen`);
