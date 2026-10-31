@@ -34,6 +34,8 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+## [4.5.6] - 2026-10-31
+
 ### Fixed
 
 - **A final render no longer fails on the layout post** (`engine/three/type.js`, new `engine/three/layout_on.js`,
@@ -2052,7 +2054,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.5...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.6...HEAD
+[4.5.6]: https://github.com/sandalkuilang/dalang/compare/v4.5.5...v4.5.6
 [4.5.5]: https://github.com/sandalkuilang/dalang/compare/v4.5.4...v4.5.5
 [4.5.4]: https://github.com/sandalkuilang/dalang/compare/v4.5.3...v4.5.4
 [4.5.3]: https://github.com/sandalkuilang/dalang/compare/v4.5.2...v4.5.3
