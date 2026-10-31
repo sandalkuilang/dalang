@@ -16,7 +16,7 @@ export function solid(iso, faces, color, o = {}) {
   if (!faces.length) return;
   const t3 = typeof color === "string" ? tri(color) : color, c = cen(faces.flat()), W = iso.w(c[0], c[1], c[2]);
   iso.add(W[0] + W[1] + W[2] + (o.bias || 0), () => {
-    iso.meshNow(faces.map((f) => ({ pts: f, out: sub(cen(f), c), color: o.faceColor, smooth: o.smooth })), t3);
+    iso.meshNow(faces.map((f) => ({ pts: f, out: sub(cen(f), c), color: o.faceColor, smooth: o.smooth })), t3, { finish: o.finish });
   }, o.layer ?? 1);
 }
 

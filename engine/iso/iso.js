@@ -1,10 +1,21 @@
 // Vendored from lemomo-ai/lemo-opuscar@413a6bd styles/iso-infographic/demo/engine.js (MIT, (c) 2026 LemoLab, LICENSE beside this file).
 // Changed by DALANG (MIT): every solid is one mesh (meshNow) with ink on its feature edges and a lit top rim, box bevels,
-// a sphere outline. iso.ink = null gives the vendor's flat look back.
+// a sphere outline, surface finishes (o.finish: a real texture in each face's plane). iso.ink = null gives the vendor's flat look back.
 // Isometric Infographic engine — Canvas 2D, true isometric (axes at 30°), flat 3-tone faces.
 // World: x → screen down-right, y → screen down-left, z → up.  Depth toward viewer = x + y + z.
 // Usage: const iso = new Iso(ctx); iso.cam = {x,y,z,k}; iso.box(...); iso.prism(...); ...; iso.flush();
 export const C30 = Math.cos(Math.PI / 6), S30 = 0.5, TAU = Math.PI * 2;
+// surface finishes (iso.finishNow): sp is the real spacing in metres; a: the marks' strength. Made things: brushed (drawn
+// metal, lines along the grain), knurl (crossed diagonals on a grip), wood (wavy grain), weave (cloth, mesh, belts),
+// cast (sand-cast iron or aluminium skin), rubber (matte speckle), plastic (a fine moulded texture), copper (a trace or
+// winding). Places: concrete, asphalt, soil, grass (blades standing up), tile (grout grid), planks (floorboards).
+export const FINISH = {
+  brushed: { sp: 0.002, lines: true, a: .10 }, knurl: { sp: 0.0015, lines: true, rot: Math.PI / 4, cross: Math.PI / 2, a: .22 }, wood: { sp: 0.005, lines: true, wave: .35, a: .16 },
+  weave: { sp: 0.002, lines: true, cross: Math.PI / 2, a: .10 }, cast: { sp: 0.003, dots: true, a: .14 }, rubber: { sp: 0.002, dots: true, a: .18 },
+  plastic: { sp: 0.0015, dots: true, a: .07 }, copper: { sp: 0.001, lines: true, a: .14 },
+  concrete: { sp: 0.008, dots: true, a: .16 }, asphalt: { sp: 0.006, dots: true, a: .22 }, soil: { sp: 0.01, dots: true, a: .24 },
+  grass: { sp: 0.03, blades: true, a: .45 }, tile: { sp: 0.3, fixed: true, grid: true, a: .3 }, planks: { sp: 0.12, fixed: true, planks: 1.2, a: .28 },
+};
 export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const seg = (t, a, b) => clamp((t - a) / (b - a));
@@ -119,6 +130,7 @@ export class Iso {
     for (const s of fs.filter(s => s.vis).sort((a, b) => a.d - b.d)) {
       const n = s.n[0] + s.n[1] + s.n[2] < 0 ? s.n.map(v => -v) : s.n, c = s.f.color || this.shadeN(t3, n), S = s.W.map(p => this.P(p[0], p[1], p[2]));
       this.poly(S, c, o.a ?? 1);
+      if (s.f.finish || o.finish) this.finishNow(s.f.pts, S, s.f.finish || o.finish, o.a ?? 1);
       if (!ink) continue;
       const xs = S.map(p => p[0]), ys = S.map(p => p[1]);
       if (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys) < ink.min) continue;
@@ -162,7 +174,7 @@ export class Iso {
       { pts: [[x, y, z1], [X, y, z1], [X - b, y + b, Z], [x + b, y + b, Z]], out: [0, -1, 1] },
       { pts: [[x, y, z1], [x, Y, z1], [x + b, Y - b, Z], [x + b, y + b, Z]], out: [-1, 0, 1] });
     F.push({ pts: [[x, y, z], [X, y, z], [X, Y, z], [x, Y, z]], out: [0, 0, -1] });
-    this.meshNow(F.filter(f => !f.skip), t3);
+    this.meshNow(F.filter(f => !f.skip), t3, { finish: o.finish });
     if (o.decal) o.decal(this, { x, y, z, w, d, h });
   }
   // extruded footprint polygon (local XY), from z to z+h
@@ -179,7 +191,7 @@ export class Iso {
     if (h > 0) for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; F.push({ pts: [[a[0], a[1], z], [b[0], b[1], z], [b[0], b[1], Z], [a[0], a[1], Z]], out: [(b[1] - a[1]) * sg, -(b[0] - a[0]) * sg, 0], color: o.sideColor, smooth: o.smooth }); }
     if (o.top !== false) F.push({ pts: pts.map(p => [p[0], p[1], Z]), out: [0, 0, 1], both: true, color: o.topColor });
     if (h > 0) F.push({ pts: pts.map(p => [p[0], p[1], z]), out: [0, 0, -1] });
-    this.meshNow(F, t3);
+    this.meshNow(F, t3, { finish: o.finish });
     if (o.decal) o.decal(this);
   }
   // cylinder: vertical (axis 'z') or lying along 'x' / 'y'
@@ -198,7 +210,7 @@ export class Iso {
     const A = ring.map(p => [p[0] + base[0], p[1] + base[1], p[2] + base[2]]), B = A.map(p => [p[0] + off[0], p[1] + off[1], p[2] + off[2]]);
     const ax = axis === 'x' ? [1, 0, 0] : [0, 1, 0], F = [{ pts: A, out: [-ax[0], -ax[1], 0] }, { pts: B, out: ax, color: o.capColor }];
     for (let i = 0; i < n; i++) { const j = (i + 1) % n; F.push({ pts: [A[i], A[j], B[j], B[i]], out: ring[i].map((v, q) => v + ring[j][q]), color: o.stripe && o.stripe(i), smooth: true }); }
-    this.meshNow(F, t3);
+    this.meshNow(F, t3, { finish: o.finish });
     if (o.decal) o.decal(this);
   }
   cone(x, y, z, r, h, t3, o = {}) { // vertical cone / pyramid (n sides)
@@ -210,7 +222,7 @@ export class Iso {
     const n = o.n || 20; {
       const F = [], rim = [];
       for (let i = 0; i < n; i++) { const a = i / n * TAU + (o.rot || 0), b = (i + 1) / n * TAU + (o.rot || 0); rim.push([x + Math.cos(a) * r, y + Math.sin(a) * r, z]); F.push({ pts: [[x + Math.cos(a) * r, y + Math.sin(a) * r, z], [x + Math.cos(b) * r, y + Math.sin(b) * r, z], [x, y, z + h]], out: [Math.cos((a + b) / 2), Math.sin((a + b) / 2), r / h], smooth: n > 8 }); }
-      F.push({ pts: rim, out: [0, 0, -1] }); this.meshNow(F, t3);
+      F.push({ pts: rim, out: [0, 0, -1] }); this.meshNow(F, t3, { finish: o.finish });
     }
   }
   // gable roof along x (ridge parallel to x) or y
@@ -248,7 +260,50 @@ export class Iso {
   // flat polygon on plane z (ground decal); layer default 0
   flat(pts, z, c, o = {}) {
     const W = this.w(pts[0][0], pts[0][1], z);
-    this.add(o.depth ?? (W[0] + W[1] + W[2] - 1e3 + (o.bias || 0)), () => { this.poly(pts.map(p => this.L(p[0], p[1], z)), c, o.a ?? 1); }, o.layer ?? 0);
+    this.add(o.depth ?? (W[0] + W[1] + W[2] - 1e3 + (o.bias || 0)), () => {
+      const S = pts.map(p => this.L(p[0], p[1], z)); this.poly(S, c, o.a ?? 1);
+      if (o.finish) this.finishNow(pts.map(p => [p[0], p[1], z]), S, o.finish, o.a ?? 1);
+    }, o.layer ?? 0);
+  }
+  // a face's finish (FINISH): its real texture laid in the face's own plane, so it foreshortens, turns and moves with the
+  // face. Spacing is real (metres, local), doubled until marks stand ≥ 3 px apart (finer reads as moiré, not texture);
+  // a tile, plank or blade size is never doubled, it is left out under 4 px. Marks are hashed by their index: fixed, never animated.
+  finishNow(pts, S, kind, a = 1) {
+    const F = FINISH[kind];
+    if (!F) throw new Error(`iso: finish "${kind}" is not a finish; finishes: ${Object.keys(FINISH).join(', ')}`);
+    if (pts.length < 3) return;
+    const sub = (p, q) => [p[0] - q[0], p[1] - q[1], p[2] - q[2]], dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return v.map(x => x / l); }, o = pts[0];
+    const u = unit(sub(pts[1], o)), N = unit(normal(pts)), v = unit([N[1] * u[2] - N[2] * u[1], N[2] * u[0] - N[0] * u[2], N[0] * u[1] - N[1] * u[0]]);
+    const at = (s, t, up = 0) => this.L(o[0] + u[0] * s + v[0] * t, o[1] + u[1] * s + v[1] * t, o[2] + u[2] * s + v[2] * t + up);
+    const px = Math.min(...[u, v].map(e => { const A = this.L(...o), B = this.L(o[0] + e[0], o[1] + e[1], o[2] + e[2]); return Math.hypot(B[0] - A[0], B[1] - A[1]); }));
+    if (!(px > 0)) return;
+    let sp = F.sp; if (F.fixed) { if (sp * px < 4) return; } else while (sp * px < 3) sp *= 2;
+    const ST = pts.map(p => [dot(sub(p, o), u), dot(sub(p, o), v)]), s0 = Math.min(...ST.map(q => q[0])), s1 = Math.max(...ST.map(q => q[0])), t0 = Math.min(...ST.map(q => q[1])), t1 = Math.max(...ST.map(q => q[1]));
+    while (((s1 - s0) / sp) * ((t1 - t0) / sp) > 6000 && !F.fixed) sp *= 2; // ponytail: a mark cap per face; a huge face gets coarser marks
+    const g = this.g, lw = Math.min(this.W, this.H) / 1080, tone = (i) => (hash(i) > .5 ? this.col('#FFFFFF', F.a * .8 * a) : this.col('#000000', F.a * a));
+    g.save(); g.beginPath(); S.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.clip(); g.lineWidth = lw; g.lineCap = 'round';
+    const seg = (A, B, c) => { g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.strokeStyle = c; g.stroke(); };
+    const lines = (rot, from = 0) => { // lines along the face's u axis turned by rot, every sp
+      const cs = Math.cos(rot), sn = Math.sin(rot), R = Math.hypot(s1 - s0, t1 - t0), cs0 = (s0 + s1) / 2, ct0 = (t0 + t1) / 2;
+      for (let k = -Math.ceil(R / sp); k <= Math.ceil(R / sp); k++) {
+        const q = k * sp, P = []; for (let m = 0; m <= (F.wave ? 12 : 1); m++) { const l = -R + (2 * R * m) / (F.wave ? 12 : 1), w = F.wave ? Math.sin(l / sp * .7 + hash(k + from) * 6) * F.wave * sp : 0; P.push(at(cs0 + l * cs - (q + w) * sn, ct0 + l * sn + (q + w) * cs)); }
+        g.beginPath(); P.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.strokeStyle = tone(k + from); g.stroke();
+      }
+    };
+    if (F.lines) { lines(F.rot || 0); if (F.cross) lines((F.rot || 0) + F.cross, 977); }
+    if (F.dots || F.blades) for (let i = 0; i * sp < s1 - s0; i++) for (let j = 0; j * sp < t1 - t0; j++) {
+      const h = i * 7919 + j * 104729, s = s0 + (i + hash(h)) * sp, t = t0 + (j + hash(h + 1)) * sp, P = at(s, t);
+      if (F.dots) { const r = lw * (.8 + hash(h + 2) * .8); g.fillStyle = tone(h + 3); g.fillRect(P[0] - r / 2, P[1] - r / 2, r, r); }
+      else seg(P, at(s + (hash(h + 4) - .5) * sp * .3, t, sp * (.4 + hash(h + 2) * .4)), tone(h + 3));
+    }
+    if (F.grid || F.planks) {
+      g.lineWidth = lw * 1.6; const c = this.col('#000000', F.a * a);
+      for (let t = Math.ceil(t0 / sp) * sp; t <= t1; t += sp) seg(at(s0, t), at(s1, t), c);
+      if (F.grid) for (let s = Math.ceil(s0 / sp) * sp; s <= s1; s += sp) seg(at(s, t0), at(s, t1), c);
+      else for (let k = Math.floor(t0 / sp); k * sp < t1; k++) for (let s = (Math.floor(s0 / F.planks) + hash(k)) * F.planks; s < s1; s += F.planks) if (s > s0) seg(at(s, k * sp), at(s, (k + 1) * sp), c);
+    }
+    g.restore();
   }
   // 3D polyline (world-local), screen-width px
   line3(pts, c, lw = 2, o = {}) {

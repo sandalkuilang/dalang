@@ -8,7 +8,7 @@ import { Iso } from "../engine/iso/iso.js";
 import { lathe, extrude, sweep, gearOutline } from "../engine/iso/forms.js";
 import { build } from "../engine/iso/build.js";
 import { parseModel, drawModel } from "../engine/iso/model.js";
-import { KIT, expandKit } from "../engine/iso/kit.js";
+import { KIT, expandKit, resistorBands } from "../engine/iso/kit.js";
 import { TEMPLATES } from "../engine/iso/templates.js";
 import { figureSolids } from "../engine/iso/figure.js";
 import { auditWorld } from "../engine/anatomy/world.mjs";
@@ -120,6 +120,24 @@ for (const plane of ["xz", "yz"]) assert.ok(extrude([[0, 0], [1, 0], [0, 1]], { 
   assert.ok(tb.findIndex(isRed) > tb.findLastIndex(isBlue), "a kit at a floor's far corner paints after the floor");
   const turned = draw([{ parts: [{ name: "v", form: "kit", kit: "vent", face: "x" }] }], {}).out.at;
   assert.ok("v.face" in turned, "face: x turns a face component as one group");
+}
+// Finishes: a face's real texture adds marks in its own plane, the same marks every frame, never finer than 3 px; an
+// unknown finish names the finishes; a board's top takes a ground finish; a resistor's bands read its value
+{
+  const marks = (finish, k = 400) => { const r = draw([{ name: "x", shadow: false, parts: [{ name: "b", form: "box", w: 0.1, d: 0.1, h: 0.05, color: "#9AA0A6", finish }] }], {}, { x: 0, y: 0, z: 0, k }); return r.calls.filter((q) => q[0] === "stroke" || q[0] === "fillRect"); };
+  const plain = marks(undefined).length;
+  for (const f of ["brushed", "knurl", "wood", "weave", "cast", "rubber", "plastic", "copper", "concrete", "asphalt", "soil", "grass"]) assert.ok(marks(f).length > plain, `finish ${f} adds marks`);
+  assert.deepEqual(marks("brushed"), marks("brushed"), "a finish is fixed: the same marks on every draw");
+  const zoomed = marks("brushed", 4000).length, far = marks("brushed", 400).length;
+  assert.ok(zoomed > plain && far > plain && far < zoomed * 4, "marks double their spacing far away instead of crowding under 3 px");
+  assert.throws(() => marks("velvet"), /finishes: brushed/, "an unknown finish names the finishes");
+  const tiles = draw([{ name: "f", shadow: false, parts: [{ name: "g", form: "board", w: 3, d: 3, top: "#D9D4C7", finish: "tile", layers: [{ h: 0.1, color: "#A08A70" }] }] }], {}, { x: 0, y: 0, z: 0, k: 200 });
+  assert.ok(tiles.calls.filter((q) => q[0] === "stroke").length >= 18, "a tiled floor draws its grout grid");
+  assert.deepEqual(resistorBands(10000), ["#7A4A2A", "#1A1A1A", "#E8822B", "#C9A548"], "10 kΩ: brown black orange gold");
+  assert.deepEqual(resistorBands(470).slice(0, 3), ["#F2D23C", "#7D4EA8", "#7A4A2A"], "470 Ω: yellow violet brown");
+  const pcb = expandKit({ kit: "pcb", traces: [[[0, 0], [0.01, 0], [0.01, 0.01]]], pads: [[0, 0], [0.01, 0.01, "smd"]] });
+  assert.equal(pcb.filter((q) => q.name.startsWith("trace")).length, 2, "a trace path is one strip per segment");
+  assert.ok(pcb.some((q) => q.name === "bend0_1") && pcb.filter((q) => q.name.startsWith("pad")).length === 2, "a trace bends round; pads round and SMD");
 }
 // Templates: each style draws finite and, as one assembly, stands on a slab in the world audit
 for (const [k, o] of [["car", {}], ["car", { style: "hatch" }], ["car", { style: "van" }], ["room", {}], ["appliance", {}], ["appliance", { kind: "washer" }], ["appliance", { kind: "server" }], ["tree", {}], ["tree", { kind: "pine" }]]) {

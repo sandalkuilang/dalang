@@ -7,7 +7,7 @@
 //
 //   { name: "front", form: "kit", kit: "tyre", at: [0.62, 0, 0], r: 0.27, width: 0.09, spokes: 0, spin: "roll" }
 
-export const STEEL = "#A7AEB4", DARK = "#2C2D31", RUBBER = "#2A2B2F", CHROME = "#D9DEE2", GLASS = "#A9CFE0", WOOD = "#B98B5A";
+export const STEEL = "#A7AEB4", DARK = "#2C2D31", RUBBER = "#2A2B2F", CHROME = "#D9DEE2", GLASS = "#A9CFE0", WOOD = "#B98B5A", TIN = "#CFD0CA", COPPER = "#B8732F";
 import { TEMPLATES } from "./templates.js";
 
 const TAU = Math.PI * 2;
@@ -15,6 +15,15 @@ const part = (name, form, at, o = {}) => ({ name, form, at, ...o });
 const circle = (r, n = 28, cu = 0, cv = 0, a0 = 0) => Array.from({ length: n }, (_, i) => [cu + Math.cos(a0 + (i / n) * TAU) * r, cv + Math.sin(a0 + (i / n) * TAU) * r]);
 // a short round stud on a face: centred at `at`, its axis along y (the face's normal), standing proud by h
 const stud = (name, at, r, h, color, n = 12) => part(name, "cyl", [at[0], at[1] + h / 2, at[2] - r], { axis: "y", r, h, color, n });
+// an axial body (resistor, diode) lying along x at height lift, on two bent leads into the board span apart
+const axial = (l, r, lift, span, lr = 0.0003) => { const z = lift + r; return [
+  part("leadL", "cyl", [-span / 2, 0, 0], { r: lr, h: z + lr, color: TIN, n: 8 }), part("leadR", "cyl", [span / 2, 0, 0], { r: lr, h: z + lr, color: TIN, n: 8 }),
+  part("wireL", "cyl", [-(span / 2 + l / 2) / 2 + lr / 2, 0, z - lr], { axis: "x", r: lr, h: span / 2 - l / 2 - lr, color: TIN, n: 8 }),
+  part("wireR", "cyl", [(span / 2 + l / 2) / 2 - lr / 2, 0, z - lr], { axis: "x", r: lr, h: span / 2 - l / 2 - lr, color: TIN, n: 8 })]; };
+// resistor colour code: two digits, a multiplier, gold 5 % (ponytail: E12/E24 two-digit only; a 1 % five-band part passes bands)
+const BAND = ["#1A1A1A", "#7A4A2A", "#C8352B", "#E8822B", "#F2D23C", "#3C8C4A", "#3F68B5", "#7D4EA8", "#8C8C8C", "#F4F4F2"], GOLD = "#C9A548";
+export const resistorBands = (ohms) => { const e = Math.max(0, Math.floor(Math.log10(ohms)) - 1), sig = Math.round(ohms / 10 ** e); return [BAND[Math.floor(sig / 10) % 10], BAND[sig % 10], BAND[Math.min(e, 9)], GOLD]; };
+const SMD = { "0402": [0.001, 0.0005, 0.00035], "0603": [0.0016, 0.0008, 0.00045], "0805": [0.002, 0.00125, 0.0005], "1206": [0.0032, 0.0016, 0.00055] };
 
 export const KIT = {
   // fasteners
@@ -67,7 +76,7 @@ export const KIT = {
     const plane = axis === "x" ? "yz" : "xz", at = axis === "x" ? [-width / 2, 0, 0] : [0, -width / 2, 0], ring = (rr, n = 36) => circle(rr, n, 0, r, spin);
     const blocks = Math.max(16, Math.round(r * 100)), treadO = Array.from({ length: blocks * 4 }, (_, i) => { const a = spin + (i / (blocks * 4)) * TAU, q = i % 4 < 2 ? r : r * 0.975; return [Math.cos(a) * q, r + Math.sin(a) * q]; });
     const disc = (name, rr, proud, colr, n) => part(name, "extrude", at, { plane, h: width + proud, color: colr, outline: rr === r ? (tread ? treadO : ring(r, 40)) : ring(rr, n) });
-    const out = [disc("tyre", r, 0, color), disc("wall", r * 0.84, 0.003, "#3A3B40"), disc("rim", r * 0.66, 0.006, rim), disc("hub", r * 0.16, 0.02, "#8A9198", 16)];
+    const out = [{ ...disc("tyre", r, 0, color), finish: "rubber" }, disc("wall", r * 0.84, 0.003, "#3A3B40"), disc("rim", r * 0.66, 0.006, rim), disc("hub", r * 0.16, 0.02, "#8A9198", 16)];
     // spokes: thin plates standing on the rim's face, from the hub to the rim
     const hw = r * 0.03, at2 = axis === "x" ? [width / 2 + 0.006, 0, 0] : [0, width / 2 + 0.006, 0];
     for (let i = 0; i < spokes; i++) { const a = spin + (i / spokes) * TAU, c = Math.cos(a), s = Math.sin(a), q0 = r * 0.16, q1 = r * 0.62; out.push(part(`spoke${i}`, "extrude", at2, { plane, h: 0.005, color: rim, outline: [[c * q0 - s * hw, r + s * q0 + c * hw], [c * q1 - s * hw, r + s * q1 + c * hw], [c * q1 + s * hw, r + s * q1 - c * hw], [c * q0 + s * hw, r + s * q0 - c * hw]] })); }
@@ -99,6 +108,66 @@ export const KIT = {
     part("spout", "cyl", [w * 0.32, 0, h], { r: 0.014, h: 0.03, color: DARK, n: 12 })],
   crate: ({ w = 0.5, d = 0.4, h = 0.3, color = WOOD, slats = 3 }) => { const out = [part("base", "box", [0, 0, 0], { w, d, h: 0.02, color })], s = h / slats; for (let i = 0; i < slats; i++) for (const [n, y, ww, dd] of [["f", d / 2 - 0.01, w, 0.02], ["b", -d / 2 + 0.01, w, 0.02]]) out.push(part(`${n}${i}`, "box", [0, y, 0.02 + i * s], { w: ww, d: dd, h: s * 0.7, color })); for (const x of [-1, 1]) out.push(part(`end${x}`, "box", [x * (w / 2 - 0.01), 0, 0.02], { w: 0.02, d: d - 0.04, h: h - 0.02, color })); return out; },
   carton: ({ w = 0.4, d = 0.3, h = 0.3, color = "#C9A274", tape = "#E8D9B5" }) => [part("box", "box", [0, 0, 0], { w, d, h, color, bevel: 0.004 }), part("tape", "box", [0, 0, h], { w: w * 1.0, d: d * 0.16, h: 0.002, color: tape, bevel: 0 })],
+  // electronics at their datasheet size, standing on a board top (z up), leads into it, so each reads as the real part
+  // close up: tinned leads and pads, colour bands, a sleeve with its minus stripe and scored top, a pin-1 dot, copper turns
+  pcb: ({ w = 0.08, d = 0.05, t = 0.0016, mask = "#1E6B45", trace = "#2E8B57", pad = TIN, traces = [], pads = [], tw = 0.0005 }) => {
+    const out = [part("board", "box", [0, 0, 0], { w, d, h: t, color: mask, bevel: 0, finish: "plastic" })];
+    traces.forEach((path, i) => path.forEach((b, j) => {
+      if (j) { const a = path[j - 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = (-(b[1] - a[1]) / L) * tw / 2, ny = ((b[0] - a[0]) / L) * tw / 2;
+        out.push(part(`trace${i}_${j}`, "extrude", [0, 0, t], { h: 0.00004, color: trace, outline: [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]] })); }
+      if (j && j < path.length - 1) out.push(part(`bend${i}_${j}`, "cyl", [b[0], b[1], t], { r: tw / 2, h: 0.00004, color: trace, n: 10 }));
+    }));
+    pads.forEach(([x, y, kind = "round"], i) => out.push(kind === "round" ? part(`pad${i}`, "cyl", [x, y, t], { r: 0.0009, h: 0.00005, color: pad, n: 14 }) : part(`pad${i}`, "box", [x, y, t], { w: 0.0012, d: 0.0009, h: 0.00005, color: pad, bevel: 0 })));
+    return out;
+  },
+  resistor: ({ ohms = 10000, l = 0.0063, r = 0.00125, body = "#D8C39A", lift = 0.001, span = 0.0102 }) => {
+    const z = lift, c = l * 0.18, out = [part("capL", "cyl", [-l / 2 + c / 2, 0, z], { axis: "x", r, h: c, color: body, n: 14 }), part("capR", "cyl", [l / 2 - c / 2, 0, z], { axis: "x", r, h: c, color: body, n: 14 }),
+      part("body", "cyl", [0, 0, z + r * 0.12], { axis: "x", r: r * 0.88, h: l - 2 * c, color: body, n: 14 })];
+    resistorBands(ohms).forEach((col, i) => { const x = i < 3 ? -l / 2 + c * 0.55 + i * l * 0.14 : l / 2 - c * 0.6; out.push(part(`band${i}`, "cyl", [x, 0, z - r * 0.02], { axis: "x", r: r * 1.02, h: l * 0.07, color: col, n: 14 })); });
+    return [...axial(l, r, lift, span), ...out];
+  },
+  diode: ({ l = 0.0052, r = 0.00135, body = "#1E1E20", band = "#C8CACC", lift = 0.001, span = 0.0102 }) => [...axial(l, r, lift, span),
+    part("body", "cyl", [0, 0, lift], { axis: "x", r, h: l, color: body, n: 14, finish: "plastic" }), part("cathode", "cyl", [l / 2 - l * 0.12, 0, lift - r * 0.02], { axis: "x", r: r * 1.02, h: l * 0.12, color: band, n: 14 })],
+  elco: ({ r = 0.004, h = 0.011, sleeve = "#1C2B5A", stripe = "#BFC5CC", top = "#C3C8CC" }) => [
+    part("can", "cyl", [0, 0, 0], { r, h, color: sleeve, n: 24 }),
+    part("minus", "box", [0, -r + 0.0002, h * 0.04], { w: r * 0.7, d: 0.0004, h: h * 0.9, color: stripe, bevel: 0 }),
+    part("top", "cyl", [0, 0, h], { r: r * 0.86, h: 0.0002, color: top, n: 24, finish: "brushed" }),
+    part("ventA", "box", [0, 0, h + 0.0002], { w: r * 1.1, d: 0.00025, h: 0.00008, color: "#7E858C", bevel: 0 }),
+    part("ventB", "box", [0, 0, h + 0.0002], { w: r * 1.1, d: 0.00025, h: 0.00008, color: "#7E858C", bevel: 0, turn: Math.PI / 2 })],
+  ceramic: ({ r = 0.0025, t = 0.0012, color = "#C9762C", lift = 0.003, pitch = 0.0025 }) => {
+    const x = pitch / 2, zt = lift + r - Math.sqrt(Math.max(0, r * r - x * x)); // each lead meets the disc where its round edge is
+    return [part("leadL", "cyl", [-x, 0, 0], { r: 0.0003, h: zt, color: TIN, n: 8 }), part("leadR", "cyl", [x, 0, 0], { r: 0.0003, h: zt, color: TIN, n: 8 }),
+      part("disc", "cyl", [0, 0, lift], { axis: "y", r, h: t, color, n: 20, finish: "plastic" })];
+  },
+  smd: ({ size = "0805", kind = "resistor" }) => {
+    const [L, W, H] = SMD[size] || SMD["0805"], cap = kind === "capacitor", out = [
+      part("body", "box", [0, 0, 0], { w: L * 0.6, d: W, h: H, color: cap ? "#A9835A" : "#1C1C1E", bevel: 0 }),
+      part("endL", "box", [-L * 0.4, 0, 0], { w: L * 0.2, d: W, h: H * 1.02, color: TIN, bevel: H * 0.1 }), part("endR", "box", [L * 0.4, 0, 0], { w: L * 0.2, d: W, h: H * 1.02, color: TIN, bevel: H * 0.1 })];
+    if (!cap) out.push(part("mark", "box", [0, 0, H], { w: L * 0.3, d: W * 0.18, h: 0.00002, color: "#E8E8E2", bevel: 0 }));
+    return out;
+  },
+  ic: ({ pins = 8, pkg = "dip", body = "#1B1B1E", lead = TIN }) => {
+    const n = Math.max(1, Math.round(pins / 2)), dip = pkg !== "soic", p = dip ? 0.00254 : 0.00127, L = n * p + (dip ? 0.0012 : 0.0006), W = dip ? 0.0064 : 0.0039, H = dip ? 0.0033 : 0.0015, lift = dip ? 0.0008 : 0.0001, lw = dip ? 0.0005 : 0.0004;
+    const out = [part("body", "box", [0, 0, lift], { w: L, d: W, h: H, color: body, bevel: H * 0.1, finish: "plastic" }),
+      part("dot", "cyl", [-L / 2 + p * 0.9, -W / 4, lift + H], { r: W * 0.07, h: 0.00003, color: "#3A3A3E", n: 12 })];
+    for (let i = 0; i < n; i++) for (const sy of [-1, 1]) {
+      const x = -((n - 1) * p) / 2 + i * p, k = `${sy < 0 ? "a" : "b"}${i}`, zt = lift + H * 0.3, reach = dip ? 0.0008 : 0.0005, tt = 0.00025;
+      out.push(part(`tab${k}`, "box", [x, sy * (W / 2 + reach / 2), zt], { w: lw, d: reach, h: tt, color: lead, bevel: 0 }));
+      if (dip) out.push(part(`leg${k}`, "box", [x, sy * (W / 2 + reach - tt / 2), 0], { w: lw, d: tt, h: zt, color: lead, bevel: 0 }));
+      else out.push(part(`leg${k}`, "box", [x, sy * (W / 2 + reach - tt / 2), tt], { w: lw, d: tt, h: zt - tt, color: lead, bevel: 0 }),
+        part(`foot${k}`, "box", [x, sy * (W / 2 + reach + 0.0003 - tt), 0], { w: lw, d: 0.0006, h: tt, color: lead, bevel: 0 }));
+    }
+    return out;
+  },
+  transformer: ({ w = 0.042, h = 0.035, d = 0.03, core = "#5E646B", copper = COPPER, proud = 0.004 }) => {
+    // an EI core (outer legs a, windows a, centre leg 2a, yokes a), the winding filling both windows and standing proud of
+    // the core front and back, where its copper turns show
+    const a = w / 6, hw = h - 2 * a, k = { color: core, bevel: 0, finish: "brushed" }, c = { color: copper, bevel: 0, finish: "copper" };
+    return [part("yokeB", "box", [0, 0, 0], { w, d, h: a, ...k }), part("yokeT", "box", [0, 0, h - a], { w, d, h: a, ...k }),
+      part("legL", "box", [-w / 2 + a / 2, 0, a], { w: a, d, h: hw, ...k }), part("legR", "box", [w / 2 - a / 2, 0, a], { w: a, d, h: hw, ...k }), part("legC", "box", [0, 0, a], { w: 2 * a, d, h: hw, ...k }),
+      part("windL", "box", [-1.5 * a, 0, a], { w: a, d, h: hw, ...c }), part("windR", "box", [1.5 * a, 0, a], { w: a, d, h: hw, ...c }),
+      part("windF", "box", [0, d / 2 + proud / 2, a], { w: 4 * a, d: proud, h: hw, ...c }), part("windB", "box", [0, -d / 2 - proud / 2, a], { w: 4 * a, d: proud, h: hw, ...c })];
+  },
   // places: windows, doors, furniture, plants, lamps
   window: ({ w = 1.0, h = 1.2, frame = "#F2EFE8", glass = GLASS }) => [
     part("frame", "box", [0, 0, 0], { w, d: 0.06, h, color: frame, bevel: 0.01 }),
@@ -110,12 +179,12 @@ export const KIT = {
   door: ({ w = 0.9, h = 2.05, color = "#C99A6A", frame = "#F2EFE8" }) => [part("frame", "box", [0, 0, 0], { w: w + 0.1, d: 0.05, h: h + 0.05, color: frame, bevel: 0.008 }), part("leaf", "box", [0, 0.02, 0], { w, d: 0.04, h, color, bevel: 0.006 }),
     part("panelA", "box", [0, 0.041, h * 0.55], { w: w * 0.7, d: 0.004, h: h * 0.36, color, bevel: 0.004 }), part("panelB", "box", [0, 0.041, h * 0.08], { w: w * 0.7, d: 0.004, h: h * 0.36, color, bevel: 0.004 }),
     part("knob", "sphere", [w * 0.38, 0.055, h * 0.47], { r: 0.03, color: CHROME })],
-  table: ({ w = 1.2, d = 0.7, h = 0.75, top = WOOD, legs = "#3A3B40" }) => [part("top", "box", [0, 0, h - 0.04], { w, d, h: 0.04, color: top, bevel: 0.01 }), part("apron", "box", [0, 0, h - 0.12], { w: w - 0.12, d: d - 0.12, h: 0.08, color: legs, bevel: 0 }),
+  table: ({ w = 1.2, d = 0.7, h = 0.75, top = WOOD, legs = "#3A3B40" }) => [part("top", "box", [0, 0, h - 0.04], { w, d, h: 0.04, color: top, bevel: 0.01, finish: top === WOOD ? "wood" : undefined }), part("apron", "box", [0, 0, h - 0.12], { w: w - 0.12, d: d - 0.12, h: 0.08, color: legs, bevel: 0 }),
     ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, y], i) => part(`leg${i}`, "box", [x * (w / 2 - 0.06), y * (d / 2 - 0.06), 0], { w: 0.045, d: 0.045, h: h - 0.04, color: legs, bevel: 0.006 }))],
   chair: ({ h = 0.45, color = "#3A3B40", seat = "#CF5140" }) => [part("seat", "box", [0, 0, h - 0.04], { w: 0.44, d: 0.42, h: 0.05, color: seat, bevel: 0.015 }), part("back", "box", [-0.2, 0, h + 0.01], { w: 0.03, d: 0.4, h: 0.4, color: seat, bevel: 0.01 }),
     ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, y], i) => part(`leg${i}`, "cyl", [x * 0.18, y * 0.17, 0], { r: 0.014, h: h - 0.04, color, n: 10 }))],
   shelf: ({ w = 0.9, d = 0.3, h = 1.8, levels = 4, color = "#8A9096", board = WOOD }) => [...[-1, 1].flatMap((x) => [-1, 1].map((y) => part(`post${x}${y}`, "box", [x * (w / 2 - 0.02), y * (d / 2 - 0.02), 0], { w: 0.03, d: 0.03, h, color, bevel: 0.004 }))),
-    ...Array.from({ length: levels }, (_, i) => part(`board${i}`, "box", [0, 0, 0.08 + (i * (h - 0.12)) / (levels - 1)], { w, d, h: 0.025, color: board, bevel: 0.005 }))],
+    ...Array.from({ length: levels }, (_, i) => part(`board${i}`, "box", [0, 0, 0.08 + (i * (h - 0.12)) / (levels - 1)], { w, d, h: 0.025, color: board, bevel: 0.005, finish: board === WOOD ? "wood" : undefined }))],
   plant: ({ h = 0.6, pot = "#C8674A", leaf = "#5E8C4A" }) => [part("pot", "lathe", [0, 0, 0], { color: pot, n: 20, profile: [[0, 0], [h * 0.16, 0], [h * 0.21, h * 0.3], [h * 0.23, h * 0.3], [h * 0.23, h * 0.34], [0, h * 0.34]] }),
     // leaves in a clump, each resting on the soil or on the one below it
     ...[[0, 0, 0.34, 0.17], [-0.1, 0.06, 0.34, 0.11], [0.1, -0.05, 0.34, 0.12], [0.03, 0.04, 0.6, 0.1]].map(([x, y, z, r], i) => part(`leaf${i}`, "sphere", [x * h, y * h, z * h], { r: r * h, color: leaf }))],
@@ -123,7 +192,7 @@ export const KIT = {
     part("shade", "lathe", [0, 0, h * 0.62], { color, n: 20, profile: [[h * 0.22, 0], [h * 0.1, h * 0.3], [0, h * 0.3]] }), part("bulb", "sphere", [0, 0, h * 0.6], { r: h * 0.07, color: glow })],
   // tools on a bench
   wrench: ({ l = 0.2, color = CHROME }) => { const w = l * 0.12; return [part("wrench", "extrude", [0, 0, 0], { h: w * 0.25, color, outline: [[-l / 2, -w * 0.3], [l / 2 - w, -w * 0.3], [l / 2 - w * 0.6, -w], [l / 2 + w * 0.3, -w * 0.7], [l / 2 + w * 0.1, -w * 0.15], [l / 2 + w * 0.5, w * 0.1], [l / 2 + w * 0.3, w * 0.7], [l / 2 - w * 0.6, w], [l / 2 - w, w * 0.3], [-l / 2, w * 0.3]] })]; },
-  screwdriver: ({ l = 0.2, color = "#CF5140" }) => [part("grip", "cyl", [-l * 0.25, 0, 0], { axis: "x", r: l * 0.07, h: l * 0.45, color, n: 8 }), part("shaft", "cyl", [l * 0.22, 0, l * 0.07 - l * 0.016], { axis: "x", r: l * 0.016, h: l * 0.5, color: CHROME, n: 8 })],
+  screwdriver: ({ l = 0.2, color = "#CF5140" }) => [part("grip", "cyl", [-l * 0.25, 0, 0], { axis: "x", r: l * 0.07, h: l * 0.45, color, n: 8 }), part("shaft", "cyl", [l * 0.22, 0, l * 0.07 - l * 0.016], { axis: "x", r: l * 0.016, h: l * 0.5, color: CHROME, n: 8, finish: "brushed" })],
   funnel: ({ r = 0.08, color = "#E9BE5C" }) => [part("funnel", "lathe", [0, 0, 0], { color, n: 20, profile: [[0, 0], [r * 0.15, 0], [r * 0.15, r * 0.8], [r, r * 1.6], [0, r * 1.6]] }), part("mouth", "cyl", [0, 0, r * 1.6], { r: r * 0.92, h: 0.002, color: DARK, n: 20 })],
   cone: ({ h = 0.5, color = "#E8712F" }) => [part("base", "box", [0, 0, 0], { w: h * 0.62, d: h * 0.62, h: h * 0.05, color: DARK, bevel: 0.005 }), part("cone", "cone", [0, 0, h * 0.05], { r: h * 0.24, h: h * 0.95, color, n: 20 }), part("band", "cyl", [0, 0, h * 0.42], { r: h * 0.15, h: h * 0.12, color: "#F2EFE8", n: 20 })],
 };
@@ -135,6 +204,6 @@ export function expandKit(p, R = (v) => v, prefix = "") {
   if (!make) throw new Error(`kit: "${p.kit}" is not a kit; kits: ${Object.keys(KIT).join(", ")}; templates: ${Object.keys(TEMPLATES).join(", ")}`);
   const o = {};
   for (const [k, v] of Object.entries(p)) if (!["name", "form", "kit", "at", "turn", "face", "array", "skin", "group", "scale"].includes(k)) o[k] = Array.isArray(v) ? v.map((q) => (Array.isArray(q) ? q.map(R) : R(q))) : R(v);
-  const parts = make(o).map((q) => ({ ...q, name: prefix + q.name }));
+  const parts = make(o).map((q) => ({ ...(o.finish && !q.finish ? { finish: o.finish } : {}), ...q, name: prefix + q.name })); // a kit part's finish goes to its parts that carry none
   return p.face === "x" ? [{ name: `${prefix}face`, form: "group", turn: -Math.PI / 2, parts }] : parts;
 }
