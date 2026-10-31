@@ -80,6 +80,8 @@ Published versions are never re-tagged.
   along its axis is named (drawn as bevel cones, a documented approximation). `machine_audit.mjs` runs it as is.
 
 ### Fixed
+- Measured frames: the hero's contrast is the lower of its silhouette's and its outline's ΔE*, so a ghosted (x-ray) hero
+  on a pale ground fails as the strip review does; a label or card over the hero's lowest tenth is text over the hero.
 - `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
   with a `| WARN [log] …` field (`log` strips "[log]" from the user's own text, so a problems field that starts with WARN is never mistaken for it) and a WARN on stderr (a refusal stopped the step clock). `metrics` Start and End are the
   earliest and latest log line by time. `next` does not count a warned Step 6 row as a finished build, so Gate 3

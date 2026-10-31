@@ -2,7 +2,7 @@
 // node tests/layout-lint.mjs — scripts/layout_lint.mjs against fixture layout records (what engine/three/type.js
 // layoutFrame() hands out per frame: the boxes drawn, in px, and the hero's box). The lint flags, each line with its
 // time `t=…s`: a box outside the format's safe area; a text box covering more than 10 % of its own area of the hero
-// box; a label/card under 36 px or a caption under 54 px (at 1080 on the short side, scaled); a caption box overlapping
+// box; a label/card over more than 10 % of the hero box's lowest tenth; a label/card under 36 px or a caption under 54 px (at 1080 on the short side, scaled); a caption box overlapping
 // a label/card box. A file it cannot read or a frame it cannot check is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";

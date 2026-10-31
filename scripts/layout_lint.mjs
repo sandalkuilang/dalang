@@ -6,6 +6,9 @@
 //   - a caption covering more than 10 % of its own area of the hero (--hero-overlap): of the hero's own pixels (the box's `over`,
 //     objectStudio.js) when recorded, else of the hero box (clipped hero = lower bound). A hero filling 65 % of one axis is a
 //     close-up: the caption sits over it by design, and labels and cards pinned to a part are not judged;
+//   - a label or card covering more than 10 % (--hero-overlap) of the hero box's lowest tenth (its base, where an instrument card
+//     hides the contact with the ground), on a hero that is not a close-up and not clipped; labels and cards elsewhere on the hero
+//     are pinned to their parts by design;
 //   - a label or card under 36 px, a caption under 54 px (--min-label, --min-caption; at 1080 px on the short side, scaled
 //     with the canvas; the object-studio kit draws captions at 46 and its smallest label at 22, so express.mjs passes those);
 //   - a caption box overlapping a label or card box;
@@ -14,7 +17,8 @@
 //     subject box is only that band of a 9:16 frame; a landscape frame ignores the band), or its pixels reaching an edge (`edges`, objectStudio.js;
 //     else the box touching one) without filling 65 % of an axis (a clipped box is a lower bound and is not judged for either);
 //     a flagged hero line names the largest part of the box (`parts`), so a too-large box can be traced;
-//   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js) under 8 (--min-contrast; a hero at 8–12 read plainly on real films, under 6 it washed out).
+//   - the hero's contrast against the ground around it (`contrast`, ΔE*ab, objectStudio.js; the lower of the silhouette's and its
+//     outline's, so a ghosted x-ray shell on a pale sweep counts) under 8 (--min-contrast; a hero at 8–12 read plainly on real films, under 6 it washed out).
 //   - more kinds of text on screen at once than --max-text-layers n (off by default; caption, label and card are the three
 //     kinds, two labels are one layer): the visual thesis allows two (looks.md object-studio), so express.mjs passes 2 for it.
 // --no-safe-area skips the safe-area check (object-studio keeps its own frame zones, object-studio-API.md).
@@ -88,11 +92,17 @@ export function lintLayout(frames, { heroOverlap = 0.10, minHero = 1 / 3, heroBa
         const out = Math.max(z.x0 - b.x0, z.y0 - b.y0, b.x1 - z.x1, b.y1 - z.y1);
         if (out > EDGE) P(`${name(b)} ${show(b)} leaves the ${f.format} safe area ${show(z)} by ${r(out)} px`);
       }
-      // pinned labels and cards sit on the parts they name, and a close-up's caption sits over the subject: only a caption over a hero that is not a close-up is judged
+      // pinned labels and cards sit on the parts they name, and a close-up's caption sits over the subject: only a caption over a hero that is not a close-up is judged (and, below, a label or card over its base)
       if (hero && b.kind === 'caption' && Math.max((hero.y1 - hero.y0) / f.H, (hero.x1 - hero.x0) / f.W) < CLOSEUP) {
         // `over` (objectStudio.js): the share of the box on the hero's own pixels; without it, the share of the hero's box
         const share = num(b.over) ? b.over : inter(b, hero) / area(b);
         if (share > heroOverlap) P(`${name(b)} ${show(b)} covers ${r(share * 100)} % of the hero ${num(b.over) ? 'pixels' : 'box'} ${show(hero)}${driver(hero)}${hero.clipped ? ' (hero box clipped: a lower bound)' : ''}`);
+      }
+      // a label or card over the hero's base (its lowest tenth) hides where it stands on the ground: judged as text over the hero
+      if (hero && !hero.clipped && b.kind !== 'caption' && Math.max((hero.y1 - hero.y0) / f.H, (hero.x1 - hero.x0) / f.W) < CLOSEUP) {
+        const base = { x0: hero.x0, x1: hero.x1, y0: hero.y1 - (hero.y1 - hero.y0) / 10, y1: hero.y1 };
+        const share = inter(b, base) / area(base);
+        if (share > heroOverlap) P(`${name(b)} ${show(b)} covers ${r(share * 100)} % of the hero's base ${show(base)} (its lowest tenth)${driver(hero)}: text over the hero, move it beside the subject`);
       }
       const min = (b.kind === 'caption' ? minCaption : minLabel) * s;
       if (b.size < min - 1e-6) P(`${name(b)} is ${r(b.size * 10) / 10} px, under the ${r(min)} px minimum`);
