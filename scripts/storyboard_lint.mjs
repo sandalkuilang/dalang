@@ -7,6 +7,8 @@
 // at the same angle, or under 60° apart: a jump cut that shows nothing new). Limits = references/visual-direction.md §3.
 // The text-only check is a heuristic on the "What we see" focal clause and the Subject action's source words.
 // Energy: --energy calm|balanced|punchy|hype, else the Energy line of BRIEF.md, else balanced (INFO).
+// A short film (a Time column spanning under 10 s, the hook plus one held shot: 2 rows): its average-shot check is
+// skipped (INFO) and the hook row is not counted in the text-only share.
 // object-studio (BRIEF look): a row after the hook under 2 s, and SPEC.md's ## MODEL section with Input: and Check: lines.
 // Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy|hype]   (default: .)
 // Exit 1 on a problem, 2 when the storyboard cannot be read or a check cannot run (rerun / fix), 0 when clean.
@@ -104,22 +106,28 @@ if (C.cam >= 0) for (const r of rows) {
   problems.push(`${at(r)}: the camera closes in with no orbit ("${(r.c[C.cam] ?? '').trim().slice(0, 50)}"): turn the view while it tightens ("push + orbit", camera-motion.md "Closer = orbit-in"), or keep a push under 1.2×`);
 }
 
-// (c) share of rows whose focal point is text only (heuristic)
+// a short film: the Time column spans under 10 s and holds the hook plus one held shot, 2 rows (brief.md Duration)
+const TIME = /(\d+(?:\.\d+)?)\s*s?\s*[–—-]\s*(\d+(?:\.\d+)?)/;
+const ts = C.time >= 0 ? rows.map(r => (r.c[C.time] ?? '').match(TIME)).filter(Boolean).map(m => [Number(m[1]), Number(m[2])]) : [];
+const filmSpan = ts.length ? Math.max(...ts.map(x => x[1])) - Math.min(...ts.map(x => x[0])) : null;
+const shortFilm = filmSpan !== null && filmSpan < 10 - 1e-9 && rows.length <= 2;
+
+// (c) share of rows whose focal point is text only (heuristic); on a short film the hook row is not counted
 if (need('see', 'What we see', 'text-only check') && need('act', 'Subject action', 'text-only check')) {
   const TEXT = /\b(text|title|headline|kicker|typograph\w*|caption|quote|lettering|kinetic type|words?)\b/i;
   const REAL = /\b(3d|three\.?js|iso(?:metric)?|registry)\b|\bbuild\(\)/i; // text made a real visual: a 3D or isometric build
-  const t = rows.filter(r => TEXT.test((r.c[C.see] ?? '').split(/;|\(| — /)[0]) && !REAL.test(r.c[C.act] ?? ''));
-  const share = rows.length ? t.length / rows.length : 0;
-  if (share > lim.text) problems.push(`storyboard.md:${hi + 1} ${t.length} of ${rows.length} rows (${Math.round(share * 100)} %) show text only, over ${Math.round(lim.text * 100)} % for ${energy} (rows ${t.map(r => r.n).join(', ')}): give them a subject or a real visual`);
+  const counted = shortFilm ? rows.slice(1) : rows;
+  const t = counted.filter(r => TEXT.test((r.c[C.see] ?? '').split(/;|\(| — /)[0]) && !REAL.test(r.c[C.act] ?? ''));
+  const share = counted.length ? t.length / counted.length : 0;
+  if (share > lim.text) problems.push(`storyboard.md:${hi + 1} ${t.length} of ${counted.length} rows (${Math.round(share * 100)} %) show text only, over ${Math.round(lim.text * 100)} % for ${energy} (rows ${t.map(r => r.n).join(', ')}): give them a subject or a real visual`);
 }
 
 // (d) average shot length
 if (need('time', 'Time', 'average-shot check')) {
-  const TIME = /(\d+(?:\.\d+)?)\s*s?\s*[–—-]\s*(\d+(?:\.\d+)?)/;
-  const ts = rows.map(r => (r.c[C.time] ?? '').match(TIME)).filter(Boolean).map(m => [Number(m[1]), Number(m[2])]);
   if (!ts.length) warns.push('no parsable Time cell (a–b seconds): average-shot check skipped');
+  else if (shortFilm) infos.push(`short film (${+filmSpan.toFixed(1)} s < 10 s): the hook plus one held shot, average-shot check skipped`);
   else {
-    const dur = Math.max(...ts.map(x => x[1])) - Math.min(...ts.map(x => x[0])), avg = dur / ts.length;
+    const dur = filmSpan, avg = dur / ts.length;
     if (avg > lim.avg + 1e-9) problems.push(`average shot ${+avg.toFixed(1)} s over ${lim.avg} s for ${energy} (duration ${+dur.toFixed(1)} s needs >= ${Math.ceil(dur / lim.avg - 1e-9)} shots, has ${ts.length})`);
   }
 }

@@ -3,7 +3,8 @@
 // table of storyboard.md (the one with a "Subject action" column) and flags, each at its row: an empty Subject
 // action or Camera cell; 3+ consecutive rows with the same size and angle; the share of rows whose focal point is
 // text only, over the energy's limit; an average shot over the energy's limit (limits: visual-direction.md §3); a hard cut
-// that keeps the view (the angle cell) or turns it under 60°; a camera cell that closes in with no orbit.
+// that keeps the view (the angle cell) or turns it under 60°; a camera cell that closes in with no orbit. A film under
+// 10 s (the Time column's span) with two rows is the hook plus one held shot: the average-shot check is skipped, the hook is not text.
 // Other tables are ignored. A storyboard it cannot read or parse is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -161,6 +162,21 @@ const check = (rows, args = [], opts, brief) => {
   r = withSpec(clean(3), { step: 3 }, null); assert.equal(r.code, 1, r.out); assert.match(r.out, /MODEL/, r.out);
   r = withSpec(clean(3), { step: 3 }, "## MODEL\nInput: crank angle\n"); assert.equal(r.code, 1, r.out); assert.match(r.out, /Check:/, r.out);
   r = check(clean(4), ["--energy", "punchy"], { step: 1.5 }); assert.equal(r.code, 0, "the isometric looks keep their own pace: " + r.out);
+}
+// 11. a film under 10 s (the Time column's span): the hook plus one held shot passes at any energy, and the hook is not held
+// against the text-only share; a film of 12 s is still checked, and so is a 3-row film under 10 s (case 5)
+{
+  let r = check(clean(2), ["--energy", "hype"], { step: 1.5 });
+  assert.equal(r.code, 0, "a 2-shot 3 s film at hype: " + r.out); assert.match(r.out, /short film/);
+  r = check(clean(2, { 1: { see: "title text: the hook's words", act: "type slams in" } }), ["--energy", "balanced"], { step: 1.5 });
+  assert.equal(r.code, 0, "a text hook in a 3 s film: " + r.out);
+  r = check(clean(2, { 2: { see: "title text: the hook's words", act: "type slams in" } }), ["--energy", "balanced"], { step: 1.5 });
+  assert.equal(r.code, 1, "a text-only held shot is still caught: " + r.out); assert.match(r.out, /show text only/);
+  r = check(clean(4), ["--energy", "hype"], { step: 3 });
+  assert.equal(r.code, 1, r.out); assert.match(r.out, /average shot/);
+  const p = mk(); put(p, "storyboard.md", build(clean(2), { step: 1 }).text.replace("| 1–2 |", "| 1–3 |")); put(p, "BRIEF.md", "- look: object-studio\n");
+  put(p, "SPEC.md", "## MODEL\nInput: stroke 0..1 over the beat\nCheck: 32 teeth x module 4 mm = 128 mm pitch\n");
+  r = run(p, "--energy", "calm"); assert.equal(r.code, 0, "an object-studio 3 s film (hook 0–1, shot 1–3): " + r.out);
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("storyboard-lint: ok");

@@ -35,7 +35,7 @@ if (lang) {
 const B = JSON.parse(readFileSync(path.join(audio, 'beats.json'), 'utf8'));
 const words = JSON.parse(readFileSync(path.join(audio, 'words.json'), 'utf8'));
 if (B.pad && readFileSync(src, 'utf8').includes(`${audio}/${B.pad.take}`)) { console.error(`FAILED: ${src} plays ${audio}/${B.pad.take}, but the times are padded (pad_voice.mjs): play ${audio}/voice.wav, or the picture runs ${B.pad.lead} s early`); process.exit(1); }
-if (!B.pad && /audio\/voice\.wav/.test(readFileSync(src, 'utf8'))) console.warn(`WARN: ${audio}/voice.wav has no room yet (beats.json has no pad record): run node ${path.join(path.dirname(new URL(import.meta.url).pathname), 'pad_voice.mjs')} . first (1.45 s before the voice, 1.35 s after)`);
+if (!B.pad && /audio\/voice\.wav/.test(readFileSync(src, 'utf8'))) console.warn(`WARN: ${audio}/voice.wav has no room yet (beats.json has no pad record): run node ${path.join(path.dirname(new URL(import.meta.url).pathname), 'pad_voice.mjs')} . first (1.45 s before the voice, 1.35 s after; 0.2 s each when BRIEF.md's duration is under 10 s)`);
 const env = { ...Object.fromEntries(B.beats.map(b => [b.name, b.start ?? NaN])), W: words.map(w => w.start), WE: words.map(w => w.end), END: B.duration };
 
 let n = 0;
