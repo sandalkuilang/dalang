@@ -45,6 +45,12 @@ Published versions are never re-tagged.
   `silent: true` in `audio/beats.json`: with a bed it no longer flags "bed masks words" (the silent track sat at the
   -120 dB floor), and the bed and voice checks count as done with a "voice: none" line.
 
+### Changed
+- **The recommended look follows the mode** (`references/brief.md` Call 1 item 0b, `SKILL.md`, `express.md`, `looks.md`,
+  `README.md`, `docs/architecture.md`, `tests/build-docs.mjs`). Express recommends `object-studio` (and Autonomous mode
+  and a Brief that names no look take it); Studio keeps `isometric-world` as its recommended look. All four mode x look
+  combinations stay selectable; nothing is removed.
+
 ### Fixed
 - **Measured frames no longer lose their records to another capture** (`scripts/strips.mjs`, new
   `scripts/layout_flag.mjs`, `engine/three/layout_on.js`, `engine/three/type.js`). The cause of "not measured" on one

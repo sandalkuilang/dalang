@@ -105,7 +105,7 @@ flowchart LR
 - **Lean `SKILL.md`, details in `references/`.** Each step names the one § it needs.
 - **Measure, don't guess.** Duration, cost, stillness and loudness come from script output, never from memory.
 - **Secrets stay in the shell.** The ElevenLabs key is read from `ELEVENLABS_API_KEY`, never printed or written to a project file.
-- **Two lanes.** Express (the default) is one Canvas 2D builder pass in 20 minutes of work; Studio is the precision lane: the same three languages in three.js and a hero modelled once from 2D pictures. The look (`isometric-world` or `object-studio`) is chosen apart from the lane.
+- **Two lanes.** Express (the default) is one Canvas 2D builder pass in 20 minutes of work; Studio is the precision lane: the same three languages in three.js and a hero modelled once from 2D pictures. The look (`isometric-world` or `object-studio`) is chosen apart from the lane; its recommended value follows the lane: `object-studio` for Express, `isometric-world` for Studio.
 - **The engines grow by behaviours, not objects.** Any motion is a pure function of t from its cause (a ratio, a law, a cue): no physics engine, no bake. A new law (a liquid level, an orbit, an ion in a field) is built generic, self-checked, proved in a render, then added; a hero seen close is modelled once in `engine/blender`, never rebuilt from boxes.
 - **Engines are swappable.** Both voice engines produce the same outputs, so later steps don't care which one ran.
 
