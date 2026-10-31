@@ -98,6 +98,24 @@ assert.match(r.out, /FAILED assets\/world\.js is still the stub/, "a world never
 assert.doesNotMatch(r.out, /machine_audit/, "no machine: no machine audit");
 assert.match(r.out, /^(WARN   tokens not read|SKIP   fix round|OK     tokens)/m, "assemble says whether a fix round fits the budget");
 assert.match(r.out, /^FAILED hyperframes check/m, "a project the check cannot load (no index.html) fails the check step; the page error cases follow below");
+assert.match(r.out, /FAILED voice files/, "assemble fails when after-voice's files are missing");
+assert.match(r.out, /audio\/beats\.js is missing/, "the missing beats.js is named");
+assert.match(r.out, /audio\/captions\.js is missing/, "the missing captions.js is named");
+assert.match(r.out, /FAILED hyperframes check/, "assemble runs hyperframes check before Gate 3");
+assert.doesNotMatch(r.out, /gate 3/, "no Gate 3 over a failed assemble");
+// a beats.js without NARRATION_DURATION and a captions.js without CAPTIONS: each global named
+fs.writeFileSync(path.join(tmp, "audio/beats.js"), "window.BEATS = { a: { text: 'x', start: 0, end: 1 } };\nwindow.WORDS = [];\n");
+fs.writeFileSync(path.join(tmp, "audio/captions.js"), "window.OTHER = [];\n");
+r = run("assemble", tmp);
+assert.match(r.out, /audio\/beats\.js sets no window\.NARRATION_DURATION/, "a missing NARRATION_DURATION is named");
+assert.match(r.out, /audio\/captions\.js sets no window\.CAPTIONS/, "a missing CAPTIONS is named");
+assert.doesNotMatch(r.out, /sets no window\.(BEATS|WORDS)/, "only the missing globals are named");
+// complete files: the voice-files line is OK
+fs.writeFileSync(path.join(tmp, "audio/beats.js"), "window.BEATS = { a: { text: 'x', start: 0, end: 1 } };\nwindow.WORDS = [];\nwindow.NARRATION_DURATION = 2;\n");
+fs.writeFileSync(path.join(tmp, "audio/captions.js"), "window.CAPTIONS = [];\n");
+r = run("assemble", tmp);
+assert.match(r.out, /OK     voice files/, "complete files pass the voice-files check");
+assert.doesNotMatch(r.out, /FAILED voice files/);
 r = run("final", tmp);
 assert.match(r.out, /FAILED hyperframes check/, "a film that fails check fails final");
 // assemble records the world and every group by sha256; final lists what the fix round changed
