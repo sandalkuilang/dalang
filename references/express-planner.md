@@ -47,6 +47,12 @@ README or another film's folder.
   is still many parts: one part over half the frame fails `film_gate` (detail). When the user brought photos of their
   own thing, that thing is a `plate` (`assets/plates/<name>`, its real length as `w`), never rebuilt from kits; its
   shots keep the photo's view (no orbit around it) and its insides, for a cutaway, are built from kits beside it.
+- **ACCEPT** (`## ACCEPT`, required with a `hero: true` object; `express.mjs scaffold` refuses with fewer than 3 rows: `- ` bullets, numbered items or a table's data rows): what
+  "done" means, fixed before any builder starts. One row per hero part group (its parts and count from the anatomy
+  table, its material, where it sits), one per mechanism beat (what moves, at what time, what the viewer must see), and
+  one for the hero's framing (a third of the frame or more, not cut by an edge, text off it). Each row names a time or a
+  part a still can show. The anatomy check and every review grade these rows first; after round 1 a finding outside
+  them counts only as a P0. A row a still cannot prove is rewritten until one can.
 - **OVERLAYS:** sizes in px on the 1080 px canvas (headline 64 or more, big word 160 or more, label 40 or more, never
   smaller), colours with contrast 4.5:1 or more on what they sit on. **One headline system for the whole film:** a
   card in one fixed place (inside the safe zone), on every claim beat, a small kicker over the claim, and the claim's
