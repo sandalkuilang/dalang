@@ -70,7 +70,19 @@ try {
   r = run(put([frame({ hero: { x0: 100, y0: 500, x1: 800, y1: 1100 } })]), "--min-hero", "0.6");
   assert.equal(lines(r.out, "PROBLEM").filter((l) => /hero box/.test(l)).length, 0, "a hero at 65 % of the width passes: " + r.out);
   const ex = fs.readFileSync(fileURLToPath(new URL("../scripts/express.mjs", import.meta.url)), "utf8");
-  assert.match(ex, /layout_lint\.mjs'[^\n]*'--min-hero', '0\.6'/, "express.mjs measures object-studio at the thesis share");
+  assert.match(ex, /layout_lint\.mjs'[^\n]*\.\.\.\(thesis \? \['--min-hero', '0\.6', '--hero-band', '0\.18,0\.60'\] : \[\]\)/, "express.mjs measures at the thesis share, in the subject box, only when thesis");
+  assert.match(ex, /const thesis = [^\n]*object-studio[^\n]*assets\/machine\.js/, "the thesis is object-studio films with the machine");
+  assert.match(ex, /if \(!failed && thesis\) \{\s*const h = [^\n]*palette\.mjs/, "the palette line runs only for the thesis");
+  // a 300 x 780 hero in a 1080 x 1920 frame: 41 % of the height fails 0.6, but fills 97 % of the subject band (y 18-60 %).
+  const tall = frame({ boxes: [], hero: { x0: 390, y0: 400, x1: 690, y1: 1180 } });
+  r = run(put([tall]), "--min-hero", "0.6");
+  assert.equal(r.code, 1, "a tall hero fails 0.6 against the frame: " + r.out);
+  r = run(put([tall]), "--min-hero", "0.6", "--hero-band", "0.18,0.60");
+  assert.equal(r.code, 0, "--hero-band measures it in the subject box: " + r.out);
+  r = run(put([frame({ W: 1920, H: 1080, boxes: [], hero: { x0: 800, y0: 300, x1: 1100, y1: 700 } })]), "--min-hero", "0.6", "--hero-band", "0.18,0.60");
+  assert.equal(r.code, 1, "a landscape frame ignores the band: " + r.out);
+  r = run(put([tall]), "--hero-band", "0.6,0.18");
+  assert.equal(r.code, 2, "a band that is not top < bottom is a usage WARN: " + r.out);
   // --no-safe-area: the label outside the safe area is not flagged; everything else still is.
   r = run(put([frame({ boxes: [{ ...caption }, { ...label, x1: 1000 }] })]), "--no-safe-area");
   assert.equal(r.code, 0, "--no-safe-area skips the safe area: " + r.out);

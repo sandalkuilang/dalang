@@ -23,7 +23,11 @@ const out = (code, warn) => {
 const first = (e) => String(e?.message ?? e).split('\n')[0];
 if (!existsSync(file)) out(2, 'assets/machine.js not found (scaffold.mjs writes its stub for object-studio)');
 let M, A, mat = {};
-try { M = await import(pathToFileURL(file).href); } catch (e) { out(2, `assets/machine.js cannot be loaded (${first(e)})`); }
+try { M = await import(pathToFileURL(file).href); }
+catch (e) {
+  if (/^drive:/.test(first(e))) { problems.push(first(e)); out(1); } // drive() ran its hand check or purity check at load and it failed: a wrong number, not an unknown
+  out(2, `assets/machine.js cannot be loaded (${first(e)})`);
+}
 if (M.STUB) { problems.push('assets/machine.js is still the stub: the first group builds the machine before any shot'); out(1); }
 try {
   A = await import(pathToFileURL(path.join(dir, 'assets/drive.js')).href);

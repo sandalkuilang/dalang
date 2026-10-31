@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // node tests/machine-audit.mjs — scripts/machine_audit.mjs against fixture machines: a stub fails, a true machine
-// passes and reports its moving parts, a stretching link and a machine whose parts never move fail, an unreadable
+// passes and reports its moving parts, a failed hand check at load is a PROBLEM (exit 1), a stretching link and a machine whose parts never move fail, an unreadable
 // module is WARN (exit 2), never OK.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -38,6 +38,9 @@ try {
   assert.equal(r.code, 1, r.out); assert.match(r.out, /rod: length/, r.out);
   r = run(proj(machine({ still: true })));
   assert.equal(r.code, 1, r.out); assert.match(r.out, /0 of 2 parts move/, r.out);
+  // a hand check that wants 128 and gets 127 throws drive: at load: a PROBLEM (exit 1), not an unreadable module
+  r = run(proj(machine().replace("state: (th)", "checks: [{ name: \"stroke\", u: 90, got: () => 127, want: 128 }], state: (th)")));
+  assert.equal(r.code, 1, r.out); assert.match(r.out, /PROBLEM.*drive: check "stroke" got 127, want 128/, r.out); assert.doesNotMatch(r.out, /WARN/, r.out);
   r = run(proj("export const = ;"));
   assert.equal(r.code, 2, r.out); assert.match(r.out, /WARN/, r.out); assert.doesNotMatch(r.out, /Result\s*: OK/, r.out);
   console.log("machine-audit: ok");
