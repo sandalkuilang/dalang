@@ -166,6 +166,14 @@ if (cmd === 'after-voice') {
   step('hyperframes check', 'npx', ['hyperframes', 'check'], { quiet: true, keep: 12, filter: l => /✗|error:|Error/.test(l) && !/\b0 error/.test(l) });
   step('check_assets', ...node('check_assets.mjs', '.'), { quiet: true, keep: 6 });
   if (!failed) step(`render (${fps} fps, ${quality})`, 'npx', ['hyperframes', 'render', '--fps', fps, '--quality', quality, '--quiet', '--output', 'final.mp4'], { quiet: true, keep: 8 });
+  // the visual thesis (looks.md object-studio): neutrals, the one accent, at most one mechanism hue on its beat
+  if (!failed && existsSync(path.join(dir, 'assets/objectStudio.js'))) {
+    const h = spawnSync(process.execPath, [path.join(HERE, 'palette.mjs'), 'final.mp4', '--hues', '2'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
+    const lines = (h.stdout ?? '').split('\n').filter((l) => l.startsWith('  OVER'));
+    if (h.status === 0) console.log('OK     palette: neutrals plus at most 2 hue families per frame');
+    else if (h.status === 3) { console.log(`OPEN   palette: ${lines.length} frame(s) over 2 hue families, name them in the hand-off`); lines.slice(0, 6).forEach((l) => console.log(`       ${l.trim()}`)); }
+    else console.log(`WARN   palette: not measured (palette.mjs exit ${h.status}): rerun; this is not clean`);
+  }
   // the poster (after latent-spaces/brag): the hook beat's finished frame, also laid over frame 0, so every platform's
   // thumbnail is the hook, not a half-built first frame; the length and the audio are unchanged
   if (!failed) {
