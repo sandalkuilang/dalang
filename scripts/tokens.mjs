@@ -5,7 +5,7 @@
 //
 // Transcripts: <claude dir>/projects/<path with every non-alphanumeric as "-">/<session>.jsonl, and the session's
 // subagents in <session>/subagents/agent-*.jsonl (+ .meta.json: the task's description). The nearest folder at or above
-// the project that has transcripts is used, and its newest session unless --session names one. When that session ran in
+// the project that has transcripts is used, and its newest session that names the project (its newest when none does) unless --session names one. When that session ran in
 // a parent folder (several videos in one session), only subagents whose transcript names the project folder count.
 //
 // Usage: node tokens.mjs [project] [--session <id>] [--claude-dir <dir>] [--max-turns 120] [--max-ctx 250000] [--json]
@@ -44,7 +44,12 @@ for (let d = project; ; d = path.dirname(d)) {
 }
 if (!base) notChecked(`no transcripts for ${project} or a folder above it in ${path.join(claudeDir, 'projects')}`);
 const sessions = readdirSync(base).filter(f => f.endsWith('.jsonl')).sort((a, b) => statSync(path.join(base, b)).mtimeMs - statSync(path.join(base, a)).mtimeMs);
-const session = sessionArg ? `${sessionArg.replace(/\.jsonl$/, '')}.jsonl` : sessions[0];
+// a shared parent holds every film's sessions: the newest that names this project (its path, or its folder under the
+// parent, never as part of a longer name), else the folder's newest
+const relName = path.relative(sessionCwd, project);
+const namesIt = new RegExp(`(?<![\\w-])(${[project, relName].filter(Boolean).map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\w-])`);
+const naming = sessionCwd === project ? null : sessions.find(f => { try { return namesIt.test(readFileSync(path.join(base, f), 'utf8')); } catch { return false; } });
+const session = sessionArg ? `${sessionArg.replace(/\.jsonl$/, '')}.jsonl` : naming ?? sessions[0];
 if (!existsSync(path.join(base, session))) notChecked(`session ${session} not found in ${base}`);
 
 // One agent's transcript: a message is split over several lines with the same id and usage, so count each id once.

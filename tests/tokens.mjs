@@ -63,6 +63,23 @@ r = run(proj);
 assert.equal(r.code, 0, r.out + r.err);
 assert.match(r.out, /1 subagent\(s\) of other projects skipped/);
 assert.match(r.out, /whole session, shared/);
+// Two sessions in the shared parent: the newest is another film's. The report reads the newest one that names this project.
+put(path.join(enc(parent), "s3.jsonl"), turn("q1", 30000, "only why-bread-goes-stale here"));
+const s2 = path.join(enc(parent), "s2.jsonl"), s3 = path.join(enc(parent), "s3.jsonl");
+fs.appendFileSync(s2, JSON.stringify({ type: "user", message: { content: "film how-a-kettle-boils" } }) + "\n");
+fs.utimesSync(s2, new Date(1000e3), new Date(1000e3)); fs.utimesSync(s3, new Date(2000e3), new Date(2000e3));
+r = run(proj);
+assert.equal(JSON.parse(fs.readFileSync(path.join(proj, "review", "tokens.json"), "utf8")).session, "s2", "the newest session that names the project, not the newest of the folder");
+// a prefix is not a name: a film whose folder starts with this one's name does not count as naming it
+const short = path.join(tmp, "videos", "how-a-kettle");
+fs.mkdirSync(short, { recursive: true });
+r = run(short);
+assert.equal(JSON.parse(fs.readFileSync(path.join(short, "review", "tokens.json"), "utf8")).session, "s3", "no session names it: the folder's newest, as before");
+// a longer name that ends with this one is not a name either
+const tail = path.join(tmp, "videos", "boils");
+fs.mkdirSync(tail, { recursive: true });
+r = run(tail);
+assert.equal(JSON.parse(fs.readFileSync(path.join(tail, "review", "tokens.json"), "utf8")).session, "s3", "how-a-kettle-boils does not name boils");
 
 // No transcripts anywhere above: NOT CHECKED, exit 2, nothing claimed.
 const lone = path.join(tmp, "elsewhere", "a-film");
