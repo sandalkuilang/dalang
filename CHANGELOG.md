@@ -34,6 +34,24 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Redesign
+- **Visual thesis first** (object-studio, Express and Studio): each look's numbered rules decide every frame, and the
+  review rubric's new first row, Thesis, checks them. object-studio: a pale study-model studio (`SWEEP`), one accent for
+  the working part (`mat.accent`), dark parts in `mat.gloss`, one whole hero at 60–70 % of the frame (measured at
+  `--min-hero 0.6`), shots held ≥ 2 s after the hook and a SPEC `## MODEL` (`storyboard_lint.mjs`), hue families
+  measured on the final render (`palette.mjs --hues 2`, an OPEN line in `express.mjs final`).
+- **Code-first hero:** `engine/three/parts.js` (gear, spring, lathe, rod in metres) and `drive.js` (one input poses every
+  part and readout; hand checks at load). Blender becomes the fallback for curved or organic casings
+  (`hero-asset.md`). Method after elvarofficial/teardown (MIT).
+- **The machine built once and proved to run:** `assets/machine.js` (the first group's, a stub the others wait for) holds
+  the parts, the one-input `MODEL` and `pose()`; groups pose it, never animate a part; `drive.js` `audit()` and
+  `scripts/machine_audit.mjs` (in assemble and each group's check) prove rigid links, gear ratios and contacts over the
+  whole input and that the parts move.
+- **Live instruments on a pale studio:** `instrumentTheme("light")` and `chart()` with a cursor that moves with the machine.
+- **How to move:** a film in flight keeps its SPEC; a new object-studio film needs `## MODEL` (Input:, Check:) in
+  `SPEC.md`, plans its hero at 60–70 % and no shot under 2 s after the hook; old films that set `SWEEP` colours by hand
+  keep them.
+
 ## [4.5.9] - 2026-10-31
 
 ### Added
