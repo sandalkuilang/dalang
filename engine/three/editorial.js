@@ -98,16 +98,21 @@ export function captionAt(CAPS, t) {
 // the frosted grain on the glass bands: fixed grey speckle, dark and light (it is the glass, so it never moves); 18 % so it shows on light glass and compression keeps it
 const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 .18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
+// the glass band's fade: solid to 50 %, then a smoothstep (zero slope at both ends) to nothing at the box's bottom, in
+// 2.5 % stops. A hard stop or a corner in the fade reads as a horizontal line (a Mach band), and the blur follows the mask,
+// so the fade has neither: no lip, no kink (selfcheck reads it row by row)
+const FADE = Array.from({ length: 21 }, (_, i) => { const x = i / 20; return `rgba(0,0,0,${(1 - x * x * (3 - 2 * x)).toFixed(4)}) ${(50 + 50 * x).toFixed(1)}%`; }).join(",");
+
 const css = `
 .ov{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:5;font-family:${FAMILY}}
 .ov *{box-sizing:border-box}
 .ov-el{position:absolute;opacity:0;will-change:transform,opacity}
 .ov-hl{left:60px;top:110px;width:900px;transform-origin:0 0}
 /* the glass band: the picture, then a frosted band (the top 27 % fading downward, shown with the headline), then the text.
-   Glass shows by its tint (the ground's own, --ov-glass from glassTint), its grain and its lip: solid to 70 %, a light line
-   there, then a fade. Its own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop
+   Glass shows by its tint (the ground's own, --ov-glass from glassTint) and its grain: solid to 50 %, then one smooth fade
+   (FADE) with no lip and no corner, so no line reads across it. Its own opacity and mask only: an ancestor under opacity 1 (or will-change: opacity) would stop
    backdrop-filter seeing the frame */
-.ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:linear-gradient(180deg,transparent calc(70% - 2px),rgba(255,255,255,.85) calc(70% - 2px),rgba(255,255,255,.85) 70%,transparent 70%),${GRAIN},linear-gradient(180deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 70%,rgba(var(--ov-glass),0) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 70%,transparent 100%)}
+.ov-glass{position:absolute;left:0;top:0;width:100%;opacity:0;background:${GRAIN},linear-gradient(180deg,rgba(var(--ov-glass),.72) 0%,rgba(var(--ov-glass),.5) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);-webkit-mask-image:linear-gradient(180deg,#000 0%,${FADE});mask-image:linear-gradient(180deg,#000 0%,${FADE})}
 .ov-k{font-weight:${W_.sub};font-size:24px;letter-spacing:.12em;color:#6B6B6B;text-transform:uppercase;margin:0 0 12px 2px}
 .ov-h{font-weight:${W_.title};font-size:68px;line-height:1.06;letter-spacing:-.02em;color:#111}
 .ov-acc{background:var(--ov-acc);color:var(--ov-ink);padding:0 .14em;border-radius:10px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
