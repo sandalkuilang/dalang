@@ -7,6 +7,7 @@
 // at the same angle, or under 60° apart: a jump cut that shows nothing new). Limits = references/visual-direction.md §3.
 // The text-only check is a heuristic on the "What we see" focal clause and the Subject action's source words.
 // Energy: --energy calm|balanced|punchy|hype, else the Energy line of BRIEF.md, else balanced (INFO).
+// object-studio (BRIEF look): a row after the hook under 2 s, and SPEC.md's ## MODEL section with Input: and Check: lines.
 // Usage: node storyboard_lint.mjs [project] [--energy calm|balanced|punchy|hype]   (default: .)
 // Exit 1 on a problem, 2 when the storyboard cannot be read or a check cannot run (rerun / fix), 0 when clean.
 import { readFileSync } from 'node:fs';
@@ -120,6 +121,20 @@ if (need('time', 'Time', 'average-shot check')) {
   else {
     const dur = Math.max(...ts.map(x => x[1])) - Math.min(...ts.map(x => x[0])), avg = dur / ts.length;
     if (avg > lim.avg + 1e-9) problems.push(`average shot ${+avg.toFixed(1)} s over ${lim.avg} s for ${energy} (duration ${+dur.toFixed(1)} s needs >= ${Math.ceil(dur / lim.avg - 1e-9)} shots, has ${ts.length})`);
+  }
+}
+// (g) object-studio, the visual thesis (looks.md): one hero held long enough to read, posed by one input
+const look = (read('BRIEF.md') ?? '').match(/^\W*look\W*:\W*([\w-]+)/im)?.[1];
+if (look === 'object-studio') {
+  const TIME = /(\d+(?:\.\d+)?)\s*s?\s*[–—-]\s*(\d+(?:\.\d+)?)/;
+  const short = rows.slice(1).filter(r => { const m = (r.c[C.time] ?? '').match(TIME); return m && Number(m[2]) - Number(m[1]) < 2 - 1e-9; });
+  if (short.length) problems.push(`storyboard.md:${hi + 1} object-studio rows ${short.map(r => r.n).join(', ')} under 2 s: a shot is held (looks.md object-studio, the thesis); merge them or give the time to fewer shots`);
+  const spec = read('SPEC.md');
+  if (spec === null) problems.push('SPEC.md missing: object-studio needs its ## MODEL section (Input: and Check: lines) before the storyboard');
+  else if (spec !== undefined) {
+    const sec = spec.split(/^## /m).find(s => /^MODEL\b/.test(s));
+    if (!sec) problems.push('SPEC.md has no ## MODEL section: name the one input and one hand check (express-planner.md)');
+    else for (const k of ['Input:', 'Check:']) if (!sec.includes(k)) problems.push(`SPEC.md ## MODEL has no ${k} line (express-planner.md)`);
   }
 }
 done();

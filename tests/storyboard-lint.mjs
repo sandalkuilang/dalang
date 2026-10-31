@@ -150,5 +150,17 @@ const check = (rows, args = [], opts, brief) => {
     assert.equal(r.code, 0, `${cam}: ${r.out}`);
   }
 }
+// 10. object-studio (the visual thesis): no shot under 2 s after the hook row, and SPEC.md holds a ## MODEL section with an
+// Input: line and a Check: line (one input drives everything; one real number checked by hand).
+{
+  const OS = "- look: object-studio\n";
+  const SPEC = "## MODEL\nInput: stroke 0..1 over the beat\nCheck: 32 teeth x module 4 mm = 128 mm pitch; half its circumference 201 mm = the rack's travel\n";
+  const withSpec = (rows, opts, spec = SPEC) => { const p = mk(); put(p, "storyboard.md", build(rows, opts).text); put(p, "BRIEF.md", OS); if (spec !== null) put(p, "SPEC.md", spec); return run(p, "--energy", "calm"); };
+  let r = withSpec(clean(3), { step: 3 }); assert.equal(r.code, 0, r.out);
+  r = withSpec(clean(4), { step: 1.5 }); assert.equal(r.code, 1, r.out); assert.match(r.out, /held|under 2 s/, r.out);
+  r = withSpec(clean(3), { step: 3 }, null); assert.equal(r.code, 1, r.out); assert.match(r.out, /MODEL/, r.out);
+  r = withSpec(clean(3), { step: 3 }, "## MODEL\nInput: crank angle\n"); assert.equal(r.code, 1, r.out); assert.match(r.out, /Check:/, r.out);
+  r = check(clean(4), ["--energy", "punchy"], { step: 1.5 }); assert.equal(r.code, 0, "the isometric looks keep their own pace: " + r.out);
+}
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log("storyboard-lint: ok");
