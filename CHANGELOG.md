@@ -52,6 +52,10 @@ Published versions are never re-tagged.
   combinations stay selectable; nothing is removed.
 
 ### Fixed
+- **No horizontal line across the top glass band** (`engine/three/editorial.js` `makeOverlay`): the band's light lip (a
+  hard 2 px stripe) and the corner where its mask and tint started to fade (a slope jump reads as a line, and the blur
+  followed it) are gone. The band is solid to 50 % and then fades out in one smooth curve, with the tint one plain
+  gradient. `engine/three/selfcheck.mjs` reads the band row by row and fails on a hard stop, a jump or a corner.
 - **Measured frames no longer lose their records to another capture** (`scripts/strips.mjs`, new
   `scripts/layout_flag.mjs`, `engine/three/layout_on.js`, `engine/three/type.js`). The cause of "not measured" on one
   run and OK on the next: the layout receiver sat on one fixed port, 127.0.0.1:47614, for every capture on the machine,
