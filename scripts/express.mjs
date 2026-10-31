@@ -13,7 +13,8 @@
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
 //          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under 60 %
-//          of the frame or cut by an edge, text over the hero, the hero against its ground), each line printed OPEN under its group
+//          of the frame or cut by an edge, text over the hero, the hero against its ground; a capture with no layout records is
+//          captured once more, and the WARN names the step to rerun), each line printed OPEN under its group
 //          (a line fails the step: the fix round takes it),
 //          the tokens spent so far (over 8M: no fix round);
 //          a failure is printed under its group, for that group's builder
@@ -29,6 +30,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync,
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rerunHint } from './rerun_hint.mjs';
+import { flagOff, isOn } from './layout_flag.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -77,11 +80,16 @@ const gate = n => {
 const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
   const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
-  const cap = run('strips.mjs', '.', '--out', 'review/measure');
+  const cap = run('strips.mjs', '.', '--out', 'review/measure', '--expect-layout');
   // thesis: one whole hero filling 60-70 % of its larger axis, its height measured in the subject box (y 18-60 % of the frame, looks.md),
   // and at most two kinds of text on screen at once
   const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', ...(thesis ? ['--min-hero', '0.6', '--hero-band', '0.18,0.60', '--max-text-layers', '2'] : [])) : null;
-  if (!lint || lint.status === 2) { if (block) failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
+  if (!lint || lint.status === 2) {
+    if (block) failed++;
+    const again = rerunHint({ cmd: block ? 'assemble' : 'final', studio: process.env.DALANG_RUNNER === 'studio', quality }), note = (cap.stdout ?? '').match(/^WARN: layout.*$/m)?.[0];
+    console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records; the capture was tried twice' : `strips.mjs exit ${cap.status}`}): rerun \`${again}\`; this is not clean`);
+    return note && console.log(`       ${note.slice(0, 240)}`);
+  }
   const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
   if (!probs.length) return console.log(`OK     measured frames (${thesis ? 'hero at 60 % or more of the subject box, at most two text layers, ' : 'hero size, '}edges, text over the hero, contrast)`);
   if (block) failed++;
@@ -167,7 +175,7 @@ if (cmd === 'after-voice') {
   measure({ block: false });
   // a capture killed mid-way leaves the page posting (strips.mjs puts false back after it): off before check and render
   const flag = path.join(dir, 'assets', 'layout_on.js');
-  if (existsSync(flag) && /export default true;/.test(readFileSync(flag, 'utf8'))) { writeFileSync(flag, readFileSync(flag, 'utf8').replace('export default true;', 'export default false;')); console.log('OK     assets/layout_on.js was left on by a killed capture: off again'); }
+  if (existsSync(flag) && isOn(readFileSync(flag, 'utf8'))) { writeFileSync(flag, flagOff(readFileSync(flag, 'utf8'))); console.log('OK     assets/layout_on.js was left on by a killed capture: off again'); }
   const fps = brief.match(/^\W*fps\W*:\W*(\d+)/im)?.[1] ?? '30';
   // check reads the composition, not the mp4: before the render, so a page error (a group that throws and draws
   // nothing) costs one check, not a render; only its ✗ lines are printed, the error itself, never its progress

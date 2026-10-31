@@ -11,6 +11,7 @@ import path from "node:path";
 import { execFile, spawnSync } from "node:child_process";
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { flagOff, flagOn, isOn, ownsPort } from "../scripts/layout_flag.mjs";
 
 const strips = fileURLToPath(new URL("../scripts/strips.mjs", import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dalang-strips-"));
@@ -284,11 +285,17 @@ const a = process.argv.slice(2), at = a[a.indexOf("--at") + 1].split(",").map(Nu
 fs.mkdirSync(out, { recursive: true });
 for (const t of at) spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=64x36", "-frames:v", "1", path.join(out, "frame-at-" + t + "s.png")]);
 const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }] });
+if (process.env.NPX_LOG) fs.appendFileSync(process.env.NPX_LOG, "x");
 (async () => {
+  if (process.env.NPX_FAIL_FIRST && !fs.existsSync(process.env.NPX_FAIL_FIRST)) { fs.writeFileSync(process.env.NPX_FAIL_FIRST, "1"); return; } // the first capture posts nothing
   if (process.env.NPX_SILENT) return; // the page posts nothing (no layoutFrame call, or its first post failed)
-  if (!/export default true;/.test(fs.readFileSync("assets/layout_on.js", "utf8"))) return; // as type.js: only while strips turns it on
-  for (const t of [...at, 0.5]) await fetch("http://127.0.0.1:47614/layout", { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 700, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
-  await fetch("http://127.0.0.1:47614/layout", { method: "POST", body: "{not json" });
+  // the page's own switch and receiver, read by the real engine/three/type.js from assets/layout_on.js
+  const { layoutLive, layoutReceiver } = await import(require("node:url").pathToFileURL(path.resolve("assets/type.js")).href);
+  if (!layoutLive()) return; // as type.js: only while strips turns it on
+  const to = layoutReceiver + "/layout";
+  if (process.env.NPX_OFFTIME) { for (const t of at) await fetch(to, { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t + 0.5)) }); return; } // posts arrive, at times no shot has
+  for (const t of [...at, 0.5]) await fetch(to, { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 700, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
+  await fetch(to, { method: "POST", body: "{not json" });
 })().catch((e) => { console.error(String(e)); process.exit(1); });
 `, { mode: 0o755 });
     const runWith = (args, extra = {}) => new Promise((resolve) => execFile(process.execPath, [strips, ...args], { env: { ...process.env, ...extra, PATH: `${bin}${path.delimiter}${process.env.PATH}` } }, (e, out, err) => resolve({ code: e ? e.code : 0, out, err })));
@@ -296,7 +303,7 @@ const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: 
     fs.writeFileSync(lay, JSON.stringify({ frames: [{ ...clean, t: 5 }] })); // a stale layout of an earlier round
     const flag = path.join(sb, "assets", "layout_on.js");
     fs.mkdirSync(path.dirname(flag), { recursive: true });
-    fs.copyFileSync(fileURLToPath(new URL("../engine/three/layout_on.js", import.meta.url)), flag);
+    for (const f of ["layout_on.js", "type.js", "font.js"]) fs.copyFileSync(fileURLToPath(new URL(`../engine/three/${f}`, import.meta.url)), path.join(sb, "assets", f));
     r = await runWith([sb, "--per-sheet", "6"]);
     if (/port 47614 is busy/.test(r.out)) console.log("receiver case skipped: port 47614 is in use");
     else {
@@ -322,6 +329,35 @@ const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: 
       assert.equal(fs.existsSync(lay), false, "the stale layout.json is removed before the capture");
       console.log("ok  capture: no records this round, an earlier round's layout.json is not indexed");
     }
+    // --expect-layout: a capture with no records is retried once; without the flag, one pass.
+    const logN = (p) => fs.existsSync(p) ? fs.readFileSync(p, "utf8").length : 0;
+    fs.writeFileSync(lay, JSON.stringify({ frames: [clean] }));
+    const log1 = path.join(tmp, "npx1.log"), log2 = path.join(tmp, "npx2.log"), log3 = path.join(tmp, "npx3.log");
+    r = await runWith([sb, "--per-sheet", "6", "--expect-layout"], { NPX_FAIL_FIRST: path.join(tmp, "first.flag"), NPX_LOG: log1 });
+    if (/port 47614 is busy/.test(r.out)) console.log("retry cases skipped: port 47614 is in use");
+    else {
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.match(r.out, /captured once more/);
+      assert.doesNotMatch(r.out, /layout not recorded/);
+      assert.equal(logN(log1), 2, "two snapshot calls");
+      assert.deepEqual(JSON.parse(fs.readFileSync(lay, "utf8")).frames.map((x) => x.t), want, "the retry's records are written");
+      r = await runWith([sb, "--per-sheet", "6", "--expect-layout"], { NPX_SILENT: "1", NPX_LOG: log2 });
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.match(r.out, /WARN: layout not recorded after a retry/);
+      assert.match(r.out, /receiver saw 0 post\(s\) in 2 capture\(s\)/, "the WARN says what the receiver saw: nothing posted");
+      assert.equal(logN(log2), 2);
+      assert.equal(fs.existsSync(lay), false);
+      r = await runWith([sb, "--per-sheet", "6", "--expect-layout"], { NPX_OFFTIME: "1" });
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.match(r.out, /receiver saw 18 post\(s\) in 2 capture\(s\), 18 valid, none within 10 ms of a shot time/, "posts arrived but at other times: said so");
+      r = await runWith([sb, "--per-sheet", "6", "--expect-layout"], { NPX_LOG: path.join(tmp, "npx4.log") });
+      assert.doesNotMatch(r.out, /receiver saw/, "a capture that recorded is not annotated");
+      r = await runWith([sb, "--per-sheet", "6"], { NPX_SILENT: "1", NPX_LOG: log3 });
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.equal(logN(log3), 1, "without the flag an ordinary round pays no second snapshot");
+      assert.doesNotMatch(r.out, /captured once more/);
+      console.log("ok  --expect-layout: a capture with no records is retried once, only with the flag");
+    }
     // --layout <file> given: the receiver is not opened and the capture's own layout.json is left as it was.
     fs.writeFileSync(lay, JSON.stringify({ frames: [clean] }));
     r = await runWith([sb, "--per-sheet", "6", "--layout", other], { NPX_SILENT: "1" });
@@ -329,19 +365,47 @@ const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: 
     assert.match(text(), /^- FLAG frame 5 · /m, "--layout names the records to index");
     assert.equal(JSON.parse(fs.readFileSync(lay, "utf8")).frames.length, 1, "layout.json is left as it was");
     fs.rmSync(lay, { force: true });
-    const hold = await new Promise((resolve) => { const s = http.createServer((q, p) => { p.writeHead(404); p.end(); }); s.on("error", () => resolve(null)); s.listen(47614, "127.0.0.1", () => resolve(s)); });
-    if (!hold) console.log("busy-port case skipped: port 47614 is in use");
-    else {
-      try {
+    // The cause of "not measured" at one run, OK at the next (lessons.md): 127.0.0.1:47614 was one port for every capture
+    // on the machine. Another process on it (a second capture, the gate's own tests/strips.mjs, an older film's page
+    // posting on every load) left this capture with no records, or posted its own into it. Each capture now owns a port.
+    const engineFlag = fs.readFileSync(flag, "utf8");
+    // the switch is read and written in one place (scripts/layout_flag.mjs), for strips.mjs and express.mjs alike
+    const on = flagOn(engineFlag, "http://127.0.0.1:50123");
+    assert.ok(ownsPort(engineFlag) && /export default "http:\/\/127\.0\.0\.1:50123";/.test(on) && isOn(on), "the engine's copy gets the capture's own URL");
+    assert.equal(flagOff(on), engineFlag, "a capture killed mid-way is switched off again (express.mjs final)");
+    const older = "export default false;\n";
+    assert.ok(!ownsPort(older) && flagOn(older, "http://127.0.0.1:50123") === "export default true;\n" && flagOff("export default true;\n") === older, "an older copy gets true, and off again");
+    let foreign = 0;
+    const hold = await new Promise((resolve) => { const s = http.createServer((q, p) => { foreign++; p.writeHead(204); p.end(); }); s.on("error", () => resolve(null)); s.listen(47614, "127.0.0.1", () => resolve(s)); });
+    try {
+      // a foreign page posts on 47614 during the capture: it must not land in this capture's records
+      if (hold) { const f = http.request({ host: "127.0.0.1", port: 47614, path: "/layout", method: "POST" }); f.end(JSON.stringify({ ...clean, t: 0.8 })); }
+      r = await runWith([sb, "--per-sheet", "6", "--expect-layout"]);
+      assert.equal(r.code, 0, r.err + r.out);
+      assert.doesNotMatch(r.out, /busy|layout not recorded|captured once more/, "47614 held by another process: this capture still records, first time");
+      assert.deepEqual(JSON.parse(fs.readFileSync(lay, "utf8")).frames.map((x) => x.t), want, "its own records, one per frame");
+      assert.equal(fs.readFileSync(flag, "utf8"), engineFlag, "layout_on.js is put back as it was");
+      assert.equal(foreign, hold ? 1 : 0, "the page posted to its own receiver, never to 47614");
+      console.log("ok  capture: its own receiver port; a process on 47614 neither blocks it nor posts into it");
+      // an older engine copy in a film (layout_on.js without the receiver line) keeps the fixed port: busy is a WARN
+      const legacy = "// Whether type.js layoutFrame() posts its records: strips.mjs writes `true` here for its capture only and puts `false`\n// back after, so a check or a render (no receiver) sends no request that fails (hyperframes check: request_failed).\nexport default false;\n";
+      fs.writeFileSync(flag, legacy);
+      if (!hold) console.log("busy-port case skipped: port 47614 is in use");
+      else {
         r = await runWith([sb, "--per-sheet", "6"]);
         assert.equal(r.code, 0, `a busy port does not fail the capture: ${r.err}${r.out}`);
         assert.match(r.out, /WARN: layout not recorded: port 47614 is busy/);
         assert.match(text(), /No layout recorded/);
         assert.equal(fs.existsSync(lay), false);
         assert.equal(index(sb).length, 9);
-        console.log("ok  capture: a busy port is a WARN, the stills and the index still come");
-      } finally { hold.close(); }
-    }
+        hold.close(); await new Promise((res) => setTimeout(res, 200));
+        r = await runWith([sb, "--per-sheet", "6"]);
+        assert.equal(r.code, 0, r.err + r.out);
+        assert.deepEqual(JSON.parse(fs.readFileSync(lay, "utf8")).frames.map((x) => x.t), want, "an older engine copy still records on 47614 when it is free");
+        assert.equal(fs.readFileSync(flag, "utf8"), legacy);
+        console.log("ok  capture: an older engine copy keeps 47614; busy there is a WARN, the stills and the index still come");
+      }
+    } finally { hold?.close(); fs.writeFileSync(flag, engineFlag); }
   }
   console.log("OK");
 } finally {

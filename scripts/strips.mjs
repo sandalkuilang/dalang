@@ -5,13 +5,16 @@
 // The sheets replace hand-tiled contact sheets: the reviewer reads the index to name a frame by its time and shot.
 //
 // Usage: node strips.mjs [project] [--per-shot 3] [--per-sheet 12] [--out review/strips] [--from storyboard|beats]
-//        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--layout <file>] [--dry-run]
+//        [--audio audio] [--width 480] [--timeout <ms>] [--frames <dir>] [--layout <file>] [--expect-layout] [--dry-run]
 //        [--crops [--crop X,Y,W,H]] [--against <previous round dir> --targets <shots|beats> [--threshold 1]]
 //   --frames <dir>  tile stills already captured there (…at-<s>s.png) instead of capturing
 //   --layout <file> the layout records to index (default: the capture's own, else <out>/layout.json). The composition's
 //                   layoutFrame() (engine/three/type.js) posts the boxes of its canvas text to a receiver this script
-//                   opens on 127.0.0.1:47614 during the capture; they go to <out>/layout.json, and index.md gets a
+//                   opens on 127.0.0.1 during the capture, on a port of its own that assets/layout_on.js names to the page
+//                   (layout_flag.mjs; an older engine copy: the fixed port 47614); they go to <out>/layout.json, and index.md gets a
 //                   `## Layout` section: one line per box per frame, then layout_lint.mjs's FLAG lines
+//   --expect-layout the capture is meant to record layout (express.mjs): one with no records is captured once more, and
+//                   the WARN then says to rerun the step that captured it
 //   --dry-run       write index.md only: no capture, no ffmpeg
 //   --crops         also cut one zoomed subject crop per shot (crop-NN.jpg, 640 px wide) from the still nearest the middle
 //                   of the shot. --crop X,Y,W,H = the box as fractions of the frame (default 0.25,0.25,0.5,0.5, centre half)
@@ -29,9 +32,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from 'node:os';
 import path from 'node:path';
 import { lintLayout } from './layout_lint.mjs';
+import { LEGACY_PORT, flagOn, ownsPort } from './layout_flag.mjs';
 
 const argv = process.argv.slice(2);
 const VAL = ['--per-shot', '--per-sheet', '--out', '--from', '--audio', '--width', '--timeout', '--frames', '--against', '--targets', '--threshold', '--crop', '--layout'];
+const expectLayout = argv.includes('--expect-layout');
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const dir = argv.find((x, i) => !x.startsWith('--') && !VAL.includes(argv[i - 1])) ?? '.';
 const perShot = Math.max(1, parseInt(opt('--per-shot', '3'), 10) || 3);
@@ -121,22 +126,25 @@ if (against) {
 }
 
 // Layout numbers: the records of layoutFrame() (type.js), from this capture's receiver or from a file, one per frame time.
-const LAYOUT_PORT = 47614, cors = { 'access-control-allow-origin': '*', 'access-control-allow-private-network': 'true' };
+const cors ={ 'access-control-allow-origin': '*', 'access-control-allow-private-network': 'true' };
 const layoutFile = opt('--layout', null), layoutOut = path.join(out, 'layout.json');
 if (argv.includes('--layout') && !layoutFile) usage('--layout needs a file: the layout records to index (JSON).');
 const layoutWarns = []; // printed with the other WARNs; they never change the exit code
-const listen = (recs) => new Promise((resolve) => { // the receiver: POST /layout, 127.0.0.1 only
+// stats: what the receiver saw over every capture (posts, valid records, posts still open at the close), so a WARN can name the cause
+const stats = { posts: 0, valid: 0, open: 0, cut: 0 };
+const listen = (recs, port) => new Promise((resolve) => { // the receiver: POST /layout, 127.0.0.1 only; port 0 = one of its own
   const srv = http.createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== '/layout') { res.writeHead(req.method === 'OPTIONS' ? 204 : 404, cors); return res.end(); }
     let n = 0; const chunks = [];
+    stats.posts++; stats.open++; res.on('close', () => { stats.open--; });
     req.on('data', (c) => { n += c.length; if (n <= 1 << 20) chunks.push(c); });
     req.on('end', () => {
-      try { const r = JSON.parse(Buffer.concat(chunks).toString()); if (n <= 1 << 20 && r && Number.isFinite(r.t) && Array.isArray(r.boxes)) recs.push(r); } catch {}
+      try { const r = JSON.parse(Buffer.concat(chunks).toString()); if (n <= 1 << 20 && r && Number.isFinite(r.t) && Array.isArray(r.boxes)) { recs.push(r); stats.valid++; } } catch {}
       res.writeHead(204, cors); res.end();
     });
   });
   srv.on('error', () => resolve(null)); // busy or refused: capture without layout (WARN)
-  srv.listen(LAYOUT_PORT, '127.0.0.1', () => resolve(srv));
+  srv.listen(port, '127.0.0.1', () => resolve(srv));
 });
 const snapshot = (args) => new Promise((resolve) => { // async, so the receiver answers while the snapshot runs
   let stderr = '';
@@ -168,24 +176,39 @@ if (!dry) {
   if (!opt('--frames', null)) {
     const timeout = opt('--timeout', null);
     const args = ['--yes', 'hyperframes', 'snapshot', '--at', frames.map(f => f.t).join(','), '--no-end', '--describe', 'false', '--output', framesDir, ...(timeout ? ['--timeout', timeout] : [])];
-    const recs = [];
-    let srv = null;
-    if (!layoutFile) {
-      rmSync(layoutOut, { force: true }); // a layout of an earlier round must not be indexed as this one's
-      srv = await listen(recs);
-      if (!srv) layoutWarns.push(`layout not recorded: port ${LAYOUT_PORT} is busy (another strips.mjs?); rerun for layout numbers`);
+    const flag = path.join(dir, 'assets', 'layout_on.js');
+    if (!layoutFile) rmSync(layoutOut, { force: true }); // a layout of an earlier round must not be indexed as this one's
+    // the engine's layout_on.js: a port of this capture's own, named to the page, so a second capture on the machine (another
+    // session, the gate's tests) or an older film's page posting on 47614 never blocks or feeds this one; an older copy: 47614
+    const port = existsSync(flag) && ownsPort(readFileSync(flag, 'utf8')) ? 0 : LEGACY_PORT;
+    // --expect-layout: a capture meant to record layout (express.mjs measure) is retried once when it records nothing
+    const attempts = expectLayout && !layoutFile && existsSync(flag) ? 2 : 1;
+    let busy = false;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const recs = [];
+      let srv = null;
+      if (!layoutFile) srv = await listen(recs, port);
+      busy = !layoutFile && !srv;
+      // the page posts only while assets/layout_on.js is on (type.js): this receiver's URL for this capture, back to false after
+      const off = srv && existsSync(flag) ? readFileSync(flag, 'utf8') : null;
+      if (off !== null) writeFileSync(flag, flagOn(off, `http://127.0.0.1:${srv.address().port}`));
+      let r;
+      try { r = await snapshot(args); } finally { if (off !== null) writeFileSync(flag, off); }
+      if (srv) { // posts still in flight are let finish (up to 1 s) before the receiver closes; any cut after that is counted
+        for (let i = 0; i < 20 && stats.open > 0; i++) await new Promise(res => setTimeout(res, 50));
+        stats.cut += stats.open; srv.closeAllConnections?.(); srv.close();
+      }
+      if (r.error || r.status !== 0) {
+        console.error(`snapshot failed (${r.error?.message ?? `exit ${r.status}`}):\n${(r.stderr || '').trim().split('\n').slice(-12).join('\n')}`);
+        process.exit(2);
+      }
+      layout = matchLayout(recs);
+      if (layout.size || attempt === attempts) break;
+      console.log(`NOTE: no layout records on the first capture (${busy ? (port ? `port ${port} was busy` : 'no local port could be opened') : 'the page posted no records'}); captured once more`);
+      if (port) await new Promise(res => setTimeout(res, 1000)); // let the fixed port go
     }
-    // the page posts only while assets/layout_on.js says true (type.js): on for this capture, back to false after
-    const flag = path.join(dir, 'assets', 'layout_on.js'), off = srv && existsSync(flag) ? readFileSync(flag, 'utf8') : null;
-    if (off !== null) writeFileSync(flag, off.replace(/export default false;/, 'export default true;'));
-    let r;
-    try { r = await snapshot(args); } finally { if (off !== null) writeFileSync(flag, off); }
-    if (srv) { srv.closeAllConnections?.(); srv.close(); }
-    if (r.error || r.status !== 0) {
-      console.error(`snapshot failed (${r.error?.message ?? `exit ${r.status}`}):\n${(r.stderr || '').trim().split('\n').slice(-12).join('\n')}`);
-      process.exit(2);
-    }
-    layout = matchLayout(recs);
+    if (busy) layoutWarns.push(port ? `layout not recorded: port ${port} is busy (another capture, or a page posting there; this film's engine copy predates a port per capture); rerun for layout numbers` : 'layout not recorded: no local port could be opened for the receiver; rerun for layout numbers');
+    else if (!layout.size && attempts > 1) layoutWarns.push(`layout not recorded after a retry (receiver saw ${stats.posts} post(s) in ${attempts} capture(s), ${stats.valid} valid, ${stats.valid ? 'none within 10 ms of a shot time' : stats.posts ? 'none readable' : 'the page posted nothing: no layoutFrame call, or its posts were refused'}${stats.cut ? `, ${stats.cut} cut at the close` : ''}); rerun the step that captured it`);
     if (layout.size) writeFileSync(layoutOut, JSON.stringify({ frames: frames.filter(f => layout.has(f)).map(f => layout.get(f)) }, null, 2) + '\n');
   }
   scan();

@@ -337,21 +337,23 @@ export function rangeBar(ctx, { value, max, ticks = [], label } = {}, opts = {})
 // The layout of the frame just drawn, for review (scripts/strips.mjs, scripts/layout_lint.mjs): every caption, label
 // and range card drawn since the last call, in px at the canvas size, and the hero's box (camera.js heroBox) when
 // given. Call it last in the frame function; it empties the list. It sets globalThis.__dalangLayout and posts the
-// record to strips.mjs's receiver during its capture (layout_on.js; the first failed post stops the posting).
+// record to strips.mjs's receiver during its capture (layout_on.js; three failed posts in a row stop the posting).
 // opts: format, hero ({ x0, y0, x1, y1 } | null), contrast (ΔE*, measure.js | null), boxes (text drawn outside this file,
 // DOM overlays: added after the drawn ones), receiver, send (a function given the JSON instead of the post).
 // -> { t, W, H, format, hero?, contrast?, boxes: [{ kind: "caption" | "label" | "card", text, x0, y0, x1, y1, size }] }
-// layoutLive(): true only while strips.mjs captures (layout_on.js) and no post failed, so a page can skip work only the
+// layoutLive(): true only while strips.mjs captures (layout_on.js) and posting has not stopped, so a page can skip work only the
 // review reads; outside a capture nothing is posted at all.
-let live = layoutOn;
+// layoutReceiver: the URL layout_on.js names during a capture (that capture's own port); `true` from an older strips.mjs = 47614.
+export const layoutReceiver = typeof layoutOn === "string" ? layoutOn : "http://127.0.0.1:47614";
+let live = !!layoutOn, fails = 0; // one failed post must not blank the rest of the capture
 export const layoutLive = () => live;
-export function layoutFrame(ctx, t, { format = "shorts", hero, contrast, boxes = [], receiver = "http://127.0.0.1:47614", send } = {}) {
+export function layoutFrame(ctx, t, { format = "shorts", hero, contrast, boxes = [], receiver = layoutReceiver, send } = {}) {
   const rec = { t: ms(t), W: ctx.canvas.width, H: ctx.canvas.height, format, ...(hero === undefined ? {} : { hero }), ...(contrast === undefined ? {} : { contrast }), boxes: [...drawn, ...boxes] };
   drawn = [];
   globalThis.__dalangLayout = rec;
   const body = JSON.stringify(rec);
   if (send) send(body);
-  else if (live && typeof fetch === "function") fetch(`${receiver}/layout`, { method: "POST", mode: "no-cors", body }).catch(() => { live = false; });
+  else if (live && typeof fetch === "function") fetch(`${receiver}/layout`, { method: "POST", mode: "no-cors", body }).then(() => { fails = 0; }, () => { if (++fails >= 3) live = false; });
   return rec;
 }
 
