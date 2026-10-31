@@ -19,6 +19,7 @@ metres; the frame is 1080 × 1920.
 
 ## parts.js (code-first hero, metres)
 - `gear(teeth, module, width, { helix, bore })` → geometry on +z; `userData.gear = { rp, ro, rr, … }` (pitch = module·teeth/2).
+- `bevelGear({ teeth, module, pitchAngle, face, bore })` → a straight bevel on +z, apex at the origin, teeth toward it; `userData.bevel = { R, rp, ro, rr, … }`; `pitchAngle` in radians, `bevelAngles(z1, z2, shaft)` → `[d1, d2]`. A pair: both meshes at the same point, the second turned so its +z is the other shaft; audit it with a `mesh` entry whose a and b carry `cone`, `axis(s)`, `apex(s)`. A hypoid is drawn as a bevel pair and audited as a plain mesh (ratio only).
 - `spring({ r, wire, turns, len })` on +y from 0; open tube: its mesh `userData.cut = { shell: wire }`.
 - `lathe([[r, y], ...])` about +y; `rod([x, y, z], [x, y, z], r)` end to end.
 
@@ -26,7 +27,7 @@ metres; the frame is 1080 × 1920.
 - `const model = drive({ input: (t) => u, state: (u) => ({ ...poses, ...readouts }), checks: [{ name, u, got: (s) => n, want, tol }] })`; `set.at = (t) => { const s = model.at(t); ... }`; instruments read `model.input(t)` and `model.at(t)`. A failed check throws at load.
 
 ## machine.js (the film's, built once by the first group)
-- exports `MODEL`, `AUDIT`, `build(mat)` → `{ root, parts }`, `pose(parts, state)`; groups: `S.world.add(root); set.at = (t) => pose(parts, MODEL.at(t))`. `drive.js` `audit(model, { u, rigid, mesh, gaps })`; `scripts/machine_audit.mjs .` proves it.
+- exports `MODEL`, `AUDIT`, `build(mat)` → `{ root, parts }`, `pose(parts, state)`; groups: `S.world.add(root); set.at = (t) => pose(parts, MODEL.at(t))`. `drive.js` `audit(model, { u, rigid, mesh, gaps })` (a bevel mesh adds `cone`, `axis`, `apex`); `scripts/machine_audit.mjs .` proves it.
 
 ## instruments.js (live panels, drawn after the finisher)
 - `instrumentTheme("light", { accent })` once; `chart(ctx, { curve, domain, range, u, units, uUnits, label, x, y, w, h })`, `gauge`, `meter`, `bar`, `scope`.

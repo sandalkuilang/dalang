@@ -67,7 +67,7 @@ The real object as a clean study model: stylized, never photoreal, real scale, `
 5. **The part doing the work opens up:** x-ray, cutaway, isolate; a camera that goes inside beats an orbit.
 6. **A live instrument** (`instruments.js` `chart`, `gauge`, `meter`, `instrumentTheme("light")`) where a number moves, in place of a card that repeats it.
 7. **Few held shots:** none under 2 s after the hook; the machine moves, not the edit. At most two text layers on screen at once (headline or caption, plus a label or instrument).
-8. **Built from code** (`parts.js`: gear, spring, lathe, rod) in real units from a 2D reference; Blender only for curved or organic casings (`hero-asset.md`).
+8. **Built from code** (`parts.js`: gear, bevel gear, spring, lathe, rod) in real units from a 2D reference; Blender only for curved or organic casings (`hero-asset.md`).
 
 - **Set:** the pale sweep above. Perspective camera: 3/4 views, eye level and low, macro inserts with shallow focus (`camera-motion.md`); pick the view that keeps the mechanism readable (a planar linkage face-on collapses into a lattice: go 3/4).
 - **X-ray:** the shell turns semi-transparent cool grey (`attend` with `edge`, `cutaway.js`); the named part takes one highlight colour.

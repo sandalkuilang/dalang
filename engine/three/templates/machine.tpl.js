@@ -4,7 +4,7 @@ export const STUB = true; // the first group's builder replaces this whole file,
 // animates a part itself. AUDIT proves it runs (scripts/machine_audit.mjs, in express.mjs assemble).
 import { THREE } from "./three-vendor.js";
 import { drive } from "./drive.js";
-// import { gear, spring, lathe, rod } from "./parts.js";
+// import { gear, bevelGear, bevelAngles, spring, lathe, rod } from "./parts.js";
 export const MODEL = drive({ input: () => 0, state: () => ({}) });
 export const AUDIT = { u: [0, 1], rigid: [], mesh: [], gaps: [] };
 // build(mat) → { root, parts }: root holds every part; parts names each mesh or group pose() moves

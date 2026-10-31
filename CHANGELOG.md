@@ -53,6 +53,12 @@ Published versions are never re-tagged.
   keep them; films started before this change (no `assets/machine.js`) keep the old 1/3 hero measure and get no
   palette line.
 
+### Added
+- **Bevel gears** (`engine/three/parts.js`): `bevelGear({ teeth, module, pitchAngle, face, bore })`, a straight bevel
+  whose teeth converge on the cone apex, and `bevelAngles(z1, z2, shaft)`; a drive that turns a corner is no longer
+  drawn with spur gears. `drive.js` `audit()` checks a bevel pair's contact (shaft angle, one apex, one module and
+  cone distance) as well as its ratio. A hypoid is drawn as a bevel pair (documented approximation).
+
 ## [4.5.9] - 2026-10-31
 
 ### Added

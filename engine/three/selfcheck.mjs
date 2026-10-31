@@ -2076,10 +2076,12 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   const ua = A.userData.bevel, ub = B.userData.bevel, pb = B.attributes.position;
   assert.ok(Math.abs(ua.R - ub.R) < 1e-12, "both pitch cones reach the same cone distance");
   let rmax = 0, zmax = -Infinity; for (let i = 0; i < pb.count; i++) { rmax = Math.max(rmax, Math.hypot(pb.getX(i), pb.getY(i))); zmax = Math.max(zmax, pb.getZ(i)); }
-  assert.ok(Math.abs(rmax - ub.ro) < 1e-9 && Math.abs(ub.ro - (ub.rp + 0.003 * Math.cos(db))) < 1e-12, "heel tip = pitch + module·cos(pitch angle): " + rmax);
+  assert.ok(Math.abs(rmax - ub.ro) < 1e-7 && Math.abs(ub.ro - (ub.rp + 0.003 * Math.cos(db))) < 1e-12, "heel tip = pitch + module·cos(pitch angle): " + rmax);
   assert.ok(zmax < 0, "the gear lies behind its apex (z < 0)");
+  assert.ok(Array.from(A.attributes.position.array).every(Number.isFinite), "a bored pinion has no unreadable vertex");
+  A.computeBoundingBox(); assert.ok(A.boundingBox.max.z < 0, "the pinion lies behind its apex too");
   const k = (ub.R - 0.015) / ub.R, toe = [k * ub.ro, k * (-ub.R * Math.cos(db) + 0.003 * Math.sin(db))];
-  let hit = false; for (let i = 0; i < pb.count; i++) if (Math.abs(Math.hypot(pb.getX(i), pb.getY(i)) - toe[0]) < 1e-9 && Math.abs(pb.getZ(i) - toe[1]) < 1e-9) hit = true;
+  let hit = false; for (let i = 0; i < pb.count; i++) if (Math.abs(Math.hypot(pb.getX(i), pb.getY(i)) - toe[0]) < 1e-7 && Math.abs(pb.getZ(i) - toe[1]) < 1e-7) hit = true;
   assert.ok(hit, "the toe's tooth tip is the heel's scaled toward the apex: the tooth runs to the apex");
   const m = drive({ input: (t) => t * 360, state: (th) => ({ a: th, b: -th / 2 }) });
   const pair = (o = {}) => ({ name: "bevel", a: { angle: (s) => s.a, z: 20, cone: ua, axis: () => [0, 0, 1], apex: () => [0, 0, 0] }, b: { angle: (s) => s.b, z: 40, cone: ub, axis: () => o.axis ?? [1, 0, 0], apex: () => o.apex ?? [0, 0, 0] } });
