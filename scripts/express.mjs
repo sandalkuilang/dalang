@@ -12,7 +12,7 @@
 //        node express.mjs assemble [dir]
 //          fill_times on the host and every group, lint_scene, timing_lint, hyperframes lint (errors only), film_gate.mjs
 //          (isometric looks: seams, the world in motion, reading time, dead stretches), gate 3,
-//          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under a third
+//          object-studio: every shot measured in the browser (strips.mjs capture, layout_lint.mjs: the hero under 60 %
 //          of the frame or cut by an edge, text over the hero, the hero against its ground), each line printed OPEN under its group
 //          (a line fails the step: the fix round takes it),
 //          the tokens spent so far (over 8M: no fix round);
@@ -75,10 +75,11 @@ const measure = ({ block }) => {
   if (!existsSync(path.join(dir, 'assets/objectStudio.js'))) return;
   const run = (script, ...a) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
   const cap = run('strips.mjs', '.', '--out', 'review/measure');
-  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22') : null;
+  // --min-hero 0.6: the visual thesis, one whole hero filling 60-70 % of the frame on its larger axis (looks.md object-studio)
+  const lint = cap.status === 0 ? run('layout_lint.mjs', 'review/measure/layout.json', '--no-safe-area', '--min-caption', '46', '--min-label', '22', '--min-hero', '0.6') : null;
   if (!lint || lint.status === 2) { if (block) failed++; return console.log(`WARN   measured frames: not measured (${lint ? 'layout_lint.mjs could not read the records' : `strips.mjs exit ${cap.status}`}): rerun; this is not clean`); }
   const probs = lint.stdout.split('\n').filter(l => l.startsWith('  PROBLEM'));
-  if (!probs.length) return console.log('OK     measured frames (hero size and edges, text over the hero, contrast)');
+  if (!probs.length) return console.log('OK     measured frames (hero at 60 % or more, edges, text over the hero, contrast)');
   if (block) failed++;
   console.log(`${block ? 'FAILED' : 'OPEN  '} measured frames: ${probs.length} line(s)${block ? ', for the fix round' : ', name them in the hand-off'}`);
   const html = existsSync(path.join(dir, 'index.html')) ? readFileSync(path.join(dir, 'index.html'), 'utf8') : '';
