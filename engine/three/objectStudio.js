@@ -106,10 +106,13 @@ export const mat = {
   // big surface catches the studio's soft boxes without streaking white
   gloss: (color = 0x141518, { rough = 0.45, coat = 0.7 } = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: Math.max(0.45, rough), metalness: 0.2, clearcoat: coat, clearcoatRoughness: 0.18 }),
   // accent: the one part that is doing the work right now, in the SPEC palette's accent (the same colour as the
-  // overlay's accent chip and the instruments' cursor); nothing else in the frame takes it
+  // overlay's accent chip and the instruments' cursor); nothing else in the frame takes it. Marked userData.accent:
+  // camera.js attend() never ghosts it, so the working part reads in an x-ray beat
   accent: (color) => {
     if (color === undefined) throw new Error("mat.accent(color): pass the SPEC palette's accent");
-    return new THREE.MeshPhysicalMaterial({ color, roughness: 0.45, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    const m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.45, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    m.userData.accent = true;
+    return m;
   },
   // a haze, mist or fog volume: opacity from its cause at t (0 = none)
   haze: (opacity = 0, color = 0xf6f2e6) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, transparent: true, opacity, depthWrite: false }),
