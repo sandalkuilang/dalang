@@ -89,6 +89,7 @@ Published versions are never re-tagged.
   its true 0.
 - **scaffold.mjs without markers:** a narration with no {text|name} markers (written by hand or imported) takes its
   beat names and order from audio/beats.json instead of failing; Gate 1 stays untouched.
+- **`express.mjs assemble` checks the voice step's files:** `audio/beats.js` (`BEATS`, `WORDS`, `NARRATION_DURATION`) and `audio/captions.js` (`CAPTIONS`) are read and each missing file or global FAILs by name, and `hyperframes check` (errors only) runs before Gate 3, so a film whose `after-voice` never ran fails at assemble, not one render later.
 
 ### Changed
 - **Films under 10 s:** `pad_voice.mjs` pads 0.2 s before and after when `BRIEF.md`'s duration is under 10 s (minutes
