@@ -182,14 +182,22 @@ if (cmd === 'after-voice') {
   const spec = existsSync(path.join(dir, 'SPEC.md')) ? readFileSync(path.join(dir, 'SPEC.md'), 'utf8') : null;
   const lines = (spec ?? '').split('\n').filter(l => /^\W*SCAFFOLD\W*:/.test(l));
   const hero = /hero["'`]?\s*:\s*true/i.test(spec ?? ''), af = path.join(dir, 'research/anatomy.md'), anatomy = existsSync(af) ? readFileSync(af, 'utf8') : '';
+  // ACCEPT rows: `- ` / `* ` bullets, numbered items, or a table's data rows (its header and rule not counted)
+  const acc = (spec ?? '').match(/^##[ \t]*accept\b[^\n]*(?:\n|$)([\s\S]*?)(?=^##\s|(?![\s\S]))/im), accLines = acc ? acc[1].split('\n') : [];
+  const table = accLines.filter(l => /^\s*\|/.test(l)), ruled = table.some(l => /^\s*\|[\s:|-]+$/.test(l));
+  const accept = acc ? [...accLines.filter(l => /^\s*([-*]|\d+[.)])\s+\S/.test(l)), ...table.slice(ruled ? 2 : 0)] : null;
   if (spec === null) { failed++; console.log('FAILED SPEC.md not found: the planner writes it first'); }
   else if (lines.length !== 1) { failed++; console.log(`FAILED SPEC.md needs exactly one \`SCAFFOLD: --look <look> --groups <name>:<first beat>,… --music <calm|bright|tense>\` line (found ${lines.length})`); }
   // the hero's inside comes from research/anatomy.md's parts table (express.md, the anatomy strand), never from memory
   else if (hero && !/^\|\s*\d+\s*\|/m.test(anatomy)) { failed++; console.log('FAILED SPEC.md has a `hero: true` object but research/anatomy.md has no parts table row: run the anatomy strand (express.md Steps 3–4, job 1), then scaffold again'); }
+  // what "done" means, written before any builder starts (express-planner.md "ACCEPT"): reviews and the anatomy check
+  // grade this closed list; a review that kept finding new items each round is what made fix rounds run on
+  else if (hero && accept === null) { failed++; console.log('FAILED SPEC.md has a `hero: true` object but no `## ACCEPT` checklist: the planner writes one row per check that says the film is done (express-planner.md "ACCEPT"), then scaffold again'); }
+  else if (hero && accept.length < 3) { failed++; console.log(`FAILED \`## ACCEPT\` has ${accept.length} row(s), 3 at least: each hero part group, each mechanism beat, the hero's framing (express-planner.md "ACCEPT")`); }
   else if (sb.ok) {
     // the line's arguments, quotes kept together ("a label", 'a label'); backticks around the line are dropped
     const argv = [...lines[0].replace(/^\W*SCAFFOLD\W*:/, '').replace(/`/g, ' ').matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3]);
-    if (hero) console.log('OK     anatomy: research/anatomy.md');
+    if (hero) console.log(`OK     anatomy: research/anatomy.md\nOK     accept: ${accept.length} row(s)`);
     step('scaffold', ...node('scaffold.mjs', '.', ...argv), { keep: 4 });
   }
 } else if (cmd === 'assemble') {
