@@ -41,7 +41,9 @@ Published versions are never re-tagged.
   the on-screen text is the script. `express.mjs after-voice` runs `silent_take.mjs`, which times the script by reading
   time (0.3 s a word, a beat holds max(2, 0.3 s a word + 1.2) s) and writes `beats.json`, `words.json`, `beats.js` and a
   silent `narration.wav`, then pads, captions and passes Gates 1–2 with no take and no log. `narration_lint.mjs` skips its
-  ear rules for a voice-none film (nobody hears the script) and still checks `script.md`.
+  ear rules for a voice-none film (nobody hears the script) and still checks `script.md`. `audio_qc.mjs` reads
+  `silent: true` in `audio/beats.json`: with a bed it no longer flags "bed masks words" (the silent track sat at the
+  -120 dB floor), and the bed and voice checks count as done with a "voice: none" line.
 
 ### Fixed
 - **Measured frames no longer lose their records to another capture** (`scripts/strips.mjs`, new

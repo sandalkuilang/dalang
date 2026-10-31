@@ -683,6 +683,13 @@ function main(argv) {
   else if (wj.err) warn(wj.err);
   const spans = words ? words.filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end)).map((w) => [w.start, w.end]) : [];
 
+  // voice: none — silent_take.mjs marks audio/beats.json `silent: true`: the narration is a silent track, so there is no voice
+  // to mask and none to compare; the bed and voice checks have nothing to judge (clicks still run on the mix).
+  const bj = readText(at('audio/beats.json'));
+  let noVoice = false;
+  if (bj.text != null) { try { noVoice = JSON.parse(bj.text)?.silent === true; } catch { /* not JSON: a voiced film */ } }
+  else if (bj.err) warn(bj.err);
+
   const nm = missing(narrFile, 'the narration');
   const rate16 = 16000, rate48 = 48000;
   let narr16 = null, narr48 = null;
@@ -750,7 +757,10 @@ function main(argv) {
   } else {
     const why = bedProblem();
     if (why) skip('bed', why);
-    else if (narr16) {
+    else if (noVoice) {
+      bedLine = row('Bed', 'voice: none — no narration to sit under, so the bed level is not compared (set it by ear against the film)');
+      done.push('bed');
+    } else if (narr16) {
       try {
         const total = Math.round((narrStart + narr16.length / rate16) * rate16), bed = new Float32Array(total), shown = [];
         for (const c of musicCues) {
@@ -826,7 +836,8 @@ function main(argv) {
   }
 
   // 3. Voice
-  if (!words) skip('voice', 'it needs audio/words.json: rerun tts_timestamps.mjs or check the path');
+  if (noVoice) { lines.push(row('Voice', 'voice: none — no voice to check')); done.push('voice'); }
+  else if (!words) skip('voice', 'it needs audio/words.json: rerun tts_timestamps.mjs or check the path');
   else if (narr16 && units) {
     const per = units.map((u) => {
       const x = narr16.subarray(Math.max(0, Math.floor(u.start * rate16)), Math.min(narr16.length, Math.ceil(u.end * rate16)));
