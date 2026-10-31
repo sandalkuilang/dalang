@@ -6,6 +6,7 @@
 // Usage: node express.mjs after-voice [dir] [--log <file>]   (default: the newest voice-*.log, the last retake's)
 //          the take's WARNING lines (none → go on), pad_voice, captions (format from BRIEF.md), gates 1–2 by agent;
 //          tts_timestamps.mjs runs it itself after a clean Express take (--take-clean: it read the WARNING lines)
+//          BRIEF.md `voice: none`: silent_take.mjs writes the timing from the script's reading times first (no take, no log)
 //        node express.mjs scaffold [dir]
 //          the planner's last call: storyboard_lint clean, then scaffold.mjs with the arguments of SPEC.md's one
 //          `SCAFFOLD:` line (--look … --groups … --music …); prints the builders' prompt line
@@ -48,8 +49,10 @@ const [cmd, dirArg] = args;
 const dir = path.resolve(dirArg ?? '.');
 if (!['after-voice', 'scaffold', 'assemble', 'final'].includes(cmd)) { console.error('Usage: node express.mjs after-voice|scaffold|assemble|final [dir]'); process.exit(2); }
 
-if (!existsSync(path.join(dir, 'audio/beats.json'))) { console.log('FAILED no take yet: audio/beats.json is missing (tts_timestamps.mjs first)\nResult: 1 step(s) FAILED'); process.exit(1); }
 const brief = existsSync(path.join(dir, 'BRIEF.md')) ? readFileSync(path.join(dir, 'BRIEF.md'), 'utf8') : '';
+// voice: none (a visuals-only film): after-voice makes the timing files itself (silent_take.mjs), so no take is needed first
+const silent = /^\W*voice\W*:\W*none\b/im.test(brief);
+if (!(silent && cmd === 'after-voice') && !existsSync(path.join(dir, 'audio/beats.json'))) { console.log('FAILED no take yet: audio/beats.json is missing (tts_timestamps.mjs first)\nResult: 1 step(s) FAILED'); process.exit(1); }
 // the visual thesis (looks.md object-studio) applies to object-studio films built with the machine; a Studio iso film, or one
 // started before the machine existed (no assets/machine.js), keeps its old measure and gets no palette line
 const thesis = /^\W*look\W*:\W*object-studio/im.test(brief) && existsSync(path.join(dir, 'assets/machine.js'));
@@ -153,6 +156,11 @@ const measure = ({ block }) => {
 };
 
 if (cmd === 'after-voice') {
+  if (silent) {
+    // no voice: the script's reading times are the take (no log to read)
+    step('silent_take', ...node('silent_take.mjs', '.'), { keep: 3 });
+    if (!failed) console.log('OK     take: voice none (no take, no log)');
+  } else {
   // the newest take log: a retake writes its own, and the first take's WARNING lines are no longer the film's
   const log = logArg ?? readdirSync(dir).filter(f => /^voice-.*\.log$/.test(f)).sort((a, b) => statSync(path.join(dir, b)).mtimeMs - statSync(path.join(dir, a)).mtimeMs)[0] ?? 'voice-take.log';
   const lf = path.join(dir, log);
@@ -160,6 +168,7 @@ if (cmd === 'after-voice') {
   if (warns === null) console.log(`WARN   ${log} not found: the take's warnings were not read (start the take with > ${log} 2>&1)`);
   else if (warns.length) { failed++; console.log(`FAILED the take has ${warns.length} WARNING line(s): respell once, --retake changed (express.md Steps 3–4)`); warns.slice(0, 6).forEach(l => console.log(`       ${l.slice(0, 240)}`)); }
   else console.log(`OK     take: no WARNING (${takeClean ? 'read by tts_timestamps.mjs' : log})`);
+  }
   if (!failed) {
     const p = (brief.match(/^\W*platform\W*:(.*)$/im)?.[1] ?? '').toLowerCase();
     const format = /landscape|16:9|youtube(?! short)/.test(p) ? 'landscape' : /feed|4:5/.test(p) ? 'feed' : /short|tiktok/.test(p) ? 'shorts' : 'reels';

@@ -33,14 +33,14 @@ try {
   assert.equal(r.status, 0, r.stderr + r.stdout);
   const B = json(a, "beats.json");
   assert.deepEqual(B.beats.map((b) => b.name), ["hook", "middle", "close"]);
-  assert.deepEqual(B.beats.map((b) => b.start), [0, 2.4, 4.4]);
-  near(B.duration, 6.8, "duration");
+  assert.deepEqual(B.beats.map((b) => b.start), [0, 2.4, 4.8]);
+  near(B.duration, 7.2, "duration");
   const W = json(a, "words.json");
-  assert.equal(W.length, 11);
+  assert.equal(W.length, 12);
   assert.ok(W.every((w) => Math.abs(w.end - w.start - 0.3) < 1e-6 && !/[.,]$/.test(w.text)), "0.3 s a word, no punctuation");
   const win = {}; vm.runInNewContext(fs.readFileSync(path.join(a, "audio/beats.js"), "utf8"), { window: win });
   assert.equal(win.NARRATION_DURATION, B.duration); assert.equal(win.BEATS.middle.start, 2.4);
-  near(dur(path.join(a, "audio/narration.wav")), 6.8, "silent track");
+  near(dur(path.join(a, "audio/narration.wav")), 7.2, "silent track");
 
   // 3. after-voice with no take and no log
   const b = mk("b");
@@ -49,7 +49,7 @@ try {
   for (const re of [/OK {5}take: voice none/, /OK {5}pad_voice/, /OK {5}captions/, /OK {5}gate 1/, /OK {5}gate 2/]) assert.match(r.stdout, re);
   assert.doesNotMatch(r.stdout, /WARNING|no take yet/);
   assert.ok(json(b, "beats.json").pad, "pad record");
-  near(dur(path.join(b, "audio/voice.wav")), 6.8 + 2.8, "voice.wav");
+  near(dur(path.join(b, "audio/voice.wav")), 7.2 + 2.8, "voice.wav");
   assert.ok(fs.existsSync(path.join(b, "audio/captions.js")), "captions written");
   for (const n of [1, 2]) assert.equal(run(b, S("state.mjs"), "check", String(n), b).status, 0, `gate ${n} fresh`);
 

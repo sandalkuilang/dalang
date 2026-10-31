@@ -129,6 +129,8 @@ Each beat is a named `{text|name}` beat on the Hook → … → Aftermath map; n
 
 ## Step 4 — Voice + per-word timing → GATE 2
 
+`voice: none` skips this step: no voice job, no take; `express.mjs after-voice` writes the timing from reading time (express.md "Voice none"). A voice-none script is read, not heard, so Step 3's ear rules do not apply to it.
+
 ```bash
 node <skill-dir>/scripts/tts_timestamps.mjs --list-voices
 node <skill-dir>/scripts/tts_timestamps.mjs --input narration.txt --out audio --voice "<voice>" --language <lang> --sample [--instructions "<gender, age, pitch, style>"]

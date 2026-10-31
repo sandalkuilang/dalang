@@ -56,7 +56,7 @@ Log with `state.mjs log "<step> | <output> | <problems or ->"`. The folder **is*
 | 1 Brief | topic first, every question now | `BRIEF.md` | `brief.md` §1 |
 | 2 Reference (optional) | measure craft, never copy | `reference-measurements.md` | `measure-reference.md` |
 | 3 Script | research, writer, read-through jobs; `approve 1` runs the lints | **Gate 1** | `script-voice.md` §3 |
-| 4 Voice | one voice job; `after-voice` pads, Gates 1–2 | **Gate 2** | `script-voice.md` §4 |
+| 4 Voice | one voice job; `after-voice` pads, Gates 1–2; `voice: none`: no job, `after-voice` times the script by reading time | **Gate 2** | `script-voice.md` §4 |
 | 5 Look | `SPEC.md`, hero, storyboard, assets, style frames, benchmark | **Gate 3** | `look-build.md` §5 |
 | 6 Build | builders, times from `BEATS`/`WORDS`, audio mix | `index.html`, lints clean | `look-build.md` §6 |
 | 7 QC | draft, checks, strips, reviewer, quiz, fix rounds | **Gate 4** | `qc.md` §7 |
