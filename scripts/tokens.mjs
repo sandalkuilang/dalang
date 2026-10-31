@@ -6,7 +6,8 @@
 // Transcripts: <claude dir>/projects/<path with every non-alphanumeric as "-">/<session>.jsonl, and the session's
 // subagents in <session>/subagents/agent-*.jsonl (+ .meta.json: the task's description). The nearest folder at or above
 // the project that has transcripts is used, and its newest session that names the project (its newest when none does) unless --session names one. When that session ran in
-// a parent folder (several videos in one session), only subagents whose transcript names the project folder count.
+// a parent folder (several videos in one session), only subagents whose transcript names the project folder count. The main agent there is judged on the stretch
+// of the session between the first and the last line naming the project: an upper bound, since other work in it counts too.
 //
 // Usage: node tokens.mjs [project] [--session <id>] [--claude-dir <dir>] [--max-turns 120] [--max-ctx 250000] [--json]
 //   (defaults 30 turns and 150K context when BRIEF.md says mode: express; there the whole film, main and subagents,
@@ -53,13 +54,16 @@ const session = sessionArg ? `${sessionArg.replace(/\.jsonl$/, '')}.jsonl` : nam
 if (!existsSync(path.join(base, session))) notChecked(`session ${session} not found in ${base}`);
 
 // One agent's transcript: a message is split over several lines with the same id and usage, so count each id once.
-const read = file => {
+const read = (file, names = null) => {
   let text; try { text = readFileSync(file, 'utf8'); } catch (e) { return { error: e.code || e.message }; }
-  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {}, agentCalls: 0, longPrompts: 0, longBacks: 0 };
+  const seen = new Set(), r = { turns: 0, total: 0, maxCtx: 0, lastCtx: 0, model: null, text, parsed: 0, start: null, end: null, asks: {}, span: null, agentCalls: 0, longPrompts: 0, longBacks: 0 };
   for (const line of text.split('\n')) {
     if (!line) continue;
     let j; try { j = JSON.parse(line); r.parsed++; } catch { continue; }
     if (j.timestamp) { r.start ??= j.timestamp; r.end = j.timestamp; }
+    // the stretch of a shared session between the first and the last line naming this film (turns and tokens inside it)
+    if (r.span?.pend) { r.span.to = { turns: r.turns, total: r.total }; r.span.pend = false; } // after the matching line's own turn
+    if (names && names.test(line)) { r.span ??= { from: { turns: r.turns, total: r.total } }; r.span.pend = true; }
     // the model and effort each subagent was asked for, by the tool call that started it (its meta names the call)
     // and what the main session pays for on every later turn: an Agent prompt with pasted content, a subagent's long reply
     const content = j.message?.content;
@@ -74,13 +78,17 @@ const read = file => {
     const ctx = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
     r.turns++; r.total += ctx + (u.output_tokens || 0); r.lastCtx = ctx; r.maxCtx = Math.max(r.maxCtx, ctx); r.model ??= j.message.model;
   }
+  if (r.span?.pend) r.span.to = { turns: r.turns, total: r.total };
   return r;
 };
 
-const main = read(path.join(base, session));
+const main = read(path.join(base, session), sessionCwd === project ? null : namesIt);
 if (main.error || !main.parsed) notChecked(`${session} cannot be read (${main.error || 'no JSON lines'})`);
 const subDir = path.join(base, session.replace(/\.jsonl$/, ''), 'subagents');
 const shared = sessionCwd !== project, rel = path.relative(sessionCwd, project);
+// A shared session's main agent is judged on the stretch that names this film: an upper bound (other work inside it counts),
+// never "no turns". No line names the film: not attributable, said so.
+const span = shared && main.span ? { turns: main.span.to.turns - main.span.from.turns, total: main.span.to.total - main.span.from.total } : null;
 let skipped = 0, unreadable = 0;
 const agents = [];
 for (const f of existsSync(subDir) ? readdirSync(subDir).filter(f => f.endsWith('.jsonl')) : []) {
@@ -101,7 +109,7 @@ const M = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`
 const sum = agents.reduce((s, a) => s + a.total, 0), over = agents.filter(a => a.over);
 const report = {
   at: new Date().toISOString(), session: session.replace(/\.jsonl$/, ''), sessionCwd, budget: { maxTurns, maxCtx },
-  main: { agentCalls: main.agentCalls, turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end, longPrompts: main.longPrompts, longBacks: main.longBacks },
+  main: { span, agentCalls: main.agentCalls, turns: main.turns, total: main.total, maxCtx: main.maxCtx, lastCtx: main.lastCtx, model: main.model, shared, start: main.start, end: main.end, longPrompts: main.longPrompts, longBacks: main.longBacks },
   subagents: agents, subagentTotal: sum, uncounted, skippedOtherProjects: skipped, unreadable,
 };
 try { mkdirSync(path.join(project, 'review'), { recursive: true }); writeFileSync(path.join(project, 'review', 'tokens.json'), JSON.stringify(report, null, 2)); }
@@ -117,9 +125,12 @@ else {
   for (const a of agents) console.log(`${a.over ? 'WARN' : '    '} ${a.desc.slice(0, 39).padEnd(39)} ${String(a.turns).padStart(4)} turns  ${M(a.total).padStart(7)}  ctx max ${M(a.maxCtx)}${a.model ? `  ${a.model}` : ''}  effort ${a.effort}`);
   if (uncounted) console.log(`WARN: ${uncounted} Agent call(s) in the main transcript have no subagent transcript here (subagents not counted): rerun after the session writes them, or pass --session / --claude-dir`);
   if (unreadable) console.log(`WARN: ${unreadable} subagent transcript(s) could not be read: rerun`);
-  if (express && !shared && main.turns > 30) console.log(`WARN: the main agent took ${main.turns} turns (Express: about 25, 30 at most): send calls that do not need each other in one message (express.md "The main agent's turns")`);
-  if (!express && !shared && main.turns > STUDIO_MAIN_TURNS) console.log(`WARN: the main agent took ${main.turns} turns (Studio: ${STUDIO_MAIN_TURNS} at most): every turn and every subagent reply re-reads the whole session; a loop belongs in one job, a short runner in the foreground (SKILL.md "The main agent orchestrates")`);
-  const film = (shared ? 0 : main.total) + agents.reduce((x, a) => x + a.total, 0);
+  if (shared && !span) console.log('NOT CHECKED: the main agent in a shared session: no line of it names this film, so its turns and tokens cannot be told from other work (rerun with --session)');
+  if (shared && span) console.log(`${'main, this film in the shared session'.padEnd(44)} ${String(span.turns).padStart(4)} turns  ${M(span.total).padStart(7)}  (upper bound: other work in that stretch counts too)`);
+  const mainTurns = shared ? span?.turns ?? 0 : main.turns;
+  if (express && mainTurns > 30) console.log(`WARN: the main agent took ${shared ? 'up to ' : ''}${mainTurns} turns (Express: about 25, 30 at most): send calls that do not need each other in one message (express.md "The main agent's turns")`);
+  if (!express && mainTurns > STUDIO_MAIN_TURNS) console.log(`WARN: the main agent took ${shared ? 'up to ' : ''}${mainTurns} turns (Studio: ${STUDIO_MAIN_TURNS} at most): every turn and every subagent reply re-reads the whole session; a loop belongs in one job, a short runner in the foreground (SKILL.md "The main agent orchestrates")`);
+  const film = (shared ? span?.total ?? 0 : main.total) + agents.reduce((x, a) => x + a.total, 0);
   if (express && film > FILM_MAX) console.log(`WARN: this film used ${M(film)} tokens (Express budget ${M(FILM_MAX)}): express.md "Token budget" names where each part goes`);
   if (main.longPrompts || main.longBacks) console.log(`WARN: the main session carries ${main.longPrompts} Agent prompt(s) and ${main.longBacks} subagent reply(ies) over ${LONG} characters: prompts are the job and file paths, verdicts and reports go in files (SKILL.md "The main agent orchestrates")`);
   if (main.lastCtx > maxCtx) console.log(`WARN: the main context is ${M(main.lastCtx)}: without an auto-compact window run workspace.mjs init; tell the user /compact is safe at this gate (SKILL.md "Compact")`);

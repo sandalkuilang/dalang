@@ -71,6 +71,12 @@ Published versions are never re-tagged.
   (fix the file and rerun), never "none".
 
 ### Fixed
+- **The main agent's budget was never checked in a shared session** (`scripts/tokens.mjs`, `tests/tokens.mjs`). Films are
+  made in one videos folder, so the session's folder is never the film's and `shared` was always true: the Express
+  turn WARN (30), the Studio one (100) and the main agent's tokens in the film total were all skipped, and `express.md`'s
+  "`tokens.mjs` WARNs" held for no real run. The main agent is now judged on the stretch of the session between the
+  first and the last line naming the film (`review/tokens.json` `main.span`), printed as an upper bound (other work in
+  that stretch counts too); no line naming it is `NOT CHECKED`, never zero turns.
 - **Token metrics read another film's session** (`scripts/tokens.mjs`, `tests/tokens.mjs`). In a folder shared by
   several films the report took the folder's newest session, which could be another film's: no Agent calls, "0
   subagents 0K". It now takes the newest session that names the film (not as the prefix of a longer folder name), else
