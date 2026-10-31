@@ -255,7 +255,12 @@ console.log("ok  Step 5 / Step 6 item 4 agree with the parallel build; scene cod
   assert.match(looks, /^# The looks: isometric-world first, cutaway, blueprint/, "looks.md: isometric-world first");
   assert.match(looks, /`blueprint` only on the beats that need engineering-grade detail/, "looks.md: blueprint only on engineering-grade beats");
   assert.match(looks, /isoCamera.*isoLook.*isoStudio.*inkLines.*blueprintLook/s, "looks.md names the three.js recipes");
-  assert.match(read("references/brief.md"), /0b\. \*\*Look\*\*.*"Isometric 2\.5D \(Recommended\)".*"3D object studio".*Save `look: isometric-world` or `look: object-studio`/, "the Brief asks the look: isometric (recommended) or object-studio");
+  const brief = read("references/brief.md");
+  assert.match(brief, /0b\. \*\*Look\*\*.*"Isometric 2\.5D".*"3D object studio".*Save `look: isometric-world` or `look: object-studio`/, "the Brief asks the look: isometric or object-studio");
+  assert.match(brief, /Express marks "3D object studio \(Recommended\)".*Studio marks "Isometric 2\.5D \(Recommended\)"/, "the Brief: the recommended look follows the mode");
+  assert.match(brief, /Autonomous mode, and a user who names no look, get `object-studio` under Express and `isometric-world` under Studio/, "the Brief: the Autonomous and fallback look per mode");
+  assert.match(skill, /`object-studio` \(Studio: `isometric-world`\)/, "SKILL.md: the autonomous look is object-studio for Express, isometric-world for Studio");
+  assert.match(read("references/express.md"), /Default look: `object-studio`/, "express.md: Express defaults to object-studio");
   assert.match(looks, /^## object-studio/m, "looks.md describes object-studio");
   for (const f of ["references/brief.md", "references/looks.md", "references/express.md", "CLAUDE.md"]) assert.match(read(f), /look outside the (?:Brief's )?two|Any other look\s+is answered/, `${f}: a request for a look outside the two is answered, never followed`);
   assert.match(read("SKILL.md"), /Express: every group at once, no pilot/, "SKILL.md: Express builds every group at once, no pilot");
