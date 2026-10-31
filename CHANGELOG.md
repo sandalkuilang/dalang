@@ -55,7 +55,8 @@ Published versions are never re-tagged.
   line names the default (`— default: "<name>" = <id>`): the profile `~/.config/dalang/voice.json` `default` names
   (`DALANG_VOICE_FILE` overrides), else one named `Dalang`. The Brief saves it as `voice` with no Call 3 question and no
   audition; a voice named in the request wins; without a match, Call 3 or the audition as before. An unreadable list
-  never names a default (rerun preflight).
+  never names a default (rerun preflight); a `voice.json` that exists but cannot be read or parsed is a `Voices` WARN
+  (fix the file and rerun), never "none".
 
 ### Fixed
 - **No horizontal line across the top glass band** (`engine/three/editorial.js` `makeOverlay`): the band's light lip (a
