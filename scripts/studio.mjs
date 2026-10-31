@@ -49,12 +49,13 @@ const step = (name, bin, argv, { cwd = dir, keep = 8, filter } = {}) => {
   return { ok, out };
 };
 const node = (script, ...a) => [process.execPath, [path.join(HERE, script), ...a]];
-const passOn = (...a) => { const r = spawnSync(process.execPath, [path.join(HERE, 'express.mjs'), ...a, dir], { stdio: 'inherit' }); process.exit(r.status ?? 1); };
+const viaStudio = { ...process.env, DALANG_RUNNER: 'studio' }; // express.mjs's rerun hints then name studio.mjs
+const passOn = (...a) => { const r = spawnSync(process.execPath, [path.join(HERE, 'express.mjs'), ...a, dir], { stdio: 'inherit', env: viaStudio }); process.exit(r.status ?? 1); };
 
 if (cmd === 'after-voice') passOn('after-voice');
 if (cmd === 'final') {
   // express.mjs final (check, assets, high render, poster, gate 4, metrics), then the measured checks on the final itself
-  const r = spawnSync(process.execPath, [path.join(HERE, 'express.mjs'), 'final', dir, '--quality', 'high'], { stdio: 'inherit' });
+  const r = spawnSync(process.execPath, [path.join(HERE, 'express.mjs'), 'final', dir, '--quality', 'high'], { stdio: 'inherit', env: viaStudio });
   if (r.status !== 0) process.exit(r.status ?? 1);
   step('qc_all on final.mp4', ...node('qc_all.mjs', 'final.mp4', '.', ...allow.flatMap(a => ['--allow', a])), { keep: 30, filter: l => !/^PASS/.test(l) });
 }

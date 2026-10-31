@@ -34,6 +34,20 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Fixed
+- **Measured frames no longer lose their records to another capture** (`scripts/strips.mjs`, new
+  `scripts/layout_flag.mjs`, `engine/three/layout_on.js`, `engine/three/type.js`). The cause of "not measured" on one
+  run and OK on the next: the layout receiver sat on one fixed port, 127.0.0.1:47614, for every capture on the machine,
+  so a second capture (another session, the gate's `tests/strips.mjs`) left this one with no records, and a page of
+  another film posting there (an older engine copy posts on every frame) fed it foreign ones. Each capture now opens a
+  port of its own and writes its URL into `assets/layout_on.js`, the one place the page reads where to post. A film whose
+  engine copy predates this keeps the fixed port and its busy WARN.
+- **Measured frames no longer give up on one empty capture:** `express.mjs assemble` and `final` run the capture with
+  `strips.mjs --expect-layout`, which captures once more when no layout record arrived; the WARN names the step to
+  rerun (`studio.mjs final` for a Studio film, `express.mjs final --quality high` when that was the call), and says what
+  the receiver saw so the cause shows at the next failure; the receiver lets posts in flight finish before it closes.
+  The page stops posting layout after three failed posts in a row, not the first.
+
 ### Redesign
 - **Visual thesis first** (object-studio, Express and Studio): each look's numbered rules decide every frame, and the
   review rubric's new first row, Thesis, checks them. object-studio: a pale study-model studio (`SWEEP`), one accent for

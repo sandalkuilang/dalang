@@ -35,7 +35,7 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 - `textBand(ctx, { kicker, headline, tag }, { format, size, scrim })`: kicker ≥ 36 px, headline 64–96 px (required) → `{ box, kicker, headline: { box, lines, size, shrunk }, tag }`.
 - `rangeBar(ctx, { value, max, ticks, label }, { format, x, y, w, size, accent, highlight })`: range card (`visual-direction.md` §13) → `{ fill, fits (-1: none fits), ticks, … }`.
 - `recordBox(kind, text, box, size)`, `repeats(caps, labels)` (caption repeats a label), `safeArea`, `luminance`, `inkFor`.
-- `layoutFrame(ctx, t, { format, hero })`: call LAST in the frame; sets `globalThis.__dalangLayout` and posts the boxes to `strips.mjs` (127.0.0.1:47614) for `layout_lint.mjs`, only while `layout_on.js` says true (`strips.mjs` sets it for its capture), so a check or render sends nothing.
+- `layoutFrame(ctx, t, { format, hero })`: call LAST in the frame; sets `globalThis.__dalangLayout` and posts the boxes to `strips.mjs` for `layout_lint.mjs`, only while `layout_on.js` is on: `strips.mjs` writes there the URL of its capture's own receiver (a port of its own, `layoutReceiver`), so two captures never share one, and puts `false` back after, so a check or render sends nothing; three failed posts in a row stop it, and `strips.mjs --expect-layout` captures once more when no record arrived.
 
 **quantity.js** (`visual-direction.md` §13; nothing adds itself to the scene)
 - `flowArrow({ from, to, value, scale, normal, color, head })`: shaft `value × scale` m wide (one scale per film) → `{ group, mesh, anchor, reveal(u), … }`.

@@ -32,6 +32,7 @@ step "state.mjs next vs fixture projects and fixture skills" node tests/reading.
 step "build docs (Step 5 / Step 6 item 4 agree with the parallel build)" node tests/build-docs.mjs
 step "cue table (words per beat as the engine counts them)" node tests/cues.mjs
 step "express steps (no take, a take with a WARNING)" node tests/express.mjs
+step "rerun hint (names the runner that was called)" node tests/rerun-hint.mjs
 step "studio steps (fixer lines, a round put aside, no music bed fails)" node tests/studio.mjs
 step "fan-out barrier (the n newest subagents, an old job never waited for)" node tests/wait.mjs
 step "written vs spoken (say.txt: captions, SRT, heard words, letter codes)" node tests/say.mjs
