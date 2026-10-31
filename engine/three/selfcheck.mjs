@@ -1989,6 +1989,32 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.equal(ov.layer.style["--ov-glass"], "210,214,216", "overlay: the default ground (#E8EDEF) sets the glass tint");
   assert.equal(ED.makeOverlay(root, { prefix: "i", ink: "#223" }).layer.style["--ov-glass"], "210,214,216", "overlay: an ink that is not #rrggbb (any CSS colour) still renders, glass pulled toward the default ink");
   assert.equal(ED.makeOverlay(root, { prefix: "d", ground: "#123A66" }).layer.style["--ov-glass"], "255,255,255", "overlay: a dark ground gets white glass");
+  { // The top glass band shows no horizontal line: no hard stop (a lip, a px or calc stop), no jump and no corner in its
+    // fade, read row by row over the band's own height for the mask (the blur follows it) and mask x each tint layer.
+    const cssText = doc.head.children.find((c) => c.id === "ov-style").textContent;
+    const rule = /\.ov-glass\{([^}]*)\}/.exec(cssText)[1];
+    const decl = (p) => new RegExp("(?:^|;)" + p + ":([^;]*)").exec(rule)[1];
+    const inner = (s, at) => { let d = 0, i = s.indexOf("(", at); const o = i; for (; i < s.length; i++) { if (s[i] === "(") d++; else if (s[i] === ")" && --d === 0) break; } return s.slice(o + 1, i); };
+    const grads = (s) => { const out = []; for (let k = s.indexOf("linear-gradient("); k >= 0; k = s.indexOf("linear-gradient(", k + 1)) out.push(inner(s, k)); return out; };
+    const split = (s) => { const r = []; let d = 0, cur = ""; for (const ch of s) { if (ch === "(") d++; if (ch === ")") d--; if (ch === "," && !d) { r.push(cur.trim()); cur = ""; } else cur += ch; } r.push(cur.trim()); return r; };
+    const stops = (g) => split(g).filter((p) => !/deg$/.test(p)).map((p) => {
+      const m = /^(.*\S)\s+(\S+)$/.exec(p);
+      assert.ok(m && /^[\d.]+%$/.test(m[2]), "glass band: every stop at a plain % of the band (a px or calc stop is a hard line): " + p);
+      const c = m[1], a = c === "#000" ? 1 : c === "transparent" ? 0 : +/,\s*([\d.]+)\)$/.exec(c)[1];
+      return { a, at: parseFloat(m[2]) / 100 };
+    });
+    const at = (st, y) => { if (y <= st[0].at) return st[0].a; for (let i = 1; i < st.length; i++) if (y <= st[i].at) return st[i - 1].a + (st[i].a - st[i - 1].a) * (y - st[i - 1].at) / ((st[i].at - st[i - 1].at) || 1e-9); return st.at(-1).a; };
+    assert.equal(decl("-webkit-mask-image"), decl("mask-image"), "glass band: the -webkit- mask is the mask");
+    const mask = stops(grads(decl("mask-image"))[0]);
+    const tints = grads(decl("background")).map(stops);
+    const h = parseInt(ov.glass.style.height, 10);
+    const rows = (f) => Array.from({ length: h }, (_, r) => f((r + 0.5) / h));
+    for (const [name, P] of [["mask", rows((y) => at(mask, y))], ...tints.map((t, k) => ["mask x tint " + k, rows((y) => at(mask, y) * at(t, y))])]) {
+      for (let r = 1; r < h; r++) assert.ok(Math.abs(P[r] - P[r - 1]) < 0.012, `glass band ${name}: no jump between rows ${r - 1} and ${r} (a line)`);
+      for (let r = 1; r < h - 1; r++) assert.ok(Math.abs(P[r + 1] - 2 * P[r] + P[r - 1]) < 0.002, `glass band ${name}: no corner in the fade at row ${r} (reads as a line)`);
+    }
+    assert.ok(at(mask, 1) < 0.001 && at(mask, 0) === 1, "glass band: solid at the top, gone at its bottom edge (the blur's box edge never shows)");
+  }
   // A film with no captions: the host still calls captions(); an empty or missing list builds nothing and draws nothing.
   for (const none of [[], undefined]) {
     const host = fake(); host.ownerDocument = doc;
