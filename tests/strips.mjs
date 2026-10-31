@@ -286,6 +286,7 @@ for (const t of at) spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavf
 const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: [{ kind: "caption", text: "the hero", x0: 200, y0: 1180, x1: 880, y1: 1330, size: 60 }] });
 (async () => {
   if (process.env.NPX_SILENT) return; // the page posts nothing (no layoutFrame call, or its first post failed)
+  if (!/export default true;/.test(fs.readFileSync("assets/layout_on.js", "utf8"))) return; // as type.js: only while strips turns it on
   for (const t of [...at, 0.5]) await fetch("http://127.0.0.1:47614/layout", { method: "POST", mode: "no-cors", body: JSON.stringify(rec(t, t === 2.8 ? { x0: 100, y0: 400, x1: 700, y1: 1300 } : { x0: 100, y0: 400, x1: 550, y1: 1100 })) });
   await fetch("http://127.0.0.1:47614/layout", { method: "POST", body: "{not json" });
 })().catch((e) => { console.error(String(e)); process.exit(1); });
@@ -293,10 +294,14 @@ const rec = (t, hero) => ({ t, W: 1080, H: 1920, format: "shorts", hero, boxes: 
     const runWith = (args, extra = {}) => new Promise((resolve) => execFile(process.execPath, [strips, ...args], { env: { ...process.env, ...extra, PATH: `${bin}${path.delimiter}${process.env.PATH}` } }, (e, out, err) => resolve({ code: e ? e.code : 0, out, err })));
     const lay = path.join(sb, "review", "strips", "layout.json");
     fs.writeFileSync(lay, JSON.stringify({ frames: [{ ...clean, t: 5 }] })); // a stale layout of an earlier round
+    const flag = path.join(sb, "assets", "layout_on.js");
+    fs.mkdirSync(path.dirname(flag), { recursive: true });
+    fs.copyFileSync(fileURLToPath(new URL("../engine/three/layout_on.js", import.meta.url)), flag);
     r = await runWith([sb, "--per-sheet", "6"]);
     if (/port 47614 is busy/.test(r.out)) console.log("receiver case skipped: port 47614 is in use");
     else {
       assert.equal(r.code, 0, r.err + r.out);
+      assert.match(fs.readFileSync(flag, "utf8"), /export default false;/, "layout_on.js is off again after the capture");
       const saved = JSON.parse(fs.readFileSync(lay, "utf8")).frames;
       assert.deepEqual(saved.map((x) => x.t), want, "one record per frame, in frame order; the stray t=0.5 and the bad body are dropped");
       assert.match(text(), /^- FLAG frame 5 · .*covers/m);

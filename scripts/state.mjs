@@ -330,10 +330,13 @@ const standing = () => {
 };
 // One step as the main agent reads it: the sections (commands, or their text with --print), the mode's lesson
 // headlines, the look-up index, each subagent job with its model and effort, the subagent's own sections.
+// the copy that runs, on the first step header `next` prints: the agent names it in its first reply (SKILL.md)
+let version = cmd !== 'next' ? null : (() => { try { return `DALANG v${JSON.parse(readFileSync(path.join(SKILL, '.claude-plugin', 'plugin.json'), 'utf8')).version}`; } catch { return 'DALANG version unknown (no plugin.json)'; } })();
 const show = (r, n, why, asText) => {
   const s = r.view(n, express ? 'express' : 'studio');
   const read = s.found.read.filter(e => applies(n, e)), refs = s.found.refs.filter(e => applies(n, e));
-  const out = [`Step ${n} ${s.name}${express ? ' (express)' : ''} — ${why}`];
+  const out = [`Step ${n} ${s.name}${express ? ' (express)' : ''} — ${why}${version ? ` · ${version}` : ''}`];
+  version = null;
   if (n === 3 && !existsSync(path.join(dir, 'script.md'))) out.push('Optional Step 2 (a reference video): add --step 2');
   out.push(`Read now (${kb(sum(read))} KB):`);
   // --print: the sections' text itself, so a step's reading is one call instead of one per section

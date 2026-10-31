@@ -34,6 +34,28 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A final render no longer fails on the layout post** (`engine/three/type.js`, new `engine/three/layout_on.js`,
+  `scripts/strips.mjs`, `scripts/express.mjs`). `layoutFrame` posted every frame's boxes to 127.0.0.1:47614 whether or
+  not a receiver listened, so `hyperframes check` in `express.mjs final` failed on `request_failed` and agents bypassed
+  the gate with a hand-run render. The page now posts only while `assets/layout_on.js` says true, which `strips.mjs`
+  sets for its own capture and puts back after; `final` turns off a flag a killed capture left on.
+
+### Changed
+
+- **The DALANG version is shown when the skill runs** (`scripts/state.mjs next`, `SKILL.md`): `next` prints
+  `DALANG v<x.y.z>` first, from `.claude-plugin/plugin.json`, and the agent names it in its first reply, so the user
+  sees which release a film was made with.
+- **The script is sized to the voice that reads it** (`scripts/tts_timestamps.mjs --pace`, `references/script-voice.md`,
+  `references/express.md`). Every take and `--sample` records its words/s per engine, voice and language in
+  `~/.config/dalang/pace.json`; `--pace --voice <v> --language <l> --length <s>` prints the median pace and the word
+  budget, and the writer uses it before the language's starting pace. A script sized at the starting pace came out
+  10–20 % short on a faster voice, and its retake cost a whole take.
+- **object-studio hero contrast flags under ΔE* 8, not 12** (`scripts/layout_lint.mjs`, `references/express.md`). Heroes at
+  8–12 read plainly on real films while the fix round darkened floors into a vignette to clear 12; under 6 they washed
+  out. The planner still aims at 12, and the hint now asks for a darker material before a backdrop.
+
 ## [4.5.5] - 2026-10-31
 
 ### Changed

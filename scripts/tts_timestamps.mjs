@@ -14,6 +14,10 @@
 //                              -> designed voice; the same --seed gives the same timbre in the full take
 //   node tts_timestamps.mjs --input narration.txt --out audio --voice <profile> --language en
 //   node tts_timestamps.mjs --engine elevenlabs --input narration.txt --out audio --voice "Chris" --language en
+//   node tts_timestamps.mjs --pace --voice <profile> --language id [--length 60]
+//                              -> the voice's measured words/s from its last takes and samples (Step 3's word budget)
+// Every take and --sample records its words/s (with its --speed) per engine, voice and language in
+// ~/.config/dalang/pace.json (DALANG_PACE_FILE overrides); --pace prints it, or "none recorded" (then the starting pace).
 //   node tts_timestamps.mjs --engine kokoro --input narration.txt --out audio --language en [--voice af_heart] [--speed 1]
 //                              -> Kokoro speaks its built-in voices (--list-voices --engine kokoro); --language is en or
 //                                 en-gb only (any other language is refused before anything runs: use VoiceStudio). It never
@@ -132,6 +136,8 @@ function parseArgs(argv) {
       case '--api-url': API = next().replace(/\/+$/, ''); break;
       case '--instructions': a.instructions = next(); break;
       case '--sample': a.sample = true; break;
+      case '--pace': a.pace = true; break;
+      case '--length': a.length = parseFloat(next()); break;
       case '--list-voices': a.listVoices = true; break;
       case '--from-response': a.fromResponse = next(); break;
       case '--from-audio': a.fromAudio = next(); break;
@@ -1365,6 +1371,28 @@ function keepTake(a) {
 
 // every WARNING line, and the open-sentence Retake line, the take prints: a clean Express take goes on to after-voice
 let flagged = 0;
+// The voice's measured pace, so Step 3 sizes the script for the voice that will read it (a script sized at the
+// language's starting pace came out 10-20 % short on a faster voice, and its retake cost a whole take).
+const PACE_FILE = () => process.env.DALANG_PACE_FILE || path.join(os.homedir(), '.config', 'dalang', 'pace.json');
+const paceKeys = (a, id) => [...new Set([a.voice, a.voiceId, id].filter(Boolean))].map(v => `${a.engine}|${v}|${a.language ?? '-'}`);
+const readPace = () => { try { return JSON.parse(readFileSync(PACE_FILE(), 'utf8')); } catch { return {}; } };
+function recordPace(a, id, wps) {
+  try {
+    const all = readPace(), rec = { wps: +wps.toFixed(2), speed: a.speed ?? 1, sample: !!a.sample, at: new Date().toISOString().slice(0, 10) };
+    for (const k of paceKeys(a, id)) all[k] = [rec, ...(all[k] ?? [])].slice(0, 5);
+    mkdirSync(path.dirname(PACE_FILE()), { recursive: true });
+    writeFileSync(PACE_FILE(), JSON.stringify(all, null, 1) + '\n');
+  } catch { /* not recorded: the next take records it */ }
+}
+function printPace(a) {
+  if (!a.voice && !a.voiceId) die('--pace needs --voice (as in BRIEF.md) and --language.');
+  const recs = paceKeys(a).flatMap(k => readPace()[k] ?? []);
+  if (!recs.length) return console.log(`Pace: none recorded for ${a.voice ?? a.voiceId} (${a.language ?? 'any language'}): use the language's starting pace, calibrated in Step 4`);
+  const at1 = recs.map(r => r.wps / r.speed), wps = at1.sort((x, y) => x - y)[at1.length >> 1]; // median, at speed 1
+  console.log(`Pace: ${wps.toFixed(2)} words/s at speed 1 for ${a.voice ?? a.voiceId} (${a.language ?? '-'}), median of ${recs.length} take(s) and sample(s)`);
+  if (a.length > 0) console.log(`Budget: ${Math.round(a.length * wps * 0.85)} spoken words for ${a.length} s (length × pace × 0.85, script-voice.md)`);
+}
+
 async function main() {
   for (const k of ['log', 'warn']) { const f = console[k]; console[k] = (...m) => { if (/^WARNING\b|^Retake\s+: sentences? [\d, ]+ may not say/.test(String(m[0] ?? ''))) flagged++; f(...m); }; }
   const a = parseArgs(process.argv.slice(2));
@@ -1379,6 +1407,7 @@ async function main() {
   }
   if (a.listVoices) return a.engine === 'voicestudio' ? vsListVoices(a) : listVoices();
   if (a.saveProfile) return vsSaveProfile(a);
+  if (a.pace) return printPace(a);
   if (!a.input) die('Needs --input narration.txt');
 
   const raw = await readFile(a.input, 'utf8');
@@ -1565,6 +1594,7 @@ async function main() {
   console.log(['Take: ' + `${duration} s, ${nWords} words, ${(nWords / Math.max(duration, 0.001)).toFixed(2)} words/s, ${(stripTags(clean).replace(/\s/g, '').length / Math.max(duration, 0.001)).toFixed(2)} chars/s`,
     !a.sample && `${beatList.length} beats, ${sectionList.length} sections${lineList.length ? `, ${lineList.length} dialogue lines (${[...new Set(lineList.map(l => l.speaker))].join(', ')})` : ''}`,
     timing && `timing: ${timing}`, billed].filter(Boolean).join(' · '));
+  if (!a.fromResponse && !a.fromAudio && !order.length && duration > 0) recordPace(a, response._meta?.voice_id, nWords / duration);
   const silent = lineList.filter(l => l.start === null);
   if (silent.length) console.log(`WARNING    : ${silent.length} dialogue line(s) matched no word in the audio: ${silent.map(l => `${l.speaker}: "${l.text.slice(0, 30)}"`).join('; ')}`);
   if (response.transcript) {
