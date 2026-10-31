@@ -780,6 +780,16 @@ assert.ok(CN.cut.uncut.includes(CN.fill.mesh) && CN.cut.parts.some((p) => p.mesh
     look.at(1.1); assert.equal(look.skipped.length, 1, "once, not every frame");
     assert.equal(look.weight(w.base, 1), 0, "a kept mesh weighs nothing"); assert.equal(look.weight(w.shell, 1), 1);
   }
+  // The accent part is the one doing the work: an x-ray beat never ghosts it, focused or not (like keep).
+  {
+    const w = build(), acc = OS.mat.accent("#E8502A"); w.B.material = acc;
+    assert.equal(acc.userData.accent, true, "mat.accent marks its material");
+    const look = attend(w.world, { keep: [w.base] }).focus(w.core, 0); look.at(1);
+    assert.ok(w.B.material === acc && acc.opacity === 1 && acc.color.getHexString() === "e8502a" && look.weight(w.B, 1) === 0, "the accent part keeps its full opacity and colour");
+    assert.ok(w.shell.material.userData.ghost, "the rest still ghosts");
+    const arr = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), [w.shared, acc]); w.world.add(arr); look.at(1.2);
+    assert.ok(arr.material[1] === acc && arr.material[0].userData.ghost, "in a material array only the accent slot stays whole");
+  }
   // With a cutaway: cut.at() then look.at(), the order of a frame. The cut never clones a ghost, the ghost keeps the
   // cut's own plane array, and the release hands back the cutaway's clone.
   {
