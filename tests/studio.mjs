@@ -23,6 +23,23 @@ r = run("fixes", tmp);
 assert.match(r.out, /fixer close: 0 P0, 1 P1/); assert.match(r.out, /fixer open: 1 P0, 2 P1/);
 assert.match(r.out, /review\/reports\/fix-open\.md/, "the fixer reports to a file");
 assert.match(r.out, /wait\.mjs \. --expect 2 \(timeout 600000\)/, "the round ends with the barrier: one turn for both replies");
+assert.match(r.out, /ROUND  1: 3 blocking finding\(s\) in 2 group\(s\)/, "the ledger decides the round");
+assert.match(r.out, /fixcheck\.mjs open \./, "the fixer proves each fix with fixcheck.mjs");
+// only taste findings left: the ledger stops, no fixer lines
+fs.writeFileSync(path.join(tmp, "review/fixes-open.md"), "P1 | t=3 | Action | z\n");
+fs.rmSync(path.join(tmp, "review/fixes-close.md"));
+r = run("fixes", tmp);
+assert.match(r.out, /STOP   clean/); assert.doesNotMatch(r.out, /^fixer /m);
+assert.match(r.out, /next: studio\.mjs final/);
+// put the two files back for the qc round below
+fs.writeFileSync(path.join(tmp, "review/fixes-open.md"), "P0 | t=1.2 | Reality | x\nP1 | t=2 | Clarity | y\nP1 | t=3 | Action | z\n");
+fs.writeFileSync(path.join(tmp, "review/fixes-close.md"), "P1 | t=9 | Clarity | w\n");
+fs.rmSync(path.join(tmp, "review/fix-ledger.json"));
+// a group with only taste findings gets no fixer, and the barrier waits for the fixers there are
+fs.writeFileSync(path.join(tmp, "review/fixes-taste.md"), "P2 | t=4 | Composition | tidy\n");
+r = run("fixes", tmp);
+assert.doesNotMatch(r.out, /^fixer taste/m); assert.match(r.out, /--expect 2 /);
+fs.rmSync(path.join(tmp, "review/fixes-taste.md")); fs.rmSync(path.join(tmp, "review/fix-ledger.json"));
 fs.writeFileSync(path.join(tmp, "QC-REVIEW.md"), "# round 1\n");
 r = run("qc", tmp, "--dry-run");
 assert.match(r.out, /FAILED no assets\/music\.mp3/, "a film without a bed fails QC");

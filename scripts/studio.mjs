@@ -13,7 +13,7 @@
 //        node studio.mjs qc [dir] [--allow a-b]… [--targets <shots|beats>]     round n: the last round's verdicts moved to review/round-<n-1>/, then
 //                                                    hyperframes check, the draft (10 fps), qc_all, strips --crops (against
 //                                                    the last round's stills), the cut sheet
-//        node studio.mjs fixes [dir]                 one fixer line per review/fixes-<group>.md (the reviewer writes them)
+//        node studio.mjs fixes [dir]                 the stop rule (fix_ledger.mjs), then one fixer line per review/fixes-<group>.md
 //        node studio.mjs final [dir]                 express.mjs final --quality high (check, assets, render, poster,
 //                                                    gate 4, metrics), then qc_all on final.mp4
 //        --dry-run (qc, frames): print the steps, run nothing
@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } 
 import { newestStills } from './snapshots.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { blocking, parseFindings } from './findings.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -108,12 +109,22 @@ if (cmd === 'fixes') {
   const rv = path.join(dir, 'review');
   const files = existsSync(rv) ? readdirSync(rv).filter(f => /^fixes-.+\.md$/.test(f)).sort() : [];
   if (!files.length) console.log('OK     no review/fixes-<group>.md: no P0/P1 open, go to studio.mjs final');
-  for (const f of files) {
-    const t = readFileSync(path.join(rv, f), 'utf8'), n = k => (t.match(new RegExp(`^\\W*${k}\\b`, 'gm')) || []).length;
-    const g = f.replace(/^fixes-|\.md$/g, '');
-    console.log(`fixer ${g}: ${n('P0')} P0, ${n('P1')} P1 — prompt: "Fix round for group ${g}: do review/fixes-${g}.md (only its files); report to review/reports/fix-${g}.md, reply ≤ 15 lines."`);
+  // the stop rule (fix_ledger.mjs): only a blocking finding starts a round, and rounds must converge
+  let round = !files.length;
+  if (files.length) {
+    const l = spawnSync(process.execPath, [path.join(HERE, 'fix_ledger.mjs'), '.', '--max-rounds', '3'], { cwd: dir, encoding: 'utf8' });
+    (l.stdout ?? '').split('\n').filter(Boolean).forEach(x => console.log(x));
+    if (l.status !== 0 && l.status !== 1 && l.status !== 3) { failed++; console.log(`FAILED fix_ledger decided nothing (exit ${l.status ?? l.error?.message}): rerun studio.mjs fixes`); }
+    round = l.status === 1;
+    if (l.status === 0 || l.status === 3) console.log('next: studio.mjs final (the OPEN lines and the listed findings go in the hand-off)');
   }
-  if (files.length) console.log(`next: every fixer above in one message (dalang-builder, model from state.mjs next), last in it node ${path.join(HERE, 'wait.mjs')} . --expect ${files.length} (timeout 600000); then studio.mjs qc for the next round`);
+  // a fixer only for a group with a blocking finding: the rest ship listed
+  const fixers = round ? files.map(f => ({ f, g: f.replace(/^fixes-|\.md$/g, ''), ...parseFindings(readFileSync(path.join(rv, f), 'utf8')) })).filter(x => x.findings.some(blocking)) : [];
+  for (const { g, findings } of fixers) {
+    const n = k => findings.filter(x => x.sev === k).length;
+    console.log(`fixer ${g}: ${n('P0')} P0, ${n('P1')} P1 — prompt: "Fix round for group ${g}: do review/fixes-${g}.md (only its files). Make every fix, then node ${path.join(HERE, 'fixcheck.mjs')} ${g} . and npx hyperframes check, and open the sheet once; each finding PASS (what the still shows) or FAIL, never unverified; a REROUTE line gets another route. Report to review/reports/fix-${g}.md, reply ≤ 15 lines."`);
+  }
+  if (fixers.length) console.log(`next: every fixer above in one message (dalang-builder, model from state.mjs next), last in it node ${path.join(HERE, 'wait.mjs')} . --expect ${fixers.length} (timeout 600000); then studio.mjs qc for the next round`);
 }
 console.log(failed ? `Result: ${failed} step(s) FAILED` : 'Result: OK');
 process.exit(failed ? 1 : 0);

@@ -34,6 +34,8 @@ step "cue table (words per beat as the engine counts them)" node tests/cues.mjs
 step "express steps (no take, a take with a WARNING)" node tests/express.mjs
 step "rerun hint (names the runner that was called)" node tests/rerun-hint.mjs
 step "studio steps (fixer lines, a round put aside, no music bed fails)" node tests/studio.mjs
+step "fix ledger (blocking only, converge or stop, reroute, round cap)" node tests/fix-ledger.mjs
+step "fixcheck (fresh build before stills, findings' times, no sheet fails)" node tests/fixcheck.mjs
 step "fan-out barrier (the n newest subagents, an old job never waited for)" node tests/wait.mjs
 step "written vs spoken (say.txt: captions, SRT, heard words, letter codes)" node tests/say.mjs
 step "release version (from Unreleased: Redesign MAJOR with --major, Rework MINOR, else PATCH)" node tests/next-version.mjs
