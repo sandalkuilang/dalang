@@ -34,6 +34,8 @@ Published versions are never re-tagged.
 
 ## [Unreleased]
 
+## [4.5.8] - 2026-10-31
+
 ### Removed
 - **The bottom glass band** (`engine/three/editorial.js` `makeOverlay`): the frosted band over the bottom 17 % is gone; only
   the top band stays, shown with the headline. `ov.glassB` no longer exists.
@@ -2066,7 +2068,8 @@ file layout are what every later version is measured against.
 - **CI** — syntax check on every script and `SKILL.md` front-matter validation on each
   push and pull request.
 
-[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.7...HEAD
+[Unreleased]: https://github.com/sandalkuilang/dalang/compare/v4.5.8...HEAD
+[4.5.8]: https://github.com/sandalkuilang/dalang/compare/v4.5.7...v4.5.8
 [4.5.7]: https://github.com/sandalkuilang/dalang/compare/v4.5.6...v4.5.7
 [4.5.6]: https://github.com/sandalkuilang/dalang/compare/v4.5.5...v4.5.6
 [4.5.5]: https://github.com/sandalkuilang/dalang/compare/v4.5.4...v4.5.5
