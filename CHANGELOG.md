@@ -36,7 +36,7 @@ Published versions are never re-tagged.
 
 ### Added
 - **A fix loop that converges** (`scripts/fix_ledger.mjs`, `scripts/fixcheck.mjs`, `scripts/findings.mjs`, `scripts/studio.mjs`,
-  `scripts/express.mjs`, `agents/`, `references/review.md`, `qc.md`, `express.md`, `express-planner.md`, `SKILL.md`,
+  `scripts/express.mjs`, `agents/`, `references/review.md`, `qc.md`, `express.md`, `express-planner.md`,
   `tests/fix-ledger.mjs`, `tests/fixcheck.mjs`). Real runs spent most of their tokens in fix rounds that did not end: one
   group fixed 13 times, fixers at 115–143 turns against a 10-turn budget, one fix report in eight "unverified", and
   reviews that found new taste items every round. The planner now writes `SPEC.md` `## ACCEPT` (what done means, 3 rows
