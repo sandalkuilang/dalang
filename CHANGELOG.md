@@ -59,6 +59,7 @@ Published versions are never re-tagged.
   palette line.
 
 ### Fixed
+<<<<<<< HEAD
 - `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
   with a `| WARN [log] …` field (`log` strips "[log]" from the user's own text, so a problems field that starts with WARN is never mistaken for it) and a WARN on stderr (a refusal stopped the step clock). `metrics` Start and End are the
   earliest and latest log line by time. `next` does not count a warned Step 6 row as a finished build, so Gate 3
@@ -66,6 +67,11 @@ Published versions are never re-tagged.
 - The token report says "not counted" when the main transcript made Agent calls whose subagent transcripts are missing,
   instead of printing 0 subagents; the metrics Total tokens line says "at least" then. A film with no Agent call keeps
   its true 0.
+=======
+
+- **scaffold.mjs without markers:** a narration with no {text|name} markers (written by hand or imported) takes its
+  beat names and order from audio/beats.json instead of failing; Gate 1 stays untouched.
+>>>>>>> f028917 (fix(scaffold): beat names from audio/beats.json when narration.txt has no markers)
 
 ## [4.5.9] - 2026-10-31
 

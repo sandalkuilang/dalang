@@ -8,7 +8,8 @@
 // script (review/check-<group>.sh). Builders then only fill data with Edit: no builder writes boilerplate or a copy of
 // the world, none guesses a command, and every group meets its neighbours on the host's times. The brief holds only what
 // agents/dalang-builder.md does not (read only what is named, Edit not rewrite, batch calls, the budget).
-// Runs before the voice is done: beat names come from narration.txt's {text|name} markers.
+// Runs before the voice is done: beat names come from narration.txt's {text|name} markers, else (a script without
+// markers) from audio/beats.json, in its order. narration.txt is never edited.
 //
 // Usage: node scaffold.mjs <project> --look isometric-world|cutaway|blueprint|object-studio --groups a:beat1,b:beat5,…
 //                          [--title "…"] [--music calm|bright|tense|none]
@@ -37,13 +38,19 @@ if (!ISO.includes(look) && look !== 'object-studio') die(`--look must be one of 
 if (!groupArg) die('--groups a:firstBeat,b:firstBeat,… is required');
 if (music !== 'none' && !MOODS.includes(music)) die(`--music must be one of ${MOODS.join(', ')} or none`);
 
-const narr = path.join(dir, 'narration.txt');
-if (!existsSync(narr)) die(`${narr} not found: the beat names come from its {text|name} markers`);
-const beats = parseNarration(readFileSync(narr, 'utf8'), false, m => die(`narration.txt: ${m}`)).beats.map(b => b.label).filter(Boolean); // tts_timestamps.mjs's parser
+const narr = path.join(dir, 'narration.txt'), beatsFile = path.join(dir, 'audio', 'beats.json');
+let beats = existsSync(narr) ? parseNarration(readFileSync(narr, 'utf8'), false, m => die(`narration.txt: ${m}`)).beats.map(b => b.label).filter(Boolean) : []; // tts_timestamps.mjs's parser
+let beatsFrom = 'narration.txt';
+if (!beats.length) { // no markers: the take's own beat names, in order (tts_timestamps.mjs writes them); narration.txt is never touched
+  let named = null;
+  try { named = JSON.parse(readFileSync(beatsFile, 'utf8')).beats.map(b => b?.name).filter(n => typeof n === 'string' && n); } catch { /* none */ }
+  if (named?.length) { beats = named; beatsFrom = 'audio/beats.json'; }
+  else die(`no beat names: ${existsSync(narr) ? 'narration.txt has no {text|name} markers' : `${narr} not found`} and ${existsSync(beatsFile) ? 'audio/beats.json names no beat' : 'audio/beats.json is missing'}`);
+}
 const groups = groupArg.split(',').map(s => { const [name, from] = s.split(':').map(x => x?.trim()); return { name, from }; });
 for (const g of groups) {
   if (!/^[a-z][a-z0-9-]*$/.test(g.name ?? '')) die(`group name "${g.name}": lower case letters, digits and - only (it is an id prefix)`);
-  if (!beats.includes(g.from)) die(`group ${g.name}: no beat "${g.from}" in narration.txt (beats: ${beats.join(', ')})`);
+  if (!beats.includes(g.from)) die(`group ${g.name}: no beat "${g.from}" in ${beatsFrom} (beats: ${beats.join(', ')})`);
 }
 if (new Set(groups.map(g => g.name)).size !== groups.length) die('a group name is used twice');
 const order = groups.map(g => beats.indexOf(g.from));

@@ -86,6 +86,32 @@ try {
   assert.doesNotMatch(read(quiet, "src/index.tpl.html"), /id="music"/, "--music none: no bed");
   assert.match(run(proj("loud"), "--look", "isometric-world", "--groups", "a:hook", "--music", "metal").out, /--music must be one of/);
 
+  // no markers: the beat names and their order come from audio/beats.json, the same groups as a marked narration
+  const mk = (n, narration, beatsJson) => {
+    const p = path.join(tmp, n); fs.mkdirSync(p);
+    if (narration !== null) fs.writeFileSync(path.join(p, "narration.txt"), narration);
+    if (beatsJson) { fs.mkdirSync(path.join(p, "audio")); fs.writeFileSync(path.join(p, "audio/beats.json"), JSON.stringify(beatsJson)); }
+    return p;
+  };
+  const named = { duration: 9, audio_file: "voice.wav", beats: [["hook", "Open here."], ["middle", "Then this."], ["close", "And last."]].map(([name, text], i) => ({ name, text, start: i * 3, end: i * 3 + 3 })), sections: [] };
+  const G = ["--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close"];
+  const ref = proj("ref"); assert.equal(run(ref, ...G).code, 0);
+  const same = (p) => { for (const f of ["src/index.tpl.html", "src/compositions/intro.tpl.html", "src/compositions/body.tpl.html", "src/compositions/end.tpl.html", "review/builder-intro.md", "review/check-body.sh"]) assert.equal(read(p, f).split(p).join("."), read(ref, f).split(ref).join("."), f); };
+  const plain = mk("plain", "Open here. Then this. And last.\n", named);
+  r = run(plain, ...G); assert.equal(r.code, 0, r.out); same(plain);
+  assert.equal(read(plain, "narration.txt"), "Open here. Then this. And last.\n", "narration.txt is never edited");
+  const bare = mk("bare", null, named);
+  r = run(bare, ...G); assert.equal(r.code, 0, r.out); same(bare);
+  const win = mk("win", "{Open here.|hook} {Then this.|middle}\n", { ...named, beats: [{ name: "other", text: "x", start: 0, end: 9 }] });
+  assert.equal(run(win, "--look", "isometric-world", "--groups", "a:hook").code, 0, "markers win over beats.json");
+  for (const [n, b] of [["nob", null], ["emptyb", { ...named, beats: [] }]]) {
+    const e = mk(n, "Open here.\n", b);
+    r = run(e, ...G); assert.equal(r.code, 1, r.out); assert.match(r.out, /no beat names/);
+    assert.ok(!fs.existsSync(path.join(e, "src")) && !fs.existsSync(path.join(e, "assets")), `${n}: nothing written`);
+  }
+  r = run(mk("nowhere", "Open here.\n", named), "--look", "isometric-world", "--groups", "a:nowhere");
+  assert.equal(r.code, 1); assert.match(r.out, /no beat "nowhere" in audio\/beats\.json/);
+
   // a rerun keeps every file, edits included
   fs.appendFileSync(path.join(d, "src/compositions/body.tpl.html"), "<!-- edited -->\n");
   r = run(d, "--look", "isometric-world", "--groups", "intro:hook,body:middle,end:close");
