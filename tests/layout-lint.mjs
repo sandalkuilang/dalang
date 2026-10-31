@@ -70,7 +70,7 @@ try {
   r = run(put([frame({ hero: { x0: 100, y0: 500, x1: 800, y1: 1100 } })]), "--min-hero", "0.6");
   assert.equal(lines(r.out, "PROBLEM").filter((l) => /hero box/.test(l)).length, 0, "a hero at 65 % of the width passes: " + r.out);
   const ex = fs.readFileSync(fileURLToPath(new URL("../scripts/express.mjs", import.meta.url)), "utf8");
-  assert.match(ex, /layout_lint\.mjs'[^\n]*\.\.\.\(thesis \? \['--min-hero', '0\.6', '--hero-band', '0\.18,0\.60'\] : \[\]\)/, "express.mjs measures at the thesis share, in the subject box, only when thesis");
+  assert.match(ex, /layout_lint\.mjs'[^\n]*\.\.\.\(thesis \? \['--min-hero', '0\.6', '--hero-band', '0\.18,0\.60', '--max-text-layers', '2'\] : \[\]\)/, "express.mjs measures at the thesis share, in the subject box, and at most two text layers, only when thesis");
   assert.match(ex, /const thesis = [^\n]*object-studio[^\n]*assets\/machine\.js/, "the thesis is object-studio films with the machine");
   assert.match(ex, /if \(!failed && thesis\) \{\s*const h = [^\n]*palette\.mjs/, "the palette line runs only for the thesis");
   // a 300 x 780 hero in a 1080 x 1920 frame: 41 % of the height fails 0.6, but fills 97 % of the subject band (y 18-60 %).
@@ -83,6 +83,21 @@ try {
   assert.equal(r.code, 1, "a landscape frame ignores the band: " + r.out);
   r = run(put([tall]), "--hero-band", "0.6,0.18");
   assert.equal(r.code, 2, "a band that is not top < bottom is a usage WARN: " + r.out);
+  // --max-text-layers: the kinds of text on screen at once (caption, label, card); over n is a PROBLEM naming them.
+  const card = { kind: "card", text: "flow 2 L/s", x0: 600, y0: 700, x1: 900, y1: 820, size: 40 };
+  const three = frame({ t: 4, boxes: [{ ...caption }, { ...label }, { ...label, text: "seat", y0: 380, y1: 436 }, { ...card }] });
+  r = run(put([three]), "--max-text-layers", "2");
+  assert.equal(r.code, 1, "caption, label and card at once is over two layers: " + r.out);
+  assert.match(lines(r.out, "PROBLEM").join("\n"), /t=4s 3 text layers at once \(caption, label, card\), over 2/, "the line names the kinds: " + r.out);
+  assert.equal(lines(r.out, "PROBLEM").length, 1, "one line per frame, two labels are one layer: " + r.out);
+  r = run(put([frame()]), "--max-text-layers", "2");
+  assert.equal(r.code, 0, "a caption and labels are two layers: " + r.out);
+  r = run(put([three]));
+  assert.equal(r.code, 0, "without the flag the layers are not counted: " + r.out);
+  r = run(put([three]), "--max-text-layers", "0");
+  assert.equal(r.code, 2, "a layer count under 1 is a usage WARN: " + r.out);
+  r = run(put([three]), "--max-text-layers", "1.5");
+  assert.equal(r.code, 2, "a layer count that is not whole is a usage WARN: " + r.out);
   // --no-safe-area: the label outside the safe area is not flagged; everything else still is.
   r = run(put([frame({ boxes: [{ ...caption }, { ...label, x1: 1000 }] })]), "--no-safe-area");
   assert.equal(r.code, 0, "--no-safe-area skips the safe area: " + r.out);
@@ -205,6 +220,8 @@ try {
   assert.deepEqual([bad.warns, bad.infos], [[], []]);
   assert.equal(lintLayout([]).warns.length, 1);
   assert.equal(lintLayout(null).warns.length, 1);
+  assert.equal(lintLayout([three], { maxTextLayers: 2 }).problems.length, 1, "maxTextLayers counts the kinds");
+  assert.equal(lintLayout([three], { maxTextLayers: 3 }).problems.length, 0);
   console.log("layout lint: OK");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
