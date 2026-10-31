@@ -50,7 +50,8 @@ export function withMoves(base, moves = [], fps = FPS) {
   return { ...base, pose, at(t, cam) { const s = base.at(t, cam); if (moveAt(t) && cam) placeCamera(cam, pose(t)); return s; } };
 }
 // the sweep: floor curving up into the wall, the wall a touch lighter
-const SWEEP = Object.freeze({ floor: "#D9D9D6", top: "#ECECEA" });
+// the pale study-model studio of the visual thesis (looks.md object-studio): a near-white wall, the floor a step darker
+export const SWEEP = Object.freeze({ floor: "#E3E4E6", top: "#F3F3F4" });
 // the light (studio() preset form [colour, intensity, azimuth, elevation]): a soft key upper left (front-left, high),
 // a cool fill right, a rim from behind that lights a translucent subject from the back
 export const LIGHT = Object.freeze({ key: [0xfffaf2, 2.2, -38, 52], fill: [0xe8eef8, 0.55, 65, 18], rim: [0xffffff, 1.6, 168, 30] });
@@ -101,6 +102,15 @@ export const mat = {
   steel: ({ color = 0xc6cacf, rough = 0.32 } = {}) => new THREE.MeshStandardMaterial({ color, metalness: 0.92, roughness: rough, envMapIntensity: 1.1 }),
   plastic: (color, rough = 0.38) => new THREE.MeshPhysicalMaterial({ color, roughness: rough, clearcoat: 0.4, clearcoatRoughness: 0.25 }),
   matte: (color, rough = 0.7) => new THREE.MeshStandardMaterial({ color, roughness: rough }),
+  // gloss: dark parts of a study model (a block, a housing, a link): a clearcoat over a base at roughness >= 0.45, so a
+  // big surface catches the studio's soft boxes without streaking white
+  gloss: (color = 0x141518, { rough = 0.45, coat = 0.7 } = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: Math.max(0.45, rough), metalness: 0.2, clearcoat: coat, clearcoatRoughness: 0.18 }),
+  // accent: the one part that is doing the work right now, in the SPEC palette's accent (the same colour as the
+  // overlay's accent chip and the instruments' cursor); nothing else in the frame takes it
+  accent: (color) => {
+    if (color === undefined) throw new Error("mat.accent(color): pass the SPEC palette's accent");
+    return new THREE.MeshPhysicalMaterial({ color, roughness: 0.45, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+  },
   // a haze, mist or fog volume: opacity from its cause at t (0 = none)
   haze: (opacity = 0, color = 0xf6f2e6) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, transparent: true, opacity, depthWrite: false }),
 };
