@@ -2001,18 +2001,24 @@ assert.ok(misses.some((m) => /deep \(placed 50 mm inside/.test(m)), "settle repo
   assert.ok(Math.abs(radius(g) - 0.068) < 1e-6, "tip radius = pitch + module: " + radius(g));
   assert.ok(Math.abs(Math.PI * g.userData.gear.rp - 0.20106) < 1e-4, "half a turn of a 32-tooth module-4 pinion moves a rack 201 mm");
   g.computeBoundingBox(); assert.ok(Math.abs(g.boundingBox.max.z - 0.01) < 1e-9 && Math.abs(g.boundingBox.min.z + 0.01) < 1e-9, "centred on its width");
-  const hx = PT.gear(20, 0.002, 0.01, { helix: 0.3 }); assert.equal(hx.userData.gear.helix, 0.3, "helix kept");
+  const hx = PT.gear(20, 0.002, 0.01, { helix: 0.3 }), hp = hx.attributes.position, ang = (i) => Math.atan2(hp.getY(i), hp.getX(i)), tip = (i) => Math.abs(Math.hypot(hp.getX(i), hp.getY(i)) - hx.userData.gear.ro) < 1e-6;
+  const top = [], bot = []; for (let i = 0; i < hp.count; i++) if (tip(i)) { if (Math.abs(hp.getZ(i) - 0.005) < 1e-6) top.push(ang(i)); else if (Math.abs(hp.getZ(i) + 0.005) < 1e-6) bot.push(ang(i)); }
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  assert.ok(top.length && bot.length && bot.some((b) => Math.abs(wrap(top[0] - b) - 0.3) < 1e-6), "a tooth tip at +w/2 is turned by the helix angle from the one at -w/2");
+  assert.throws(() => PT.gear(20, 0.002, 0.01, { helix: NaN }), /helix/, "a helix that is not a number is refused");
   assert.throws(() => PT.gear(5, 0.004, 0.02), /teeth/, "a gear needs >= 6 teeth");
   assert.throws(() => PT.gear(32, 0.004, 0.02, { bore: 0.07 }), /bore/, "a bore through the teeth is refused");
   assert.throws(() => PT.gear(32, -1, 0.02), /module/);
   const s = PT.spring({ r: 0.01, wire: 0.001, turns: 8, len: 0.04 }); s.computeBoundingBox();
-  assert.ok(Math.abs(s.boundingBox.max.y - s.boundingBox.min.y - 0.04) < 1e-3, "spring height = its free length");
+  assert.ok(Math.abs(s.boundingBox.max.y - s.boundingBox.min.y - 0.04) < 2e-5, "spring height = its free length");
   assert.throws(() => PT.spring({ r: 0.01, wire: 0.003, turns: 8, len: 0.04 }), /coils/, "coils that pass through each other are refused");
   const l = PT.lathe([[0, 0], [0.02, 0], [0.02, 0.05], [0, 0.05]]); l.computeBoundingBox();
-  assert.ok(Math.abs(l.boundingBox.max.y - 0.05) < 1e-9 && Math.abs(l.boundingBox.max.x - 0.02) < 1e-3, "lathe keeps the profile's size");
+  assert.ok(Math.abs(l.boundingBox.max.y - 0.05) < 1e-9 && Math.abs(l.boundingBox.max.x - 0.02) < 1e-6, "lathe keeps the profile's size");
   assert.throws(() => PT.lathe([[0, 0], [0.02, 0]]), /profile/);
+  assert.throws(() => PT.lathe([[0, 0.05], [0.02, 0.05], [0, 0]]), /bottom to top/, "a profile running top to bottom is inside out: refused");
   const rd = PT.rod([0, 0, 0], [0, 0, 1], 0.01); rd.computeBoundingBox();
   assert.ok(Math.abs(rd.boundingBox.min.z) < 1e-9 && Math.abs(rd.boundingBox.max.z - 1) < 1e-9, "rod runs end to end");
   assert.throws(() => PT.rod([0, 0, 0], [0, 0, 0], 0.01), /length/);
+  assert.throws(() => PT.rod([0, 0], [0, 0, 1], 0.01), /a and b/, "a point is 3 finite numbers");
 }
 console.log("selfcheck ok: depth of field in metres (dofFor), object-studio kit (liquid alpha, additive clear shells, lens in mm, cues throw, overlay windows, top glass only), iso look (true iso, pan and zoom only, three tones, cutaway on it), jet, cutaway, grains, type (phrases in four languages, adaptive ink, active word, pinned labels in the safe area, no repeat, layout boxes, hero contrast (ΔE* against the ground ring)), camera stations and travel (hero box), attention by ghosting, loop end, studio rig (shadow refit per pose, AO from M), cue and shot lookup on one frame grid (snap, shotAt, overlayWindow, window check, read time), scale audit and z-fight probe, found model palette (own look, kinds, stated size, Draco decoder), showing a quantity (arrow width = value ratio, tile fill count and area, range bar), circuit (ac period in the pulse shape, alias refused, lamp curve, arc only in its frames, black-body glow, instruments), fields (dipole line density by flux, loop and wire on-axis, bar magnet far field, filings along B, a compass settling along B, a moving source re-traced, lines revealed on cue), optics (Snell 30° into water, Fresnel at normal incidence, total internal reflection, thin and thick lens focus, mirror focus, prism dispersion, a mesh from the set, apparent depth, rays grown on cue, shafts and caustics), frame text (lens in mm, dimension lines, pill labels, text band in the safe area), shots from data (three frames match by hand, missing beat, overshoot, off-frame label, no action refused), any scale");

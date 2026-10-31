@@ -19,6 +19,7 @@ const finite = (v) => typeof v === "number" && Number.isFinite(v);
 export function gear(teeth, module, width, { helix = 0, bore = 0, seg = 4 } = {}) {
   if (!Number.isInteger(teeth) || teeth < 6) throw new Error(`gear: teeth must be an integer >= 6, got ${teeth}`);
   if (!(finite(module) && module > 0) || !(finite(width) && width > 0)) throw new Error("gear: module and width are lengths > 0 in metres");
+  if (!finite(helix)) throw new Error(`gear: helix must be a finite angle in radians, got ${helix}`);
   const rp = (module * teeth) / 2, ro = rp + module, rr = rp - 1.25 * module;
   if (!(finite(bore) && bore >= 0 && bore < rr)) throw new Error(`gear: bore must be 0 or under the root radius ${rr} m, got ${bore}`);
   const sh = new THREE.Shape(), da = (2 * Math.PI) / teeth;
@@ -55,10 +56,13 @@ export function spring({ r, wire, turns, len, seg = 24 } = {}) {
   return g;
 }
 
-// lathe(profile, { seg }): a turned part about +y; profile [[r, y], ...] in metres, r >= 0, at least 3 points.
+// lathe(profile, { seg }): a turned part about +y; profile [[r, y], ...] in metres, r >= 0, at least 3 points. It is a
+// closed solid only when the profile starts and ends on r = 0 and runs bottom to top (else it is inside out: a last y
+// below the first is refused).
 export function lathe(profile, { seg = 64 } = {}) {
   if (!Array.isArray(profile) || profile.length < 3 || !profile.every((p) => finite(p?.[0]) && finite(p?.[1]) && p[0] >= 0))
     throw new Error("lathe: profile is [[r, y], ...] with r >= 0, at least 3 points");
+  if (profile.at(-1)[1] < profile[0][1]) throw new Error("lathe: profile must run bottom to top (its last y is below its first y, so it would be inside out)");
   const g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), seg);
   g.userData.lathe = { profile };
   return g;
@@ -66,6 +70,7 @@ export function lathe(profile, { seg = 64 } = {}) {
 
 // rod(a, b, r, { seg }): a round bar from point a to point b (a link, a shaft, a pin), capped at both ends.
 export function rod(a, b, r, { seg = 24 } = {}) {
+  if (![a, b].every((p) => Array.isArray(p) && p.length === 3 && p.every(finite))) throw new Error("rod: a and b are each [x, y, z], three finite numbers in metres");
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);
   if (!(len > 0)) throw new Error("rod: a and b must differ (length > 0)");
   if (!(finite(r) && r > 0)) throw new Error(`rod: r must be a number > 0, got ${r}`);
