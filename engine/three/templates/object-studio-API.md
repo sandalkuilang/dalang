@@ -27,7 +27,7 @@ metres; the frame is 1080 × 1920.
 - `const model = drive({ input: (t) => u, state: (u) => ({ ...poses, ...readouts }), checks: [{ name, u, got: (s) => n, want, tol }] })`; `set.at = (t) => { const s = model.at(t); ... }`; instruments read `model.input(t)` and `model.at(t)`. A failed check throws at load.
 
 ## machine.js (the film's, built once by the first group)
-- exports `MODEL`, `AUDIT`, `build(mat)` → `{ root, parts }`, `pose(parts, state)`; groups: `S.world.add(root); set.at = (t) => pose(parts, MODEL.at(t))`. `drive.js` `audit(model, { u, rigid, mesh, gaps })`; `scripts/machine_audit.mjs .` proves it.
+- exports `MODEL`, `AUDIT`, `build(mat)` → `{ root, parts }`, `pose(parts, state)`; groups: `S.world.add(root); set.at = (t) => pose(parts, MODEL.at(t))`. `drive.js` `audit(model, { u, rigid, mesh, gaps })`; a bevel `mesh` entry adds `axis`, `at`, `cone` (`bevel()`'s `userData.bevel`) per side (axes at δa + δb, one apex) and `offset` for a hypoid; `scripts/machine_audit.mjs .` proves it.
 
 ## instruments.js (live panels, drawn after the finisher)
 - `instrumentTheme("light", { accent })` once; `chart(ctx, { curve, domain, range, u, units, uUnits, label, x, y, w, h })`, `gauge`, `meter`, `bar`, `scope`.

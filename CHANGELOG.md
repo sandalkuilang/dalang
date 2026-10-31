@@ -72,6 +72,12 @@ Published versions are never re-tagged.
   keep them; films started before this change (no `assets/machine.js`) keep the old 1/3 hero measure and get no
   palette line.
 
+### Added
+- `drive.js` `audit()` checks a bevel pair: each `mesh` side may give `axis`, `at` and `cone` (`bevel()`'s
+  `userData.bevel`); the axes must stand at δa + δb, the pitch cones share one apex, one module and pitch angles that
+  fit the teeth, each in its own unit (`bevelTol`: metres and degrees, never the ratio's `tol`). `offset` (m) checks a
+  hypoid's axis offset instead (drawn as bevel cones, a documented approximation). `machine_audit.mjs` runs it as is.
+
 ### Fixed
 - `state.mjs log` never refuses: a Step 6 line written before the storyboard exists or Gate 3 is approved is recorded
   with a `| WARN [log] …` field (`log` strips "[log]" from the user's own text, so a problems field that starts with WARN is never mistaken for it) and a WARN on stderr (a refusal stopped the step clock). `metrics` Start and End are the

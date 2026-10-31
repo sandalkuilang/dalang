@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Machine audit (object-studio, express.mjs assemble): the film's assets/machine.js proved to run. Imports it, runs
-// drive.js audit(MODEL, AUDIT) (rigid links, gear ratios, contact gaps over the whole input) and poses build(mat)'s
+// drive.js audit(MODEL, AUDIT) (rigid links, gear ratios, a bevel pair's axes and apex, contact gaps over the whole input) and poses build(mat)'s
 // parts (mat: assets/objectStudio.js's kit) at the audit's start, a third and the middle: a part pose() never moves is
 // not a mechanism. A stub (STUB still exported), a missing export or an AUDIT with no joint is a problem.
 // Usage: node machine_audit.mjs [project]

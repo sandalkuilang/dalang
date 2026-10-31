@@ -57,7 +57,7 @@ is built the same way (its law and cited numbers, real-unit parameters, its trap
 - `gear(teeth, module, width, { helix, bore })`, `spring({ r, wire, turns, len })`, `lathe(profile)`, `rod(a, b, r)`.
 
 **drive.js** (one input poses every part and readout)
-- `drive({ input, state, checks })` → `{ at(t), input, state }`; a failed hand check throws at load. `audit(model, { u, rigid, mesh, gaps })` proves a machine runs over its whole input (`scripts/machine_audit.mjs`).
+- `drive({ input, state, checks })` → `{ at(t), input, state }`; a failed hand check throws at load. `audit(model, { u, rigid, mesh, gaps })` proves a machine runs over its whole input; a bevel `mesh` entry adds `axis`, `at`, `cone` per side (axes at δa + δb, one apex) and `offset` for a hypoid (`scripts/machine_audit.mjs`).
 
 **fields.js** (SI units; a zero or non-finite strength is refused)
 - Sources: `charge(q, at)`, `dipole(p, at, { d })`, `straightWire(I, a, b)`, `loop(I, { at, normal, R })`, `barMagnet({ at, axis, length, width, depth, Br })` (`Br` has no default: cite it).
